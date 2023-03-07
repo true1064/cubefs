@@ -32,8 +32,8 @@ func (d *DriveNode) listDirHandler(w http.ResponseWriter, r *http.Request) {
 	typ := vars["type"]
 	limit := vars["limit"]
 	mark := vars["mark"]
-	recursive := vars["recursive"]
 	filter := vars["filter"]
+	owner := vars["owner"]
 
 	if path == "" || typ == "" {
 		log.LogErrorf("not found path or type in paraments")
@@ -41,5 +41,19 @@ func (d *DriveNode) listDirHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//get user route info
+	if typ != "folder" {
+		log.LogErrorf("invalid param type=%s", typ)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	// 1. get user route info
+	// 2. 判断owner是否存在 决定是否列举共享目录
+
+}
+
+func (d *DriveNode) listDir(path string, mark string, limit int, filter string) {
+}
+
+func (d *DriveNode) listShareDir(path string, mark string, limit int, filter string, uid, owner string) {
 }
