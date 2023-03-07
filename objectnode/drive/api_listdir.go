@@ -13,3 +13,33 @@
 // permissions and limitations under the License.
 
 package drive
+
+import (
+	"net/http"
+
+	"github.com/cubefs/cubefs/util/log"
+	"github.com/gorilla/mux"
+)
+
+func (d *DriveNode) listDirHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	uid := r.Header.Get("X-UserID")
+	if uid == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	path := vars["path"]
+	typ := vars["type"]
+	limit := vars["limit"]
+	mark := vars["mark"]
+	recursive := vars["recursive"]
+	filter := vars["filter"]
+
+	if path == "" || typ == "" {
+		log.LogErrorf("not found path or type in paraments")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	//get user route info
+}
