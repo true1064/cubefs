@@ -25,7 +25,7 @@ type FileInfo struct {
 	Properties map[string]string `json:"properties"`
 }
 
-type ShareFileInfo struct {
+type SharedFileInfo struct {
 	ID    uint64 `json:"id"`
 	Path  string `json:"path"`
 	Owner string `json:"owner"`
