@@ -19,7 +19,6 @@ import (
 	"strconv"
 
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
-	"github.com/cubefs/cubefs/util/log"
 
 	// no blobstore logging
 	_ "github.com/cubefs/cubefs/blobstore/testing/nolog"
@@ -28,16 +27,17 @@ import (
 // RegisterAPIRouters register drive api handler.
 func (d *DriveNode) RegisterAPIRouters() http.Handler {
 	rpc.RegisterArgsParser(&ArgsListDir{}, "json")
+	rpc.RegisterArgsParser(&ArgsPath{}, "json")
 
 	r := rpc.New()
 
 	// set request id and user id at interceptors.
 	r.Use(d.setHeaders)
 
-	r.Handle(http.MethodPost, "/v1/drive", d.handlerDrive)
+	r.Handle(http.MethodPost, "/v1/drive", d.createDrive)
 
-	r.Handle(http.MethodPost, "/v1/route", nil, rpc.OptArgsQuery())
-	r.Handle(http.MethodGet, "/v1/route", nil)
+	r.Handle(http.MethodPost, "/v1/route", d.addUserConfig, rpc.OptArgsQuery())
+	r.Handle(http.MethodGet, "/v1/route", d.getUserConfig)
 
 	r.Handle(http.MethodPost, "/v1/meta", nil, rpc.OptArgsQuery())
 	r.Handle(http.MethodGet, "/v1/meta", nil, rpc.OptArgsQuery())
@@ -67,12 +67,4 @@ func (*DriveNode) requestID(c *rpc.Context) string {
 func (*DriveNode) userID(c *rpc.Context) UserID {
 	uid, _ := c.Get(headerUserID)
 	return uid.(UserID)
-}
-
-// handlerDrive handle drive apis.
-func (d *DriveNode) handlerDrive(c *rpc.Context) {
-	rid := d.requestID(c)
-	uid := d.userID(c)
-	log.LogInfo("got", rid, uid)
-	c.Respond()
 }
