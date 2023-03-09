@@ -20,8 +20,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/cubefs/cubefs/blobstore/common/rpc"
 	"github.com/cubefs/cubefs/util/log"
-	"github.com/gorilla/mux"
 )
 
 type filterBuilder struct {
@@ -37,10 +37,10 @@ const (
 )
 
 var filterKeyMap = map[string][]string{
-	"name":          []string{opContains, opEqual, opNotEqual},
-	"type":          []string{opEqual},
-	"propertyKey":   []string{opContains, opEqual, opNotEqual},
-	"propertyValue": []string{opContains, opEqual, opNotEqual},
+	"name":          {opContains, opEqual, opNotEqual},
+	"type":          {opEqual},
+	"propertyKey":   {opContains, opEqual, opNotEqual},
+	"propertyValue": {opContains, opEqual, opNotEqual},
 }
 
 func validFilterBuilder(builder filterBuilder) error {
@@ -92,37 +92,36 @@ func (builder *filterBuilder) match(v string) bool {
 	return false
 }
 
-func (d *DriveNode) listDirHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	uid := r.Header.Get("X-UserID")
-	if uid == "" {
-		w.WriteHeader(http.StatusUnauthorized)
+func (d *DriveNode) handlerListDir(c *rpc.Context) {
+	args := new(ArgsListDir)
+	if err := c.ParseArgs(args); err != nil {
+		c.RespondStatus(http.StatusBadRequest)
 		return
 	}
-	path := vars["path"]
-	typ := vars["type"]
+
 	/*
-		limit := vars["limit"]
-		mark := vars["mark"]
-		filter := vars["filter"]
-		owner := vars["owner"]
+	   limit := vars["limit"]
+	   mark := vars["mark"]
+	   filter := vars["filter"]
+	   owner := vars["owner"]
 	*/
+
+	path, typ := args.Path, args.Type
 
 	if path == "" || typ == "" {
 		log.LogErrorf("not found path or type in paraments")
-		w.WriteHeader(http.StatusBadRequest)
+		c.RespondStatus(http.StatusBadRequest)
 		return
 	}
 
 	if typ != "folder" {
 		log.LogErrorf("invalid param type=%s", typ)
-		w.WriteHeader(http.StatusBadRequest)
+		c.RespondStatus(http.StatusBadRequest)
 		return
 	}
 
 	// 1. get user route info
 	// 2. if has owner, we should list shared files
-
 }
 
 func (d *DriveNode) listDir(path string, mark string, limit int, filter string) (files []FileInfo, err error) {
