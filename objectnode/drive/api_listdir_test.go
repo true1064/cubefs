@@ -47,6 +47,8 @@ func TestFilterBuilder(t *testing.T) {
 	require.NotNil(t, err)
 	builders, err = makeFilterBuilders("name = 12345;type = fil")
 	require.NotNil(t, err)
+	builders, err = makeFilterBuilders("name = 12345;type = *\\.doc")
+	require.NotNil(t, err)
 
 	builders, err = makeFilterBuilders("name = 12345;type = file")
 	require.Equal(t, 2, len(builders))

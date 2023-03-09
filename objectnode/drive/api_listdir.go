@@ -25,6 +25,7 @@ import (
 )
 
 type filterBuilder struct {
+	re        *regexp.Regexp
 	key       string
 	operation string
 	value     string
@@ -43,20 +44,27 @@ var filterKeyMap = map[string][]string{
 	"propertyValue": {opContains, opEqual, opNotEqual},
 }
 
-func validFilterBuilder(builder filterBuilder) error {
+func validFilterBuilder(builder *filterBuilder) error {
 	ops, ok := filterKeyMap[builder.key]
 	if !ok {
-		return fmt.Errorf("invalid filter[%v]", builder)
+		return fmt.Errorf("invalid filter[%s]", builder)
 	}
 	if builder.key == "type" && builder.value != "file" && builder.value != "folder" {
-		return fmt.Errorf("invalid filter[%v], type value is neither file or folder", builder)
+		return fmt.Errorf("invalid filter[%s], type value is neither file or folder", builder)
 	}
 	for _, op := range ops {
 		if builder.operation == op {
+			if builder.operation == opContains {
+				re, err := regexp.Compile(builder.value)
+				if err != nil {
+					return fmt.Errorf("invalid filter[%s], regexp.Compile error: %v", builder, err)
+				}
+				builder.re = re
+			}
 			return nil
 		}
 	}
-	return fmt.Errorf("invalid filter[%v]", builder)
+	return fmt.Errorf("invalid filter[%s]", builder)
 }
 
 func makeFilterBuilders(value string) ([]filterBuilder, error) {
@@ -70,8 +78,8 @@ func makeFilterBuilders(value string) ([]filterBuilder, error) {
 		if len(f) != 3 {
 			return nil, fmt.Errorf("invalid filter=%s", value)
 		}
-		builder := filterBuilder{f[0], f[1], f[2]}
-		if err := validFilterBuilder(builder); err != nil {
+		builder := filterBuilder{key: f[0], operation: f[1], value: f[2]}
+		if err := validFilterBuilder(&builder); err != nil {
 			return nil, err
 		}
 		builders = append(builders, builder)
@@ -79,11 +87,14 @@ func makeFilterBuilders(value string) ([]filterBuilder, error) {
 	return builders, nil
 }
 
+func (builder *filterBuilder) String() string {
+	return fmt.Sprintf("{key: %s, op: %s, value: %s}", builder.key, builder.operation, builder.value)
+}
+
 func (builder *filterBuilder) match(v string) bool {
 	switch builder.operation {
 	case opContains:
-		matched, _ := regexp.MatchString(builder.value, v)
-		return matched
+		return builder.re.MatchString(v)
 	case opEqual:
 		return builder.value == v
 	case opNotEqual:
