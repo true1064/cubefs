@@ -74,4 +74,6 @@ type ArgsListDir struct {
 }
 
 // DriveNode drive node.
-type DriveNode struct{}
+type DriveNode struct {
+	userRouteMgr
+}
