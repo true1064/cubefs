@@ -16,6 +16,8 @@ package drive
 
 import (
 	"strconv"
+
+	"github.com/cubefs/cubefs/blobstore/util/closer"
 )
 
 const (
@@ -60,4 +62,13 @@ type ArgsListDir struct {
 // DriveNode drive node.
 type DriveNode struct {
 	userRouteMgr
+
+	closer.Closer
+}
+
+// New returns a drive node.
+func New() *DriveNode {
+	return &DriveNode{
+		Closer: closer.New(),
+	}
 }

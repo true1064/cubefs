@@ -28,6 +28,7 @@ import (
 	"github.com/cubefs/cubefs/blobstore/common/profile"
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
 	"github.com/cubefs/cubefs/blobstore/common/rpc/auditlog"
+	"github.com/cubefs/cubefs/blobstore/util/closer"
 	"github.com/cubefs/cubefs/blobstore/util/log"
 	"github.com/cubefs/cubefs/cmd/common"
 	"github.com/cubefs/cubefs/proto"
@@ -54,13 +55,19 @@ const (
 	serviceS3     = "s3"
 )
 
+type serviceNode interface {
+	RegisterAPIRouters() *rpc.Router
+	closer.Closer
+}
+
 type apiNode struct {
-	listen     string
-	service    string
-	audit      auditlog.Config
-	mc         *master.MasterClient
-	httpServer *http.Server
-	control    common.Control
+	listen      string
+	audit       auditlog.Config
+	service     string
+	serviceNode serviceNode
+	mc          *master.MasterClient
+	httpServer  *http.Server
+	control     common.Control
 }
 
 func (s *apiNode) Start(cfg *config.Config) error {
@@ -78,7 +85,9 @@ func (s *apiNode) Sync() {
 func (s *apiNode) loadConfig(cfg *config.Config) error {
 	service := cfg.GetString(configService)
 	switch service {
-	case serviceDrive, servicePosix, serviceHdfs, serviceS3:
+	case serviceDrive:
+		s.serviceNode = drive.New()
+	case servicePosix, serviceHdfs, serviceS3:
 	default:
 		return fmt.Errorf("invalid sevice type: %s", service)
 	}
@@ -113,7 +122,6 @@ func (s *apiNode) loadConfig(cfg *config.Config) error {
 		logLevel = log.Lwarn
 	}
 	log.SetOutputLevel(logLevel)
-	registerLogLevel()
 
 	listen := cfg.GetString(configListen)
 	if len(listen) == 0 {
@@ -152,6 +160,7 @@ func handleStart(svr common.Server, cfg *config.Config) error {
 	if err := s.startRestAPI(); err != nil {
 		return err
 	}
+	registerLogLevel()
 
 	role := cfg.GetString("role")
 	exporter.Init(role, cfg)
@@ -172,7 +181,7 @@ func handleShutdown(svr common.Server) {
 func (s *apiNode) startRestAPI() (err error) {
 	lh, logf, err := auditlog.Open(s.service, &s.audit)
 	if err != nil {
-		log.Fatal("failed to open auditlog:", err)
+		return err
 	}
 	if logf != nil {
 		defer logf.Close()
@@ -183,8 +192,7 @@ func (s *apiNode) startRestAPI() (err error) {
 		hs = append(hs, profileHandler)
 	}
 
-	driveNode := &drive.DriveNode{}
-	router := driveNode.RegisterAPIRouters()
+	router := s.serviceNode.RegisterAPIRouters()
 	handler := rpc.MiddlewareHandlerWith(router, hs...)
 	server := &http.Server{
 		Addr:    s.listen,
@@ -192,7 +200,7 @@ func (s *apiNode) startRestAPI() (err error) {
 	}
 
 	go func() {
-		if err = server.ListenAndServe(); err != nil {
+		if err := server.ListenAndServe(); err != nil {
 			log.Fatal("startRestAPI: start http server error", err)
 			return
 		}
@@ -206,6 +214,7 @@ func (s *apiNode) shutdownRestAPI() {
 		_ = s.httpServer.Shutdown(context.Background())
 		s.httpServer = nil
 	}
+	s.serviceNode.Close()
 }
 
 // NewServer returns empty server.

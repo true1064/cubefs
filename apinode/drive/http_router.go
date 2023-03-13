@@ -19,9 +19,6 @@ import (
 	"strconv"
 
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
-
-	// no blobstore logging
-	_ "github.com/cubefs/cubefs/blobstore/testing/nolog"
 )
 
 // RegisterAPIRouters register drive api handler.
