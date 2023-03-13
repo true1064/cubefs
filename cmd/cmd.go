@@ -35,6 +35,7 @@ import (
 	"github.com/cubefs/cubefs/console"
 	"github.com/cubefs/cubefs/proto"
 
+	"github.com/cubefs/cubefs/apinode"
 	"github.com/cubefs/cubefs/objectnode"
 
 	"github.com/jacobsa/daemonize"
@@ -68,6 +69,7 @@ const (
 	RoleObject    = "objectnode"
 	RoleConsole   = "console"
 	RoleLifeCycle = "lcnode"
+	RoleAPI       = "apinode"
 )
 
 const (
@@ -78,6 +80,7 @@ const (
 	ModuleObject    = "objectNode"
 	ModuleConsole   = "console"
 	ModuleLifeCycle = "lcnode"
+	ModuleAPI       = "apiNode"
 )
 
 const (
@@ -191,6 +194,9 @@ func main() {
 	case RoleObject:
 		server = objectnode.NewServer()
 		module = ModuleObject
+	case RoleAPI:
+		server = apinode.NewServer()
+		module = ModuleAPI
 	case RoleConsole:
 		server = console.NewServer()
 		module = ModuleConsole
@@ -277,7 +283,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	//for multi-cpu scheduling
+	// for multi-cpu scheduling
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	if err = ump.InitUmp(role, umpDatadir); err != nil {
 		log.LogFlush()

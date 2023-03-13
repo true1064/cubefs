@@ -25,7 +25,7 @@ import (
 )
 
 // RegisterAPIRouters register drive api handler.
-func (d *DriveNode) RegisterAPIRouters() http.Handler {
+func (d *DriveNode) RegisterAPIRouters() *rpc.Router {
 	rpc.RegisterArgsParser(&ArgsListDir{}, "json")
 	rpc.RegisterArgsParser(&ArgsPath{}, "json")
 
