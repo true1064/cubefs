@@ -15,19 +15,22 @@
 package drive
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
-	"github.com/cubefs/cubefs/blobstore/common/rpc"
-	"github.com/cubefs/cubefs/util/log"
+	"github.com/cubefs/cubefs/blobstore/common/memcache"
+	"github.com/cubefs/cubefs/blobstore/util/log"
 )
 
 type UserRoute struct {
 	Uid         UserID `json:"uid"`
 	ClusterType int8   `json:"clusterType"`
-	ClusterID   int    `json:"clusterId"`
-	VolumeID    int    `json:"volumeId"`
+	ClusterID   string `json:"clusterId"`
+	VolumeID    string `json:"volumeId"`
 	DriveID     int    `json:"driveId"`
 	Capacity    uint64 `json:"capacity"`
 	RootPath    string `json:"rootPath"`
@@ -43,81 +46,67 @@ type ConfigEntry struct {
 	Mtime  int64  `json:"mtime"`
 }
 
-type ArgsPath struct {
-	Path string `json:"path"`
-	Type int8   `json:"type"`
-}
-
 type UserConfig struct {
 	Uid      UserID        `json:"uid"`
 	AppPaths []ConfigEntry `json:"appPaths"` // cloud path
 }
 
-const hashBucketNum = 10
+const (
+	statusNormal     = 1
+	statusLocked     = 2
+	hashBucketNum    = 10
+	defaultCacheSize = 1 << 17
+)
+
+var (
+	ErrUidNotExist    = errors.New("uid: not exist")
+	ErrUidInvalid     = errors.New("uid is invalid")
+	ErrParseUserRoute = errors.New("parse user route error")
+)
 
 type userRouteMgr struct {
-	// TODO user route info store in lru cache
+	userCache IUserCache
 }
 
 type IUserRoute interface {
-	Get(uid int) (ur UserRoute, err error)
+	Get(uid UserID) (ur *UserRoute, err error)
+	Create(uid UserID) (err error)
+	AddPath(uid UserID, args *ArgsPath) (err error)
 }
 
-func (m *userRouteMgr) Get(uid int) (ur UserRoute, err error) {
+func (m *userRouteMgr) Get(uid UserID) (ur *UserRoute, err error) {
+	ur = m.userCache.Get(uid)
+	if ur == nil {
+		// todo: query file and set cache
+		return nil, ErrUidNotExist
+	}
+	return ur, nil
+}
+
+func NewUserRouteMgr() (m IUserRoute, err error) {
+	lruCache, err := memcache.NewMemCache(context.Background(), defaultCacheSize)
+	if err != nil {
+		return nil, err
+	}
+	m = &userRouteMgr{userCache: &userCache{cache: lruCache}}
 	return
 }
 
-// createDrive handle drive apis.
-func (d *DriveNode) createDrive(c *rpc.Context) {
-	rid := d.requestID(c)
-	uid := d.userID(c)
-	err := d.CreateUserRoute(uid)
-	if err != nil {
-		c.RespondError(err)
-		return
-	}
-	log.LogInfo("got", rid, uid)
-	c.Respond()
-}
-
-func (d *DriveNode) addUserConfig(c *rpc.Context) {
-	args := new(ArgsPath)
-	if err := c.ParseArgs(args); err != nil {
-		c.RespondError(err)
-		return
-	}
-	rid := d.requestID(c)
-	uid := d.userID(c)
-	err := d.AddPath(uid, args)
-	if err != nil {
-		c.RespondError(err)
-		return
-	}
-	log.LogInfo("got", rid, uid)
-	c.Respond()
-}
-
-func (d *DriveNode) getUserConfig(c *rpc.Context) {
-	rid := d.requestID(c)
-	uid := d.userID(c)
-	log.LogInfo("got", rid, uid)
-	c.Respond()
-}
-
-func (d *DriveNode) CreateUserRoute(uid UserID) (err error) {
-	// 1.Authenticate the token and get the uid
-
-	// 2.Applying for space to the cloud service
+func (m *userRouteMgr) Create(uid UserID) (err error) {
+	// 1.todo: Applying for space to the cloud service
 	capacity := uint64(100)
-
-	// 3.Apply to cfs for cluster and volume information
-	clusterid, volumeid := 1, 101
-	hashNum := uid % 5
-	rootPath := fmt.Sprintf("/%d/%d", hashNum, uid)
+	// 2.todo: Apply to cfs for cluster and volume information
+	clusterid, volumeid := "1", "101"
+	iUid, err := strconv.Atoi(string(uid))
+	if err != nil {
+		return ErrUidInvalid
+	}
+	hashNum := iUid % 5
+	rootPath := fmt.Sprintf("/%d/%s", hashNum, uid)
 	fmt.Printf("rootPath:%s", rootPath)
 
-	// 4.Locate the user file of the default cluster according to the hash of uid
-	l1, l2 := hash(int(uid))
+	// 3.Locate the user file of the default cluster according to the hash of uid
+	l1, l2 := hash(iUid)
 	userRouteFile := fmt.Sprintf("/user/clusters/%d/%d", l1, l2)
 	fmt.Println(userRouteFile)
 	us := UserRoute{
@@ -126,38 +115,46 @@ func (d *DriveNode) CreateUserRoute(uid UserID) (err error) {
 		VolumeID:  volumeid,
 		Capacity:  capacity,
 		RootPath:  rootPath,
+		Ctime:     time.Now().Unix(),
 	}
 	fmt.Println(us)
-	// 5.todo:Write mappings to extended attributes
+	// 4.todo:Write mappings to extended attributes
 
-	// 6.update cache
+	// 5.update cache
+	m.userCache.Set(uid, us)
 
 	return
 }
 
-func (d *DriveNode) AddPath(uid UserID, args *ArgsPath) (err error) {
-	// 1.Authenticate the token and get the uid
+func (m *userRouteMgr) AddPath(uid UserID, args *ArgsPath) (err error) {
+	// 1.Get clusterid, volumeid from default cluster
+	userRoute := m.userCache.Get(uid)
 
-	// 2.Get clusterid, volumeid from default cluster
-	l1, l2 := hash(int(uid))
-	userRouteFile := fmt.Sprintf("/user/clusters/%d/%d", l1, l2)
-	userRoute, err := getUserRoute(userRouteFile)
-	if err != nil {
-		log.LogError(err)
-		return
+	if userRoute == nil {
+		iUid, err := strconv.Atoi(string(uid))
+		if err != nil {
+			return ErrUidInvalid
+		}
+		l1, l2 := hash(iUid)
+		userRouteFile := fmt.Sprintf("/user/clusters/%d/%d", l1, l2)
+		userRoute, err = getUserRoute(userRouteFile)
+		if err != nil {
+			return err
+		}
 	}
+
 	configFile := fmt.Sprintf("/%s/.user/config", userRoute.RootPath)
-	// 3.Store user cloud directory
-	uc, err := d.userRouteMgr.read(configFile)
+	// 2.Store user cloud directory
+	uc, err := m.read(configFile)
 	if err != nil {
-		log.LogError(err)
+		log.Error(err)
 		return
 	}
-	pi := ConfigEntry{args.Path, args.Type, 1, time.Now().Unix()}
+	pi := ConfigEntry{args.Path, args.Type, statusNormal, time.Now().Unix()}
 	uc.AppPaths = append(uc.AppPaths, pi)
-	err = d.userRouteMgr.Write(uc, configFile)
+	err = m.Write(uc, configFile)
 	if err != nil {
-		log.LogError(err)
+		log.Error(err)
 		return
 	}
 	return
@@ -170,9 +167,9 @@ func hash(num int) (l1, l2 int) {
 	return l1, l2
 }
 
-func getUserRoute(path string) (us UserRoute, err error) {
+func getUserRoute(path string) (us *UserRoute, err error) {
 	// todo: sdk read default cluster user info
-	us = UserRoute{}
+	us = &UserRoute{}
 	return
 }
 
@@ -184,7 +181,7 @@ func (m *userRouteMgr) read(path string) (uc UserConfig, err error) {
 	}
 	err = json.Unmarshal(bytesData, &uc)
 	if err != nil {
-		log.LogError("json unmarshal error")
+		log.Error("json unmarshal error")
 	}
 	return
 }
@@ -192,9 +189,37 @@ func (m *userRouteMgr) read(path string) (uc UserConfig, err error) {
 func (m *userRouteMgr) Write(uc UserConfig, path string) (err error) {
 	bytesData, err := json.Marshal(uc)
 	if err != nil {
-		log.LogError("json marshal error")
+		log.Error("json marshal error")
 	}
+
 	// todo: sdk write file
-	log.LogInfo(bytesData)
+	log.Info(bytesData)
 	return
+}
+
+// IUserCache
+type IUserCache interface {
+	Get(key UserID) *UserRoute
+	Set(key UserID, value UserRoute)
+}
+
+type userCache struct {
+	cache *memcache.MemCache
+}
+
+func (uc *userCache) Get(key UserID) *UserRoute {
+	value := uc.cache.Get(key)
+	if value == nil {
+		return nil
+	}
+	ur, ok := value.(UserRoute)
+	if !ok {
+		return nil
+	}
+
+	return &ur
+}
+
+func (uc *userCache) Set(key UserID, value UserRoute) {
+	uc.cache.Set(key, value)
 }

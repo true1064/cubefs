@@ -192,7 +192,8 @@ func (s *apiNode) startRestAPI() (err error) {
 		hs = append(hs, profileHandler)
 	}
 
-	router := s.serviceNode.RegisterAPIRouters()
+	driveNode := &drive.DriveNode{}
+	router := driveNode.RegisterAPIRouters()
 	handler := rpc.MiddlewareHandlerWith(router, hs...)
 	server := &http.Server{
 		Addr:    s.listen,

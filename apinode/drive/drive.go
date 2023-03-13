@@ -15,8 +15,6 @@
 package drive
 
 import (
-	"strconv"
-
 	"github.com/cubefs/cubefs/blobstore/util/closer"
 )
 
@@ -48,11 +46,7 @@ type SharedFileInfo struct {
 	Perm  string `json:"perm"` // only rd or rw
 }
 
-type UserID uint64
-
-func (u UserID) String() string {
-	return strconv.Itoa(int(u))
-}
+type UserID string
 
 type ArgsListDir struct {
 	Path string `json:"path"`
@@ -61,7 +55,7 @@ type ArgsListDir struct {
 
 // DriveNode drive node.
 type DriveNode struct {
-	userRouteMgr
+	UserRoute IUserRoute
 
 	closer.Closer
 }
