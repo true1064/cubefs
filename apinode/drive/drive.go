@@ -18,22 +18,6 @@ import (
 	"strconv"
 )
 
-// go vet
-//go:generate go vet ./...
-
-// code formats with 'gofumpt' at version v0.2.1
-// go install mvdan.cc/gofumpt@v0.2.1
-//go:generate gofumpt -l -w .
-//go:generate git diff --exit-code
-
-// shadow check
-// go install golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow
-//go:generate shadow .
-
-// code golangci lint with 'golangci-lint' version v1.43.0
-// go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.43.0
-//go:generate golangci-lint run --issues-exit-code=1 -D errcheck -E bodyclose ./...
-
 const (
 	headerRequestID = "x-cfa-request-id"
 	headerUserID    = "x-cfa-user-id"

@@ -26,10 +26,10 @@ func TestFilterBuilder(t *testing.T) {
 		err      error
 	)
 
-	builders, err = makeFilterBuilders("name=")
+	_, err = makeFilterBuilders("name=")
 	require.NotNil(t, err)
 
-	builders, err = makeFilterBuilders("name=12345")
+	_, err = makeFilterBuilders("name=12345")
 	require.NotNil(t, err)
 
 	builders, err = makeFilterBuilders("name = 12345")
@@ -43,24 +43,27 @@ func TestFilterBuilder(t *testing.T) {
 	ok = builders[0].match("123456")
 	require.False(t, ok)
 
-	builders, err = makeFilterBuilders("name = 12345;type = ")
+	_, err = makeFilterBuilders("name = 12345;type = ")
 	require.NotNil(t, err)
-	builders, err = makeFilterBuilders("name = 12345;type = fil")
+	_, err = makeFilterBuilders("name = 12345;type = fil")
 	require.NotNil(t, err)
-	builders, err = makeFilterBuilders("name = 12345;type = *\\.doc")
+	_, err = makeFilterBuilders("name = 12345;type = *\\.doc")
 	require.NotNil(t, err)
 
 	builders, err = makeFilterBuilders("name = 12345;type = file")
+	require.NoError(t, err)
 	require.Equal(t, 2, len(builders))
 	require.True(t, builders[0].match("12345"))
 	require.True(t, builders[1].match("file"))
 
 	builders, err = makeFilterBuilders("name != 12345;type = file")
+	require.NoError(t, err)
 	require.Equal(t, 2, len(builders))
 	require.False(t, builders[0].match("12345"))
 	require.True(t, builders[1].match("file"))
 
 	builders, err = makeFilterBuilders("name contains (.*)\\.doc$;type = file")
+	require.NoError(t, err)
 	require.Equal(t, 2, len(builders))
 	require.True(t, builders[0].match("12.doc"))
 	require.True(t, builders[0].match("12345.doc"))
@@ -70,6 +73,7 @@ func TestFilterBuilder(t *testing.T) {
 	require.True(t, builders[1].match("file"))
 
 	builders, err = makeFilterBuilders("name contains (.*)\\.doc$;type = file;propertyKey = 12345")
+	require.NoError(t, err)
 	require.Equal(t, 3, len(builders))
 	require.True(t, builders[2].match("12345"))
 	require.False(t, builders[2].match("1234"))

@@ -21,7 +21,7 @@ import (
 )
 
 func TestHash(t *testing.T) {
-	//testNum must be an integer multiple of (hash_bucket_num*hash_bucket_num)
+	// testNum must be an integer multiple of (hash_bucket_num*hash_bucket_num)
 	testNum := 1000
 	as := make(map[int]map[int]int)
 	for i := 1; i <= testNum; i++ {

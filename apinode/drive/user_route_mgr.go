@@ -33,7 +33,7 @@ type UserRoute struct {
 	RootPath    string `json:"rootPath"`
 	RootFileID  int64  `json:"rootFileId"`
 	Ctime       int64  `json:"ctime"`
-	Params      string `json:"params"` //cfs
+	Params      string `json:"params"` // cfs
 }
 
 type ConfigEntry struct {
@@ -50,13 +50,13 @@ type ArgsPath struct {
 
 type UserConfig struct {
 	Uid      UserID        `json:"uid"`
-	AppPaths []ConfigEntry `json:"appPaths"` //cloud path
+	AppPaths []ConfigEntry `json:"appPaths"` // cloud path
 }
 
 const hashBucketNum = 10
 
 type userRouteMgr struct {
-	//TODO user route info store in lru cache
+	// TODO user route info store in lru cache
 }
 
 type IUserRoute interface {
@@ -105,18 +105,18 @@ func (d *DriveNode) getUserConfig(c *rpc.Context) {
 }
 
 func (d *DriveNode) CreateUserRoute(uid UserID) (err error) {
-	//1.Authenticate the token and get the uid
+	// 1.Authenticate the token and get the uid
 
-	//2.Applying for space to the cloud service
+	// 2.Applying for space to the cloud service
 	capacity := uint64(100)
 
-	//3.Apply to cfs for cluster and volume information
+	// 3.Apply to cfs for cluster and volume information
 	clusterid, volumeid := 1, 101
 	hashNum := uid % 5
 	rootPath := fmt.Sprintf("/%d/%d", hashNum, uid)
 	fmt.Printf("rootPath:%s", rootPath)
 
-	//4.Locate the user file of the default cluster according to the hash of uid
+	// 4.Locate the user file of the default cluster according to the hash of uid
 	l1, l2 := hash(int(uid))
 	userRouteFile := fmt.Sprintf("/user/clusters/%d/%d", l1, l2)
 	fmt.Println(userRouteFile)
@@ -128,17 +128,17 @@ func (d *DriveNode) CreateUserRoute(uid UserID) (err error) {
 		RootPath:  rootPath,
 	}
 	fmt.Println(us)
-	//5.todo:Write mappings to extended attributes
+	// 5.todo:Write mappings to extended attributes
 
-	//6.update cache
+	// 6.update cache
 
 	return
 }
 
 func (d *DriveNode) AddPath(uid UserID, args *ArgsPath) (err error) {
-	//1.Authenticate the token and get the uid
+	// 1.Authenticate the token and get the uid
 
-	//2.Get clusterid, volumeid from default cluster
+	// 2.Get clusterid, volumeid from default cluster
 	l1, l2 := hash(int(uid))
 	userRouteFile := fmt.Sprintf("/user/clusters/%d/%d", l1, l2)
 	userRoute, err := getUserRoute(userRouteFile)
@@ -147,7 +147,7 @@ func (d *DriveNode) AddPath(uid UserID, args *ArgsPath) (err error) {
 		return
 	}
 	configFile := fmt.Sprintf("/%s/.user/config", userRoute.RootPath)
-	//3.Store user cloud directory
+	// 3.Store user cloud directory
 	uc, err := d.userRouteMgr.read(configFile)
 	if err != nil {
 		log.LogError(err)
@@ -171,18 +171,18 @@ func hash(num int) (l1, l2 int) {
 }
 
 func getUserRoute(path string) (us UserRoute, err error) {
-	//todo: sdk read default cluster user info
+	// todo: sdk read default cluster user info
 	us = UserRoute{}
 	return
 }
 
 func (m *userRouteMgr) read(path string) (uc UserConfig, err error) {
 	var bytesData []byte
-	//todo: sdk read file
+	// todo: sdk read file
 	if bytesData == nil {
 		return
 	}
-	err = json.Unmarshal(bytesData, uc)
+	err = json.Unmarshal(bytesData, &uc)
 	if err != nil {
 		log.LogError("json unmarshal error")
 	}
@@ -194,7 +194,7 @@ func (m *userRouteMgr) Write(uc UserConfig, path string) (err error) {
 	if err != nil {
 		log.LogError("json marshal error")
 	}
-	//todo: sdk write file
+	// todo: sdk write file
 	log.LogInfo(bytesData)
 	return
 }
