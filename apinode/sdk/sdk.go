@@ -33,13 +33,16 @@ func InitClusterMg() ClusterManager {
 type Volume interface {
 	// inode
 	Lookup(ctx context.Context, path string) (*InodeInfo, error)
-	LookupEx(ctx context.Context, path string) (*InodeInfo, error)
+	GetInode(ctx context.Context, ino uint64) (*InodeInfo, error)
+	BatchGetInodes(ctx context.Context, inos []uint64) ([]*InodeInfo, error)
 	Readdir(ctx context.Context, filePath, marker string, count uint32) ([]DirInfo, error)
+	StatFs(ctx context.Context, filepath uint64) (*StatFs, error)
+
 	SetXAttr(ctx context.Context, ino uint64, key string, val string) error
 	BatchSetXAttr(ctx context.Context, ino uint64, attrs map[string]string) error
 	GetXAttr(ctx context.Context, ino uint64, key string) (string, error)
 	ListXAttr(ctx context.Context, ino uint64) ([]string, error)
-	StatFs(ctx context.Context, filepath uint64) (*StatFs, error)
+	GetXAttrMap(ctx context.Context, ino uint64, key string) (map[string]string, error)
 
 	// path
 	Mkdir(ctx context.Context, path string, recursive bool) (*InodeInfo, error)
@@ -64,7 +67,17 @@ type StatFs struct {
 	Size int
 }
 
-type InodeInfo struct{}
+type InodeInfo struct {
+	Inode      uint64    `json:"ino"`
+	Mode       uint32    `json:"mode"`
+	Nlink      uint32    `json:"nlink"`
+	Size       uint64    `json:"sz"`
+	Uid        uint32    `json:"uid"`
+	Gid        uint32    `json:"gid"`
+	ModifyTime time.Time `json:"mt"`
+	CreateTime time.Time `json:"ct"`
+	AccessTime time.Time `json:"at"`
+}
 
 type DirInfo struct {
 	Name  string
