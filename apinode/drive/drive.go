@@ -15,7 +15,11 @@
 package drive
 
 import (
+	"path"
+
 	"github.com/cubefs/cubefs/blobstore/util/closer"
+
+	"github.com/cubefs/cubefs/apinode/sdk"
 )
 
 const (
@@ -49,13 +53,28 @@ type SharedFileInfo struct {
 type UserID string
 
 type ArgsListDir struct {
+	Path   string `json:"path"`
+	Type   string `json:"type"`
+	Owner  string `json:"owner,omitempty"`
+	Marker string `json:"marker,omitempty"`
+	Limit  int    `json:"limit"`
+	Filter string `json:"filter,omitempty"`
+}
+
+type ArgsShare struct {
 	Path string `json:"path"`
-	Type string `json:"type"`
+	Perm string `json:"perm"`
+}
+
+type ArgsUnShare struct {
+	Path  string `json:"path"`
+	Users string `json:"users,omitempty"`
 }
 
 // DriveNode drive node.
 type DriveNode struct {
-	UserRoute IUserRoute
+	userRouter IUserRoute
+	clusterMgr sdk.ClusterManager
 
 	closer.Closer
 }
@@ -65,4 +84,23 @@ func New() *DriveNode {
 	return &DriveNode{
 		Closer: closer.New(),
 	}
+}
+
+// get full path and volume by uid
+// filePath is an absolute of client
+func (d *DriveNode) getFilePathAndVolume(filePath string, uid string) (string, sdk.Volume, error) {
+	userRouter, err := d.userRouter.Get(UserID(uid))
+	if err != nil {
+		return "", nil, err
+	}
+	cluster := d.clusterMgr.GetCluster(userRouter.ClusterID)
+	if cluster == nil {
+		return "", nil, sdk.ErrNotFound
+	}
+	volume := cluster.GetVol(userRouter.VolumeID)
+	if volume == nil {
+		return "", nil, sdk.ErrNotFound
+	}
+	filePath = path.Join(userRouter.RootPath, filePath)
+	return filePath, volume, nil
 }
