@@ -15,10 +15,13 @@
 package drive
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 
+	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
+	"github.com/cubefs/cubefs/blobstore/common/trace"
 )
 
 // RegisterAPIRouters register drive api handler.
@@ -51,7 +54,8 @@ func (*DriveNode) setHeaders(c *rpc.Context) {
 	uid := c.Request.Header.Get(headerUserID)
 	id, err := strconv.Atoi(uid)
 	if err != nil || id <= 0 {
-		c.AbortWithStatus(http.StatusUnauthorized)
+		c.AbortWithError(sdk.ErrUnauthorized)
+		return
 	}
 	c.Set(headerUserID, UserID(id))
 }
@@ -64,4 +68,16 @@ func (*DriveNode) requestID(c *rpc.Context) string {
 func (*DriveNode) userID(c *rpc.Context) UserID {
 	uid, _ := c.Get(headerUserID)
 	return uid.(UserID)
+}
+
+// span carry with request id firstly.
+func (d *DriveNode) ctxSpan(c *rpc.Context) (context.Context, trace.Span) {
+	ctx := c.Request.Context()
+	var span trace.Span
+	if rid := d.requestID(c); rid != "" {
+		span, _ = trace.StartSpanFromContextWithTraceID(ctx, "", rid)
+	} else {
+		span = trace.SpanFromContextSafe(ctx)
+	}
+	return ctx, span
 }
