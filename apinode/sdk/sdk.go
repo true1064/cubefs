@@ -16,8 +16,7 @@ type ClusterManager interface {
 	GetCluster(clusterId string) Cluster
 }
 
-type clusterManager struct {
-}
+type clusterManager struct{}
 
 func (cm *clusterManager) AddCluster(clusterId string, masterAddr string) error {
 	return nil
@@ -32,6 +31,7 @@ func InitClusterMg() ClusterManager {
 }
 
 type Volume interface {
+	// inode
 	Lookup(ctx context.Context, path string) (*InodeInfo, error)
 	LookupEx(ctx context.Context, path string) (*InodeInfo, error)
 	Readdir(ctx context.Context, filePath, marker string, count uint32) ([]DirInfo, error)
@@ -41,15 +41,18 @@ type Volume interface {
 	ListXAttr(ctx context.Context, ino uint64) ([]string, error)
 	StatFs(ctx context.Context, filepath uint64) (*StatFs, error)
 
+	// path
 	Mkdir(ctx context.Context, path string, recursive bool) (*InodeInfo, error)
 	CreateFile(ctx context.Context, parentIno uint64, filename string) (*InodeInfo, error)
 	Delete(ctx context.Context, filePath string) error
 	Rename(ctx context.Context, src, dest string) error
 
+	// file
 	UploadFile(ctx context.Context, filePath string, oldIno uint64, body io.Reader) (*InodeInfo, error)
 	WriteFile(ctx context.Context, ino, off, size uint64, body io.Reader) error
 	ReadFile(ctx context.Context, ino, off, size uint64) (body io.ReadCloser, err error)
 
+	// multipart
 	InitMultiPart(ctx context.Context, path string, oldIno uint64, extend map[string]string) (string, error)
 	UploadMultiPart(ctx context.Context, filepath, uploadId string, partNum uint16, read io.Reader) error
 	ListMultiPart(ctx context.Context, filepath, uploadId string, count, marker uint64) (parts []*Part, next uint64, isTruncated bool, err error)
@@ -61,8 +64,7 @@ type StatFs struct {
 	Size int
 }
 
-type InodeInfo struct {
-}
+type InodeInfo struct{}
 
 type DirInfo struct {
 	Name  string
