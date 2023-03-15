@@ -3,6 +3,7 @@ package sdk
 import (
 	"context"
 	"io"
+	"time"
 )
 
 type Cluster interface {
@@ -42,7 +43,7 @@ type Volume interface {
 	BatchSetXAttr(ctx context.Context, ino uint64, attrs map[string]string) error
 	GetXAttr(ctx context.Context, ino uint64, key string) (string, error)
 	ListXAttr(ctx context.Context, ino uint64) ([]string, error)
-	GetXAttrMap(ctx context.Context, ino uint64, key string) (map[string]string, error)
+	GetXAttrMap(ctx context.Context, ino uint64) (map[string]string, error)
 
 	// path
 	Mkdir(ctx context.Context, path string, recursive bool) (*InodeInfo, error)
