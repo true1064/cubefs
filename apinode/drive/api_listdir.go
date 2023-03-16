@@ -136,7 +136,7 @@ func (builder *filterBuilder) matchFileInfo(f *FileInfo) bool {
 	case "type":
 		return builder.match(f.Type)
 	case "propertyKey":
-		for k, _ := range f.Properties {
+		for k := range f.Properties {
 			if !builder.match(k) {
 				delete(f.Properties, k)
 			}
@@ -227,14 +227,14 @@ func (d *DriveNode) handlerListDir(c *rpc.Context) {
 	res.ID = dirInodeInfo.Inode
 
 	wg.Add(1)
-	//lookup filePath's inode concurrency
+	// lookup filePath's inode concurrency
 	go func() {
 		defer wg.Done()
 		res.Properties, _ = vol.GetXAttrMap(ctx, res.ID)
 	}()
 
 	if limit > 0 {
-		limit += 1 //get one more
+		limit++ // get one more
 	}
 	getMore := true
 	for getMore {
@@ -245,7 +245,7 @@ func (d *DriveNode) handlerListDir(c *rpc.Context) {
 			return
 		}
 
-		if limit < 0 || len(fileInfo) < limit { //already at the end of the list
+		if limit < 0 || len(fileInfo) < limit { // already at the end of the list
 			getMore = false
 		}
 
@@ -259,7 +259,7 @@ func (d *DriveNode) handlerListDir(c *rpc.Context) {
 				return
 			}
 		}
-		if path == "/" { //exclude /.usr dir
+		if path == "/" { // exclude /.usr dir
 			builders = append(builders, usrFolderFilter)
 		}
 
@@ -289,7 +289,7 @@ func (d *DriveNode) handlerListDir(c *rpc.Context) {
 }
 
 func (d *DriveNode) listDir(ctx context.Context, ino uint64, vol sdk.IVolume, marker string, limit int) (files []FileInfo, err error) {
-	//invoke list interface to list files in path
+	// invoke list interface to list files in path
 	dirInfos, err := vol.Readdir(ctx, ino, marker, uint32(limit))
 	if err != nil {
 		return nil, err

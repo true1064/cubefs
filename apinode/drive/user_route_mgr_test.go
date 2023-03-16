@@ -27,12 +27,12 @@ func TestDriveNode_CreateUserSpace(t *testing.T) {
 
 func TestHash(t *testing.T) {
 	mmap := make(map[int]map[int]int)
-	for i := 0; i < 100000; i++ {
+	for i := range [100000]struct{}{} {
 		rs := strconv.Itoa(i)
 		l1, l2 := hash(rs)
 		if entry, ok := mmap[l1]; ok {
 			if _, ok := entry[l2]; ok {
-				entry[l2] += 1
+				entry[l2]++
 				continue
 			}
 			entry[l2] = 1
@@ -52,4 +52,5 @@ func TestHash(t *testing.T) {
 			t.Log(count)
 		}
 	}
+	t.Log(l1Nums, l2Nums)
 }

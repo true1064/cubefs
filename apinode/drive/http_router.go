@@ -17,7 +17,6 @@ package drive
 import (
 	"context"
 	"net/http"
-	"strconv"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
@@ -53,13 +52,12 @@ func (*DriveNode) setHeaders(c *rpc.Context) {
 	rid := c.Request.Header.Get(headerRequestID)
 	c.Set(headerRequestID, rid)
 
-	uid := c.Request.Header.Get(headerUserID)
-	id, err := strconv.Atoi(uid)
-	if err != nil || id <= 0 {
-		c.AbortWithError(sdk.ErrUnauthorized)
+	uid := UserID(c.Request.Header.Get(headerUserID))
+	if !uid.Valid() {
+		c.AbortWithError(sdk.ErrBadRequest)
 		return
 	}
-	c.Set(headerUserID, id)
+	c.Set(headerUserID, uid)
 }
 
 func (*DriveNode) requestID(c *rpc.Context) string {

@@ -1,3 +1,17 @@
+// Copyright 2023 The CubeFS Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+// implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
 package drive
 
 import (
@@ -41,7 +55,7 @@ func (d *DriveNode) handleShare(c *rpc.Context) {
 
 	var (
 		perms  []userPerm
-		xattrs map[string]string
+		xattrs = make(map[string]string)
 	)
 	for _, s := range strings.Split(args.Perm, ",") {
 		p := strings.Split(s, ":")
@@ -124,7 +138,6 @@ func (d *DriveNode) handleShare(c *rpc.Context) {
 			} else {
 				errCh <- nil
 			}
-			return
 		})
 	}
 	wg.Wait()
@@ -169,7 +182,7 @@ func (d *DriveNode) handleUnShare(c *rpc.Context) {
 			return
 		}
 
-		for k, _ := range xattrs {
+		for k := range xattrs {
 			if strings.HasPrefix(k, sharedPrefix) {
 				users = append(users, strings.TrimPrefix(k, sharedPrefix))
 			}
@@ -185,9 +198,7 @@ func (d *DriveNode) handleUnShare(c *rpc.Context) {
 	}
 	pool := taskpool.New(util.Min(n, maxTaskPoolSize), n)
 	errCh := make(chan error, n)
-	var (
-		wg sync.WaitGroup
-	)
+	var wg sync.WaitGroup
 	wg.Add(n)
 	for i := 0; i < n; i++ {
 		user := users[i]

@@ -63,6 +63,10 @@ const (
 
 type UserID string
 
+func (u *UserID) Valid() bool {
+	return *u != ""
+}
+
 type ArgsListDir struct {
 	Path   string `json:"path"`
 	Type   string `json:"type"`

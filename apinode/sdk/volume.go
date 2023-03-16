@@ -3,18 +3,19 @@ package sdk
 import (
 	"context"
 	"fmt"
-	"github.com/cubefs/cubefs/proto"
-	"github.com/cubefs/cubefs/sdk/data/stream"
-	"github.com/cubefs/cubefs/sdk/meta"
-	"github.com/cubefs/cubefs/util"
 	"io"
 	"math"
 	"os"
 	"syscall"
+
+	"github.com/cubefs/cubefs/proto"
+	"github.com/cubefs/cubefs/sdk/data/stream"
+	"github.com/cubefs/cubefs/sdk/meta"
+	"github.com/cubefs/cubefs/util"
 )
 
 type IVolume interface {
-	//Info get vol simple info
+	// Info get vol simple info
 	Info() *VolInfo
 	// Lookup from target parentDir ino, parentIno 0 means lookup from root
 	Lookup(ctx context.Context, parentIno uint64, name string) (*DirInfo, error)
@@ -25,7 +26,6 @@ type IVolume interface {
 	StatFs(ctx context.Context, ino uint64) (*StatFs, error)
 	// SetAttr set file mode, uid, gid, atime, mtime, valid=>(proto.AttrMode, proto.AttrUid)
 	SetAttr(ctx context.Context, ino uint64, flag, mode, uid, gid uint32, atime, mtime uint64) error
-
 	SetXAttr(ctx context.Context, ino uint64, key string, val string) error
 	BatchSetXAttr(ctx context.Context, ino uint64, attrs map[string]string) error
 	GetXAttr(ctx context.Context, ino uint64, key string) (string, error)
@@ -34,7 +34,7 @@ type IVolume interface {
 	DeleteXAttr(ctx context.Context, ino uint64, key string) error
 	BatchDeleteXAttr(ctx context.Context, ino uint64, keys []string) error
 
-	//Mkdir path
+	// Mkdir path
 	Mkdir(ctx context.Context, parIno uint64, name string) (*InodeInfo, error)
 	CreateFile(ctx context.Context, parentIno uint64, name string) (*InodeInfo, error)
 	// Delete dir should be empty before delete
@@ -47,6 +47,7 @@ type IVolume interface {
 	// ReadFile read() will make a rpc request to server, if n less than len(data), it means no more data
 	ReadFile(ctx context.Context, ino, off uint64, data []byte) (n int, err error)
 
+	// MultiPart
 	InitMultiPart(ctx context.Context, path string, oldIno uint64, extend map[string]string) (string, error)
 	GetMultiExtend(ctx context.Context, path, uploadId string) (extend map[string]string, err error)
 	UploadMultiPart(ctx context.Context, filepath, uploadId string, partNum uint16, read io.Reader) error
@@ -63,7 +64,6 @@ type volume struct {
 }
 
 func newVolume(ctx context.Context, name, owner string, addrs []string) (IVolume, error) {
-
 	metaCfg := &meta.MetaConfig{
 		Volume:  name,
 		Owner:   owner,
@@ -151,7 +151,7 @@ func (v *volume) Readdir(ctx context.Context, parIno uint64, marker string, coun
 }
 
 func (v *volume) StatFs(ctx context.Context, ino uint64) (*StatFs, error) {
-	//TODO implement me
+	// TODO implement me
 	return nil, nil
 }
 
@@ -193,7 +193,6 @@ func (v *volume) GetXAttr(ctx context.Context, ino uint64, key string) (string, 
 	}
 
 	return val.XAttrs[key], nil
-
 }
 
 func (v *volume) ListXAttr(ctx context.Context, ino uint64) ([]string, error) {
@@ -226,12 +225,12 @@ func (v *volume) DeleteXAttr(ctx context.Context, ino uint64, key string) error 
 }
 
 func (v *volume) BatchDeleteXAttr(ctx context.Context, ino uint64, keys []string) error {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (v *volume) Mkdir(ctx context.Context, parIno uint64, name string) (*InodeInfo, error) {
-	fmod := os.ModeDir | 0755
+	fmod := os.ModeDir | 0o755
 	info, err := v.mw.Create_ll(parIno, name, uint32(fmod), 0, 0, nil)
 	if err != nil {
 		// todo log
@@ -242,7 +241,7 @@ func (v *volume) Mkdir(ctx context.Context, parIno uint64, name string) (*InodeI
 }
 
 func (v *volume) CreateFile(ctx context.Context, parentIno uint64, name string) (*InodeInfo, error) {
-	mode := 0755
+	mode := 0o755
 	info, err := v.mw.Create_ll(parentIno, name, uint32(mode), 0, 0, nil)
 	if err != nil {
 		// todo log
@@ -280,7 +279,7 @@ type UploadFileReq struct {
 	Body   io.Reader
 }
 
-const defaultFileMode = 0644
+const defaultFileMode = 0o644
 
 func (v *volume) UploadFile(req *UploadFileReq) (*InodeInfo, error) {
 	oldIno, mode, err := v.mw.Lookup_ll(req.ParIno, req.Name)
@@ -302,16 +301,15 @@ func (v *volume) UploadFile(req *UploadFileReq) (*InodeInfo, error) {
 
 	defer func() {
 		if err != nil {
-			_, err := v.mw.InodeUnlink_ll(tmpIno)
-			if err != nil {
+			_, _err := v.mw.InodeUnlink_ll(tmpIno)
+			if _err != nil {
 				// todo log
 			}
-			err = v.mw.Evict(tmpIno)
-			if err != nil {
+			_err = v.mw.Evict(tmpIno)
+			if _err != nil {
 				// todo log
 			}
 		}
-
 	}()
 
 	err = v.ec.OpenStream(tmpIno)
@@ -358,7 +356,7 @@ func (v *volume) UploadFile(req *UploadFileReq) (*InodeInfo, error) {
 
 func (v *volume) writeAt(ctx context.Context, ino uint64, off, size int, body io.Reader) error {
 	if size < 0 {
-		size = math.MaxInt64
+		size = math.MaxInt
 	}
 
 	buf := make([]byte, util.BlockSize)
@@ -370,10 +368,10 @@ func (v *volume) writeAt(ctx context.Context, ino uint64, off, size int, body io
 		}
 
 		if n > 0 {
-			wn, err := v.ec.Write(ino, off, buf[:n], 0)
-			if err != nil {
+			wn, _err := v.ec.Write(ino, off, buf[:n], 0)
+			if _err != nil {
 				// todo add log
-				return syscallToErr(err)
+				return syscallToErr(_err)
 			}
 			off += wn
 		}
@@ -431,7 +429,6 @@ func (v *volume) ReadFile(ctx context.Context, ino, off uint64, data []byte) (n 
 	defer func() {
 		closeErr := v.ec.CloseStream(ino)
 		if closeErr != nil {
-
 		}
 	}()
 
@@ -444,32 +441,32 @@ func (v *volume) ReadFile(ctx context.Context, ino, off uint64, data []byte) (n 
 }
 
 func (v *volume) InitMultiPart(ctx context.Context, path string, oldIno uint64, extend map[string]string) (string, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (v *volume) GetMultiExtend(ctx context.Context, path, uploadId string) (extend map[string]string, err error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (v *volume) UploadMultiPart(ctx context.Context, filepath, uploadId string, partNum uint16, read io.Reader) error {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (v *volume) ListMultiPart(ctx context.Context, filepath, uploadId string, count, marker uint64) (parts []*Part, next uint64, isTruncated bool, err error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (v *volume) AbortMultiPart(ctx context.Context, filepath, uploadId string) error {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId string, oldIno uint64, parts []Part) error {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 

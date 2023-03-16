@@ -9,7 +9,7 @@ import (
 
 type ICluster interface {
 	GetVol(name string) IVolume
-	//ListVols caller should cache result
+	// ListVols caller should cache result
 	ListVols() []*VolInfo
 	Info() *ClusterInfo
 	addr() string
@@ -100,7 +100,7 @@ func (c *cluster) addr() string {
 	return c.masterAddr
 }
 
-//updateAddr need check whether newAddr is valid
+// updateAddr need check whether newAddr is valid
 func (c *cluster) updateAddr(ctx context.Context, addr string) error {
 	_, err := initMasterCli(ctx, c.clusterId, addr)
 	if err != nil {

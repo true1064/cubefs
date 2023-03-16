@@ -32,7 +32,7 @@ type ArgsRename struct {
 	Dest string `json:"dest"`
 }
 
-//POST /v1/files?path=/abc&type=folder&recursive=bool
+// POST /v1/files?path=/abc&type=folder&recursive=bool
 func (d *DriveNode) mkDir(c *rpc.Context) {
 	ctx, span := d.ctxSpan(c)
 	args := new(ArgsMkDir)
@@ -59,10 +59,9 @@ func (d *DriveNode) mkDir(c *rpc.Context) {
 		c.RespondError(err)
 		return
 	}
-
 }
 
-//POST /v1/files/rename?src=/abc&dst=/hello
+// POST /v1/files/rename?src=/abc&dst=/hello
 func (d *DriveNode) rename(c *rpc.Context) {
 	ctx, span := d.ctxSpan(c)
 	args := new(ArgsRename)
@@ -89,7 +88,7 @@ func (d *DriveNode) rename(c *rpc.Context) {
 		c.RespondError(err)
 		return
 	}
-	//todo: need modify
+	// todo: need modify
 	srcPath := path.Join(userRouter.RootPath, args.Src)
 	destPath := path.Join(userRouter.RootPath, args.Dest)
 	err = vol.Rename(ctx, inode, inode, srcPath, destPath)
