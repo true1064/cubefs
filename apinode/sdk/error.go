@@ -16,6 +16,7 @@ package sdk
 
 import (
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
+	"net/http"
 )
 
 // Error implemente for drive, s3, posix, hdfs.
@@ -46,9 +47,25 @@ func (e *Error) Error() string {
 var (
 	ErrBadRequest   = &Error{Status: 400, Code: "BadRequest", Message: "bad request"}
 	ErrUnauthorized = &Error{Status: 401, Code: "Unauthorized", Message: "unauthorized"}
-	ErrForbidden    = &Error{Status: 403, Code: "Forbidden", Message: "dorbidden"}
+	ErrForbidden    = &Error{Status: 403, Code: "Forbidden", Message: "forbidden"}
 	ErrNotFound     = &Error{Status: 404, Code: "NotFound", Message: "not found"}
+
+	ErrLimitExceed = newErr(http.StatusTooManyRequests, "request limit exceed")
+	ErrConflict    = newErr(http.StatusConflict, "operation conflict")
+	ErrExist       = newErr(http.StatusConflict, "file already exist")
 
 	ErrInternalServerError = &Error{Status: 500, Code: "InternalServerError", Message: "internal server error"}
 	ErrBadGateway          = &Error{Status: 502, Code: "BadGateway", Message: "bad gateway"}
+
+	ErrNoLeader = newErr(http.StatusInternalServerError, "no valid leader")
 )
+
+// newErr with http.statusCode
+func newErr(status int, msg string) *Error {
+	code := http.StatusText(status)
+	if code == "" {
+		code = "UnknownErr"
+	}
+
+	return &Error{Status: status, Code: code, Message: msg}
+}
