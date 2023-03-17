@@ -6,33 +6,6 @@ import (
 	"time"
 )
 
-type Cluster interface {
-	// GetVol if not exist, return nil
-	GetVol(name string) Volume
-}
-
-type ClusterManager interface {
-	// AddCluster masterAddr, eg: host1:port,host2:port
-	AddCluster(clusterId string, masterAddr string) error
-	// GetCluster if not exist, return nil
-	GetCluster(clusterId string) Cluster
-}
-
-type clusterManager struct{}
-
-func (cm *clusterManager) AddCluster(clusterId string, masterAddr string) error {
-	return nil
-}
-
-func (cm *clusterManager) GetCluster(clusterId string) Cluster {
-	// test
-	return nil
-}
-
-func InitClusterMg() ClusterManager {
-	return &clusterManager{}
-}
-
 type Volume interface {
 	Lookup(ctx context.Context, path string) (*DirInfo, error)
 	GetInode(ctx context.Context, ino uint64) (*InodeInfo, error)
