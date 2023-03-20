@@ -10,7 +10,8 @@ type ClusterManager interface {
 	AddCluster(ctx context.Context, clusterId string, masterAddr string) error
 	// GetCluster if not exist, return nil
 	GetCluster(clusterId string) ICluster
-	ListCluster() []ICluster
+	// ListCluster caller should cache result
+	ListCluster() []*ClusterInfo
 }
 
 type clusterMgr struct {
@@ -29,13 +30,13 @@ func NewClusterMgr() ClusterManager {
 	return cm
 }
 
-func (cm *clusterMgr) ListCluster() []ICluster {
-	arr := make([]ICluster, 0, len(cm.clusterMap))
+func (cm *clusterMgr) ListCluster() []*ClusterInfo {
+	arr := make([]*ClusterInfo, 0, len(cm.clusterMap))
 	cm.clk.RLock()
 	defer cm.clk.RUnlock()
 
 	for _, v := range cm.clusterMap {
-		arr = append(arr, v)
+		arr = append(arr, v.Info())
 	}
 
 	return arr

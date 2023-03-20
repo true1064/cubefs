@@ -9,7 +9,8 @@ import (
 
 type ICluster interface {
 	GetVol(name string) IVolume
-	ListVols() []IVolume
+	//ListVols caller should cache result
+	ListVols() []*VolInfo
 	Info() *ClusterInfo
 	addr() string
 	updateAddr(ctx context.Context, addr string) error
@@ -76,8 +77,16 @@ func (c *cluster) GetVol(name string) IVolume {
 	return c.volMap[name]
 }
 
-func (c *cluster) ListVols() []IVolume {
-	return nil
+func (c *cluster) ListVols() []*VolInfo {
+	c.volLk.RLock()
+	defer c.volLk.RUnlock()
+
+	infos := make([]*VolInfo, 0, len(c.volMap))
+	for _, v := range c.volMap {
+		infos = append(infos, v.Info())
+	}
+
+	return infos
 }
 
 func (c *cluster) putVol(name string, vol IVolume) {
