@@ -41,8 +41,8 @@ func (d *DriveNode) handlerShare(c *rpc.Context) {
 func (d *DriveNode) handlerUnShare(c *rpc.Context) {
 }
 
-func (d *DriveNode) verifyPerm(ctx context.Context, vol sdk.Volume, path string, uid string, perm string) error {
-	inodeInfo, err := vol.Lookup(ctx, path)
+func (d *DriveNode) verifyPerm(ctx context.Context, vol sdk.IVolume, path string, uid string, perm string) error {
+	inodeInfo, err := vol.Lookup(ctx, 0, path)
 	if err != nil {
 		return err
 	}

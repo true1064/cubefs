@@ -10,13 +10,14 @@ type ClusterManager interface {
 	AddCluster(ctx context.Context, clusterId string, masterAddr string) error
 	// GetCluster if not exist, return nil
 	GetCluster(clusterId string) ICluster
+	ListCluster() []ICluster
 }
 
 type clusterMgr struct {
 	clk        sync.RWMutex
 	clusterMap map[string]ICluster
 
-	create func(cId, addr string) (ICluster, error)
+	create func(context context.Context, cId, addr string) (ICluster, error)
 }
 
 func NewClusterMgr() ClusterManager {
@@ -26,6 +27,18 @@ func NewClusterMgr() ClusterManager {
 
 	cm.create = newCluster
 	return cm
+}
+
+func (cm *clusterMgr) ListCluster() []ICluster {
+	arr := make([]ICluster, 0, len(cm.clusterMap))
+	cm.clk.RLock()
+	defer cm.clk.RUnlock()
+
+	for _, v := range cm.clusterMap {
+		arr = append(arr, v)
+	}
+
+	return arr
 }
 
 func (cm *clusterMgr) getCluster(cId string) ICluster {
@@ -50,10 +63,10 @@ func (cm *clusterMgr) AddCluster(ctx context.Context, cId string, masterAddr str
 			return nil
 		}
 		// update masterAddr
-		return c.updateAddr(masterAddr)
+		return c.updateAddr(ctx, masterAddr)
 	}
 
-	c, err := cm.create(cId, masterAddr)
+	c, err := cm.create(ctx, cId, masterAddr)
 	if err != nil {
 		return err
 	}

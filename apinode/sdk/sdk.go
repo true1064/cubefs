@@ -7,7 +7,10 @@ import (
 )
 
 type IVolume interface {
-	Lookup(ctx context.Context, path string) (*DirInfo, error)
+	//Info get vol simple info
+	Info() *VolInfo
+	// Lookup from target parentDir ino, parentIno 0 means lookup from root
+	Lookup(ctx context.Context, parentIno uint64, path string) (*DirInfo, error)
 	GetInode(ctx context.Context, ino uint64) (*InodeInfo, error)
 	BatchGetInodes(ctx context.Context, inos []uint64) ([]*InodeInfo, error)
 	Readdir(ctx context.Context, filePath, marker string, count uint32) ([]DirInfo, error)
@@ -36,6 +39,11 @@ type IVolume interface {
 	ListMultiPart(ctx context.Context, filepath, uploadId string, count, marker uint64) (parts []*Part, next uint64, isTruncated bool, err error)
 	AbortMultiPart(ctx context.Context, filepath, uploadId string) error
 	CompleteMultiPart(ctx context.Context, filepath, uploadId string, oldIno uint64, parts []Part) error
+}
+
+type VolInfo struct {
+	Name   string
+	Weight int
 }
 
 type StatFs struct {

@@ -88,7 +88,7 @@ func New() *DriveNode {
 
 // get full path and volume by uid
 // filePath is an absolute of client
-func (d *DriveNode) getFilePathAndVolume(filePath string, uid string) (string, sdk.Volume, error) {
+func (d *DriveNode) getFilePathAndVolume(filePath string, uid string) (string, sdk.IVolume, error) {
 	userRouter, err := d.userRouter.Get(UserID(uid))
 	if err != nil {
 		return "", nil, err

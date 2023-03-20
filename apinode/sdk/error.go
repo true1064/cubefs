@@ -58,6 +58,7 @@ var (
 	ErrBadGateway          = &Error{Status: 502, Code: "BadGateway", Message: "bad gateway"}
 
 	ErrNoLeader = newErr(http.StatusInternalServerError, "no valid leader")
+	ErrNoMaster = newErr(http.StatusInternalServerError, "no valid master")
 )
 
 // newErr with http.statusCode

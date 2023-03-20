@@ -180,7 +180,7 @@ func (d *DriveNode) handlerListDir(c *rpc.Context) {
 
 	var (
 		filePath string
-		vol      sdk.Volume
+		vol      sdk.IVolume
 		err      error
 	)
 	// 1. get user route info
@@ -272,7 +272,7 @@ func (d *DriveNode) handlerListDir(c *rpc.Context) {
 	c.RespondJSON(res)
 }
 
-func (d *DriveNode) listDir(ctx context.Context, filePath string, vol sdk.Volume, marker string, limit int) (files []FileInfo, err error) {
+func (d *DriveNode) listDir(ctx context.Context, filePath string, vol sdk.IVolume, marker string, limit int) (files []FileInfo, err error) {
 	//invoke list interface to list files in path
 	dirInfos, err := vol.Readdir(ctx, filePath, marker, uint32(limit))
 	if err != nil {
