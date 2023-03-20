@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-type Volume interface {
+type IVolume interface {
 	Lookup(ctx context.Context, path string) (*DirInfo, error)
 	GetInode(ctx context.Context, ino uint64) (*InodeInfo, error)
 	BatchGetInodes(ctx context.Context, inos []uint64) ([]*InodeInfo, error)
@@ -31,6 +31,7 @@ type Volume interface {
 	ReadFile(ctx context.Context, ino, off, size uint64) (body io.ReadCloser, err error)
 
 	InitMultiPart(ctx context.Context, path string, oldIno uint64, extend map[string]string) (string, error)
+	GetMultiExtend(ctx context.Context, path, uploadId string) (extend map[string]string, err error)
 	UploadMultiPart(ctx context.Context, filepath, uploadId string, partNum uint16, read io.Reader) error
 	ListMultiPart(ctx context.Context, filepath, uploadId string, count, marker uint64) (parts []*Part, next uint64, isTruncated bool, err error)
 	AbortMultiPart(ctx context.Context, filepath, uploadId string) error
