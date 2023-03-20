@@ -50,9 +50,12 @@ const (
 	opNotEqual = "!="
 )
 
-const (
-	maxListTaskNum = 10
-)
+var usrFolderFilter = filterBuilder{
+	re:        nil,
+	key:       "name",
+	operation: opNotEqual,
+	value:     ".usr",
+}
 
 type FileInfoSlice []FileInfo
 
@@ -179,45 +182,54 @@ func (d *DriveNode) handlerListDir(c *rpc.Context) {
 	}
 
 	var (
-		filePath string
-		vol      sdk.IVolume
-		err      error
+		rootIno uint64
+		vol     sdk.IVolume
+		err     error
 	)
 	// 1. get user route info
 	if owner == "" {
-		filePath, vol, err = d.getFilePathAndVolume(path, uid)
+		rootIno, vol, err = d.getRootInoAndVolume(uid)
 	} else {
-		filePath, vol, err = d.getFilePathAndVolume(path, owner)
+		rootIno, vol, err = d.getRootInoAndVolume(owner)
 	}
 	if err != nil {
 		span.Errorf("Failed to get volume: %v", err)
 		c.RespondError(err)
 		return
 	}
-	// 2. if has owner, we should verify perm
+
+	// 2. lookup the inode of dir
+	dirInodeInfo, err := d.lookup(ctx, vol, rootIno, path)
+	if err != nil {
+		span.Errorf("lookup path=%s error: %v", path, err)
+		c.RespondError(err)
+		return
+	}
+	if !dirInodeInfo.IsDir() {
+		span.Errorf("path=%s is not a directory", path)
+		c.RespondError(sdk.ErrNotDir)
+		return
+	}
+
 	if owner != "" {
-		if err = d.verifyPerm(ctx, vol, filePath, uid, readOnlyPerm); err != nil {
-			span.Errorf("verify perm error: %v, path=%s uid=%s", err, filePath, uid)
+		// if has owner, we should verify perm
+		if err = d.verifyPerm(ctx, vol, dirInodeInfo.Inode, uid, readOnlyPerm); err != nil {
+			span.Errorf("verify perm error: %v, path=%s uid=%s", err, path, uid)
 			c.RespondError(err)
 			return
 		}
 	}
 	var (
-		res  ListDirResult
-		wg   sync.WaitGroup
-		werr error
+		res ListDirResult
+		wg  sync.WaitGroup
 	)
+
+	res.ID = dirInodeInfo.Inode
 
 	wg.Add(1)
 	//lookup filePath's inode concurrency
 	go func() {
 		defer wg.Done()
-		dirInodeInfo, err := vol.Lookup(ctx, filePath)
-		if err != nil {
-			werr = err
-			return
-		}
-		res.ID = dirInodeInfo.Inode
 		res.Properties, _ = vol.GetXAttrMap(ctx, res.ID)
 	}()
 
@@ -226,9 +238,9 @@ func (d *DriveNode) handlerListDir(c *rpc.Context) {
 	}
 	getMore := true
 	for getMore {
-		fileInfo, err := d.listDir(ctx, filePath, vol, marker, limit)
+		fileInfo, err := d.listDir(ctx, dirInodeInfo.Inode, vol, marker, limit)
 		if err != nil {
-			span.Errorf("list dir error: %v, path=%s", err, filePath)
+			span.Errorf("list dir error: %v, path=%s", err, path)
 			c.RespondError(err)
 			return
 		}
@@ -237,13 +249,21 @@ func (d *DriveNode) handlerListDir(c *rpc.Context) {
 			getMore = false
 		}
 
+		builders := []filterBuilder{}
+
 		if args.Filter != "" {
-			builders, err := makeFilterBuilders(args.Filter)
+			builders, err = makeFilterBuilders(args.Filter)
 			if err != nil {
-				span.Errorf("makeFilterBuilders error: %v, path=%s, filter=%s", err, filePath, args.Filter)
+				span.Errorf("makeFilterBuilders error: %v, path=%s, filter=%s", err, path, args.Filter)
 				c.RespondError(err)
 				return
 			}
+		}
+		if path == "/" { //exclude /.usr dir
+			builders = append(builders, usrFolderFilter)
+		}
+
+		if len(builders) > 0 {
 			for i := 0; i < len(fileInfo); i++ {
 				for _, builder := range builders {
 					if !builder.matchFileInfo(&fileInfo[i]) {
@@ -261,10 +281,6 @@ func (d *DriveNode) handlerListDir(c *rpc.Context) {
 	}
 
 	wg.Wait()
-	if werr != nil {
-		c.RespondError(err)
-		return
-	}
 	if limit > 0 && len(res.Files) == limit {
 		res.NextMarker = res.Files[len(res.Files)-1].Name
 		res.Files = res.Files[:len(res.Files)-1]
@@ -272,9 +288,9 @@ func (d *DriveNode) handlerListDir(c *rpc.Context) {
 	c.RespondJSON(res)
 }
 
-func (d *DriveNode) listDir(ctx context.Context, filePath string, vol sdk.IVolume, marker string, limit int) (files []FileInfo, err error) {
+func (d *DriveNode) listDir(ctx context.Context, ino uint64, vol sdk.IVolume, marker string, limit int) (files []FileInfo, err error) {
 	//invoke list interface to list files in path
-	dirInfos, err := vol.Readdir(ctx, filePath, marker, uint32(limit))
+	dirInfos, err := vol.Readdir(ctx, ino, marker, uint32(limit))
 	if err != nil {
 		return nil, err
 	}
@@ -289,7 +305,7 @@ func (d *DriveNode) listDir(ctx context.Context, filePath string, vol sdk.IVolum
 		return nil, err
 	}
 
-	pool := taskpool.New(util.Min(n, maxListTaskNum), n)
+	pool := taskpool.New(util.Min(n, maxTaskPoolSize), n)
 	type result struct {
 		properties map[string]string
 		err        error

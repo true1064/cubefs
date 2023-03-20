@@ -15,8 +15,9 @@
 package sdk
 
 import (
-	"github.com/cubefs/cubefs/blobstore/common/rpc"
 	"net/http"
+
+	"github.com/cubefs/cubefs/blobstore/common/rpc"
 )
 
 // Error implemente for drive, s3, posix, hdfs.
@@ -49,6 +50,7 @@ var (
 	ErrUnauthorized = &Error{Status: 401, Code: "Unauthorized", Message: "unauthorized"}
 	ErrForbidden    = &Error{Status: 403, Code: "Forbidden", Message: "forbidden"}
 	ErrNotFound     = &Error{Status: 404, Code: "NotFound", Message: "not found"}
+	ErrNotDir       = &Error{Status: 452, Code: "ENOTDIR", Message: "not a directory"}
 
 	ErrLimitExceed = newErr(http.StatusTooManyRequests, "request limit exceed")
 	ErrConflict    = newErr(http.StatusConflict, "operation conflict")

@@ -15,7 +15,8 @@
 package drive
 
 import (
-	"path"
+	"context"
+	"strings"
 
 	"github.com/cubefs/cubefs/blobstore/util/closer"
 
@@ -25,6 +26,10 @@ import (
 const (
 	headerRequestID = "x-cfa-request-id"
 	headerUserID    = "x-cfa-user-id"
+)
+
+const (
+	maxTaskPoolSize = 8
 )
 
 type FileInfo struct {
@@ -87,20 +92,34 @@ func New() *DriveNode {
 }
 
 // get full path and volume by uid
-// filePath is an absolute of client
-func (d *DriveNode) getFilePathAndVolume(filePath string, uid string) (string, sdk.IVolume, error) {
+// filePath is an absolute path of client
+func (d *DriveNode) getRootInoAndVolume(uid string) (uint64, sdk.IVolume, error) {
 	userRouter, err := d.userRouter.Get(UserID(uid))
 	if err != nil {
-		return "", nil, err
+		return 0, nil, err
 	}
 	cluster := d.clusterMgr.GetCluster(userRouter.ClusterID)
 	if cluster == nil {
-		return "", nil, sdk.ErrNotFound
+		return 0, nil, sdk.ErrNotFound
 	}
 	volume := cluster.GetVol(userRouter.VolumeID)
 	if volume == nil {
-		return "", nil, sdk.ErrNotFound
+		return 0, nil, sdk.ErrNotFound
 	}
-	filePath = path.Join(userRouter.RootPath, filePath)
-	return filePath, volume, nil
+	return uint64(userRouter.RootFileID), volume, nil
+}
+
+func (d *DriveNode) lookup(ctx context.Context, vol sdk.IVolume, parentIno uint64, path string) (info *sdk.DirInfo, err error) {
+	names := strings.Split(path, "/")
+	for _, name := range names {
+		if name == "" {
+			continue
+		}
+		info, err = vol.Lookup(ctx, parentIno, name)
+		if err != nil {
+			return
+		}
+		parentIno = info.Inode
+	}
+	return
 }
