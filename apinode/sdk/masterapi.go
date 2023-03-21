@@ -15,22 +15,14 @@ type AdminApi interface {
 }
 
 type MasterApi struct {
-	*master.MasterClient
-}
-
-func (m *MasterApi) GetClusterIP() (cp *proto.ClusterIP, err error) {
-	cp, err = m.AdminAPI().GetClusterIP()
-	return cp, masterToSdkErr(err)
-}
-
-func (m *MasterApi) ListVols(keywords string) (volsInfo []*proto.VolInfo, err error) {
-	volsInfo, err = m.AdminAPI().ListVols("")
-	return volsInfo, masterToSdkErr(err)
+	//*master.MasterClient
+	*master.AdminAPI
 }
 
 func newSdkMasterCli(addr string) IMaster {
+	masterCli := master.NewMasterClientFromString(addr, false)
 	m := &MasterApi{
-		master.NewMasterClientFromString(addr, false),
+		masterCli.AdminAPI(),
 	}
 
 	return m

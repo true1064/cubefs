@@ -116,7 +116,7 @@ func initMasterCli(ctx context.Context, cId, addr string) (IMaster, error) {
 	info, err := cli.GetClusterIP()
 	if err != nil {
 		fmt.Sprintf("use Master Addr request failed, addr %s, err %s", addr, err.Error())
-		return nil, err
+		return nil, masterToSdkErr(err)
 	}
 
 	if cId != info.Cluster {

@@ -10,11 +10,11 @@ type IVolume interface {
 	//Info get vol simple info
 	Info() *VolInfo
 	// Lookup from target parentDir ino, parentIno 0 means lookup from root
-	Lookup(ctx context.Context, parentIno uint64, path string) (*DirInfo, error)
+	Lookup(ctx context.Context, parentIno uint64, name string) (*DirInfo, error)
 	GetInode(ctx context.Context, ino uint64) (*InodeInfo, error)
 	BatchGetInodes(ctx context.Context, inos []uint64) ([]*InodeInfo, error)
-	Readdir(ctx context.Context, filePath, marker string, count uint32) ([]DirInfo, error)
-	StatFs(ctx context.Context, filepath uint64) (*StatFs, error)
+	Readdir(ctx context.Context, parIno uint64, marker string, count uint32) ([]DirInfo, error)
+	StatFs(ctx context.Context, ino uint64) (*StatFs, error)
 
 	SetXAttr(ctx context.Context, ino uint64, key string, val string) error
 	BatchSetXAttr(ctx context.Context, ino uint64, attrs map[string]string) error
@@ -25,13 +25,13 @@ type IVolume interface {
 	BatchDeleteXAttr(ctx context.Context, ino uint64, keys []string) error
 
 	//Mkdir path
-	Mkdir(ctx context.Context, path string, recursive bool) (*InodeInfo, error)
-	CreateFile(ctx context.Context, parentIno uint64, filename string) (*InodeInfo, error)
-	Delete(ctx context.Context, filePath string) error
-	Rename(ctx context.Context, src, dest string) error
+	Mkdir(ctx context.Context, parIno uint64, name string) (*InodeInfo, error)
+	CreateFile(ctx context.Context, parentIno uint64, name string) (*InodeInfo, error)
+	Delete(ctx context.Context, parIno uint64, name string) error
+	Rename(ctx context.Context, srcParIno, dstParIno uint64, srcName, destName string) error
 
 	// UploadFile file
-	UploadFile(ctx context.Context, filePath string, oldIno uint64, body io.Reader) (*InodeInfo, error)
+	UploadFile(ctx context.Context, parIno uint64, name string, oldIno uint64, body io.Reader) (*InodeInfo, error)
 	WriteFile(ctx context.Context, ino, off, size uint64, body io.Reader) error
 	ReadFile(ctx context.Context, ino, off, size uint64) (body io.ReadCloser, err error)
 
