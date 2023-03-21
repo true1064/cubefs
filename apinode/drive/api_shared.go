@@ -68,7 +68,7 @@ func (d *DriveNode) handleShare(c *rpc.Context) {
 		return
 	}
 
-	rootIno, vol, err := d.getRootInoAndVolume(string(uid))
+	rootIno, vol, err := d.getRootInoAndVolume(ctx, uid)
 	if err != nil {
 		span.Errorf("get filepath and volume error: %v", err)
 		c.RespondError(err)
@@ -98,7 +98,7 @@ func (d *DriveNode) handleShare(c *rpc.Context) {
 		perm := perms[i]
 		pool.Run(func() {
 			defer wg.Done()
-			rootIno, vol, err := d.getRootInoAndVolume(perm.uid)
+			rootIno, vol, err := d.getRootInoAndVolume(ctx, perm.uid)
 			if err != nil {
 				errCh <- err
 				return
@@ -137,7 +137,7 @@ func (d *DriveNode) handleUnShare(c *rpc.Context) {
 	}
 	uid := string(d.userID(c))
 
-	rootIno, vol, err := d.getRootInoAndVolume(uid)
+	rootIno, vol, err := d.getRootInoAndVolume(ctx, uid)
 	if err != nil {
 		span.Errorf("get user router error: %v, uid=%s", err, uid)
 		c.RespondError(err)
@@ -184,7 +184,7 @@ func (d *DriveNode) handleUnShare(c *rpc.Context) {
 		delKey = append(delKey, fmt.Sprintf("%s%s", sharedPrefix, user))
 		pool.Run(func() {
 			defer wg.Done()
-			rootIno, vol, err := d.getRootInoAndVolume(user)
+			rootIno, vol, err := d.getRootInoAndVolume(ctx, user)
 			if err != nil {
 				if err == sdk.ErrNotFound {
 					errCh <- nil
@@ -224,7 +224,7 @@ func (d *DriveNode) handleListShare(c *rpc.Context) {
 	ctx, span := d.ctxSpan(c)
 	uid := string(d.userID(c))
 
-	rootIno, vol, err := d.getRootInoAndVolume(uid)
+	rootIno, vol, err := d.getRootInoAndVolume(ctx, uid)
 	if err != nil {
 		span.Errorf("get user router error: %v, uid=%s", err, uid)
 		c.RespondError(err)
@@ -270,7 +270,7 @@ func (d *DriveNode) handleListShare(c *rpc.Context) {
 		fileInfo := &sharedFileInfos[i]
 		pool.Run(func() {
 			defer wg.Done()
-			rootIno, vol, err := d.getRootInoAndVolume(fileInfo.Owner)
+			rootIno, vol, err := d.getRootInoAndVolume(ctx, fileInfo.Owner)
 			if err != nil {
 				span.Errorf("get user(%s) info error: %v", fileInfo.Owner, err)
 				return

@@ -188,9 +188,9 @@ func (d *DriveNode) handlerListDir(c *rpc.Context) {
 	)
 	// 1. get user route info
 	if owner == "" {
-		rootIno, vol, err = d.getRootInoAndVolume(uid)
+		rootIno, vol, err = d.getRootInoAndVolume(ctx, uid)
 	} else {
-		rootIno, vol, err = d.getRootInoAndVolume(owner)
+		rootIno, vol, err = d.getRootInoAndVolume(ctx, owner)
 	}
 	if err != nil {
 		span.Errorf("Failed to get volume: %v", err)

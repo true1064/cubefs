@@ -25,9 +25,10 @@ type ArgsPath struct {
 
 // createDrive handle drive apis.
 func (d *DriveNode) createDrive(c *rpc.Context) {
+	ctx, _ := d.ctxSpan(c)
 	rid := d.requestID(c)
 	uid := d.userID(c)
-	err := d.userRouter.Create(uid)
+	err := d.CreateUserRoute(ctx, uid)
 	if err != nil {
 		c.RespondError(err)
 		return
@@ -37,6 +38,7 @@ func (d *DriveNode) createDrive(c *rpc.Context) {
 }
 
 func (d *DriveNode) addUserConfig(c *rpc.Context) {
+	ctx, _ := d.ctxSpan(c)
 	args := new(ArgsPath)
 	if err := c.ParseArgs(args); err != nil {
 		c.RespondError(err)
@@ -44,7 +46,7 @@ func (d *DriveNode) addUserConfig(c *rpc.Context) {
 	}
 	rid := d.requestID(c)
 	uid := d.userID(c)
-	err := d.userRouter.AddPath(uid, args)
+	err := d.AddPath(ctx, uid, args)
 	if err != nil {
 		c.RespondError(err)
 		return

@@ -43,6 +43,8 @@ func (d *DriveNode) RegisterAPIRouters() *rpc.Router {
 	r.Handle(http.MethodGet, "/v1/meta", nil, rpc.OptArgsQuery())
 
 	r.Handle(http.MethodGet, "/v1/files", d.handlerListDir, rpc.OptArgsQuery())
+	r.Handle(http.MethodPost, "/v1/files", d.mkDir, rpc.OptArgsQuery())
+	r.Handle(http.MethodPost, "/v1/files/rename", d.rename, rpc.OptArgsQuery())
 
 	return r
 }

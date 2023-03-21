@@ -18,18 +18,19 @@ import (
 	"context"
 	"strings"
 
-	"github.com/cubefs/cubefs/blobstore/util/closer"
-
 	"github.com/cubefs/cubefs/apinode/sdk"
+	"github.com/cubefs/cubefs/blobstore/util/closer"
+	"github.com/cubefs/cubefs/blobstore/util/log"
 )
 
 const (
 	headerRequestID = "x-cfa-request-id"
 	headerUserID    = "x-cfa-user-id"
-)
+	headerSign      = "x-cfa-sign"
 
-const (
-	maxTaskPoolSize = 8
+	defaultCluster = "defaultCluster"
+	defaultVolume  = "defaultVolume"
+	XAttrUserKey   = "users"
 )
 
 type FileInfo struct {
@@ -55,6 +56,10 @@ type SharedFileInfo struct {
 	Perm  string `json:"perm"` // only rd or rw
 }
 
+const (
+	maxTaskPoolSize = 8
+)
+
 type UserID string
 
 type ArgsListDir struct {
@@ -78,23 +83,33 @@ type ArgsUnShare struct {
 
 // DriveNode drive node.
 type DriveNode struct {
-	userRouter IUserRoute
-	clusterMgr sdk.ClusterManager
+	defaultVolume sdk.IVolume
+	userRouter    *userRouteMgr
+	clusterMgr    sdk.ClusterManager
 
 	closer.Closer
 }
 
 // New returns a drive node.
 func New() *DriveNode {
+	cm := sdk.NewClusterMgr()
+	vol := cm.GetCluster(defaultCluster).GetVol(defaultVolume)
+	urm, err := NewUserRouteMgr()
+	if err != nil {
+		log.Fatal(err)
+	}
 	return &DriveNode{
-		Closer: closer.New(),
+		defaultVolume: vol,
+		userRouter:    urm,
+		clusterMgr:    cm,
+		Closer:        closer.New(),
 	}
 }
 
 // get full path and volume by uid
-// filePath is an absolute path of client
-func (d *DriveNode) getRootInoAndVolume(uid string) (uint64, sdk.IVolume, error) {
-	userRouter, err := d.userRouter.Get(UserID(uid))
+// filePath is an absolute of client
+func (d *DriveNode) getRootInoAndVolume(ctx context.Context, uid string) (uint64, sdk.IVolume, error) {
+	userRouter, err := d.GetUserRoute(ctx, UserID(uid))
 	if err != nil {
 		return 0, nil, err
 	}
