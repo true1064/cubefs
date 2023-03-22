@@ -54,5 +54,5 @@ func TestHash(t *testing.T) {
 
 func TestDriveNode_CreateUserSpace(t *testing.T) {
 	dn := DriveNode{}
-	dn.UserRoute.Create("178")
+	dn.userRouter.Create("178")
 }

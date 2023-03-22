@@ -27,7 +27,7 @@ type ArgsPath struct {
 func (d *DriveNode) createDrive(c *rpc.Context) {
 	rid := d.requestID(c)
 	uid := d.userID(c)
-	err := d.UserRoute.Create(uid)
+	err := d.userRouter.Create(uid)
 	if err != nil {
 		c.RespondError(err)
 		return
@@ -44,7 +44,7 @@ func (d *DriveNode) addUserConfig(c *rpc.Context) {
 	}
 	rid := d.requestID(c)
 	uid := d.userID(c)
-	err := d.UserRoute.AddPath(uid, args)
+	err := d.userRouter.AddPath(uid, args)
 	if err != nil {
 		c.RespondError(err)
 		return

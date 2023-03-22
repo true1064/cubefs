@@ -25,7 +25,11 @@ type userPerm struct {
 	perm string
 }
 
-func (d *DriveNode) handlerShare(c *rpc.Context) {
+type ListShareResult struct {
+	Files []SharedFileInfo `json:"files"`
+}
+
+func (d *DriveNode) handleShare(c *rpc.Context) {
 	ctx, span := d.ctxSpan(c)
 	args := new(ArgsShare)
 	if err := c.ParseArgs(args); err != nil {
@@ -70,13 +74,13 @@ func (d *DriveNode) handlerShare(c *rpc.Context) {
 		c.RespondError(err)
 		return
 	}
-	inoInfo, err := d.lookup(ctx, vol, rootIno, args.Path)
+	dirInfo, err := d.lookup(ctx, vol, rootIno, args.Path)
 	if err != nil {
 		span.Errorf("lookup path error: %v, path=%s", err, args.Path)
 		c.RespondError(err)
 		return
 	}
-	if err = vol.BatchSetXAttr(ctx, inoInfo.Inode, xattrs); err != nil {
+	if err = vol.BatchSetXAttr(ctx, dirInfo.Inode, xattrs); err != nil {
 		span.Errorf("batch setxattr error: %v", err)
 		c.RespondError(err)
 		return
@@ -99,12 +103,12 @@ func (d *DriveNode) handlerShare(c *rpc.Context) {
 				errCh <- err
 				return
 			}
-			inodeInfo, err := d.lookup(ctx, vol, rootIno, sharedFilePath)
+			dirInfo, err := d.lookup(ctx, vol, rootIno, sharedFilePath)
 			if err != nil {
 				errCh <- err
 				return
 			}
-			if err = vol.SetXAttr(ctx, inodeInfo.Inode, fmt.Sprintf("%s-%s", uid, args.Path), perm.perm); err != nil {
+			if err = vol.SetXAttr(ctx, dirInfo.Inode, fmt.Sprintf("%s-%s", uid, args.Path), perm.perm); err != nil {
 				errCh <- err
 			} else {
 				errCh <- nil
@@ -123,7 +127,7 @@ func (d *DriveNode) handlerShare(c *rpc.Context) {
 	c.Respond()
 }
 
-func (d *DriveNode) handlerUnShare(c *rpc.Context) {
+func (d *DriveNode) handleUnShare(c *rpc.Context) {
 	ctx, span := d.ctxSpan(c)
 	args := new(ArgsUnShare)
 	if err := c.ParseArgs(args); err != nil {
@@ -133,13 +137,13 @@ func (d *DriveNode) handlerUnShare(c *rpc.Context) {
 	}
 	uid := string(d.userID(c))
 
-	_, rootIno, vol, err := d.getFilePathAndVolume(args.Path, uid)
+	rootIno, vol, err := d.getRootInoAndVolume(uid)
 	if err != nil {
 		span.Errorf("get user router error: %v, uid=%s", err, uid)
 		c.RespondError(err)
 		return
 	}
-	inoInfo, err := d.lookup(ctx, vol, rootIno, args.Path)
+	dirInfo, err := d.lookup(ctx, vol, rootIno, args.Path)
 	if err != nil {
 		span.Errorf("lookup path=%s error: %v", args.Path, err)
 		c.RespondError(err)
@@ -147,7 +151,7 @@ func (d *DriveNode) handlerUnShare(c *rpc.Context) {
 	}
 	var users []string
 	if args.Users == "" {
-		xattrs, err := vol.GetXAttrMap(ctx, inoInfo.Inode)
+		xattrs, err := vol.GetXAttrMap(ctx, dirInfo.Inode)
 		if err != nil {
 			span.Errorf("get xattr error: %v, path: %s", err, args.Path)
 			c.RespondError(err)
@@ -189,12 +193,12 @@ func (d *DriveNode) handlerUnShare(c *rpc.Context) {
 				}
 				return
 			}
-			inodeInfo, err := d.lookup(ctx, vol, rootIno, sharedFilePath)
+			info, err := d.lookup(ctx, vol, rootIno, sharedFilePath)
 			if err != nil {
 				errCh <- err
 				return
 			}
-			err = vol.DeleteXAttr(ctx, inodeInfo.Inode, fmt.Sprintf("%s-%s", uid, args.Path))
+			err = vol.DeleteXAttr(ctx, info.Inode, fmt.Sprintf("%s-%s", uid, args.Path))
 			errCh <- err
 			return
 		})
@@ -208,12 +212,100 @@ func (d *DriveNode) handlerUnShare(c *rpc.Context) {
 		}
 	}
 
-	if err := vol.BatchDeleteXAttr(ctx, inoInfo.Inode, delKey); err != nil {
+	if err := vol.BatchDeleteXAttr(ctx, dirInfo.Inode, delKey); err != nil {
 		span.Errorf("batch delete xattr error: %v", err)
 		c.RespondError(err)
 		return
 	}
 	c.Respond()
+}
+
+func (d *DriveNode) handleListShare(c *rpc.Context) {
+	ctx, span := d.ctxSpan(c)
+	uid := string(d.userID(c))
+
+	rootIno, vol, err := d.getRootInoAndVolume(uid)
+	if err != nil {
+		span.Errorf("get user router error: %v, uid=%s", err, uid)
+		c.RespondError(err)
+		return
+	}
+
+	dirInfo, err := d.lookup(ctx, vol, rootIno, sharedFilePath)
+	if err != nil {
+		span.Errorf("lookup path=%s error: %v", sharedFilePath, err)
+		c.RespondError(err)
+		return
+	}
+	xattrs, err := vol.GetXAttrMap(ctx, dirInfo.Inode)
+	if err != nil {
+		span.Errorf("get xattr map path=%s error: %v", sharedFilePath, err)
+		c.RespondError(err)
+		return
+	}
+
+	var (
+		sharedFileInfos []SharedFileInfo
+		wg              sync.WaitGroup
+	)
+	for k, perm := range xattrs {
+		s := strings.SplitN(k, "-", 2)
+		if len(s) != 2 {
+			continue
+		}
+		if perm != readOnlyPerm && perm != readWritePerm {
+			continue
+		}
+		sharedFileInfos = append(sharedFileInfos, SharedFileInfo{
+			Path:  s[1],
+			Owner: s[0],
+			Perm:  perm,
+		})
+	}
+	n := len(sharedFileInfos)
+	pool := taskpool.New(util.Min(n, maxTaskPoolSize), n)
+	defer pool.Close()
+	wg.Add(n)
+	for i := 0; i < n; i++ {
+		fileInfo := &sharedFileInfos[i]
+		pool.Run(func() {
+			defer wg.Done()
+			rootIno, vol, err := d.getRootInoAndVolume(fileInfo.Owner)
+			if err != nil {
+				span.Errorf("get user(%s) info error: %v", fileInfo.Owner, err)
+				return
+			}
+			info, err := d.lookup(ctx, vol, rootIno, fileInfo.Path)
+			if err != nil {
+				span.Errorf("lookup path=%s error: %v, owner=%s", fileInfo.Path, err, fileInfo.Owner)
+				return
+			}
+			inoInfo, err := vol.GetInode(ctx, info.Inode)
+			if err != nil {
+				span.Errorf("get inode path=%s error: %v", fileInfo.Path, err)
+				return
+			}
+			fileInfo.ID = info.Inode
+			fileInfo.Type = "file"
+			if info.IsDir() {
+				fileInfo.Type = "folder"
+			}
+			fileInfo.Size = int64(inoInfo.Size)
+			fileInfo.Ctime = inoInfo.CreateTime.Unix()
+			fileInfo.Atime = inoInfo.AccessTime.Unix()
+			fileInfo.Mtime = inoInfo.ModifyTime.Unix()
+		})
+	}
+	wg.Wait()
+
+	var res ListShareResult
+	for _, f := range sharedFileInfos {
+		if f.ID == 0 {
+			continue
+		}
+		res.Files = append(res.Files, f)
+	}
+	c.RespondJSON(res)
 }
 
 func (d *DriveNode) verifyPerm(ctx context.Context, vol sdk.IVolume, ino uint64, uid string, perm string) error {

@@ -57,7 +57,7 @@ func (*DriveNode) setHeaders(c *rpc.Context) {
 		c.AbortWithError(sdk.ErrUnauthorized)
 		return
 	}
-	c.Set(headerUserID, UserID(id))
+	c.Set(headerUserID, id)
 }
 
 func (*DriveNode) requestID(c *rpc.Context) string {
