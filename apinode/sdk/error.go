@@ -59,8 +59,11 @@ var (
 	ErrInternalServerError = &Error{Status: 500, Code: "InternalServerError", Message: "internal server error"}
 	ErrBadGateway          = &Error{Status: 502, Code: "BadGateway", Message: "bad gateway"}
 
-	ErrNoLeader = newErr(http.StatusInternalServerError, "no valid leader")
-	ErrNoMaster = newErr(http.StatusInternalServerError, "no valid master")
+	ErrNoLeader   = newErr(http.StatusInternalServerError, "no valid leader")
+	ErrNoMaster   = newErr(http.StatusInternalServerError, "no valid master")
+	ErrRetryAgain = newErr(http.StatusInternalServerError, "retry again")
+	ErrFull       = newErr(http.StatusInternalServerError, "no available resource")
+	ErrBadFile    = newErr(http.StatusInternalServerError, "request file handle not exist")
 )
 
 // newErr with http.statusCode

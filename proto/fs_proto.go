@@ -183,6 +183,10 @@ func (d Dentry) String() string {
 	return fmt.Sprintf("Dentry{Name(%v),Inode(%v),Type(%v)}", d.Name, d.Inode, d.Type)
 }
 
+func (d *Dentry) IsDir() bool {
+	return os.FileMode(d.Type).IsDir()
+}
+
 // CreateInodeRequest defines the request to create an inode.
 type QuotaCreateInodeRequest struct {
 	VolName     string   `json:"vol"`

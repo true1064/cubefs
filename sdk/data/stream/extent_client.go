@@ -171,6 +171,11 @@ func (client *ExtentClient) UidIsLimited(uid uint32) bool {
 	return false
 }
 
+func (client *ExtentClient) UpdateMasterAddr(addr string) {
+	client.dataWrapper.UpdateMasterAddr(addr)
+
+}
+
 func (client *ExtentClient) evictStreamer() bool {
 	// remove from list
 	item := client.streamerList.Back()

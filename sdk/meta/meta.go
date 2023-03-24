@@ -256,6 +256,10 @@ func NewMetaWrapper(config *MetaConfig) (*MetaWrapper, error) {
 	return mw, nil
 }
 
+func (mw *MetaWrapper) UpdateMasterAddr(addrs string) {
+	mw.mc = masterSDK.NewMasterClientFromString(addrs, false)
+}
+
 func (mw *MetaWrapper) initMetaWrapper() (err error) {
 	if err = mw.updateClusterInfo(); err != nil {
 		return err
