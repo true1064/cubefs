@@ -71,7 +71,7 @@ func newVolume(ctx context.Context, name, owner string, addrs []string) (IVolume
 	}
 	mw, err := meta.NewMetaWrapper(metaCfg)
 	if err != nil {
-		fmt.Sprintf("init meta wrapper failed, err %s", err.Error())
+		fmt.Printf("init meta wrapper failed, err %s", err.Error())
 		return nil, ErrInternalServerError
 	}
 
@@ -81,7 +81,7 @@ func newVolume(ctx context.Context, name, owner string, addrs []string) (IVolume
 	}
 	ec, err := stream.NewExtentClient(ecCfg)
 	if err != nil {
-		fmt.Sprintf("init extent client failed, err %s", err.Error())
+		fmt.Printf("init extent client failed, err %s", err.Error())
 		return nil, ErrInternalServerError
 	}
 
