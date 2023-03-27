@@ -103,12 +103,23 @@ func (d *DriveNode) handleShare(c *rpc.Context) {
 				errCh <- err
 				return
 			}
+			sharedFileIno := uint64(0)
 			dirInfo, err := d.lookup(ctx, vol, rootIno, sharedFilePath)
-			if err != nil {
+			if err != nil && err != sdk.ErrNotFound {
 				errCh <- err
 				return
+			} else if err == sdk.ErrNotFound {
+				// if /.usr/share not exist, create it.
+				info, err := d.createFile(ctx, vol, rootIno, sharedFilePath)
+				if err != nil {
+					errCh <- err
+					return
+				}
+				sharedFileIno = info.Inode
+			} else {
+				sharedFileIno = dirInfo.Inode
 			}
-			if err = vol.SetXAttr(ctx, dirInfo.Inode, fmt.Sprintf("%s-%s", uid, args.Path), perm.perm); err != nil {
+			if err = vol.SetXAttr(ctx, sharedFileIno, fmt.Sprintf("%s-%s", uid, args.Path), perm.perm); err != nil {
 				errCh <- err
 			} else {
 				errCh <- nil
@@ -175,31 +186,29 @@ func (d *DriveNode) handleUnShare(c *rpc.Context) {
 	pool := taskpool.New(util.Min(n, maxTaskPoolSize), n)
 	errCh := make(chan error, n)
 	var (
-		wg     sync.WaitGroup
-		delKey []string
+		wg sync.WaitGroup
 	)
 	wg.Add(n)
 	for i := 0; i < n; i++ {
 		user := users[i]
-		delKey = append(delKey, fmt.Sprintf("%s%s", sharedPrefix, user))
+		sharedKey := fmt.Sprintf("%s%s", sharedPrefix, user)
 		pool.Run(func() {
 			defer wg.Done()
-			rootIno, vol, err := d.getRootInoAndVolume(ctx, user)
-			if err != nil {
-				if err == sdk.ErrNotFound {
-					errCh <- nil
-				} else {
-					errCh <- err
-				}
-				return
-			}
-			info, err := d.lookup(ctx, vol, rootIno, sharedFilePath)
-			if err != nil {
+			if err = vol.DeleteXAttr(ctx, dirInfo.Inode, sharedKey); err != nil {
+				span.Errorf("delete xattr key=%s path=%s error: %v", sharedKey, args.Path, err)
 				errCh <- err
 				return
 			}
-			err = vol.DeleteXAttr(ctx, info.Inode, fmt.Sprintf("%s-%s", uid, args.Path))
-			errCh <- err
+			errCh <- nil
+			rootIno, v, err := d.getRootInoAndVolume(ctx, user)
+			if err != nil {
+				return
+			}
+			info, err := d.lookup(ctx, v, rootIno, sharedFilePath)
+			if err != nil {
+				return
+			}
+			v.DeleteXAttr(ctx, info.Inode, fmt.Sprintf("%s-%s", uid, args.Path))
 			return
 		})
 	}
@@ -212,11 +221,6 @@ func (d *DriveNode) handleUnShare(c *rpc.Context) {
 		}
 	}
 
-	if err := vol.BatchDeleteXAttr(ctx, dirInfo.Inode, delKey); err != nil {
-		span.Errorf("batch delete xattr error: %v", err)
-		c.RespondError(err)
-		return
-	}
 	c.Respond()
 }
 
@@ -233,6 +237,11 @@ func (d *DriveNode) handleListShare(c *rpc.Context) {
 
 	dirInfo, err := d.lookup(ctx, vol, rootIno, sharedFilePath)
 	if err != nil {
+		if err == sdk.ErrNotFound {
+			// if not found /.usr/share, return empty
+			c.RespondJSON(ListShareResult{})
+			return
+		}
 		span.Errorf("lookup path=%s error: %v", sharedFilePath, err)
 		c.RespondError(err)
 		return
@@ -263,26 +272,55 @@ func (d *DriveNode) handleListShare(c *rpc.Context) {
 		})
 	}
 	n := len(sharedFileInfos)
+	if n == 0 {
+		c.RespondJSON(ListShareResult{})
+		return
+	}
 	pool := taskpool.New(util.Min(n, maxTaskPoolSize), n)
 	defer pool.Close()
 	wg.Add(n)
 	for i := 0; i < n; i++ {
 		fileInfo := &sharedFileInfos[i]
 		pool.Run(func() {
-			defer wg.Done()
-			rootIno, vol, err := d.getRootInoAndVolume(ctx, fileInfo.Owner)
+			needDel := false
+			defer func() {
+				if needDel {
+					vol.DeleteXAttr(ctx, dirInfo.Inode, fmt.Sprintf("%s-%s", uid, fileInfo.Path))
+				}
+				wg.Done()
+			}()
+			rootIno, v, err := d.getRootInoAndVolume(ctx, fileInfo.Owner)
 			if err != nil {
 				span.Errorf("get user(%s) info error: %v", fileInfo.Owner, err)
 				return
 			}
-			info, err := d.lookup(ctx, vol, rootIno, fileInfo.Path)
+			info, err := d.lookup(ctx, v, rootIno, fileInfo.Path)
 			if err != nil {
+				if err == sdk.ErrNotFound {
+					needDel = true
+				}
 				span.Errorf("lookup path=%s error: %v, owner=%s", fileInfo.Path, err, fileInfo.Owner)
 				return
 			}
-			inoInfo, err := vol.GetInode(ctx, info.Inode)
+			inoInfo, err := v.GetInode(ctx, info.Inode)
 			if err != nil {
+				if err == sdk.ErrNotFound {
+					needDel = true
+				}
 				span.Errorf("get inode path=%s error: %v", fileInfo.Path, err)
+				return
+			}
+			xattr, err := v.GetXAttr(ctx, info.Inode, fmt.Sprintf("%s%s", sharedPrefix, uid))
+			if err != nil {
+				if err == sdk.ErrNotFound {
+					needDel = true
+				}
+				span.Errorf("get xattr path=%s error: %v", fileInfo.Path, err)
+				return
+			}
+			if xattr == "" {
+				span.Errorf("get path=%s xattr key=%s, value is empty", fileInfo.Path, fmt.Sprintf("%s%s", sharedPrefix, uid))
+				needDel = true
 				return
 			}
 			fileInfo.ID = info.Inode
@@ -301,6 +339,7 @@ func (d *DriveNode) handleListShare(c *rpc.Context) {
 	var res ListShareResult
 	for _, f := range sharedFileInfos {
 		if f.ID == 0 {
+			// filter invalid info
 			continue
 		}
 		res.Files = append(res.Files, f)

@@ -16,6 +16,7 @@ package drive
 
 import (
 	"context"
+	"path/filepath"
 	"strings"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
@@ -81,6 +82,14 @@ type ArgsUnShare struct {
 	Users string `json:"users,omitempty"`
 }
 
+type ArgsGetProperties struct {
+	Path string `json:"path"`
+}
+
+type ArgsSetProperties struct {
+	Path string `json:"path"`
+}
+
 // DriveNode drive node.
 type DriveNode struct {
 	defaultVolume sdk.IVolume
@@ -135,6 +144,48 @@ func (d *DriveNode) lookup(ctx context.Context, vol sdk.IVolume, parentIno uint6
 			return
 		}
 		parentIno = info.Inode
+	}
+	return
+}
+
+func (d *DriveNode) createDir(ctx context.Context, vol sdk.IVolume, parentIno uint64, path string) (info *sdk.InodeInfo, err error) {
+	names := strings.Split(path, "/")
+	for _, name := range names {
+		if name == "" {
+			continue
+		}
+		info, err = vol.Mkdir(ctx, parentIno, name)
+		if err != nil && err != sdk.ErrExist {
+			return
+		} else if err == sdk.ErrExist {
+			dirInfo, e := vol.Lookup(ctx, parentIno, name)
+			if e != nil {
+				return nil, e
+			}
+			info, err = vol.GetInode(ctx, dirInfo.Inode)
+			if err != nil {
+				return
+			}
+			parentIno = dirInfo.Inode
+		} else {
+			parentIno = info.Inode
+		}
+	}
+	return
+}
+
+func (d *DriveNode) createFile(ctx context.Context, vol sdk.IVolume, parentIno uint64, path string) (info *sdk.InodeInfo, err error) {
+	dir, file := filepath.Split(path)
+	if file == "" {
+		return nil, sdk.ErrBadRequest
+	}
+	info, err = d.createDir(ctx, vol, parentIno, dir)
+	if err != nil {
+		return
+	}
+	info, err = vol.CreateFile(ctx, info.Inode, file)
+	if err != nil && err == sdk.ErrExist {
+		err = nil
 	}
 	return
 }
