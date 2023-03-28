@@ -34,6 +34,25 @@ const (
 	XAttrUserKey   = "users"
 )
 
+type (
+	aPath struct {
+		Path string `json:"path"`
+	}
+	aFileID struct {
+		FileID uint64 `json:"fileId"`
+	}
+	aOwner struct {
+		Owner string `json:"owner"`
+	}
+	oOwner struct {
+		Owner string `json:"owner,omitempty"`
+	}
+
+	aUploadID struct {
+		UpLoadID string `json:"uploadId"`
+	}
+)
+
 type FileInfo struct {
 	ID         uint64            `json:"id"`
 	Name       string            `json:"name"`

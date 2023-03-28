@@ -43,7 +43,19 @@ func (d *DriveNode) RegisterAPIRouters() *rpc.Router {
 
 	r.Handle(http.MethodGet, "/v1/files", d.handlerListDir, rpc.OptArgsQuery())
 	r.Handle(http.MethodPost, "/v1/files", d.mkDir, rpc.OptArgsQuery())
+
+	// file
+	r.Handle(http.MethodPut, "/v1/files/upload", d.handleFileUpload, rpc.OptArgsQuery())
+	r.Handle(http.MethodPost, "/v1/files/upload", d.handleFileUpload, rpc.OptArgsQuery())
+	r.Handle(http.MethodPut, "/v1/files/content", d.handleFileWrite, rpc.OptArgsQuery())
+	r.Handle(http.MethodGet, "/v1/files/content", d.handleFileDownload, rpc.OptArgsQuery())
+	r.Handle(http.MethodPost, "/v1/files/copy", d.handleFileCopy, rpc.OptArgsQuery())
 	r.Handle(http.MethodPost, "/v1/files/rename", d.rename, rpc.OptArgsQuery())
+	// file multipart
+	r.Handle(http.MethodPost, "/v1/files/multipart", d.handleMultipartUploads, rpc.OptArgsQuery())
+	r.Handle(http.MethodPut, "/v1/files/multipart", d.handleMultipartPart, rpc.OptArgsQuery())
+	r.Handle(http.MethodGet, "/v1/files/multipart", d.handleMultipartList, rpc.OptArgsQuery())
+	r.Handle(http.MethodDelete, "/v1/files/multipart", d.handleMultipartAbort, rpc.OptArgsQuery())
 
 	return r
 }
