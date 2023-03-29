@@ -22,12 +22,17 @@ import (
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/util/closer"
 	"github.com/cubefs/cubefs/blobstore/util/log"
+	"github.com/cubefs/cubefs/proto"
 )
 
 const (
+	headerRange = "Range"
+
 	headerRequestID = "x-cfa-request-id"
 	headerUserID    = "x-cfa-user-id"
 	headerSign      = "x-cfa-sign"
+
+	userPropertyPrefix = "x-cfa-meta-"
 
 	defaultCluster = "defaultCluster"
 	defaultVolume  = "defaultVolume"
@@ -55,28 +60,6 @@ func (u *UserID) Valid() bool {
 	return *u != ""
 }
 
-type (
-	aPath struct {
-		Path string `json:"path"`
-	}
-	aFileID struct {
-		FileID FileID `json:"fileId"`
-	}
-	oFileID struct {
-		FileID FileID `json:"fileId,omitempty"`
-	}
-	aOwner struct {
-		Owner UserID `json:"owner"`
-	}
-	oOwner struct {
-		Owner UserID `json:"owner,omitempty"`
-	}
-
-	aUploadID struct {
-		UploadID string `json:"uploadId"`
-	}
-)
-
 type FileInfo struct {
 	ID         uint64            `json:"id"`
 	Name       string            `json:"name"`
@@ -86,6 +69,23 @@ type FileInfo struct {
 	Mtime      int64             `json:"mtime"`
 	Atime      int64             `json:"atime"`
 	Properties map[string]string `json:"properties"`
+}
+
+func inode2file(ino *sdk.InodeInfo, name string, properties map[string]string) *FileInfo {
+	typ := "file"
+	if proto.IsDir(ino.Mode) {
+		typ = "dir"
+	}
+	return &FileInfo{
+		ID:         ino.Inode,
+		Name:       name,
+		Type:       typ,
+		Size:       int64(ino.Size),
+		Ctime:      ino.CreateTime.Unix(),
+		Mtime:      ino.ModifyTime.Unix(),
+		Atime:      ino.AccessTime.Unix(),
+		Properties: properties,
+	}
 }
 
 type SharedFileInfo struct {

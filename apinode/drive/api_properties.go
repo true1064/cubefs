@@ -16,13 +16,8 @@ package drive
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
-)
-
-const (
-	userPropertyPrefix = "x-cfa-meta-"
 )
 
 type GetPropertiesResult struct {
@@ -60,13 +55,7 @@ func (d *DriveNode) handleSetProperties(c *rpc.Context) {
 		c.RespondError(err)
 		return
 	}
-	xattrs := map[string]string{}
-	for key, values := range c.Request.Header {
-		if !strings.HasPrefix(key, userPropertyPrefix) {
-			continue
-		}
-		xattrs[strings.TrimPrefix(key, userPropertyPrefix)] = values[0]
-	}
+	xattrs := d.getProperties(c)
 	if err = vol.BatchSetXAttr(ctx, dirInfo.Inode, xattrs); err != nil {
 		span.Errorf("batch set xattr path=%s error: %v", args.Path, err)
 		c.RespondError(err)

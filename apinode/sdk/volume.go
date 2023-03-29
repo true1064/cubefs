@@ -42,7 +42,7 @@ type IVolume interface {
 	Rename(ctx context.Context, srcParIno, dstParIno uint64, srcName, destName string) error
 
 	// UploadFile file
-	UploadFile(req *UploadFileReq) (*InodeInfo, error)
+	UploadFile(ctx context.Context, req *UploadFileReq) (*InodeInfo, error)
 	WriteFile(ctx context.Context, ino, off, size uint64, body io.Reader) error
 	// ReadFile read() will make a rpc request to server, if n less than len(data), it means no more data
 	ReadFile(ctx context.Context, ino, off uint64, data []byte) (n int, err error)
@@ -271,7 +271,6 @@ func (v *volume) Rename(ctx context.Context, srcParIno, dstParIno uint64, srcNam
 }
 
 type UploadFileReq struct {
-	ctx    context.Context
 	ParIno uint64
 	Name   string
 	OldIno uint64
@@ -281,7 +280,7 @@ type UploadFileReq struct {
 
 const defaultFileMode = 0o644
 
-func (v *volume) UploadFile(req *UploadFileReq) (*InodeInfo, error) {
+func (v *volume) UploadFile(ctx context.Context, req *UploadFileReq) (*InodeInfo, error) {
 	oldIno, mode, err := v.mw.Lookup_ll(req.ParIno, req.Name)
 	if err != nil {
 		// todo log
@@ -325,7 +324,7 @@ func (v *volume) UploadFile(req *UploadFileReq) (*InodeInfo, error) {
 		}
 	}()
 
-	err = v.writeAt(req.ctx, tmpIno, 0, -1, req.Body)
+	err = v.writeAt(ctx, tmpIno, 0, -1, req.Body)
 	if err != nil {
 		return nil, err
 	}

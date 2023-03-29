@@ -17,6 +17,7 @@ package drive
 import (
 	"context"
 	"net/http"
+	"strings"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
@@ -80,6 +81,16 @@ func (*DriveNode) requestID(c *rpc.Context) string {
 func (*DriveNode) userID(c *rpc.Context) UserID {
 	uid, _ := c.Get(headerUserID)
 	return uid.(UserID)
+}
+
+func (*DriveNode) getProperties(c *rpc.Context) map[string]string {
+	properties := make(map[string]string)
+	for key, values := range c.Request.Header {
+		if strings.HasPrefix(key, userPropertyPrefix) {
+			properties[key[len(userPropertyPrefix):]] = values[0]
+		}
+	}
+	return properties
 }
 
 // span carry with request id firstly.

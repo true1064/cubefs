@@ -220,7 +220,6 @@ func (d *DriveNode) handleUnShare(c *rpc.Context) {
 				return
 			}
 			v.DeleteXAttr(ctx, info.Inode, fmt.Sprintf("%s-%s", uid, args.Path))
-			return
 		})
 	}
 	wg.Wait()
