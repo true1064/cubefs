@@ -34,22 +34,46 @@ const (
 	XAttrUserKey   = "users"
 )
 
+// TODO: defines inode in sdk.
+
+// Inode type of inode.
+type Inode uint64
+
+// Uint64 returns uint64.
+func (i Inode) Uint64() uint64 {
+	return uint64(i)
+}
+
+// FileID file id.
+type FileID = Inode
+
+// UserID user id.
+type UserID string
+
+// Valid return user id is empty or not.
+func (u *UserID) Valid() bool {
+	return *u != ""
+}
+
 type (
 	aPath struct {
 		Path string `json:"path"`
 	}
 	aFileID struct {
-		FileID uint64 `json:"fileId"`
+		FileID FileID `json:"fileId"`
+	}
+	oFileID struct {
+		FileID FileID `json:"fileId,omitempty"`
 	}
 	aOwner struct {
-		Owner string `json:"owner"`
+		Owner UserID `json:"owner"`
 	}
 	oOwner struct {
-		Owner string `json:"owner,omitempty"`
+		Owner UserID `json:"owner,omitempty"`
 	}
 
 	aUploadID struct {
-		UpLoadID string `json:"uploadId"`
+		UploadID string `json:"uploadId"`
 	}
 )
 
@@ -80,16 +104,10 @@ const (
 	maxTaskPoolSize = 8
 )
 
-type UserID string
-
-func (u *UserID) Valid() bool {
-	return *u != ""
-}
-
 type ArgsListDir struct {
 	Path   string `json:"path"`
 	Type   string `json:"type"`
-	Owner  string `json:"owner,omitempty"`
+	Owner  UserID `json:"owner,omitempty"`
 	Marker string `json:"marker,omitempty"`
 	Limit  int    `json:"limit"`
 	Filter string `json:"filter,omitempty"`
@@ -140,8 +158,8 @@ func New() *DriveNode {
 
 // get full path and volume by uid
 // filePath is an absolute of client
-func (d *DriveNode) getRootInoAndVolume(ctx context.Context, uid string) (uint64, sdk.IVolume, error) {
-	userRouter, err := d.GetUserRoute(ctx, UserID(uid))
+func (d *DriveNode) getRootInoAndVolume(ctx context.Context, uid UserID) (Inode, sdk.IVolume, error) {
+	userRouter, err := d.GetUserRoute(ctx, uid)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -153,35 +171,35 @@ func (d *DriveNode) getRootInoAndVolume(ctx context.Context, uid string) (uint64
 	if volume == nil {
 		return 0, nil, sdk.ErrNotFound
 	}
-	return uint64(userRouter.RootFileID), volume, nil
+	return userRouter.RootFileID, volume, nil
 }
 
-func (d *DriveNode) lookup(ctx context.Context, vol sdk.IVolume, parentIno uint64, path string) (info *sdk.DirInfo, err error) {
+func (d *DriveNode) lookup(ctx context.Context, vol sdk.IVolume, parentIno Inode, path string) (info *sdk.DirInfo, err error) {
 	names := strings.Split(path, "/")
 	for _, name := range names {
 		if name == "" {
 			continue
 		}
-		info, err = vol.Lookup(ctx, parentIno, name)
+		info, err = vol.Lookup(ctx, parentIno.Uint64(), name)
 		if err != nil {
 			return
 		}
-		parentIno = info.Inode
+		parentIno = Inode(info.Inode)
 	}
 	return
 }
 
-func (d *DriveNode) createDir(ctx context.Context, vol sdk.IVolume, parentIno uint64, path string) (info *sdk.InodeInfo, err error) {
+func (d *DriveNode) createDir(ctx context.Context, vol sdk.IVolume, parentIno Inode, path string) (info *sdk.InodeInfo, err error) {
 	names := strings.Split(path, "/")
 	for _, name := range names {
 		if name == "" {
 			continue
 		}
-		info, err = vol.Mkdir(ctx, parentIno, name)
+		info, err = vol.Mkdir(ctx, parentIno.Uint64(), name)
 		if err != nil && err != sdk.ErrExist {
 			return
 		} else if err == sdk.ErrExist {
-			dirInfo, e := vol.Lookup(ctx, parentIno, name)
+			dirInfo, e := vol.Lookup(ctx, parentIno.Uint64(), name)
 			if e != nil {
 				return nil, e
 			}
@@ -189,15 +207,15 @@ func (d *DriveNode) createDir(ctx context.Context, vol sdk.IVolume, parentIno ui
 			if err != nil {
 				return
 			}
-			parentIno = dirInfo.Inode
+			parentIno = Inode(dirInfo.Inode)
 		} else {
-			parentIno = info.Inode
+			parentIno = Inode(info.Inode)
 		}
 	}
 	return
 }
 
-func (d *DriveNode) createFile(ctx context.Context, vol sdk.IVolume, parentIno uint64, path string) (info *sdk.InodeInfo, err error) {
+func (d *DriveNode) createFile(ctx context.Context, vol sdk.IVolume, parentIno Inode, path string) (info *sdk.InodeInfo, err error) {
 	dir, file := filepath.Split(path)
 	if file == "" {
 		return nil, sdk.ErrBadRequest

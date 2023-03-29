@@ -51,7 +51,7 @@ func (d *DriveNode) handleShare(c *rpc.Context) {
 		c.RespondStatus(http.StatusBadRequest)
 		return
 	}
-	uid := string(d.userID(c))
+	uid := d.userID(c)
 
 	var (
 		perms  []userPerm
@@ -112,7 +112,7 @@ func (d *DriveNode) handleShare(c *rpc.Context) {
 		perm := perms[i]
 		pool.Run(func() {
 			defer wg.Done()
-			rootIno, vol, err := d.getRootInoAndVolume(ctx, perm.uid)
+			rootIno, vol, err := d.getRootInoAndVolume(ctx, UserID(perm.uid))
 			if err != nil {
 				errCh <- err
 				return
@@ -159,7 +159,7 @@ func (d *DriveNode) handleUnShare(c *rpc.Context) {
 		c.RespondStatus(http.StatusBadRequest)
 		return
 	}
-	uid := string(d.userID(c))
+	uid := d.userID(c)
 
 	rootIno, vol, err := d.getRootInoAndVolume(ctx, uid)
 	if err != nil {
@@ -211,7 +211,7 @@ func (d *DriveNode) handleUnShare(c *rpc.Context) {
 				return
 			}
 			errCh <- nil
-			rootIno, v, err := d.getRootInoAndVolume(ctx, user)
+			rootIno, v, err := d.getRootInoAndVolume(ctx, UserID(user))
 			if err != nil {
 				return
 			}
@@ -237,7 +237,7 @@ func (d *DriveNode) handleUnShare(c *rpc.Context) {
 
 func (d *DriveNode) handleListShare(c *rpc.Context) {
 	ctx, span := d.ctxSpan(c)
-	uid := string(d.userID(c))
+	uid := d.userID(c)
 
 	rootIno, vol, err := d.getRootInoAndVolume(ctx, uid)
 	if err != nil {
@@ -300,7 +300,7 @@ func (d *DriveNode) handleListShare(c *rpc.Context) {
 				}
 				wg.Done()
 			}()
-			rootIno, v, err := d.getRootInoAndVolume(ctx, fileInfo.Owner)
+			rootIno, v, err := d.getRootInoAndVolume(ctx, UserID(fileInfo.Owner))
 			if err != nil {
 				span.Errorf("get user(%s) info error: %v", fileInfo.Owner, err)
 				return
@@ -358,8 +358,8 @@ func (d *DriveNode) handleListShare(c *rpc.Context) {
 	c.RespondJSON(res)
 }
 
-func (d *DriveNode) verifyPerm(ctx context.Context, vol sdk.IVolume, ino uint64, uid string, perm string) error {
-	val, err := vol.GetXAttr(ctx, ino, fmt.Sprintf("%s%s", sharedPrefix, uid))
+func (d *DriveNode) verifyPerm(ctx context.Context, vol sdk.IVolume, ino Inode, uid UserID, perm string) error {
+	val, err := vol.GetXAttr(ctx, ino.Uint64(), fmt.Sprintf("%s%s", sharedPrefix, uid))
 	if err != nil {
 		return err
 	}

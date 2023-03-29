@@ -21,8 +21,8 @@ import (
 // ArgsFileUpload file upload argument.
 type ArgsFileUpload struct {
 	aPath
-	aFileID
-	aOwner
+	oFileID
+	oOwner
 }
 
 func (d *DriveNode) handleFileUpload(c *rpc.Context) {
@@ -34,6 +34,12 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 		c.RespondError(err)
 		return
 	}
+
+	uid := args.Owner
+	if !uid.Valid() {
+		uid = d.userID(c)
+	}
+
 	c.Respond()
 }
 

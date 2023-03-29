@@ -41,12 +41,7 @@ func (d *DriveNode) mkDir(c *rpc.Context) {
 		return
 	}
 
-	uid := string(d.userID(c))
-	if uid == "" {
-		c.RespondStatus(http.StatusBadRequest)
-		return
-	}
-
+	uid := d.userID(c)
 	inode, vol, err := d.getRootInoAndVolume(ctx, uid)
 	if err != nil {
 		span.Errorf("Failed to get volume: %v", err)
@@ -54,7 +49,7 @@ func (d *DriveNode) mkDir(c *rpc.Context) {
 		return
 	}
 
-	_, err = vol.Mkdir(ctx, inode, args.Path)
+	_, err = vol.Mkdir(ctx, inode.Uint64(), args.Path)
 	if err != nil {
 		c.RespondError(err)
 		return
@@ -70,12 +65,7 @@ func (d *DriveNode) rename(c *rpc.Context) {
 		return
 	}
 
-	uid := string(d.userID(c))
-	if uid == "" {
-		c.RespondStatus(http.StatusBadRequest)
-		return
-	}
-
+	uid := d.userID(c)
 	inode, vol, err := d.getRootInoAndVolume(ctx, uid)
 	if err != nil {
 		span.Errorf("Failed to get volume: %v", err)
@@ -91,7 +81,7 @@ func (d *DriveNode) rename(c *rpc.Context) {
 	// todo: need modify
 	srcPath := path.Join(userRouter.RootPath, args.Src)
 	destPath := path.Join(userRouter.RootPath, args.Dest)
-	err = vol.Rename(ctx, inode, inode, srcPath, destPath)
+	err = vol.Rename(ctx, inode.Uint64(), inode.Uint64(), srcPath, destPath)
 	if err != nil {
 		c.RespondError(err)
 		return

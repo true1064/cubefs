@@ -38,7 +38,7 @@ type GetPropertiesResult struct {
 
 func (d *DriveNode) handleSetProperties(c *rpc.Context) {
 	ctx, span := d.ctxSpan(c)
-	uid := string(d.userID(c))
+	uid := d.userID(c)
 
 	args := new(ArgsSetProperties)
 	if err := c.ParseArgs(args); err != nil {
@@ -77,7 +77,7 @@ func (d *DriveNode) handleSetProperties(c *rpc.Context) {
 
 func (d *DriveNode) handleGetProperties(c *rpc.Context) {
 	ctx, span := d.ctxSpan(c)
-	uid := string(d.userID(c))
+	uid := d.userID(c)
 
 	args := new(ArgsSetProperties)
 	if err := c.ParseArgs(args); err != nil {

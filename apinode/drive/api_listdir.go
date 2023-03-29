@@ -161,7 +161,7 @@ func (d *DriveNode) handlerListDir(c *rpc.Context) {
 		return
 	}
 
-	uid := string(d.userID(c))
+	uid := d.userID(c)
 	if uid == "" {
 		c.RespondStatus(http.StatusBadRequest)
 		return
@@ -182,7 +182,7 @@ func (d *DriveNode) handlerListDir(c *rpc.Context) {
 	}
 
 	var (
-		rootIno uint64
+		rootIno Inode
 		vol     sdk.IVolume
 		err     error
 	)
@@ -213,7 +213,7 @@ func (d *DriveNode) handlerListDir(c *rpc.Context) {
 
 	if owner != "" {
 		// if has owner, we should verify perm
-		if err = d.verifyPerm(ctx, vol, dirInodeInfo.Inode, uid, readOnlyPerm); err != nil {
+		if err = d.verifyPerm(ctx, vol, Inode(dirInodeInfo.Inode), uid, readOnlyPerm); err != nil {
 			span.Errorf("verify perm error: %v, path=%s uid=%s", err, path, uid)
 			c.RespondError(err)
 			return

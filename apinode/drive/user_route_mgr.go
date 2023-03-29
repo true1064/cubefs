@@ -36,7 +36,7 @@ type UserRoute struct {
 	DriveID     int    `json:"driveId"`
 	Capacity    uint64 `json:"capacity"`
 	RootPath    string `json:"rootPath"`
-	RootFileID  int64  `json:"rootFileId"`
+	RootFileID  FileID `json:"rootFileId"`
 	Ctime       int64  `json:"ctime"`
 	Params      string `json:"params"` // cfs
 }
@@ -269,7 +269,7 @@ func (d *DriveNode) AddPath(ctx context.Context, uid UserID, args *ArgsPath) (er
 
 func (d *DriveNode) writePath(ctx context.Context, path, attrKey string, ur *UserRoute) (err error) {
 	vol := d.clusterMgr.GetCluster(ur.ClusterID).GetVol(ur.VolumeID)
-	cf, err := d.lookup(ctx, vol, uint64(ur.RootFileID), userConfigPath)
+	cf, err := d.lookup(ctx, vol, ur.RootFileID, userConfigPath)
 	if err != nil {
 		return
 	}
