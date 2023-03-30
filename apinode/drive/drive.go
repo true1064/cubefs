@@ -16,6 +16,7 @@ package drive
 
 import (
 	"context"
+	"encoding/json"
 	"path/filepath"
 	"strings"
 
@@ -142,18 +143,25 @@ type DriveNode struct {
 
 // New returns a drive node.
 func New() *DriveNode {
+	ctx := context.Background()
 	cm := sdk.NewClusterMgr()
 	vol := cm.GetCluster(defaultCluster).GetVol(defaultVolume)
 	urm, err := NewUserRouteMgr()
 	if err != nil {
 		log.Fatal(err)
 	}
-	return &DriveNode{
+	d := &DriveNode{
 		defaultVolume: vol,
 		userRouter:    urm,
 		clusterMgr:    cm,
 		Closer:        closer.New(),
 	}
+	err = d.initClusterAlloc(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return d
 }
 
 // get full path and volume by uid
@@ -227,6 +235,31 @@ func (d *DriveNode) createFile(ctx context.Context, vol sdk.IVolume, parentIno I
 	info, err = vol.CreateFile(ctx, info.Inode, file)
 	if err != nil && err == sdk.ErrExist {
 		err = nil
+	}
+	return
+}
+
+func (d *DriveNode) initClusterAlloc(ctx context.Context) (err error) {
+	ca := make(map[string]VolumeAlloc)
+	clusterVols := d.getClusterAndVolumes()
+	for c, vols := range clusterVols {
+		va := make(VolumeAlloc)
+		for _, v := range vols {
+			va[v] = 0
+		}
+		ca[c] = va
+	}
+	b, err := json.Marshal(ca)
+	if err != nil {
+		return
+	}
+	fileInfo, err := d.lookup(ctx, d.defaultVolume, 0, volAllocPath)
+	if err != nil {
+		return
+	}
+	err = d.defaultVolume.SetXAttr(ctx, fileInfo.Inode, "clusters", string(b))
+	if err != nil {
+		return
 	}
 	return
 }

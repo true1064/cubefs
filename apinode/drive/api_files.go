@@ -34,7 +34,7 @@ type ArgsRename struct {
 
 // POST /v1/files?path=/abc&type=folder&recursive=bool
 func (d *DriveNode) mkDir(c *rpc.Context) {
-	ctx, span := d.ctxSpan(c)
+	ctx, _ := d.ctxSpan(c)
 	args := new(ArgsMkDir)
 	if err := c.ParseArgs(args); err != nil {
 		c.RespondStatus(http.StatusBadRequest)
@@ -44,7 +44,6 @@ func (d *DriveNode) mkDir(c *rpc.Context) {
 	uid := d.userID(c)
 	inode, vol, err := d.getRootInoAndVolume(ctx, uid)
 	if err != nil {
-		span.Errorf("Failed to get volume: %v", err)
 		c.RespondError(err)
 		return
 	}
@@ -56,9 +55,9 @@ func (d *DriveNode) mkDir(c *rpc.Context) {
 	}
 }
 
-// POST /v1/files/rename?src=/abc&dst=/hello
+// POST /v1/files/rename?src=/abc/hello/file1.json&dst=/abc/file1.json
 func (d *DriveNode) rename(c *rpc.Context) {
-	ctx, span := d.ctxSpan(c)
+	ctx, _ := d.ctxSpan(c)
 	args := new(ArgsRename)
 	if err := c.ParseArgs(args); err != nil {
 		c.RespondStatus(http.StatusBadRequest)
@@ -66,22 +65,28 @@ func (d *DriveNode) rename(c *rpc.Context) {
 	}
 
 	uid := d.userID(c)
-	inode, vol, err := d.getRootInoAndVolume(ctx, uid)
+
+	ur, err := d.GetUserRoute(ctx, uid)
 	if err != nil {
-		span.Errorf("Failed to get volume: %v", err)
 		c.RespondError(err)
 		return
 	}
 
-	userRouter, err := d.GetUserRoute(ctx, UserID(uid))
+	vol := d.clusterMgr.GetCluster(ur.ClusterID).GetVol(ur.VolumeID)
+	srcDir := path.Dir(path.Join(ur.RootPath, args.Src))
+	srcParInfo, err := d.lookup(ctx, vol, 0, srcDir)
 	if err != nil {
 		c.RespondError(err)
 		return
 	}
-	// todo: need modify
-	srcPath := path.Join(userRouter.RootPath, args.Src)
-	destPath := path.Join(userRouter.RootPath, args.Dest)
-	err = vol.Rename(ctx, inode.Uint64(), inode.Uint64(), srcPath, destPath)
+	destDir := path.Dir(path.Join(ur.RootPath, args.Dest))
+	destParInfo, err := d.lookup(ctx, vol, 0, destDir)
+	if err != nil {
+		c.RespondError(err)
+		return
+	}
+
+	err = vol.Rename(ctx, srcParInfo.Inode, destParInfo.Inode, path.Base(args.Src), path.Base(args.Dest))
 	if err != nil {
 		c.RespondError(err)
 		return

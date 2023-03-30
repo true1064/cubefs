@@ -18,6 +18,8 @@ import (
 	"context"
 	"strconv"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestDriveNode_CreateUserSpace(t *testing.T) {
@@ -53,4 +55,16 @@ func TestHash(t *testing.T) {
 		}
 	}
 	t.Log(l1Nums, l2Nums)
+}
+
+func TestAssignVolume(t *testing.T) {
+	ctx := context.Background()
+	volumeCli := MockVolumeCli(t)
+	// cm := MockClusterCli(t)
+	d := DriveNode{
+		defaultVolume: volumeCli,
+	}
+	cid, vid, err := d.assignVolume(ctx)
+	t.Log(cid, vid)
+	require.NoError(t, err)
 }

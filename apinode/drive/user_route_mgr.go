@@ -53,6 +53,10 @@ type UserConfig struct {
 	FilePaths map[string]ConfigEntry `json:"filePaths"` // cloud file paths
 }
 
+type VolumeAlloc map[string]int
+
+type ClusterAlloc map[string]VolumeAlloc
+
 const (
 	typeDir           = 1
 	typeFile          = 2
@@ -62,15 +66,18 @@ const (
 	hashUserRoute     = 5
 	defaultCacheSize  = 1 << 17
 	ReportIntervalSec = 600
+	VolMaxUserCount   = 1024 * 2048 // A volume can be assigned to up to so many users
 	attrKeyFilePaths  = "filePaths"
 	attrKeyDirPaths   = "dirPaths"
 	userConfigPath    = "/.user/config"
+	volAllocPath      = "/user/alloc" // default cluster store each volume alloc numbers
 )
 
 var (
 	ErrUidNotExist = errors.New("uid is not exist")
 	ErrUidIsExist  = errors.New("uid is exist")
 	ErrUidInvalid  = errors.New("uid is invalid")
+	ErrNoCluster   = errors.New("no cluster available")
 )
 
 type userRouteMgr struct {
@@ -129,16 +136,19 @@ func (m *userRouteMgr) loopReportCapacityToCloud() {
 
 func (d *DriveNode) CreateUserRoute(ctx context.Context, uid UserID) (err error) {
 	// 1.todo: Applying space from the cloud service, need cloudKit sdk
+	// 向云服务这边预分配空间的逻辑也可以在实际有上传的时候再去申请一批空间，避免长时间没有上传的占用
 	capacity := uint64(100)
 
-	// 2.todo: Apply to cfs for cluster and volume information
-	clusterid, volumeid := "1", "101"
+	// 2.Assign clusters and volumes to users
+	clusterid, volumeid, err := d.assignVolume(ctx)
+	if err != nil {
+		return
+	}
+	// 3.Locate the user file of the default cluster according to the hash of uid
 	rootPath, err := getRootPath(uid)
 	if err != nil {
 		return err
 	}
-
-	// 3.Locate the user file of the default cluster according to the hash of uid
 	ur := &UserRoute{
 		Uid:       uid,
 		ClusterID: clusterid,
@@ -157,6 +167,82 @@ func (d *DriveNode) CreateUserRoute(ctx context.Context, uid UserID) (err error)
 	d.userRouter.CacheSet(uid, ur)
 
 	return
+}
+
+// There may be a problem of inaccurate count here. cfs does not support distributed file locking.
+// There is only increment here, and it is not so accurate.
+func (d *DriveNode) assignVolume(ctx context.Context) (clusterid, volumeid string, err error) {
+	fileInfo, err := d.lookup(ctx, d.defaultVolume, 0, volAllocPath)
+	if err != nil {
+		return
+	}
+	clusters, err := d.defaultVolume.GetXAttr(ctx, fileInfo.Inode, "clusters")
+	if err != nil {
+		return
+	}
+	ca := make(map[string]VolumeAlloc)
+	err = json.Unmarshal([]byte(clusters), &ca)
+	if err != nil {
+		return
+	}
+	if len(ca) == 0 {
+		return "", "", ErrNoCluster
+	}
+
+ALLOC:
+	for cluster, va := range ca {
+		for vid, count := range va {
+			if count < VolMaxUserCount {
+				clusterid = cluster
+				volumeid = vid
+				count += 1
+				ca[cluster][vid] = count
+				b, err := json.Marshal(ca)
+				if err != nil {
+					return "", "", err
+				}
+				err = d.defaultVolume.SetXAttr(ctx, fileInfo.Inode, "clusters", string(b))
+				if err != nil {
+					return "", "", err
+				}
+			}
+		}
+	}
+	var update bool
+	if clusterid == "" {
+		clusterVols := d.getClusterAndVolumes()
+		for c, vols := range clusterVols {
+			if _, ok := ca[c]; !ok {
+				update = true
+				va := make(VolumeAlloc)
+				for _, v := range vols {
+					va[v] = 0
+				}
+				ca[c] = va
+			}
+		}
+		if update {
+			goto ALLOC
+		}
+		if !update {
+			return "", "", ErrNoCluster
+		}
+	}
+	return
+}
+
+func (d *DriveNode) getClusterAndVolumes() map[string][]string {
+	clusterVols := make(map[string][]string)
+	clusters := d.clusterMgr.ListCluster()
+	for _, c := range clusters {
+		vols := d.clusterMgr.GetCluster(c.Cid).ListVols()
+		volNames := make([]string, 0)
+		for _, v := range vols {
+			volNames = append(volNames, v.Name)
+		}
+		clusterVols[c.Cid] = volNames
+	}
+	return clusterVols
 }
 
 func (d *DriveNode) setUserRouteToFile(ctx context.Context, uid UserID, ur *UserRoute) (err error) {
