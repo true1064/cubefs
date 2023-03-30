@@ -106,7 +106,7 @@ func (d *DriveNode) GetUserRoute(ctx context.Context, uid UserID) (ur *UserRoute
 }
 
 func NewUserRouteMgr() (*userRouteMgr, error) {
-	lruCache, err := memcache.NewMemCache(context.Background(), defaultCacheSize)
+	lruCache, err := memcache.NewMemCache(defaultCacheSize)
 	if err != nil {
 		return nil, err
 	}
