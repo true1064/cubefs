@@ -58,7 +58,7 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 	}
 
 	dir, filename := args.Path.Split()
-	info, err := d.createDir(ctx, vol, root, dir.String())
+	info, err := d.createDir(ctx, vol, root, dir.String(), true)
 	if err != nil {
 		c.RespondError(err)
 		return

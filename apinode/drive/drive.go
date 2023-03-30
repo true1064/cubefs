@@ -243,38 +243,37 @@ func (d *DriveNode) lookup(ctx context.Context, vol sdk.IVolume, parentIno Inode
 	return
 }
 
-func (d *DriveNode) createDir(ctx context.Context, vol sdk.IVolume, parentIno Inode, path string) (info *sdk.InodeInfo, err error) {
-	names := strings.Split(path, "/")
-	for _, name := range names {
-		if name == "" {
-			continue
-		}
-		info, err = vol.Mkdir(ctx, parentIno.Uint64(), name)
-		if err != nil && err != sdk.ErrExist {
-			return
-		} else if err == sdk.ErrExist {
-			dirInfo, e := vol.Lookup(ctx, parentIno.Uint64(), name)
-			if e != nil {
-				return nil, e
-			}
-			info, err = vol.GetInode(ctx, dirInfo.Inode)
-			if err != nil {
+func (d *DriveNode) createDir(ctx context.Context, vol sdk.IVolume, parentIno uint64, path string, recursive bool) (info *sdk.InodeInfo, err error) {
+	var dirInfo *sdk.DirInfo
+	names := strings.Split(filepath.Clean(path), "/")
+	for i, name := range names {
+		dirInfo, err = vol.Lookup(ctx, parentIno, name)
+		if err != nil {
+			if err != sdk.ErrNotFound {
 				return
 			}
-			parentIno = Inode(dirInfo.Inode)
-		} else {
-			parentIno = Inode(info.Inode)
+			if i != len(names)-1 && !recursive {
+				err = sdk.ErrNotFound
+				return
+			}
+			info, err = vol.Mkdir(ctx, parentIno, name)
+			if err != nil {
+				return nil, err
+			}
+			parentIno = info.Inode
+			continue
 		}
+		if !dirInfo.IsDir() {
+			return nil, sdk.ErrConflict
+		}
+		parentIno = dirInfo.Inode
 	}
 	return
 }
 
-func (d *DriveNode) createFile(ctx context.Context, vol sdk.IVolume, parentIno Inode, path string) (info *sdk.InodeInfo, err error) {
-	dir, file := filepath.Split(path)
-	if file == "" {
-		return nil, sdk.ErrBadRequest
-	}
-	info, err = d.createDir(ctx, vol, parentIno, dir)
+func (d *DriveNode) createFile(ctx context.Context, vol sdk.IVolume, parentIno uint64, path string) (info *sdk.InodeInfo, err error) {
+	dir, file := filepath.Split(filepath.Clean(path))
+	info, err = d.createDir(ctx, vol, parentIno, dir, true)
 	if err != nil {
 		return
 	}
