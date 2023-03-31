@@ -20,6 +20,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/cubefs/cubefs/apinode/sdk/impl"
+
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/util/closer"
 	"github.com/cubefs/cubefs/blobstore/util/log"
@@ -144,7 +146,7 @@ type DriveNode struct {
 // New returns a drive node.
 func New() *DriveNode {
 	ctx := context.Background()
-	cm := sdk.NewClusterMgr()
+	cm := impl.NewClusterMgr()
 	vol := cm.GetCluster(defaultCluster).GetVol(defaultVolume)
 	urm, err := NewUserRouteMgr()
 	if err != nil {

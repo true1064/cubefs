@@ -95,7 +95,7 @@ func (mr *MockIVolumeMockRecorder) BatchSetXAttr(arg0, arg1, arg2 interface{}) *
 }
 
 // CompleteMultiPart mocks base method.
-func (m *MockIVolume) CompleteMultiPart(arg0 context.Context, arg1, arg2 string, arg3 uint64, arg4 []sdk.Part) error {
+func (m *MockIVolume) CompleteMultiPart(arg0 context.Context, arg1, arg2 string, arg3 uint64, arg4 []proto.MultipartPartInfo) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CompleteMultiPart", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(error)
@@ -241,10 +241,10 @@ func (mr *MockIVolumeMockRecorder) InitMultiPart(arg0, arg1, arg2, arg3 interfac
 }
 
 // ListMultiPart mocks base method.
-func (m *MockIVolume) ListMultiPart(arg0 context.Context, arg1, arg2 string, arg3, arg4 uint64) ([]*sdk.Part, uint64, bool, error) {
+func (m *MockIVolume) ListMultiPart(arg0 context.Context, arg1, arg2 string, arg3, arg4 uint64) ([]*proto.MultipartPartInfo, uint64, bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListMultiPart", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].([]*sdk.Part)
+	ret0, _ := ret[0].([]*proto.MultipartPartInfo)
 	ret1, _ := ret[1].(uint64)
 	ret2, _ := ret[2].(bool)
 	ret3, _ := ret[3].(error)
@@ -390,18 +390,18 @@ func (mr *MockIVolumeMockRecorder) StatFs(arg0, arg1 interface{}) *gomock.Call {
 }
 
 // UploadFile mocks base method.
-func (m *MockIVolume) UploadFile(arg0 context.Context, arg1 *sdk.UploadFileReq) (*proto.InodeInfo, error) {
+func (m *MockIVolume) UploadFile(arg0 *sdk.UploadFileReq) (*proto.InodeInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UploadFile", arg0, arg1)
+	ret := m.ctrl.Call(m, "UploadFile", arg0)
 	ret0, _ := ret[0].(*proto.InodeInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UploadFile indicates an expected call of UploadFile.
-func (mr *MockIVolumeMockRecorder) UploadFile(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockIVolumeMockRecorder) UploadFile(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UploadFile", reflect.TypeOf((*MockIVolume)(nil).UploadFile), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UploadFile", reflect.TypeOf((*MockIVolume)(nil).UploadFile), arg0)
 }
 
 // UploadMultiPart mocks base method.

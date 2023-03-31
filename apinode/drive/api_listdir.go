@@ -23,9 +23,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/cubefs/blobstore/util/taskpool"
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
+	"github.com/cubefs/cubefs/blobstore/util/taskpool"
 	"github.com/cubefs/cubefs/util"
 )
 

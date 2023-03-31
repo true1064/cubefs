@@ -19,6 +19,8 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/cubefs/cubefs/apinode/sdk/impl"
+
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/apinode/testing/mocks"
 	"github.com/golang/mock/gomock"
@@ -38,7 +40,7 @@ func MockVolumeCli(tb testing.TB) sdk.IVolume {
 
 func MockClusterCli(tb testing.TB) sdk.ClusterManager {
 	ctx := context.Background()
-	nc := sdk.NewClusterMgr()
+	nc := impl.NewClusterMgr()
 	err := nc.AddCluster(ctx, "cid1", "host1")
 	if err != nil {
 		tb.Log(err)

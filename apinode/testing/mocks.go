@@ -16,7 +16,8 @@
 package testing
 
 //go:generate mockgen -destination=./mocks/api_volume.go -package=mocks -mock_names IVolumeAPI=MockIVolumeAPI github.com/cubefs/cubefs/apinode/sdk IVolume
-//go:generate mockgen -destination=./mocks/api_cluster.go -package=mocks -mock_names ClusterManagerAPI=MockClusterManagerAPI github.com/cubefs/cubefs/apinode/sdk ClusterManager
+//go:generate mockgen -destination=./mocks/api_cluster_mgr.go -package=mocks -mock_names ClusterManagerAPI=MockClusterManagerAPI github.com/cubefs/cubefs/apinode/sdk ClusterManager
+//go:generate mockgen -destination=./mocks/api_cluster.go -package=mocks -mock_names ClusterAPI=MockClusterAPI github.com/cubefs/cubefs/apinode/sdk ICluster
 
 import (
 	// add package to go.mod for `go generate`

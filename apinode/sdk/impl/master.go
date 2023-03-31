@@ -1,25 +1,16 @@
-package sdk
+package impl
 
 import (
-	"github.com/cubefs/cubefs/proto"
+	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/sdk/master"
 )
-
-type IMaster interface {
-	AdminApi
-}
-
-type AdminApi interface {
-	GetClusterIP() (cp *proto.ClusterIP, err error)
-	ListVols(keywords string) (volsInfo []*proto.VolInfo, err error)
-}
 
 type MasterApi struct {
 	//*master.MasterClient
 	*master.AdminAPI
 }
 
-func newSdkMasterCli(addr string) IMaster {
+func newSdkMasterCli(addr string) sdk.IMaster {
 	masterCli := master.NewMasterClientFromString(addr, false)
 	m := &MasterApi{
 		masterCli.AdminAPI(),
@@ -34,8 +25,8 @@ func masterToSdkErr(err error) error {
 	}
 
 	if err == master.ErrNoValidMaster {
-		return ErrNoMaster
+		return sdk.ErrNoMaster
 	}
 
-	return ErrInternalServerError
+	return sdk.ErrInternalServerError
 }

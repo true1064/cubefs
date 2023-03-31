@@ -1,20 +1,13 @@
-package sdk
+package impl
 
 import (
 	"context"
 	"fmt"
 	"sync"
 	"time"
-)
 
-type ICluster interface {
-	GetVol(name string) IVolume
-	// ListVols caller should cache result
-	ListVols() []*VolInfo
-	Info() *ClusterInfo
-	addr() string
-	updateAddr(ctx context.Context, addr string) error
-}
+	"github.com/cubefs/cubefs/apinode/sdk"
+)
 
 // test can reset newMaster func
 var newMaster = newSdkMasterCli
@@ -23,20 +16,20 @@ type cluster struct {
 	masterAddr string
 	clusterId  string
 
-	cli IMaster
+	cli sdk.IMaster
 
 	volLk  sync.RWMutex
-	volMap map[string]IVolume
-	newVol func(ctx context.Context, cli IMaster, name, owner string) (IVolume, error)
+	volMap map[string]sdk.IVolume
+	newVol func(ctx context.Context, cli sdk.IMaster, name, owner string) (sdk.IVolume, error)
 }
 
-func newCluster(ctx context.Context, addr, cId string) (ICluster, error) {
+func newCluster(ctx context.Context, addr, cId string) (sdk.ICluster, error) {
 	cl := &cluster{
 		masterAddr: addr,
 		clusterId:  cId,
 	}
 
-	cl.volMap = make(map[string]IVolume)
+	cl.volMap = make(map[string]sdk.IVolume)
 
 	cli, err := initMasterCli(ctx, cId, addr)
 	if err != nil {
@@ -57,31 +50,26 @@ func newCluster(ctx context.Context, addr, cId string) (ICluster, error) {
 	return cl, nil
 }
 
-type ClusterInfo struct {
-	Cid string
-	// extend
-}
-
-func (c *cluster) Info() *ClusterInfo {
-	ci := &ClusterInfo{
+func (c *cluster) Info() *sdk.ClusterInfo {
+	ci := &sdk.ClusterInfo{
 		Cid: c.clusterId,
 	}
 
 	return ci
 }
 
-func (c *cluster) GetVol(name string) IVolume {
+func (c *cluster) GetVol(name string) sdk.IVolume {
 	c.volLk.RLock()
 	defer c.volLk.RUnlock()
 
 	return c.volMap[name]
 }
 
-func (c *cluster) ListVols() []*VolInfo {
+func (c *cluster) ListVols() []*sdk.VolInfo {
 	c.volLk.RLock()
 	defer c.volLk.RUnlock()
 
-	infos := make([]*VolInfo, 0, len(c.volMap))
+	infos := make([]*sdk.VolInfo, 0, len(c.volMap))
 	for _, v := range c.volMap {
 		infos = append(infos, v.Info())
 	}
@@ -89,19 +77,19 @@ func (c *cluster) ListVols() []*VolInfo {
 	return infos
 }
 
-func (c *cluster) putVol(name string, vol IVolume) {
+func (c *cluster) putVol(name string, vol sdk.IVolume) {
 	c.volLk.Lock()
 	defer c.volLk.Unlock()
 
 	c.volMap[name] = vol
 }
 
-func (c *cluster) addr() string {
+func (c *cluster) Addr() string {
 	return c.masterAddr
 }
 
 // updateAddr need check whether newAddr is valid
-func (c *cluster) updateAddr(ctx context.Context, addr string) error {
+func (c *cluster) UpdateAddr(ctx context.Context, addr string) error {
 	_, err := initMasterCli(ctx, c.clusterId, addr)
 	if err != nil {
 		return err
@@ -111,7 +99,7 @@ func (c *cluster) updateAddr(ctx context.Context, addr string) error {
 	return nil
 }
 
-func initMasterCli(ctx context.Context, cId, addr string) (IMaster, error) {
+func initMasterCli(ctx context.Context, cId, addr string) (sdk.IMaster, error) {
 	cli := newMaster(addr)
 	info, err := cli.GetClusterIP()
 	if err != nil {
@@ -121,7 +109,7 @@ func initMasterCli(ctx context.Context, cId, addr string) (IMaster, error) {
 
 	if cId != info.Cluster {
 		fmt.Printf("clusterId is not valid, local %s, right %s", cId, info.Cluster)
-		return nil, ErrBadRequest
+		return nil, sdk.ErrBadRequest
 	}
 
 	return cli, nil

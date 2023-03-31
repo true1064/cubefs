@@ -21,9 +21,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/cubefs/blobstore/util/taskpool"
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
+	"github.com/cubefs/cubefs/blobstore/util/taskpool"
 	"github.com/cubefs/cubefs/util"
 )
 
@@ -124,9 +124,9 @@ func (d *DriveNode) handleShare(c *rpc.Context) {
 				return
 			} else if err == sdk.ErrNotFound {
 				// if /.usr/share not exist, create it.
-				info, err := d.createFile(ctx, vol, rootIno, sharedFilePath)
-				if err != nil {
-					errCh <- err
+				info, err1 := d.createFile(ctx, vol, rootIno, sharedFilePath)
+				if err1 != nil {
+					errCh <- err1
 					return
 				}
 				sharedFileIno = info.Inode
@@ -175,7 +175,8 @@ func (d *DriveNode) handleUnShare(c *rpc.Context) {
 	}
 	var users []string
 	if args.Users == "" {
-		xattrs, err := vol.GetXAttrMap(ctx, dirInfo.Inode)
+		var xattrs map[string]string
+		xattrs, err = vol.GetXAttrMap(ctx, dirInfo.Inode)
 		if err != nil {
 			span.Errorf("get xattr error: %v, path: %s", err, args.Path)
 			c.RespondError(err)

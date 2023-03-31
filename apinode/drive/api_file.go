@@ -64,7 +64,8 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 	}
 
 	extend := d.getProperties(c)
-	inode, err := vol.UploadFile(ctx, &sdk.UploadFileReq{
+	inode, err := vol.UploadFile(&sdk.UploadFileReq{
+		Ctx:    ctx,
 		ParIno: info.Inode,
 		Name:   filename,
 		OldIno: uint64(args.FileID),
