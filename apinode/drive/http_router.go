@@ -29,6 +29,15 @@ func (d *DriveNode) RegisterAPIRouters() *rpc.Router {
 	rpc.RegisterArgsParser(&ArgsListDir{}, "json")
 	rpc.RegisterArgsParser(&ArgsPath{}, "json")
 
+	rpc.RegisterArgsParser(&ArgsFileUpload{}, "json")
+	rpc.RegisterArgsParser(&ArgsFileWrite{}, "json")
+	rpc.RegisterArgsParser(&ArgsFileDownload{}, "json")
+
+	rpc.RegisterArgsParser(&ArgsMPUploads{}, "json")
+	rpc.RegisterArgsParser(&ArgsMPUpload{}, "json")
+	rpc.RegisterArgsParser(&ArgsMPList{}, "json")
+	rpc.RegisterArgsParser(&ArgsMPAbort{}, "json")
+
 	r := rpc.New()
 
 	// set request id and user id at interceptors.
