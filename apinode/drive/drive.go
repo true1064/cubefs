@@ -27,6 +27,8 @@ import (
 	"github.com/cubefs/cubefs/blobstore/util/closer"
 	"github.com/cubefs/cubefs/blobstore/util/log"
 	"github.com/cubefs/cubefs/proto"
+	"github.com/cubefs/cubefs/util/config"
+	"golang.org/x/sync/singleflight"
 )
 
 const (
@@ -38,9 +40,7 @@ const (
 
 	userPropertyPrefix = "x-cfa-meta-"
 
-	defaultCluster = "defaultCluster"
-	defaultVolume  = "defaultVolume"
-	XAttrUserKey   = "users"
+	XAttrUserKey = "users"
 )
 
 // TODO: defines inode in sdk.
@@ -180,10 +180,13 @@ type ArgsSetProperties struct {
 
 // DriveNode drive node.
 type DriveNode struct {
-	defaultVolume sdk.IVolume
-	userRouter    *userRouteMgr
-	clusterMgr    sdk.ClusterManager
-
+	clusterID   string      // default cluster id
+	volumeName  string      // default volume name
+	vol         sdk.IVolume // default vaolume
+	masterAddr  string      // the master address of the default cluster
+	userRouter  *userRouteMgr
+	clusterMgr  sdk.ClusterManager
+	groupRouter *singleflight.Group
 	closer.Closer
 }
 
@@ -196,18 +199,15 @@ func New() *DriveNode {
 	if err != nil {
 		log.Fatal(err)
 	}
-	d := &DriveNode{
-		defaultVolume: vol,
-		userRouter:    urm,
-		clusterMgr:    cm,
-		Closer:        closer.New(),
+	return &DriveNode{
+		userRouter:  urm,
+		clusterMgr:  cm,
+		groupRouter: &singleflight.Group{},
+		Closer:      closer.New(),
 	}
-	err = d.initClusterAlloc(ctx)
-	if err != nil {
-		log.Fatal(err)
-	}
+}
 
-	return d
+func (d *DriveNode) Start(cfg *config.Config) error {
 }
 
 // get full path and volume by uid
@@ -243,11 +243,11 @@ func (d *DriveNode) lookup(ctx context.Context, vol sdk.IVolume, parentIno Inode
 	return
 }
 
-func (d *DriveNode) createDir(ctx context.Context, vol sdk.IVolume, parentIno uint64, path string, recursive bool) (info *sdk.InodeInfo, err error) {
+func (d *DriveNode) createDir(ctx context.Context, vol sdk.IVolume, parentIno Inode, path string, recursive bool) (info *sdk.InodeInfo, err error) {
 	var dirInfo *sdk.DirInfo
 	names := strings.Split(filepath.Clean(path), "/")
 	for i, name := range names {
-		dirInfo, err = vol.Lookup(ctx, parentIno, name)
+		dirInfo, err = vol.Lookup(ctx, parentIno.Uint64(), name)
 		if err != nil {
 			if err != sdk.ErrNotFound {
 				return
@@ -256,22 +256,22 @@ func (d *DriveNode) createDir(ctx context.Context, vol sdk.IVolume, parentIno ui
 				err = sdk.ErrNotFound
 				return
 			}
-			info, err = vol.Mkdir(ctx, parentIno, name)
+			info, err = vol.Mkdir(ctx, parentIno.Uint64(), name)
 			if err != nil {
 				return nil, err
 			}
-			parentIno = info.Inode
+			parentIno = Inode(info.Inode)
 			continue
 		}
 		if !dirInfo.IsDir() {
 			return nil, sdk.ErrConflict
 		}
-		parentIno = dirInfo.Inode
+		parentIno = Inode(dirInfo.Inode)
 	}
 	return
 }
 
-func (d *DriveNode) createFile(ctx context.Context, vol sdk.IVolume, parentIno uint64, path string) (info *sdk.InodeInfo, err error) {
+func (d *DriveNode) createFile(ctx context.Context, vol sdk.IVolume, parentIno Inode, path string) (info *sdk.InodeInfo, err error) {
 	dir, file := filepath.Split(filepath.Clean(path))
 	info, err = d.createDir(ctx, vol, parentIno, dir, true)
 	if err != nil {

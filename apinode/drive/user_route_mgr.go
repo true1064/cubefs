@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/cubefs/cubefs/blobstore/common/memcache"
-	"github.com/cubefs/cubefs/blobstore/util/log"
 )
 
 type UserRoute struct {
@@ -33,7 +32,7 @@ type UserRoute struct {
 	ClusterType int8   `json:"clusterType"`
 	ClusterID   string `json:"clusterId"`
 	VolumeID    string `json:"volumeId"`
-	DriveID     int    `json:"driveId"`
+	DriveID     string `json:"driveId"`
 	Capacity    uint64 `json:"capacity"`
 	RootPath    string `json:"rootPath"`
 	RootFileID  FileID `json:"rootFileId"`
@@ -51,6 +50,16 @@ type UserConfig struct {
 	Uid       UserID                 `json:"uid"`
 	DirPaths  map[string]ConfigEntry `json:"dirPaths"`  // cloud dir paths
 	FilePaths map[string]ConfigEntry `json:"filePaths"` // cloud file paths
+}
+
+type ClusterInfo struct {
+	ClusterID string `json:"id"`
+	Master    string `json:"master"`
+	Priority  int    `json:"priority"`
+}
+
+type ClusterConfig struct {
+	clusters []ClusterInfo `json:"clusters"`
 }
 
 type VolumeAlloc map[string]int
@@ -92,15 +101,17 @@ type IUserRoute interface {
 }
 
 func (d *DriveNode) GetUserRoute(ctx context.Context, uid UserID) (ur *UserRoute, err error) {
-	ur = d.userRouter.CacheGet(uid)
+	ur = d.userRouter.Get(uid)
 	if ur == nil {
 		// query file and set cache
-		ur, err = d.getUserRouteFromFile(ctx, uid)
-		if err != nil {
-			return
-		}
-		d.userRouter.CacheSet(uid, ur)
-		return
+		ur, err, _ = d.groupRouter.Do(string(uid), func() (interface{}, error) {
+			ur, err := d.getUserRouteFromFile(ctx, uid)
+			if err != nil {
+				return nil, err
+			}
+			d.userRouter.Set(uid, ur)
+			return ur, nil
+		})
 	}
 	return
 }
@@ -112,33 +123,10 @@ func NewUserRouteMgr() (*userRouteMgr, error) {
 	}
 	m := &userRouteMgr{cache: lruCache, closeCh: make(chan struct{})}
 
-	go m.loopReportCapacityToCloud()
-
 	return m, nil
 }
 
-func (m *userRouteMgr) loopReportCapacityToCloud() {
-	log.Infof("loop report capacity to cloud service")
-
-	ticker := time.NewTicker(time.Duration(ReportIntervalSec) * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-m.closeCh:
-			log.Warnf("loop report capacity to cloud service done.")
-			return
-		case <-ticker.C:
-			// todo: report to cloud service, need cloudKit sdk
-		}
-	}
-}
-
-func (d *DriveNode) CreateUserRoute(ctx context.Context, uid UserID) (err error) {
-	// 1.todo: Applying space from the cloud service, need cloudKit sdk
-	// 向云服务这边预分配空间的逻辑也可以在实际有上传的时候再去申请一批空间，避免长时间没有上传的占用
-	capacity := uint64(100)
-
+func (d *DriveNode) CreateUserRoute(ctx context.Context, uid UserID, capacity uint64) (err error) {
 	// 2.Assign clusters and volumes to users
 	clusterid, volumeid, err := d.assignVolume(ctx)
 	if err != nil {
@@ -164,7 +152,7 @@ func (d *DriveNode) CreateUserRoute(ctx context.Context, uid UserID) (err error)
 		return
 	}
 	// 5.update cache
-	d.userRouter.CacheSet(uid, ur)
+	d.userRouter.Set(uid, ur)
 
 	return
 }
@@ -336,7 +324,7 @@ func getRootPath(uid UserID) (string, error) {
 
 func (d *DriveNode) AddPath(ctx context.Context, uid UserID, args *ArgsPath) (err error) {
 	// 1.Get clusterid, volumeid from default cluster
-	ur := d.userRouter.CacheGet(uid)
+	ur := d.userRouter.Get(uid)
 	if ur == nil {
 		ur, err = d.getUserRouteFromFile(ctx, uid)
 		if err != nil {
@@ -395,11 +383,11 @@ func hash(s string) (l1, l2 int) {
 
 // IUserCache
 type IUserCache interface {
-	CacheGet(key UserID) *UserRoute
-	CacheSet(key UserID, value *UserRoute)
+	Get(key UserID) *UserRoute
+	Set(key UserID, value *UserRoute)
 }
 
-func (m *userRouteMgr) CacheGet(key UserID) *UserRoute {
+func (m *userRouteMgr) Get(key UserID) *UserRoute {
 	value := m.cache.Get(key)
 	if value == nil {
 		return nil
@@ -412,6 +400,6 @@ func (m *userRouteMgr) CacheGet(key UserID) *UserRoute {
 	return &ur
 }
 
-func (m *userRouteMgr) CacheSet(key UserID, value *UserRoute) {
+func (m *userRouteMgr) Set(key UserID, value *UserRoute) {
 	m.cache.Set(key, value)
 }
