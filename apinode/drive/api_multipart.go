@@ -32,15 +32,19 @@ type MPPart struct {
 
 // ArgsMPUploads multipart upload or complete argument.
 type ArgsMPUploads struct {
-	Path     string `json:"path"`
-	UploadID string `json:"uploadId,omitempty"`
-	FileID   FileID `json:"fileId,omitempty"`
+	Path     FilePath `json:"path"`
+	UploadID string   `json:"uploadId,omitempty"`
+	FileID   FileID   `json:"fileId,omitempty"`
 }
 
 func (d *DriveNode) handleMultipartUploads(c *rpc.Context) {
 	args := new(ArgsMPUploads)
 	if err := c.ParseArgs(args); err != nil {
 		c.RespondError(err)
+		return
+	}
+	if args.Path.Clean(); !args.Path.IsFile() {
+		c.RespondError(sdk.ErrBadRequest)
 		return
 	}
 
@@ -65,7 +69,7 @@ func (d *DriveNode) multipartUploads(c *rpc.Context, args *ArgsMPUploads) {
 	}
 
 	extend := d.getProperties(c)
-	uploadID, err := vol.InitMultiPart(ctx, args.Path, uint64(args.FileID), extend)
+	uploadID, err := vol.InitMultiPart(ctx, args.Path.String(), uint64(args.FileID), extend)
 	if err != nil {
 		span.Error("multipart uploads", args, err)
 		c.RespondError(err)
@@ -113,7 +117,7 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 		})
 	}
 
-	err = vol.CompleteMultiPart(ctx, args.Path, args.UploadID, uint64(args.FileID), sParts)
+	err = vol.CompleteMultiPart(ctx, args.Path.String(), args.UploadID, uint64(args.FileID), sParts)
 	if err != nil {
 		span.Error("multipart complete", args, parts, err)
 	} else {
@@ -124,15 +128,19 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 
 // ArgsMPUpload multipart upload part argument.
 type ArgsMPUpload struct {
-	Path       string `json:"path"`
-	UploadID   string `json:"uploadId"`
-	PartNumber uint16 `json:"partNumber"`
+	Path       FilePath `json:"path"`
+	UploadID   string   `json:"uploadId"`
+	PartNumber uint16   `json:"partNumber"`
 }
 
 func (d *DriveNode) handleMultipartPart(c *rpc.Context) {
 	args := new(ArgsMPUpload)
 	if err := c.ParseArgs(args); err != nil {
 		c.RespondError(err)
+		return
+	}
+	if args.Path.Clean(); !args.Path.IsFile() {
+		c.RespondError(sdk.ErrBadRequest)
 		return
 	}
 	ctx, span := d.ctxSpan(c)
@@ -143,7 +151,7 @@ func (d *DriveNode) handleMultipartPart(c *rpc.Context) {
 	}
 
 	// TODO: get md5
-	err = vol.UploadMultiPart(ctx, args.Path, args.UploadID, args.PartNumber, c.Request.Body)
+	err = vol.UploadMultiPart(ctx, args.Path.String(), args.UploadID, args.PartNumber, c.Request.Body)
 	if err != nil {
 		span.Error("multipart upload", args, err)
 		c.RespondError(err)
@@ -158,10 +166,10 @@ func (d *DriveNode) handleMultipartPart(c *rpc.Context) {
 
 // ArgsMPList multipart parts list argument.
 type ArgsMPList struct {
-	Path     string `json:"path"`
-	UploadID string `json:"uploadId"`
-	Marker   FileID `json:"marker"`
-	Count    int    `json:"count,omitempty"`
+	Path     FilePath `json:"path"`
+	UploadID string   `json:"uploadId"`
+	Marker   FileID   `json:"marker"`
+	Count    int      `json:"count,omitempty"`
 }
 
 // RespMPList response of list parts.
@@ -176,6 +184,10 @@ func (d *DriveNode) handleMultipartList(c *rpc.Context) {
 		c.RespondError(err)
 		return
 	}
+	if args.Path.Clean(); !args.Path.IsFile() {
+		c.RespondError(sdk.ErrBadRequest)
+		return
+	}
 	ctx, span := d.ctxSpan(c)
 	_, vol, err := d.getRootInoAndVolume(ctx, d.userID(c))
 	if err != nil {
@@ -187,7 +199,7 @@ func (d *DriveNode) handleMultipartList(c *rpc.Context) {
 		args.Count = 400
 	}
 
-	sParts, next, _, err := vol.ListMultiPart(ctx, args.Path, args.UploadID, uint64(args.Count), args.Marker.Uint64())
+	sParts, next, _, err := vol.ListMultiPart(ctx, args.Path.String(), args.UploadID, uint64(args.Count), args.Marker.Uint64())
 	if err != nil {
 		span.Error("multipart list", args, err)
 		c.RespondError(err)
@@ -208,14 +220,18 @@ func (d *DriveNode) handleMultipartList(c *rpc.Context) {
 
 // ArgsMPAbort multipart abort argument.
 type ArgsMPAbort struct {
-	Path     string `json:"path"`
-	UploadID string `json:"uploadId"`
+	Path     FilePath `json:"path"`
+	UploadID string   `json:"uploadId"`
 }
 
 func (d *DriveNode) handleMultipartAbort(c *rpc.Context) {
 	args := new(ArgsMPAbort)
 	if err := c.ParseArgs(args); err != nil {
 		c.RespondError(err)
+		return
+	}
+	if args.Path.Clean(); !args.Path.IsFile() {
+		c.RespondError(sdk.ErrBadRequest)
 		return
 	}
 	ctx, span := d.ctxSpan(c)
@@ -225,7 +241,7 @@ func (d *DriveNode) handleMultipartAbort(c *rpc.Context) {
 		return
 	}
 
-	if err = vol.AbortMultiPart(ctx, args.Path, args.UploadID); err != nil {
+	if err = vol.AbortMultiPart(ctx, args.Path.String(), args.UploadID); err != nil {
 		span.Error("multipart abort", args, err)
 	} else {
 		span.Warn("multipart abort", args)

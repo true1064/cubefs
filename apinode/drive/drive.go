@@ -17,6 +17,7 @@ package drive
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -54,6 +55,49 @@ func (i Inode) Uint64() uint64 {
 
 // FileID file id.
 type FileID = Inode
+
+// FilePath cleaned file path.
+//  It ends with a separator if path is directory.
+type FilePath string
+
+// Valid returns valid or not.
+func (p *FilePath) Valid() bool {
+	s := *p
+	return s != "" && s[0] != '.'
+}
+
+// IsDir returns true if path is directory.
+func (p *FilePath) IsDir() bool {
+	s := *p
+	return p.Valid() && s[len(s)-1] == os.PathSeparator
+}
+
+// IsFile returns true if path is file.
+func (p *FilePath) IsFile() bool {
+	s := *p
+	return p.Valid() && s[len(s)-1] != os.PathSeparator
+}
+
+// Clean replace origin path to cleaned path.
+func (p *FilePath) Clean() {
+	s := string(*p)
+	isDir := len(s) > 0 && s[len(s)-1] == os.PathSeparator
+	path := filepath.Clean(s)
+	if isDir {
+		path += string(os.PathSeparator)
+	}
+	*p = FilePath(path)
+}
+
+// Split splits path immediately following the final path separator.
+func (p *FilePath) Split() (FilePath, string) {
+	dir, filename := filepath.Split(string(*p))
+	return FilePath(dir), filename
+}
+
+func (p *FilePath) String() string {
+	return string(*p)
+}
 
 // UserID user id.
 type UserID string

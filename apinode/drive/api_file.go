@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"path/filepath"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
@@ -27,9 +26,9 @@ import (
 
 // ArgsFileUpload file upload argument.
 type ArgsFileUpload struct {
-	Path   string `json:"path"`
-	FileID FileID `json:"fileId,omitempty"`
-	Owner  UserID `json:"owner,omitempty"`
+	Path   FilePath `json:"path"`
+	FileID FileID   `json:"fileId,omitempty"`
+	Owner  UserID   `json:"owner,omitempty"`
 }
 
 func (d *DriveNode) handleFileUpload(c *rpc.Context) {
@@ -39,6 +38,13 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 		return
 	}
 	ctx, span := d.ctxSpan(c)
+
+	originPath := string(args.Path)
+	if args.Path.Clean(); !args.Path.IsFile() {
+		span.Warnf("not a file path: %s -> %s", originPath, args.Path)
+		c.RespondError(sdk.ErrBadRequest)
+		return
+	}
 
 	uid := args.Owner
 	if !uid.Valid() {
@@ -51,13 +57,8 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 		return
 	}
 
-	dir, filename := filepath.Split(args.Path)
-	if filename == "" {
-		span.Warn("invalid path:", args.Path)
-		c.RespondError(sdk.ErrBadRequest)
-		return
-	}
-	info, err := d.createDir(ctx, vol, root, dir)
+	dir, filename := args.Path.Split()
+	info, err := d.createDir(ctx, vol, root, dir.String())
 	if err != nil {
 		c.RespondError(err)
 		return
