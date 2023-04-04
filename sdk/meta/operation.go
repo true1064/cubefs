@@ -2330,7 +2330,8 @@ func (mw *MetaWrapper) getXAttr(mp *MetaPartition, inode uint64, name string) (v
 	return
 }
 
-func (mw *MetaWrapper) removeXAttr(mp *MetaPartition, inode uint64, name string) (status int, err error) {
+// removeXAttr if keys not empty, thought as batchDelXAttr
+func (mw *MetaWrapper) removeXAttr(mp *MetaPartition, inode uint64, name string, keys []string) (status int, err error) {
 	bgTime := stat.BeginStat()
 	defer func() {
 		stat.EndStat("removeXAttr", err, bgTime, 1)
@@ -2341,6 +2342,7 @@ func (mw *MetaWrapper) removeXAttr(mp *MetaPartition, inode uint64, name string)
 		PartitionId: mp.PartitionID,
 		Inode:       inode,
 		Key:         name,
+		Keys:        keys,
 	}
 
 	packet := proto.NewPacketReqID()

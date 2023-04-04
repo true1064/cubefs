@@ -2128,11 +2128,29 @@ func (mw *MetaWrapper) XAttrDel_ll(inode uint64, name string) error {
 		return syscall.ENOENT
 	}
 	var status int
-	status, err = mw.removeXAttr(mp, inode, name)
+	status, err = mw.removeXAttr(mp, inode, name, nil)
 	if err != nil || status != statusOK {
 		return statusToErrno(status)
 	}
 	log.LogDebugf("XAttrDel_ll: remove xattr, inode(%v) name(%v) status(%v)", inode, name, status)
+	return nil
+}
+
+func (mw *MetaWrapper) XBatchDelAttr_ll(inode uint64, keys []string) error {
+	var err error
+	mp := mw.getPartitionByInode(inode)
+	if mp == nil {
+		log.LogErrorf("XAttrDel_ll: no such partition, inode(%v)", inode)
+		return syscall.ENOENT
+	}
+
+	var status int
+	status, err = mw.removeXAttr(mp, inode, "", keys)
+	if err != nil || status != statusOK {
+		return statusToErrno(status)
+	}
+
+	log.LogDebugf("XBatchDelAttr_ll: batch remove xattr, inode(%v) len(key)(%d) status(%v)", inode, len(keys), status)
 	return nil
 }
 

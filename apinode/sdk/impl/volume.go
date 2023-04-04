@@ -280,8 +280,14 @@ func (v *volume) DeleteXAttr(ctx context.Context, ino uint64, key string) error 
 }
 
 func (v *volume) BatchDeleteXAttr(ctx context.Context, ino uint64, keys []string) error {
-	// TODO implement me
-	panic("implement me")
+	span := trace.SpanFromContextSafe(ctx)
+	err := v.mw.XBatchDelAttr_ll(ino, keys)
+	if err != nil {
+		span.Errorf("batchDelXAttr failed, ino %d, err %s", ctx, err.Error())
+		return syscallToErr(err)
+	}
+
+	return nil
 }
 
 const (

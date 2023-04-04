@@ -795,10 +795,15 @@ type GetXAttrResponse struct {
 }
 
 type RemoveXAttrRequest struct {
-	VolName     string `json:"vol"`
-	PartitionId uint64 `json:"pid"`
-	Inode       uint64 `json:"ino"`
-	Key         string `json:"key"`
+	VolName     string   `json:"vol"`
+	PartitionId uint64   `json:"pid"`
+	Inode       uint64   `json:"ino"`
+	Keys        []string `json:"keys"`
+	Key         string   `json:"key"`
+}
+
+func (rx *RemoveXAttrRequest) IsBatch() bool {
+	return len(rx.Keys) > 0
 }
 
 type ListXAttrRequest struct {

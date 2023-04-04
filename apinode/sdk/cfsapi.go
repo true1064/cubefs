@@ -36,6 +36,7 @@ type MetaOp interface {
 	XAttrSet_ll(inode uint64, name, value []byte) error
 	XAttrGet_ll(inode uint64, name string) (*proto.XAttrInfo, error)
 	XAttrDel_ll(inode uint64, name string) error
+	XBatchDelAttr_ll(ino uint64, keys []string) error
 	XAttrsList_ll(inode uint64) ([]string, error)
 	InitMultipart_ll(path string, extend map[string]string) (multipartId string, err error)
 	GetMultipart_ll(path, multipartId string) (info *proto.MultipartInfo, err error)

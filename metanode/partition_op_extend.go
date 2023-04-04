@@ -185,7 +185,13 @@ func (mp *metaPartition) BatchGetXAttr(req *proto.BatchGetXAttrRequest, p *Packe
 
 func (mp *metaPartition) RemoveXAttr(req *proto.RemoveXAttrRequest, p *Packet) (err error) {
 	var extend = NewExtend(req.Inode)
-	extend.Put([]byte(req.Key), nil, mp.verSeq)
+	if req.IsBatch() {
+		for _, key := range req.Keys {
+			extend.Put([]byte(key), nil, mp.verSeq)
+		}
+	} else {
+		extend.Put([]byte(req.Key), nil, mp.verSeq)
+	}
 	if _, err = mp.putExtend(opFSMRemoveXAttr, extend); err != nil {
 		p.PacketErrorWithBody(proto.OpErr, []byte(err.Error()))
 		return
