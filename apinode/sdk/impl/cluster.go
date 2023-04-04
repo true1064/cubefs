@@ -2,9 +2,10 @@ package impl
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
+
+	"github.com/cubefs/cubefs/blobstore/common/trace"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
 )
@@ -20,7 +21,7 @@ type cluster struct {
 
 	volLk  sync.RWMutex
 	volMap map[string]sdk.IVolume
-	newVol func(ctx context.Context, cli sdk.IMaster, name, owner string) (sdk.IVolume, error)
+	newVol func(ctx context.Context, name, owner, addr string) (sdk.IVolume, error)
 }
 
 func newCluster(ctx context.Context, addr, cId string) (sdk.ICluster, error) {
@@ -36,13 +37,10 @@ func newCluster(ctx context.Context, addr, cId string) (sdk.ICluster, error) {
 		return nil, err
 	}
 
+	cl.newVol = newVolume
 	cl.cli = cli
 	// get all volume in cluster
-	err = cl.updateVols(ctx)
-	if err != nil {
-		return nil, err
-	}
-
+	cl.updateVols(ctx)
 	go func() {
 		cl.scheduleUpdateVols()
 	}()
@@ -94,21 +92,23 @@ func (c *cluster) UpdateAddr(ctx context.Context, addr string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("update clster's addr, cId %s, addr %s, before%s", c.clusterId, addr, c.masterAddr)
+	span := trace.SpanFromContextSafe(ctx)
+	span.Warnf("update cluster's addr success, cId %s, addr %s, before %s", c.clusterId, addr, c.masterAddr)
 	c.masterAddr = addr
 	return nil
 }
 
 func initMasterCli(ctx context.Context, cId, addr string) (sdk.IMaster, error) {
+	span := trace.SpanFromContextSafe(ctx)
 	cli := newMaster(addr)
 	info, err := cli.GetClusterIP()
 	if err != nil {
-		fmt.Printf("use Master Addr request failed, addr %s, err %s", addr, err.Error())
+		span.Errorf("user master addr request failed, addr %s, err %s", addr, err.Error())
 		return nil, masterToSdkErr(err)
 	}
 
 	if cId != info.Cluster {
-		fmt.Printf("clusterId is not valid, local %s, right %s", cId, info.Cluster)
+		span.Errorf("clusterId is not valid, local %s, right %s, addr %s", cId, info.Cluster, addr)
 		return nil, sdk.ErrBadRequest
 	}
 
@@ -118,39 +118,33 @@ func initMasterCli(ctx context.Context, cId, addr string) (sdk.IMaster, error) {
 func (c *cluster) scheduleUpdateVols() {
 	ticker := time.NewTicker(time.Minute)
 	for range ticker.C {
-		ctx := context.Background()
+		span, ctx := trace.StartSpanFromContext(context.TODO(), "")
 		err := c.updateVols(ctx)
 		if err != nil {
-			// todo log
+			span.Errorf("update vol failed", err.Error())
 		}
 	}
 }
 
 func (c *cluster) updateVols(ctx context.Context) error {
-	var returnErr error
+	span := trace.SpanFromContextSafe(ctx)
 	// keywords used to get target volumes
 	vols, err := c.cli.ListVols("")
 	if err != nil {
-		fmt.Printf("get volume list failed, err %s", err.Error())
+		span.Errorf("get volume list failed, err %s", err.Error())
 		return masterToSdkErr(err)
 	}
 
+	var returnErr error
 	for _, vol := range vols {
-		// vol is deleted
-		if vol.Status == 1 {
-			// todo: delete from map
-			continue
-		}
-
-		// already exist
 		old := c.GetVol(vol.Name)
 		if old != nil {
 			continue
 		}
 
-		newVol, err := c.newVol(ctx, c.cli, vol.Name, vol.Owner)
+		newVol, err := c.newVol(ctx, vol.Name, vol.Owner, c.masterAddr)
 		if err != nil {
-			fmt.Printf("new volume failed, name %s, err %s", vol.Name, vol.Owner)
+			span.Errorf("new volume failed, name %s, err %s", vol.Name, err.Error())
 			returnErr = err
 			continue
 		}

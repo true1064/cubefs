@@ -4,9 +4,11 @@ import (
 	"context"
 	"testing"
 
+	"github.com/cubefs/cubefs/blobstore/common/trace"
+
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/apinode/testing/mocks"
-	gomock "github.com/golang/mock/gomock"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,7 +20,9 @@ func TestAddCluster(t *testing.T) {
 
 	mgr := newClusterMgr()
 	mgr.create = func(context context.Context, cId, addr string) (sdk.ICluster, error) {
+		span := trace.SpanFromContextSafe(context)
 		if addr == "addr1" {
+			span.Error("addr return error", sdk.ErrNoMaster)
 			return nil, sdk.ErrNoMaster
 		}
 
@@ -41,8 +45,9 @@ func TestAddCluster(t *testing.T) {
 		{"c2", "addr3", sdk.ErrNoMaster},
 	}
 
-	ctx := context.TODO()
 	for _, tc := range testcases {
+		span, ctx := trace.StartSpanFromContext(context.TODO(), "")
+		span.Debugf("start execute case, cid %s, addr %s, result %v", tc.cid, tc.addr, tc.result)
 		err := mgr.AddCluster(ctx, tc.cid, tc.addr)
 		require.Equal(t, tc.result, err)
 

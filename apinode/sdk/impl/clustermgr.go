@@ -54,13 +54,11 @@ func (cm *clusterMgr) putCluster(cId string, newC sdk.ICluster) {
 }
 
 func (cm *clusterMgr) AddCluster(ctx context.Context, cId string, masterAddr string) error {
-	// check if cluster exist
 	c := cm.getCluster(cId)
 	if c != nil {
 		if c.Addr() == masterAddr {
 			return nil
 		}
-		// update masterAddr
 		return c.UpdateAddr(ctx, masterAddr)
 	}
 

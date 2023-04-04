@@ -13,7 +13,13 @@ type VolInfo struct {
 }
 
 type StatFs struct {
-	Size int
+	Size  int
+	Files int
+}
+
+func (sf *StatFs) Add(sub *StatFs) {
+	sf.Size += sub.Size
+	sf.Files += sub.Files
 }
 
 type InodeInfo = proto.InodeInfo
@@ -29,6 +35,16 @@ type UploadFileReq struct {
 	OldIno uint64
 	Extend map[string]string
 	Body   io.Reader
+}
+
+type SetAttrReq struct {
+	Ino   uint64
+	Flag  uint32 // valid=>(proto.AttrMode|proto.AttrUid|...)
+	Mode  uint32
+	Uid   uint32
+	Gid   uint32
+	Atime uint64 // seconds
+	Mtime uint64
 }
 
 type ClusterInfo struct {

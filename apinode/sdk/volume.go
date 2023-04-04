@@ -14,9 +14,10 @@ type IVolume interface {
 	// BatchGetInodes maybe cost much time
 	BatchGetInodes(ctx context.Context, inos []uint64) ([]*InodeInfo, error)
 	Readdir(ctx context.Context, parIno uint64, marker string, count uint32) ([]DirInfo, error)
+	ReadDirAll(ctx context.Context, ino uint64) ([]DirInfo, error)
 	StatFs(ctx context.Context, ino uint64) (*StatFs, error)
-	// SetAttr set file mode, uid, gid, atime, mtime, valid=>(proto.AttrMode, proto.AttrUid)
-	SetAttr(ctx context.Context, ino uint64, flag, mode, uid, gid uint32, atime, mtime uint64) error
+	// SetAttr set file mode, uid, gid, atime, mtime,
+	SetAttr(ctx context.Context, req *SetAttrReq) error
 	SetXAttr(ctx context.Context, ino uint64, key string, val string) error
 	BatchSetXAttr(ctx context.Context, ino uint64, attrs map[string]string) error
 	GetXAttr(ctx context.Context, ino uint64, key string) (string, error)

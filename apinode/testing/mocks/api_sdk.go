@@ -302,6 +302,21 @@ func (mr *MockIVolumeMockRecorder) Mkdir(arg0, arg1, arg2 interface{}) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Mkdir", reflect.TypeOf((*MockIVolume)(nil).Mkdir), arg0, arg1, arg2)
 }
 
+// ReadDirAll mocks base method.
+func (m *MockIVolume) ReadDirAll(arg0 context.Context, arg1 uint64) ([]proto.Dentry, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadDirAll", arg0, arg1)
+	ret0, _ := ret[0].([]proto.Dentry)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadDirAll indicates an expected call of ReadDirAll.
+func (mr *MockIVolumeMockRecorder) ReadDirAll(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadDirAll", reflect.TypeOf((*MockIVolume)(nil).ReadDirAll), arg0, arg1)
+}
+
 // ReadFile mocks base method.
 func (m *MockIVolume) ReadFile(arg0 context.Context, arg1, arg2 uint64, arg3 []byte) (int, error) {
 	m.ctrl.T.Helper()
@@ -347,17 +362,17 @@ func (mr *MockIVolumeMockRecorder) Rename(arg0, arg1, arg2, arg3, arg4 interface
 }
 
 // SetAttr mocks base method.
-func (m *MockIVolume) SetAttr(arg0 context.Context, arg1 uint64, arg2, arg3, arg4, arg5 uint32, arg6, arg7 uint64) error {
+func (m *MockIVolume) SetAttr(arg0 context.Context, arg1 *sdk.SetAttrReq) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetAttr", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+	ret := m.ctrl.Call(m, "SetAttr", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetAttr indicates an expected call of SetAttr.
-func (mr *MockIVolumeMockRecorder) SetAttr(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7 interface{}) *gomock.Call {
+func (mr *MockIVolumeMockRecorder) SetAttr(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAttr", reflect.TypeOf((*MockIVolume)(nil).SetAttr), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAttr", reflect.TypeOf((*MockIVolume)(nil).SetAttr), arg0, arg1)
 }
 
 // SetXAttr mocks base method.
