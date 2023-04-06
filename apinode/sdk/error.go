@@ -64,6 +64,8 @@ var (
 	ErrRetryAgain = newErr(http.StatusInternalServerError, "retry again")
 	ErrFull       = newErr(http.StatusInternalServerError, "no available resource")
 	ErrBadFile    = newErr(http.StatusInternalServerError, "request file handle not exist")
+	ErrNoCluster  = newErr(http.StatusInternalServerError, "no valid cluster")
+	ErrNoVolume   = newErr(http.StatusInternalServerError, "no valid volume")
 )
 
 // newErr with http.statusCode

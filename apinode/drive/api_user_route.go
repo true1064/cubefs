@@ -15,50 +15,86 @@
 package drive
 
 import (
+	"encoding/json"
+
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
-	"github.com/cubefs/cubefs/blobstore/util/log"
 )
 
-type ArgsPath struct {
+type ArgsAddUserConfig struct {
 	Path string `json:"path"`
-	Type int8   `json:"type"`
+}
+
+type CreateDriveResult struct {
+	DriveID string `json:"driveId"`
+}
+
+type AppPathInfo struct {
+	Path   string `json:"path"`
+	Status int    `json:"status"`
+	MTime  int64  `json:"mtime"`
+}
+
+type GetUserConfigResult struct {
+	ClusterID string        `json:"clusterid"`
+	VolumeID  string        `json:"volumeid"`
+	RootPath  string        `json:"rootPath"`
+	AppPaths  []AppPathInfo `json:"appPaths"`
 }
 
 // createDrive handle drive apis.
-func (d *DriveNode) createDrive(c *rpc.Context) {
-	ctx, _ := d.ctxSpan(c)
-	rid := d.requestID(c)
+func (d *DriveNode) handleCreateDrive(c *rpc.Context) {
+	ctx, span := d.ctxSpan(c)
 	uid := d.userID(c)
-	err := d.CreateUserRoute(ctx, uid)
+	driveid, err := d.CreateUserRoute(ctx, uid)
 	if err != nil {
+		span.Errorf("crate user route error: %v, uid=%s", err, string(uid))
 		c.RespondError(err)
 		return
 	}
-	log.Info("got", rid, uid)
-	c.Respond()
+	c.RespondJSON(CreateDriveResult{driveid})
 }
 
-func (d *DriveNode) addUserConfig(c *rpc.Context) {
-	ctx, _ := d.ctxSpan(c)
-	args := new(ArgsPath)
+func (d *DriveNode) handleAddUserConfig(c *rpc.Context) {
+	ctx, span := d.ctxSpan(c)
+	args := new(ArgsAddUserConfig)
 	if err := c.ParseArgs(args); err != nil {
 		c.RespondError(err)
 		return
 	}
-	rid := d.requestID(c)
 	uid := d.userID(c)
-	err := d.AddPath(ctx, uid, args)
+	err := d.addUserConfig(ctx, uid, args.Path)
 	if err != nil {
+		span.Errorf("add user config error: %v, uid=%s", err, string(uid))
 		c.RespondError(err)
 		return
 	}
-	log.Info("got", rid, uid)
 	c.Respond()
 }
 
-func (d *DriveNode) getUserConfig(c *rpc.Context) {
-	rid := d.requestID(c)
+func (d *DriveNode) handleGetUserConfig(c *rpc.Context) {
+	ctx, span := d.ctxSpan(c)
 	uid := d.userID(c)
-	log.Info("got", rid, uid)
-	c.Respond()
+	ur, xattrs, err := d.getUserConfig(ctx, uid)
+	if err != nil {
+		span.Errorf("get user config error: %v, uid=%s", err, string(uid))
+		c.RespondError(err)
+		return
+	}
+	res := &GetUserConfigResult{
+		ClusterID: ur.ClusterID,
+		VolumeID:  ur.VolumeID,
+		RootPath:  ur.RootPath,
+	}
+	for k, v := range xattrs {
+		var ent ConfigEntry
+		if err := json.Unmarshal([]byte(v), &ent); err != nil {
+			continue
+		}
+		res.AppPaths = append(res.AppPaths, AppPathInfo{
+			Path:   k,
+			Status: int(ent.Status),
+			MTime:  ent.Time,
+		})
+	}
+	c.RespondJSON(res)
 }

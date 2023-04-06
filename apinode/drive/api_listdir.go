@@ -153,7 +153,7 @@ func (builder *filterBuilder) matchFileInfo(f *FileInfo) bool {
 	return false
 }
 
-func (d *DriveNode) handlerListDir(c *rpc.Context) {
+func (d *DriveNode) handleListDir(c *rpc.Context) {
 	ctx, span := d.ctxSpan(c)
 	args := new(ArgsListDir)
 	if err := c.ParseArgs(args); err != nil {

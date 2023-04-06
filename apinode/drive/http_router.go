@@ -27,7 +27,11 @@ import (
 // RegisterAPIRouters register drive api handler.
 func (d *DriveNode) RegisterAPIRouters() *rpc.Router {
 	rpc.RegisterArgsParser(&ArgsListDir{}, "json")
-	rpc.RegisterArgsParser(&ArgsPath{}, "json")
+	rpc.RegisterArgsParser(&ArgsAddUserConfig{}, "json")
+	rpc.RegisterArgsParser(&ArgsSetProperties{}, "json")
+	rpc.RegisterArgsParser(&ArgsGetProperties{}, "json")
+	rpc.RegisterArgsParser(&ArgsMkDir{}, "json")
+	rpc.RegisterArgsParser(&ArgsRename{}, "json")
 
 	rpc.RegisterArgsParser(&ArgsFileUpload{}, "json")
 	rpc.RegisterArgsParser(&ArgsFileWrite{}, "json")
@@ -43,16 +47,16 @@ func (d *DriveNode) RegisterAPIRouters() *rpc.Router {
 	// set request id and user id at interceptors.
 	r.Use(d.setHeaders)
 
-	r.Handle(http.MethodPost, "/v1/drive", d.createDrive)
+	r.Handle(http.MethodPost, "/v1/drive", d.handleCreateDrive)
 
-	r.Handle(http.MethodPost, "/v1/route", d.addUserConfig, rpc.OptArgsQuery())
-	r.Handle(http.MethodGet, "/v1/route", d.getUserConfig)
+	r.Handle(http.MethodPost, "/v1/route", d.handleAddUserConfig, rpc.OptArgsQuery())
+	r.Handle(http.MethodGet, "/v1/route", d.handleGetUserConfig)
 
-	r.Handle(http.MethodPost, "/v1/meta", nil, rpc.OptArgsQuery())
-	r.Handle(http.MethodGet, "/v1/meta", nil, rpc.OptArgsQuery())
+	r.Handle(http.MethodPost, "/v1/meta", d.handleSetProperties, rpc.OptArgsQuery())
+	r.Handle(http.MethodGet, "/v1/meta", d.handleGetProperties, rpc.OptArgsQuery())
 
-	r.Handle(http.MethodGet, "/v1/files", d.handlerListDir, rpc.OptArgsQuery())
-	r.Handle(http.MethodPost, "/v1/files", d.mkDir, rpc.OptArgsQuery())
+	r.Handle(http.MethodGet, "/v1/files", d.handleListDir, rpc.OptArgsQuery())
+	r.Handle(http.MethodPost, "/v1/files/mkdir", d.handleMkDir, rpc.OptArgsQuery())
 
 	// file
 	r.Handle(http.MethodPut, "/v1/files/upload", d.handleFileUpload, rpc.OptArgsQuery())
@@ -60,7 +64,7 @@ func (d *DriveNode) RegisterAPIRouters() *rpc.Router {
 	r.Handle(http.MethodPut, "/v1/files/content", d.handleFileWrite, rpc.OptArgsQuery())
 	r.Handle(http.MethodGet, "/v1/files/content", d.handleFileDownload, rpc.OptArgsQuery())
 	r.Handle(http.MethodPost, "/v1/files/copy", d.handleFileCopy, rpc.OptArgsQuery())
-	r.Handle(http.MethodPost, "/v1/files/rename", d.rename, rpc.OptArgsQuery())
+	r.Handle(http.MethodPost, "/v1/files/rename", d.handleRename, rpc.OptArgsQuery())
 	// file multipart
 	r.Handle(http.MethodPost, "/v1/files/multipart", d.handleMultipartUploads, rpc.OptArgsQuery())
 	r.Handle(http.MethodPut, "/v1/files/multipart", d.handleMultipartPart, rpc.OptArgsQuery())

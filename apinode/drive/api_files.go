@@ -17,13 +17,13 @@ package drive
 import (
 	"net/http"
 	"path"
+	"path/filepath"
 
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
 )
 
 type ArgsMkDir struct {
 	Path      string `json:"path"`
-	Type      string `json:"type"`
 	Recursive bool   `json:"recursive"`
 }
 
@@ -32,32 +32,36 @@ type ArgsRename struct {
 	Dest string `json:"dest"`
 }
 
-// POST /v1/files?path=/abc&type=folder&recursive=bool
-func (d *DriveNode) mkDir(c *rpc.Context) {
-	ctx, _ := d.ctxSpan(c)
+// POST /v1/files/mkdir?path=/abc&recursive=bool
+func (d *DriveNode) handleMkDir(c *rpc.Context) {
+	ctx, span := d.ctxSpan(c)
 	args := new(ArgsMkDir)
 	if err := c.ParseArgs(args); err != nil {
+		span.Errorf("parse mkdir paraments error: %v", err)
 		c.RespondStatus(http.StatusBadRequest)
 		return
 	}
 
 	uid := d.userID(c)
-	inode, vol, err := d.getRootInoAndVolume(ctx, uid)
+	rootIno, vol, err := d.getRootInoAndVolume(ctx, uid)
 	if err != nil {
+		span.Errorf("get root inode and volume error: %v, uid=%s", err, string(uid))
 		c.RespondError(err)
 		return
 	}
 
-	_, err = vol.Mkdir(ctx, inode.Uint64(), args.Path)
+	_, err = d.createDir(ctx, vol, rootIno, args.Path, args.Recursive)
 	if err != nil {
+		span.Errorf("create dir %s error: %v, uid=%s recursive=%v", args.Path, err, string(uid), args.Recursive)
 		c.RespondError(err)
 		return
 	}
+	c.Respond()
 }
 
 // POST /v1/files/rename?src=/abc/hello/file1.json&dst=/abc/file1.json
-func (d *DriveNode) rename(c *rpc.Context) {
-	ctx, _ := d.ctxSpan(c)
+func (d *DriveNode) handleRename(c *rpc.Context) {
+	ctx, span := d.ctxSpan(c)
 	args := new(ArgsRename)
 	if err := c.ParseArgs(args); err != nil {
 		c.RespondStatus(http.StatusBadRequest)
@@ -66,22 +70,24 @@ func (d *DriveNode) rename(c *rpc.Context) {
 
 	uid := d.userID(c)
 
-	ur, err := d.GetUserRoute(ctx, uid)
+	rootIno, vol, err := d.getRootInoAndVolume(ctx, uid)
 	if err != nil {
+		span.Errorf("get user root inode and volume error: %v, uid=%s", err, string(uid))
 		c.RespondError(err)
 		return
 	}
 
-	vol := d.clusterMgr.GetCluster(ur.ClusterID).GetVol(ur.VolumeID)
-	srcDir := path.Dir(path.Join(ur.RootPath, args.Src))
-	srcParInfo, err := d.lookup(ctx, vol, 0, srcDir)
+	srcDir := filepath.Dir(args.Src)
+	dstDir := filepath.Dir(args.Dest)
+	srcParInfo, err := d.lookup(ctx, vol, rootIno, srcDir)
 	if err != nil {
+		span.Errorf("lookup src dir=%s error: %v", srcDir, err)
 		c.RespondError(err)
 		return
 	}
-	destDir := path.Dir(path.Join(ur.RootPath, args.Dest))
-	destParInfo, err := d.lookup(ctx, vol, 0, destDir)
+	destParInfo, err := d.lookup(ctx, vol, rootIno, dstDir)
 	if err != nil {
+		span.Errorf("lookup dst dir=%s error: %v", dstDir, err)
 		c.RespondError(err)
 		return
 	}
@@ -91,4 +97,5 @@ func (d *DriveNode) rename(c *rpc.Context) {
 		c.RespondError(err)
 		return
 	}
+	c.Respond()
 }

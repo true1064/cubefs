@@ -17,9 +17,13 @@ package drive
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/cubefs/cubefs/apinode/sdk/impl"
 
@@ -39,8 +43,6 @@ const (
 	headerSign      = "x-cfa-sign"
 
 	userPropertyPrefix = "x-cfa-meta-"
-
-	XAttrUserKey = "users"
 )
 
 // TODO: defines inode in sdk.
@@ -180,21 +182,22 @@ type ArgsSetProperties struct {
 
 // DriveNode drive node.
 type DriveNode struct {
+	masterAddr  string      // the master address of the default cluster
 	clusterID   string      // default cluster id
 	volumeName  string      // default volume name
-	vol         sdk.IVolume // default vaolume
-	masterAddr  string      // the master address of the default cluster
+	vol         sdk.IVolume // default volume
+	clusters    []string    // all cluster id
+	mu          sync.RWMutex
 	userRouter  *userRouteMgr
 	clusterMgr  sdk.ClusterManager
 	groupRouter *singleflight.Group
+	stop        chan struct{}
 	closer.Closer
 }
 
 // New returns a drive node.
 func New() *DriveNode {
-	ctx := context.Background()
 	cm := impl.NewClusterMgr()
-	vol := cm.GetCluster(defaultCluster).GetVol(defaultVolume)
 	urm, err := NewUserRouteMgr()
 	if err != nil {
 		log.Fatal(err)
@@ -203,27 +206,48 @@ func New() *DriveNode {
 		userRouter:  urm,
 		clusterMgr:  cm,
 		groupRouter: &singleflight.Group{},
+		stop:        make(chan struct{}),
 		Closer:      closer.New(),
 	}
 }
 
 func (d *DriveNode) Start(cfg *config.Config) error {
+	d.masterAddr = cfg.GetString("masterAddr")
+	d.clusterID = cfg.GetString("clusterID")
+	d.volumeName = cfg.GetString("volumeName")
+
+	if err := d.clusterMgr.AddCluster(context.TODO(), d.clusterID, d.masterAddr); err != nil {
+		return err
+	}
+	cluster := d.clusterMgr.GetCluster(d.clusterID)
+	if cluster == nil {
+		return fmt.Errorf("not get cluster clusterID: %s", d.clusterID)
+	}
+	d.vol = cluster.GetVol(d.volumeName)
+	if d.vol == nil {
+		return fmt.Errorf("not get volume volumeName: %s", d.volumeName)
+	}
+	if err := d.initClusterConfig(); err != nil {
+		return err
+	}
+	go d.run()
+	return nil
 }
 
 // get full path and volume by uid
 // filePath is an absolute of client
 func (d *DriveNode) getRootInoAndVolume(ctx context.Context, uid UserID) (Inode, sdk.IVolume, error) {
-	userRouter, err := d.GetUserRoute(ctx, uid)
+	userRouter, err := d.GetUserRouteInfo(ctx, uid)
 	if err != nil {
 		return 0, nil, err
 	}
 	cluster := d.clusterMgr.GetCluster(userRouter.ClusterID)
 	if cluster == nil {
-		return 0, nil, sdk.ErrNotFound
+		return 0, nil, sdk.ErrNoCluster
 	}
 	volume := cluster.GetVol(userRouter.VolumeID)
 	if volume == nil {
-		return 0, nil, sdk.ErrNotFound
+		return 0, nil, sdk.ErrNoVolume
 	}
 	return userRouter.RootFileID, volume, nil
 }
@@ -279,32 +303,75 @@ func (d *DriveNode) createFile(ctx context.Context, vol sdk.IVolume, parentIno I
 	}
 	info, err = vol.CreateFile(ctx, info.Inode, file)
 	if err != nil && err == sdk.ErrExist {
-		err = nil
+		if err != sdk.ErrExist {
+			return
+		}
+		dirInfo, err := vol.Lookup(ctx, info.Inode, file)
+		if err != nil {
+			return nil, err
+		}
+		info, err = vol.GetInode(ctx, dirInfo.Inode)
 	}
 	return
 }
 
-func (d *DriveNode) initClusterAlloc(ctx context.Context) (err error) {
-	ca := make(map[string]VolumeAlloc)
-	clusterVols := d.getClusterAndVolumes()
-	for c, vols := range clusterVols {
-		va := make(VolumeAlloc)
-		for _, v := range vols {
-			va[v] = 0
+func (d *DriveNode) initClusterConfig() error {
+	dirInfo, err := d.lookup(context.TODO(), d.vol, 0, "/usr/clusters.conf")
+	if err != nil {
+		return err
+	}
+	inoInfo, err := d.vol.GetInode(context.TODO(), dirInfo.Inode)
+	if err != nil {
+		log.Errorf("get inode error: %v, ino=%d", err, dirInfo.Inode)
+		return err
+	}
+	data := make([]byte, inoInfo.Size)
+	if _, err := d.vol.ReadFile(context.TODO(), dirInfo.Inode, 0, data); err != nil {
+		return err
+	}
+	cfg := ClusterConfig{}
+
+	if err = json.Unmarshal(data, &cfg); err != nil {
+		log.Errorf("umarshal cluster config error: %v", err)
+		return err
+	}
+	if len(cfg.Clusters) == 0 {
+		return fmt.Errorf("cluster config is empty")
+	}
+
+	clusters := make([]string, 0, len(cfg.Clusters))
+	for _, cluster := range cfg.Clusters {
+		for i := 0; i < cluster.Priority; i++ {
+			clusters = append(clusters, cluster.ClusterID)
 		}
-		ca[c] = va
+		if cluster.ClusterID == d.clusterID {
+			continue
+		}
+		if err = d.clusterMgr.AddCluster(context.TODO(), cluster.ClusterID, cluster.Master); err != nil {
+			return err
+		}
 	}
-	b, err := json.Marshal(ca)
-	if err != nil {
-		return
+	rand.Seed(time.Now().UnixNano())
+	rand.Shuffle(len(clusters), func(i, j int) {
+		clusters[i], clusters[j] = clusters[j], clusters[i]
+	})
+
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.clusters = clusters
+	return nil
+}
+
+func (d *DriveNode) run() {
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-d.stop:
+			return
+		case <-ticker.C:
+			d.initClusterConfig()
+		}
 	}
-	fileInfo, err := d.lookup(ctx, d.defaultVolume, 0, volAllocPath)
-	if err != nil {
-		return
-	}
-	err = d.defaultVolume.SetXAttr(ctx, fileInfo.Inode, "clusters", string(b))
-	if err != nil {
-		return
-	}
-	return
 }
