@@ -31,7 +31,6 @@ func (d *DriveNode) RegisterAPIRouters() *rpc.Router {
 	rpc.RegisterArgsParser(&ArgsSetProperties{}, "json")
 	rpc.RegisterArgsParser(&ArgsGetProperties{}, "json")
 	rpc.RegisterArgsParser(&ArgsMkDir{}, "json")
-	rpc.RegisterArgsParser(&ArgsRename{}, "json")
 
 	rpc.RegisterArgsParser(&ArgsFileUpload{}, "json")
 	rpc.RegisterArgsParser(&ArgsFileWrite{}, "json")

@@ -325,7 +325,7 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 	}
 
 	dir, filename := args.Dst.Split()
-	dstParent, err := d.createDir(ctx, vol, root, dir.String())
+	dstParent, err := d.createDir(ctx, vol, root, dir.String(), true)
 	if err != nil {
 		c.RespondError(err)
 		return

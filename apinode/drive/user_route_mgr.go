@@ -168,11 +168,12 @@ func (d *DriveNode) assignVolume(ctx context.Context, uid UserID) (clusterid, vo
 func (d *DriveNode) setUserRouteToFile(ctx context.Context, uid UserID, ur *UserRoute) error {
 	file := getUserRouteFile(uid)
 	inoInfo, err := d.createFile(ctx, d.vol, 0, file)
+	var dirInfo *sdk.DirInfo
 	if err != nil {
 		if err != sdk.ErrExist {
 			return err
 		}
-		dirInfo, err := d.lookup(ctx, d.vol, 0, file)
+		dirInfo, err = d.lookup(ctx, d.vol, 0, file)
 		if err != nil {
 			return err
 		}

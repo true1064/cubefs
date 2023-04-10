@@ -306,9 +306,10 @@ func (d *DriveNode) createFile(ctx context.Context, vol sdk.IVolume, parentIno I
 		if err != sdk.ErrExist {
 			return
 		}
-		dirInfo, err := vol.Lookup(ctx, info.Inode, file)
+		var dirInfo *sdk.DirInfo
+		dirInfo, err = vol.Lookup(ctx, info.Inode, file)
 		if err != nil {
-			return nil, err
+			return
 		}
 		info, err = vol.GetInode(ctx, dirInfo.Inode)
 	}
@@ -326,7 +327,7 @@ func (d *DriveNode) initClusterConfig() error {
 		return err
 	}
 	data := make([]byte, inoInfo.Size)
-	if _, err := d.vol.ReadFile(context.TODO(), dirInfo.Inode, 0, data); err != nil {
+	if _, err = d.vol.ReadFile(context.TODO(), dirInfo.Inode, 0, data); err != nil {
 		return err
 	}
 	cfg := ClusterConfig{}
