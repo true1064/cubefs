@@ -155,7 +155,6 @@ const (
 
 type ArgsListDir struct {
 	Path   string `json:"path"`
-	Type   string `json:"type"`
 	Owner  UserID `json:"owner,omitempty"`
 	Marker string `json:"marker,omitempty"`
 	Limit  int    `json:"limit"`
@@ -232,6 +231,26 @@ func (d *DriveNode) Start(cfg *config.Config) error {
 	}
 	go d.run()
 	return nil
+}
+
+func (d *DriveNode) GetUserRouteInfo(ctx context.Context, uid UserID) (*UserRoute, error) {
+	ur := d.userRouter.Get(uid)
+	if ur == nil {
+		// query file and set cache
+		r, err, _ := d.groupRouter.Do(string(uid), func() (interface{}, error) {
+			r, err := d.getUserRouteFromFile(ctx, uid)
+			if err != nil {
+				return nil, err
+			}
+			d.userRouter.Set(uid, r)
+			return r, nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		ur = r.(*UserRoute)
+	}
+	return ur, nil
 }
 
 // get full path and volume by uid

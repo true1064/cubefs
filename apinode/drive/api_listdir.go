@@ -162,24 +162,8 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 	}
 
 	uid := d.userID(c)
-	if uid == "" {
-		c.RespondStatus(http.StatusBadRequest)
-		return
-	}
 
-	path, typ, owner, marker, limit := args.Path, args.Type, args.Owner, args.Marker, args.Limit
-
-	if path == "" || typ == "" {
-		span.Error("not found path or type in paraments")
-		c.RespondStatus(http.StatusBadRequest)
-		return
-	}
-
-	if typ != "folder" {
-		span.Errorf("invalid param type=%s", typ)
-		c.RespondStatus(http.StatusBadRequest)
-		return
-	}
+	path, owner, marker, limit := args.Path, args.Owner, args.Marker, args.Limit
 
 	var (
 		rootIno Inode

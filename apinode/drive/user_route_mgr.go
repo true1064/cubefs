@@ -68,26 +68,6 @@ type userRouteMgr struct {
 	closeCh chan struct{}
 }
 
-func (d *DriveNode) GetUserRouteInfo(ctx context.Context, uid UserID) (*UserRoute, error) {
-	ur := d.userRouter.Get(uid)
-	if ur == nil {
-		// query file and set cache
-		r, err, _ := d.groupRouter.Do(string(uid), func() (interface{}, error) {
-			r, err := d.getUserRouteFromFile(ctx, uid)
-			if err != nil {
-				return nil, err
-			}
-			d.userRouter.Set(uid, r)
-			return r, nil
-		})
-		if err != nil {
-			return nil, err
-		}
-		ur = r.(*UserRoute)
-	}
-	return ur, nil
-}
-
 func NewUserRouteMgr() (*userRouteMgr, error) {
 	lruCache, err := memcache.NewMemCache(defaultCacheSize)
 	if err != nil {
@@ -204,7 +184,7 @@ func (d *DriveNode) getUserRouteFromFile(ctx context.Context, uid UserID) (*User
 		return nil, err
 	}
 	ur := &UserRoute{}
-	if err = json.Unmarshal([]byte(data), &ur); err != nil {
+	if err = json.Unmarshal([]byte(data), ur); err != nil {
 		return nil, err
 	}
 	return ur, nil

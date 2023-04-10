@@ -15,9 +15,17 @@
 package drive
 
 import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"testing"
 
+	"github.com/cubefs/cubefs/apinode/testing/mocks"
+	_ "github.com/cubefs/cubefs/blobstore/testing/nolog"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/singleflight"
 )
 
 func TestFilterBuilder(t *testing.T) {
@@ -77,4 +85,53 @@ func TestFilterBuilder(t *testing.T) {
 	require.Equal(t, 3, len(builders))
 	require.True(t, builders[2].match("12345"))
 	require.False(t, builders[2].match("1234"))
+}
+
+func TestHandleListDir(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	urm, _ := NewUserRouteMgr()
+	mockVol := mocks.NewMockIVolume(ctrl)
+	mockClusterMgr := mocks.NewMockClusterManager(ctrl)
+	d := &DriveNode{
+		vol:         mockVol,
+		userRouter:  urm,
+		clusterMgr:  mockClusterMgr,
+		groupRouter: &singleflight.Group{},
+	}
+	ts := httptest.NewServer(d.RegisterAPIRouters())
+	defer ts.Close()
+
+	client := ts.Client()
+	{
+		tgt := fmt.Sprintf("%s/v1/files", ts.URL)
+		res, err := client.Get(tgt)
+		require.Nil(t, err)
+		defer res.Body.Close()
+		require.Equal(t, res.StatusCode, http.StatusBadRequest)
+	}
+
+	{
+		tgt := fmt.Sprintf("%s/v1/files?path=%s&limit=10", ts.URL, url.QueryEscape("/test"))
+		req, err := http.NewRequest(http.MethodGet, tgt, nil)
+		require.Nil(t, err)
+		res, err := client.Do(req)
+		require.Nil(t, err)
+		defer res.Body.Close()
+		require.Equal(t, res.StatusCode, http.StatusBadRequest) // no uid
+	}
+
+	{
+		// getRootInoAndVolume error
+		mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("not found"))
+		tgt := fmt.Sprintf("%s/v1/files?path=%s&limit=10", ts.URL, url.QueryEscape("/test"))
+		req, err := http.NewRequest(http.MethodGet, tgt, nil)
+		require.Nil(t, err)
+		req.Header.Set(headerUserID, "test")
+		res, err := client.Do(req)
+		require.Nil(t, err)
+		defer res.Body.Close()
+		require.Equal(t, res.StatusCode, http.StatusInternalServerError)
+	}
 }
