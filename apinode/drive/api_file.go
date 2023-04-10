@@ -128,8 +128,8 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 
 // ArgsFileDownload file download argument.
 type ArgsFileDownload struct {
-	FileID FileID `json:"fileId"`
-	Owner  UserID `json:"owner,omitempty"`
+	Path  FilePath `json:"path"`
+	Owner UserID   `json:"owner,omitempty"`
 }
 
 func (d *DriveNode) handleFileDownload(c *rpc.Context) {
@@ -140,18 +140,31 @@ func (d *DriveNode) handleFileDownload(c *rpc.Context) {
 	}
 	ctx, span := d.ctxSpan(c)
 
+	if args.Path.Clean(); !args.Path.IsFile() {
+		span.Warn("invalid path", args.Path)
+		c.RespondError(sdk.ErrBadRequest)
+		return
+	}
+
 	uid := args.Owner
 	if !uid.Valid() {
 		uid = d.userID(c)
 	}
 
-	_, vol, err := d.getRootInoAndVolume(ctx, uid)
+	root, vol, err := d.getRootInoAndVolume(ctx, uid)
 	if err != nil {
 		c.RespondError(err)
 		return
 	}
 
-	inode, err := vol.GetInode(ctx, uint64(args.FileID))
+	file, err := d.lookup(ctx, vol, root, args.Path.String())
+	if err != nil {
+		span.Warn(err)
+		c.RespondError(err)
+		return
+	}
+
+	inode, err := vol.GetInode(ctx, file.Inode)
 	if err != nil {
 		c.RespondError(err)
 		return
@@ -200,10 +213,131 @@ func makeReader(ctx context.Context, vol sdk.IVolume, ino, off uint64) io.Reader
 	return &downReader{ctx: ctx, vol: vol, inode: ino, offset: off}
 }
 
+// ArgsFileRename rename file or dir.
+type ArgsFileRename struct {
+	Src FilePath `json:"src"`
+	Dst FilePath `json:"dst"`
+}
+
 func (d *DriveNode) handleFileRename(c *rpc.Context) {
-	c.Respond()
+	args := new(ArgsFileRename)
+	if err := c.ParseArgs(args); err != nil {
+		c.RespondError(err)
+		return
+	}
+	ctx, span := d.ctxSpan(c)
+
+	root, vol, err := d.getRootInoAndVolume(ctx, d.userID(c))
+	if err != nil {
+		c.RespondError(err)
+		return
+	}
+
+	args.Src.Clean()
+	args.Dst.Clean()
+	if !args.Src.Valid() || !args.Dst.Valid() {
+		span.Warn("invalid rename", args)
+		c.RespondError(sdk.ErrBadRequest)
+		return
+	}
+	span.Info("to rename", args)
+
+	if args.Src.IsDir() {
+		args.Src = args.Src[:len(args.Src)-1]
+	}
+	if args.Dst.IsDir() {
+		args.Dst = args.Dst[:len(args.Dst)-1]
+	}
+
+	srcDir, srcName := args.Src.Split()
+	srcParent, err := d.lookup(ctx, vol, root, string(srcDir))
+	if err != nil {
+		span.Warn("lookup src", srcDir, err)
+		c.RespondError(err)
+		return
+	}
+	dstDir, dstName := args.Dst.Split()
+	dstParent, err := d.lookup(ctx, vol, root, string(dstDir))
+	if err != nil {
+		span.Warn("lookup dst", dstDir, err)
+		c.RespondError(err)
+		return
+	}
+
+	err = vol.Rename(ctx, srcParent.Inode, dstParent.Inode, srcName, dstName)
+	if err != nil {
+		span.Error("rename error", args, err)
+	}
+	c.RespondError(err)
+}
+
+// ArgsFileCopy rename file or dir.
+type ArgsFileCopy struct {
+	Src  FilePath `json:"src"`
+	Dst  FilePath `json:"dst"`
+	Meta bool     `json:"meta,omitempty"`
 }
 
 func (d *DriveNode) handleFileCopy(c *rpc.Context) {
-	c.Respond()
+	args := new(ArgsFileCopy)
+	if err := c.ParseArgs(args); err != nil {
+		c.RespondError(err)
+		return
+	}
+	ctx, span := d.ctxSpan(c)
+
+	args.Src.Clean()
+	args.Dst.Clean()
+	if !args.Src.IsFile() || !args.Dst.IsFile() {
+		span.Warn("invalid copy", args)
+		c.RespondError(sdk.ErrBadRequest)
+		return
+	}
+	span.Info("to copy", args)
+
+	root, vol, err := d.getRootInoAndVolume(ctx, d.userID(c))
+	if err != nil {
+		c.RespondError(err)
+		return
+	}
+
+	file, err := d.lookup(ctx, vol, root, args.Src.String())
+	if err != nil {
+		span.Warn(err)
+		c.RespondError(err)
+		return
+	}
+	inode, err := vol.GetInode(ctx, file.Inode)
+	if err != nil {
+		c.RespondError(err)
+		return
+	}
+	body := makeReader(ctx, vol, inode.Inode, 0)
+
+	// TODO: remove shared meta
+	extend := make(map[string]string)
+	if args.Meta {
+		extend, err = vol.GetXAttrMap(ctx, inode.Inode)
+		if err != nil {
+			c.RespondError(err)
+			return
+		}
+	}
+
+	dir, filename := args.Dst.Split()
+	dstParent, err := d.createDir(ctx, vol, root, dir.String())
+	if err != nil {
+		c.RespondError(err)
+		return
+	}
+
+	_, err = vol.UploadFile(&sdk.UploadFileReq{
+		Ctx:    ctx,
+		ParIno: dstParent.Inode,
+		Name:   filename,
+		OldIno: 0,
+		Extend: extend,
+		Body:   body,
+	})
+	c.RespondError(err)
 }

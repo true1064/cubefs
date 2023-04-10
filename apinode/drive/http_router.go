@@ -36,6 +36,8 @@ func (d *DriveNode) RegisterAPIRouters() *rpc.Router {
 	rpc.RegisterArgsParser(&ArgsFileUpload{}, "json")
 	rpc.RegisterArgsParser(&ArgsFileWrite{}, "json")
 	rpc.RegisterArgsParser(&ArgsFileDownload{}, "json")
+	rpc.RegisterArgsParser(&ArgsFileRename{}, "json")
+	rpc.RegisterArgsParser(&ArgsFileCopy{}, "json")
 
 	rpc.RegisterArgsParser(&ArgsMPUploads{}, "json")
 	rpc.RegisterArgsParser(&ArgsMPUpload{}, "json")
@@ -64,12 +66,19 @@ func (d *DriveNode) RegisterAPIRouters() *rpc.Router {
 	r.Handle(http.MethodPut, "/v1/files/content", d.handleFileWrite, rpc.OptArgsQuery())
 	r.Handle(http.MethodGet, "/v1/files/content", d.handleFileDownload, rpc.OptArgsQuery())
 	r.Handle(http.MethodPost, "/v1/files/copy", d.handleFileCopy, rpc.OptArgsQuery())
-	r.Handle(http.MethodPost, "/v1/files/rename", d.handleRename, rpc.OptArgsQuery())
+	r.Handle(http.MethodPost, "/v1/files/rename", d.handleFileRename, rpc.OptArgsQuery())
 	// file multipart
 	r.Handle(http.MethodPost, "/v1/files/multipart", d.handleMultipartUploads, rpc.OptArgsQuery())
 	r.Handle(http.MethodPut, "/v1/files/multipart", d.handleMultipartPart, rpc.OptArgsQuery())
 	r.Handle(http.MethodGet, "/v1/files/multipart", d.handleMultipartList, rpc.OptArgsQuery())
 	r.Handle(http.MethodDelete, "/v1/files/multipart", d.handleMultipartAbort, rpc.OptArgsQuery())
+
+	r.Handle(http.MethodPost, "/v1/files/properties", d.handleSetProperties, rpc.OptArgsQuery())
+	r.Handle(http.MethodGet, "/v1/files/properties", d.handleGetProperties, rpc.OptArgsQuery())
+
+	r.Handle(http.MethodPost, "/v1/files/share", d.handleShare, rpc.OptArgsQuery())
+	r.Handle(http.MethodDelete, "/v1/files/share", d.handleUnShare, rpc.OptArgsQuery())
+	r.Handle(http.MethodGet, "/v1/files/shares", d.handleListShare, rpc.OptArgsQuery())
 
 	return r
 }
