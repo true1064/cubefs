@@ -488,6 +488,11 @@ func (td *TxUpdateDentry) Unmarshal(raw []byte) (err error) {
 	return
 }
 
+type DentryEx struct {
+	*Dentry
+	OldIno uint64
+}
+
 type DentryBatch []*Dentry
 
 // todo(leon chang), buffer need alloc first before and write directly consider the space and performance

@@ -44,4 +44,12 @@ type IVolume interface {
 	ListMultiPart(ctx context.Context, filepath, uploadId string, count, marker uint64) (parts []*Part, next uint64, isTruncated bool, err error)
 	AbortMultiPart(ctx context.Context, filepath, uploadId string) error
 	CompleteMultiPart(ctx context.Context, filepath, uploadId string, oldIno uint64, parts []Part) error
+	NewInodeLock() InodeLockApi
+}
+
+// can used as a distributed lock
+type InodeLockApi interface {
+	// Lock expireTime means lock will become invalid expireTime seconds
+	Lock(inode uint64, expireTime int) error
+	UnLock(inode uint64) error
 }

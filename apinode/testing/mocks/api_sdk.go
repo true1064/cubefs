@@ -302,6 +302,20 @@ func (mr *MockIVolumeMockRecorder) Mkdir(arg0, arg1, arg2 interface{}) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Mkdir", reflect.TypeOf((*MockIVolume)(nil).Mkdir), arg0, arg1, arg2)
 }
 
+// NewInodeLock mocks base method.
+func (m *MockIVolume) NewInodeLock() sdk.InodeLockApi {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewInodeLock")
+	ret0, _ := ret[0].(sdk.InodeLockApi)
+	return ret0
+}
+
+// NewInodeLock indicates an expected call of NewInodeLock.
+func (mr *MockIVolumeMockRecorder) NewInodeLock() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewInodeLock", reflect.TypeOf((*MockIVolume)(nil).NewInodeLock))
+}
+
 // ReadDirAll mocks base method.
 func (m *MockIVolume) ReadDirAll(arg0 context.Context, arg1 uint64) ([]proto.Dentry, error) {
 	m.ctrl.T.Helper()

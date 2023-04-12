@@ -65,6 +65,11 @@ func (v *volume) updateMasterAddr(addr string) {
 	// v.ec.UpdateMasterAddr(addr)
 }
 
+func (v *volume) NewInodeLock() sdk.InodeLockApi {
+	lk := &InodeLock{}
+	return lk
+}
+
 func (v *volume) Info() *sdk.VolInfo {
 	info := &sdk.VolInfo{
 		Name: v.name,
@@ -147,6 +152,7 @@ func (v *volume) ReadDirAll(ctx context.Context, ino uint64) ([]sdk.DirInfo, err
 		if len(dirs) < count {
 			return total, nil
 		}
+		marker = dirs[len(dirs)-1].Name
 	}
 }
 
@@ -162,9 +168,9 @@ func (v *volume) getStatByIno(ctx context.Context, ino uint64) (info *sdk.StatFs
 	inoArr := make([]uint64, 0, len(entArr))
 	for _, e := range entArr {
 		if proto.IsDir(e.Type) {
-			subStat, err := v.getStatByIno(ctx, e.Inode)
-			if err != nil {
-				return nil, syscallToErr(err)
+			subStat, err1 := v.getStatByIno(ctx, e.Inode)
+			if err1 != nil {
+				return nil, syscallToErr(err1)
 			}
 			info.Add(subStat)
 			dirs++
@@ -706,7 +712,7 @@ func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId strin
 		}
 	}
 
-	err = v.mw.DentryCreate_ll(parIno, name, cIno, defaultFileMode)
+	err = v.mw.DentryCreateEx_ll(parIno, name, cIno, oldIno, defaultFileMode)
 	if err != nil {
 		span.Errorf("final create dentry failed, parIno %d, name %s, childIno %d, err %s",
 			parIno, name, cIno, err.Error())

@@ -187,6 +187,10 @@ const (
 	opFSMStoreTickV1  = 72
 )
 
+const (
+	opCreateDentryEx = 10001
+)
+
 var (
 	exporterKey string
 )

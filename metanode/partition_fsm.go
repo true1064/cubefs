@@ -165,6 +165,12 @@ func (mp *metaPartition) Apply(command []byte, index uint64) (resp interface{}, 
 		}
 
 		resp = mp.fsmCreateDentry(den, false)
+	case opCreateDentryEx:
+		den := &DentryEx{}
+		if err = json.Unmarshal(msg.V, den); err != nil {
+			return
+		}
+		resp = mp.fsmCreateDentryEx(den)
 	case opFSMDeleteDentry:
 		den := &Dentry{}
 		if err = den.Unmarshal(msg.V); err != nil {
