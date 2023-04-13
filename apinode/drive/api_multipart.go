@@ -151,7 +151,7 @@ func (d *DriveNode) handleMultipartPart(c *rpc.Context) {
 	}
 
 	// TODO: get md5
-	err = vol.UploadMultiPart(ctx, args.Path.String(), args.UploadID, args.PartNumber, c.Request.Body)
+	part, err := vol.UploadMultiPart(ctx, args.Path.String(), args.UploadID, args.PartNumber, c.Request.Body)
 	if err != nil {
 		span.Error("multipart upload", args, err)
 		c.RespondError(err)
@@ -160,7 +160,7 @@ func (d *DriveNode) handleMultipartPart(c *rpc.Context) {
 	span.Info("multipart upload", args)
 	c.RespondJSON(MPPart{
 		PartNumber: args.PartNumber,
-		MD5:        "",
+		MD5:        part.MD5,
 	})
 }
 

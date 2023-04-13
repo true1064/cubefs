@@ -52,9 +52,11 @@ var (
 	ErrNotFound     = &Error{Status: 404, Code: "NotFound", Message: "not found"}
 	ErrNotDir       = &Error{Status: 452, Code: "ENOTDIR", Message: "not a directory"}
 
-	ErrLimitExceed = newErr(http.StatusTooManyRequests, "request limit exceed")
-	ErrConflict    = newErr(http.StatusConflict, "operation conflict")
-	ErrExist       = newErr(http.StatusConflict, "file already exist")
+	ErrInvalidPartOrder = newErr(http.StatusBadRequest, "request part order is invalid")
+	ErrInvalidPart      = newErr(http.StatusBadRequest, "request part is invalid")
+	ErrLimitExceed      = newErr(http.StatusTooManyRequests, "request limit exceed")
+	ErrConflict         = newErr(http.StatusConflict, "operation conflict")
+	ErrExist            = newErr(http.StatusConflict, "file already exist")
 
 	ErrInternalServerError = &Error{Status: 500, Code: "InternalServerError", Message: "internal server error"}
 	ErrBadGateway          = &Error{Status: 502, Code: "BadGateway", Message: "bad gateway"}

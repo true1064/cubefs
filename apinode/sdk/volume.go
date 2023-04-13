@@ -39,8 +39,7 @@ type IVolume interface {
 	// ReadFile read() will make a rpc request to server, if n less than len(data), it means no more data
 	ReadFile(ctx context.Context, ino, off uint64, data []byte) (n int, err error)
 	InitMultiPart(ctx context.Context, path string, oldIno uint64, extend map[string]string) (string, error)
-	GetMultiExtend(ctx context.Context, path, uploadId string) (extend map[string]string, err error)
-	UploadMultiPart(ctx context.Context, filepath, uploadId string, partNum uint16, read io.Reader) error
+	UploadMultiPart(ctx context.Context, filepath, uploadId string, partNum uint16, read io.Reader) (*Part, error)
 	ListMultiPart(ctx context.Context, filepath, uploadId string, count, marker uint64) (parts []*Part, next uint64, isTruncated bool, err error)
 	AbortMultiPart(ctx context.Context, filepath, uploadId string) error
 	CompleteMultiPart(ctx context.Context, filepath, uploadId string, oldIno uint64, parts []Part) error

@@ -2,11 +2,12 @@ package impl
 
 import (
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"io"
 	"math"
 	"os"
 	"path"
-	"sort"
 	"strings"
 	"syscall"
 
@@ -53,8 +54,9 @@ func newVolume(ctx context.Context, name, owner, addr string) (sdk.IVolume, erro
 	}
 
 	v := &volume{
-		mw: mw,
-		ec: ec,
+		mw:    mw,
+		ec:    ec,
+		owner: owner,
 	}
 
 	return v, nil
@@ -526,18 +528,13 @@ func (v *volume) InitMultiPart(ctx context.Context, path string, oldIno uint64, 
 	return uploadId, nil
 }
 
-func (v *volume) GetMultiExtend(ctx context.Context, path, uploadId string) (extend map[string]string, err error) {
-	// TODO implement me
-	panic("implement me")
-}
-
-func (v *volume) UploadMultiPart(ctx context.Context, filepath, uploadId string, partNum uint16, read io.Reader) (err error) {
+func (v *volume) UploadMultiPart(ctx context.Context, filepath, uploadId string, partNum uint16, read io.Reader) (part *sdk.Part, err error) {
 	span := trace.SpanFromContextSafe(ctx)
 
 	tmpInfo, err := v.mw.InodeCreate_ll(defaultFileMode, 0, 0, nil)
 	if err != nil {
 		span.Errorf("create ino failed", err.Error())
-		return syscallToErr(err)
+		return nil, syscallToErr(err)
 	}
 
 	tmpIno := tmpInfo.Inode
@@ -557,7 +554,7 @@ func (v *volume) UploadMultiPart(ctx context.Context, filepath, uploadId string,
 
 	if err = v.ec.OpenStream(tmpIno); err != nil {
 		span.Errorf("openStream failed, ino %d, err %s", tmpIno, err.Error())
-		return syscallToErr(err)
+		return nil, syscallToErr(err)
 	}
 
 	defer func() {
@@ -566,10 +563,21 @@ func (v *volume) UploadMultiPart(ctx context.Context, filepath, uploadId string,
 		}
 	}()
 
-	size, err := v.writeAt(ctx, tmpIno, 0, -1, read)
+	h := md5.New()
+	tee := io.TeeReader(read, h)
+
+	size, err := v.writeAt(ctx, tmpIno, 0, -1, tee)
 	if err != nil {
 		span.Errorf("execute writeAt failed, ino %d, err %s", tmpIno, err.Error())
-		return err
+		return nil, err
+	}
+
+	md5Val := hex.EncodeToString(h.Sum(nil))
+
+	part = &sdk.Part{
+		Size: uint64(size),
+		ID:   partNum,
+		MD5:  md5Val,
 	}
 
 	if err = v.ec.Flush(tmpIno); err != nil {
@@ -644,12 +652,35 @@ func (v *volume) AbortMultiPart(ctx context.Context, filepath, uploadId string) 
 	return nil
 }
 
-func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId string, oldIno uint64, parts []sdk.Part) (err error) {
+func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId string, oldIno uint64, partsArg []sdk.Part) (err error) {
 	span := trace.SpanFromContextSafe(ctx)
 
-	sort.SliceStable(parts, func(i, j int) bool {
-		return parts[i].ID < parts[j].ID
-	})
+	for idx, part := range partsArg {
+		if part.ID != uint16(idx+1) {
+			return sdk.ErrInvalidPartOrder
+		}
+	}
+
+	info, err := v.mw.GetMultipart_ll(filepath, uploadId)
+	if err != nil {
+		span.Errorf("get multipart info failed, path %s, uploadId %s, err %s", filepath, uploadId, err.Error())
+		return syscallToErr(err)
+	}
+
+	if len(partsArg) != len(info.Parts) {
+		span.Errorf("request part is not valid, path %s, uploadId %s", filepath, uploadId)
+		return sdk.ErrInvalidPart
+	}
+
+	partArr := make([]*sdk.Part, 0, len(partsArg))
+	for idx, part := range info.Parts {
+		tmpPart := partsArg[idx]
+		if tmpPart.MD5 != part.MD5 {
+			span.Errorf("request part md5 is invalid, path %s, uploadId %s, num %d, md5 %s", filepath, uploadId, tmpPart.ID, tmpPart.MD5)
+			return sdk.ErrInvalidPart
+		}
+		partArr = append(partArr, part)
+	}
 
 	completeInfo, err := v.mw.InodeCreate_ll(defaultFileMode, 0, 0, nil)
 	if err != nil {
@@ -671,7 +702,7 @@ func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId strin
 	size := uint64(0)
 	var eks []proto.ExtentKey
 
-	for _, part := range parts {
+	for _, part := range partArr {
 		_, _, eks, err = v.mw.GetExtents(part.Inode)
 		if err != nil {
 			span.Errorf("get part extent failed, ino %d, err %s", part.Inode, err.Error())
@@ -705,7 +736,7 @@ func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId strin
 		return
 	}
 
-	for _, part := range parts {
+	for _, part := range partArr {
 		err1 := v.mw.InodeDelete_ll(part.Inode)
 		if err1 != nil {
 			span.Errorf("delete part ino failed, ino %d, err %s", part.Inode, err1.Error())

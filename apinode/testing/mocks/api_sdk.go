@@ -166,21 +166,6 @@ func (mr *MockIVolumeMockRecorder) GetInode(arg0, arg1 interface{}) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInode", reflect.TypeOf((*MockIVolume)(nil).GetInode), arg0, arg1)
 }
 
-// GetMultiExtend mocks base method.
-func (m *MockIVolume) GetMultiExtend(arg0 context.Context, arg1, arg2 string) (map[string]string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetMultiExtend", arg0, arg1, arg2)
-	ret0, _ := ret[0].(map[string]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetMultiExtend indicates an expected call of GetMultiExtend.
-func (mr *MockIVolumeMockRecorder) GetMultiExtend(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMultiExtend", reflect.TypeOf((*MockIVolume)(nil).GetMultiExtend), arg0, arg1, arg2)
-}
-
 // GetXAttr mocks base method.
 func (m *MockIVolume) GetXAttr(arg0 context.Context, arg1 uint64, arg2 string) (string, error) {
 	m.ctrl.T.Helper()
@@ -434,11 +419,12 @@ func (mr *MockIVolumeMockRecorder) UploadFile(arg0 interface{}) *gomock.Call {
 }
 
 // UploadMultiPart mocks base method.
-func (m *MockIVolume) UploadMultiPart(arg0 context.Context, arg1, arg2 string, arg3 uint16, arg4 io.Reader) error {
+func (m *MockIVolume) UploadMultiPart(arg0 context.Context, arg1, arg2 string, arg3 uint16, arg4 io.Reader) (*proto.MultipartPartInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UploadMultiPart", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(*proto.MultipartPartInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // UploadMultiPart indicates an expected call of UploadMultiPart.
