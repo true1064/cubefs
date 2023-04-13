@@ -56,9 +56,8 @@ type ClusterConfig struct {
 }
 
 const (
-	statusNormal     = 1
-	statusLocked     = 2
-	hashMark         = 1024
+	volumeRootIno    = 1
+	hashMask         = 1024
 	defaultCacheSize = 1 << 17
 	userConfigPath   = "/.user/config"
 )
@@ -94,7 +93,7 @@ func (d *DriveNode) CreateUserRoute(ctx context.Context, uid UserID) (string, er
 	}
 
 	rootPath := getRootPath(uid)
-	inoInfo, err := d.createDir(ctx, vol, 0, rootPath, true)
+	inoInfo, err := d.createDir(ctx, vol, volumeRootIno, rootPath, true)
 	if err != nil {
 		return "", err
 	}
@@ -147,13 +146,13 @@ func (d *DriveNode) assignVolume(ctx context.Context, uid UserID) (clusterid, vo
 
 func (d *DriveNode) setUserRouteToFile(ctx context.Context, uid UserID, ur *UserRoute) error {
 	file := getUserRouteFile(uid)
-	inoInfo, err := d.createFile(ctx, d.vol, 0, file)
+	inoInfo, err := d.createFile(ctx, d.vol, volumeRootIno, file)
 	var dirInfo *sdk.DirInfo
 	if err != nil {
 		if err != sdk.ErrExist {
 			return err
 		}
-		dirInfo, err = d.lookup(ctx, d.vol, 0, file)
+		dirInfo, err = d.lookup(ctx, d.vol, volumeRootIno, file)
 		if err != nil {
 			return err
 		}
@@ -175,7 +174,7 @@ func (d *DriveNode) setUserRouteToFile(ctx context.Context, uid UserID, ur *User
 
 func (d *DriveNode) getUserRouteFromFile(ctx context.Context, uid UserID) (*UserRoute, error) {
 	userRouteFile := getUserRouteFile(uid)
-	dirInfo, err := d.lookup(ctx, d.vol, 0, userRouteFile)
+	dirInfo, err := d.lookup(ctx, d.vol, volumeRootIno, userRouteFile)
 	if err != nil {
 		return nil, err
 	}
@@ -192,12 +191,12 @@ func (d *DriveNode) getUserRouteFromFile(ctx context.Context, uid UserID) (*User
 
 func getUserRouteFile(uid UserID) string {
 	h1, h2 := hash(uid)
-	return fmt.Sprintf("/user/clusters/%d/%d", h1%hashMark, h2%hashMark)
+	return fmt.Sprintf("/user/clusters/%d/%d", h1%hashMask, h2%hashMask)
 }
 
 func getRootPath(uid UserID) string {
 	h1, h2 := hash(uid)
-	return fmt.Sprintf("/%d/%d/%s", h1%hashMark, h2%hashMark, string(uid))
+	return fmt.Sprintf("/%d/%d/%s", h1%hashMask, h2%hashMask, string(uid))
 }
 
 func (d *DriveNode) addUserConfig(ctx context.Context, uid UserID, path string) error {

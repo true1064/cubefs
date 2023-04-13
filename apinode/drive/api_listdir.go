@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -163,10 +164,11 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 
 	uid := d.userID(c)
 
-	path, owner, marker, limit := args.Path, args.Owner, args.Marker, args.Limit
+	path, owner, marker, limit := filepath.Clean(args.Path), args.Owner, args.Marker, args.Limit
 
 	var (
 		rootIno Inode
+		pathIno Inode
 		vol     sdk.IVolume
 		err     error
 	)
@@ -182,22 +184,27 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 		return
 	}
 
-	// 2. lookup the inode of dir
-	dirInodeInfo, err := d.lookup(ctx, vol, rootIno, path)
-	if err != nil {
-		span.Errorf("lookup path=%s error: %v", path, err)
-		c.RespondError(err)
-		return
-	}
-	if !dirInodeInfo.IsDir() {
-		span.Errorf("path=%s is not a directory", path)
-		c.RespondError(sdk.ErrNotDir)
-		return
+	if path == "/" {
+		pathIno = rootIno
+	} else {
+		// 2. lookup the inode of dir
+		dirInodeInfo, err := d.lookup(ctx, vol, rootIno, path)
+		if err != nil {
+			span.Errorf("lookup path=%s error: %v", path, err)
+			c.RespondError(err)
+			return
+		}
+		if !dirInodeInfo.IsDir() {
+			span.Errorf("path=%s is not a directory", path)
+			c.RespondError(sdk.ErrNotDir)
+			return
+		}
+		pathIno = Inode(dirInodeInfo.Inode)
 	}
 
 	if owner != "" {
 		// if has owner, we should verify perm
-		if err = d.verifyPerm(ctx, vol, Inode(dirInodeInfo.Inode), uid, readOnlyPerm); err != nil {
+		if err = d.verifyPerm(ctx, vol, pathIno, uid, readOnlyPerm); err != nil {
 			span.Errorf("verify perm error: %v, path=%s uid=%s", err, path, uid)
 			c.RespondError(err)
 			return
@@ -208,7 +215,7 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 		wg  sync.WaitGroup
 	)
 
-	res.ID = dirInodeInfo.Inode
+	res.ID = pathIno.Uint64()
 
 	wg.Add(1)
 	// lookup filePath's inode concurrency
@@ -222,7 +229,7 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 	}
 	getMore := true
 	for getMore {
-		fileInfo, err := d.listDir(ctx, dirInodeInfo.Inode, vol, marker, limit)
+		fileInfo, err := d.listDir(ctx, pathIno.Uint64(), vol, marker, limit)
 		if err != nil {
 			span.Errorf("list dir error: %v, path=%s", err, path)
 			c.RespondError(err)

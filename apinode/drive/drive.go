@@ -272,6 +272,7 @@ func (d *DriveNode) getRootInoAndVolume(ctx context.Context, uid UserID) (Inode,
 }
 
 func (d *DriveNode) lookup(ctx context.Context, vol sdk.IVolume, parentIno Inode, path string) (info *sdk.DirInfo, err error) {
+	err = sdk.ErrBadRequest
 	names := strings.Split(path, "/")
 	for _, name := range names {
 		if name == "" {
@@ -288,8 +289,12 @@ func (d *DriveNode) lookup(ctx context.Context, vol sdk.IVolume, parentIno Inode
 
 func (d *DriveNode) createDir(ctx context.Context, vol sdk.IVolume, parentIno Inode, path string, recursive bool) (info *sdk.InodeInfo, err error) {
 	var dirInfo *sdk.DirInfo
-	names := strings.Split(filepath.Clean(path), "/")
+	err = sdk.ErrBadRequest
+	names := strings.Split(path, "/")
 	for i, name := range names {
+		if name == "" {
+			continue
+		}
 		dirInfo, err = vol.Lookup(ctx, parentIno.Uint64(), name)
 		if err != nil {
 			if err != sdk.ErrNotFound {
@@ -311,22 +316,32 @@ func (d *DriveNode) createDir(ctx context.Context, vol sdk.IVolume, parentIno In
 		}
 		parentIno = Inode(dirInfo.Inode)
 	}
+	if info == nil && err == nil {
+		info, err = vol.GetInode(ctx, parentIno.Uint64())
+	}
 	return
 }
 
 func (d *DriveNode) createFile(ctx context.Context, vol sdk.IVolume, parentIno Inode, path string) (info *sdk.InodeInfo, err error) {
 	dir, file := filepath.Split(filepath.Clean(path))
-	info, err = d.createDir(ctx, vol, parentIno, dir, true)
-	if err != nil {
+	if file == "" {
+		err = sdk.ErrBadRequest
 		return
 	}
-	info, err = vol.CreateFile(ctx, info.Inode, file)
-	if err != nil && err == sdk.ErrExist {
+	if dir != "" && dir != "/" {
+		info, err = d.createDir(ctx, vol, parentIno, dir, true)
+		if err != nil {
+			return
+		}
+		parentIno = Inode(info.Inode)
+	}
+	info, err = vol.CreateFile(ctx, parentIno.Uint64(), file)
+	if err != nil {
 		if err != sdk.ErrExist {
 			return
 		}
 		var dirInfo *sdk.DirInfo
-		dirInfo, err = vol.Lookup(ctx, info.Inode, file)
+		dirInfo, err = vol.Lookup(ctx, parentIno.Uint64(), file)
 		if err != nil {
 			return
 		}
@@ -336,7 +351,7 @@ func (d *DriveNode) createFile(ctx context.Context, vol sdk.IVolume, parentIno I
 }
 
 func (d *DriveNode) initClusterConfig() error {
-	dirInfo, err := d.lookup(context.TODO(), d.vol, 0, "/usr/clusters.conf")
+	dirInfo, err := d.lookup(context.TODO(), d.vol, volumeRootIno, "/usr/clusters.conf")
 	if err != nil {
 		return err
 	}
