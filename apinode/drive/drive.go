@@ -25,9 +25,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cubefs/cubefs/apinode/sdk/impl"
-
 	"github.com/cubefs/cubefs/apinode/sdk"
+	"github.com/cubefs/cubefs/apinode/sdk/impl"
 	"github.com/cubefs/cubefs/blobstore/util/closer"
 	"github.com/cubefs/cubefs/blobstore/util/log"
 	"github.com/cubefs/cubefs/proto"
@@ -40,7 +39,8 @@ const (
 
 	headerRequestID = "x-cfa-request-id"
 	headerUserID    = "x-cfa-user-id"
-	headerSign      = "x-cfa-sign"
+	headerCrc32     = "x-cfa-content-crc32"
+	// headerSign      = "x-cfa-sign"
 
 	userPropertyPrefix = "x-cfa-meta-"
 )

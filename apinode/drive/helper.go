@@ -16,8 +16,14 @@ package drive
 
 import (
 	"fmt"
+	"hash"
+	"hash/crc32"
+	"io"
+	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/cubefs/cubefs/apinode/sdk"
 )
 
 // returns bytes contains the End byte.
@@ -63,4 +69,47 @@ func parseRange(header string, size int64) (ranges, error) {
 	}
 
 	return ranges{Start: start, End: end}, nil
+}
+
+type (
+	logFunc     func(format string, v ...interface{})
+	crc32Reader struct {
+		crc32  uint32
+		reader io.Reader
+		hasher hash.Hash32
+		logger logFunc
+	}
+)
+
+func newCrc32Reader(header http.Header, reader io.Reader, logger logFunc) (io.Reader, error) {
+	val := header.Get(headerCrc32)
+	if val == "" {
+		return reader, nil
+	}
+	i, err := strconv.Atoi(val)
+	if err != nil {
+		logger("invalid checksum %s", val)
+		return reader, sdk.ErrBadRequest
+	}
+	return &crc32Reader{
+		crc32:  uint32(i),
+		reader: reader,
+		hasher: crc32.NewIEEE(),
+		logger: logger,
+	}, nil
+}
+
+func (r *crc32Reader) Read(p []byte) (n int, err error) {
+	n, err = r.reader.Read(p)
+	if n > 0 {
+		r.hasher.Write(p[:n])
+	}
+	if err == io.EOF {
+		if actual := r.hasher.Sum32(); actual != r.crc32 {
+			r.logger("mismatch checksum wont=%d actual=%d", r.crc32, actual)
+			err = sdk.ErrMismatchChecksum
+			return
+		}
+	}
+	return
 }

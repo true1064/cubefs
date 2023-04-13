@@ -15,8 +15,15 @@
 package drive
 
 import (
+	"bytes"
+	"crypto/rand"
+	"fmt"
+	"hash/crc32"
+	"io"
+	"net/http"
 	"testing"
 
+	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/stretchr/testify/require"
 )
 
@@ -50,5 +57,63 @@ func TestParseRange(t *testing.T) {
 		} else {
 			require.Equal(t, cs.ranges, r, cs.header)
 		}
+	}
+}
+
+func TestCrc32Reader(t *testing.T) {
+	count := 0
+	logger := func(string, ...interface{}) {
+		count++
+	}
+	{
+		reader := bytes.NewReader(nil)
+		r, err := newCrc32Reader(nil, reader, logger)
+		require.NoError(t, err)
+		require.NotNil(t, r)
+		require.Equal(t, 0, count)
+	}
+	{
+		reader := bytes.NewReader(nil)
+		header := make(http.Header)
+		header.Add(headerCrc32, "")
+		r, err := newCrc32Reader(header, reader, logger)
+		require.NoError(t, err)
+		require.NotNil(t, r)
+	}
+	{
+		reader := bytes.NewReader(nil)
+		header := make(http.Header)
+		header.Add(headerCrc32, "-abc")
+		_, err := newCrc32Reader(header, reader, logger)
+		require.Error(t, err)
+		require.Equal(t, 1, count)
+	}
+	{
+		buff := make([]byte, 128)
+		rand.Read(buff)
+		hasher := crc32.NewIEEE()
+		hasher.Write(buff)
+		reader := bytes.NewReader(buff)
+		header := make(http.Header)
+		header.Add(headerCrc32, fmt.Sprintf("%d", hasher.Sum32()))
+		r, err := newCrc32Reader(header, reader, logger)
+		require.NoError(t, err)
+		b, err := io.ReadAll(r)
+		require.NoError(t, err)
+		require.Equal(t, buff, b)
+	}
+	{
+		buff := make([]byte, 128)
+		rand.Read(buff)
+		hasher := crc32.NewIEEE()
+		hasher.Write(buff)
+		reader := bytes.NewReader(buff)
+		header := make(http.Header)
+		header.Add(headerCrc32, fmt.Sprintf("%d", hasher.Sum32()+1))
+		r, err := newCrc32Reader(header, reader, logger)
+		require.NoError(t, err)
+		_, err = io.ReadAll(r)
+		require.ErrorIs(t, sdk.ErrMismatchChecksum, err)
+		require.Equal(t, 2, count)
 	}
 }

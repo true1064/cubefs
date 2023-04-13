@@ -150,8 +150,13 @@ func (d *DriveNode) handleMultipartPart(c *rpc.Context) {
 		return
 	}
 
-	// TODO: get md5
-	part, err := vol.UploadMultiPart(ctx, args.Path.String(), args.UploadID, args.PartNumber, c.Request.Body)
+	reader, err := newCrc32Reader(c.Request.Header, c.Request.Body, span.Warnf)
+	if err != nil {
+		c.RespondError(err)
+		return
+	}
+
+	part, err := vol.UploadMultiPart(ctx, args.Path.String(), args.UploadID, args.PartNumber, reader)
 	if err != nil {
 		span.Error("multipart upload", args, err)
 		c.RespondError(err)

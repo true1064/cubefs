@@ -64,6 +64,12 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 		return
 	}
 
+	reader, err := newCrc32Reader(c.Request.Header, c.Request.Body, span.Warnf)
+	if err != nil {
+		c.RespondError(err)
+		return
+	}
+
 	extend := d.getProperties(c)
 	inode, err := vol.UploadFile(&sdk.UploadFileReq{
 		Ctx:    ctx,
@@ -71,7 +77,7 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 		Name:   filename,
 		OldIno: uint64(args.FileID),
 		Extend: extend,
-		Body:   c.Request.Body,
+		Body:   reader,
 	})
 	if err != nil {
 		c.RespondError(err)
@@ -121,9 +127,15 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 		return
 	}
 
+	reader, err := newCrc32Reader(c.Request.Header, c.Request.Body, span.Warnf)
+	if err != nil {
+		c.RespondError(err)
+		return
+	}
+
 	span.Infof("write file: %d offset:%d size:%d", args.FileID, ranged.Start, size)
 	c.RespondError(vol.WriteFile(ctx, uint64(args.FileID),
-		uint64(ranged.Start), uint64(size), c.Request.Body))
+		uint64(ranged.Start), uint64(size), reader))
 }
 
 // ArgsFileDownload file download argument.

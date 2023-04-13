@@ -34,7 +34,7 @@ func TestGetUserRouteInfo(t *testing.T) {
 	_, err := d.GetUserRouteInfo(context.TODO(), "test")
 	require.Equal(t, err.Error(), "look up error")
 
-	_, h2 := hash("test")
+	_, h2 := hashUid("test")
 	mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, ino uint64, name string) (*sdk.DirInfo, error) {
 			if name == fmt.Sprintf("%d", h2%hashMask) {
@@ -66,6 +66,7 @@ func TestGetUserRouteInfo(t *testing.T) {
 	v, _ := json.Marshal(ur)
 	mockVol.EXPECT().GetXAttr(gomock.Any(), gomock.Any(), gomock.Any()).Return(string(v), nil)
 	ur1, err := d.GetUserRouteInfo(context.TODO(), "test1")
+	require.NoError(t, err)
 	require.Equal(t, *ur1, ur)
 }
 

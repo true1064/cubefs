@@ -62,10 +62,10 @@ func newVolume(ctx context.Context, name, owner, addr string) (sdk.IVolume, erro
 	return v, nil
 }
 
-func (v *volume) updateMasterAddr(addr string) {
-	// v.mw.UpdateMasterAddr(addr)
-	// v.ec.UpdateMasterAddr(addr)
-}
+// func (v *volume) updateMasterAddr(addr string) {
+// 	// v.mw.UpdateMasterAddr(addr)
+// 	// v.ec.UpdateMasterAddr(addr)
+// }
 
 func (v *volume) NewInodeLock() sdk.InodeLockApi {
 	lk := &InodeLock{}

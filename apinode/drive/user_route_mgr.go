@@ -190,12 +190,12 @@ func (d *DriveNode) getUserRouteFromFile(ctx context.Context, uid UserID) (*User
 }
 
 func getUserRouteFile(uid UserID) string {
-	h1, h2 := hash(uid)
+	h1, h2 := hashUid(uid)
 	return fmt.Sprintf("/user/clusters/%d/%d", h1%hashMask, h2%hashMask)
 }
 
 func getRootPath(uid UserID) string {
-	h1, h2 := hash(uid)
+	h1, h2 := hashUid(uid)
 	return fmt.Sprintf("/%d/%d/%s", h1%hashMask, h2%hashMask, string(uid))
 }
 
@@ -253,7 +253,7 @@ func (d *DriveNode) getUserConfig(ctx context.Context, uid UserID) (*UserRoute, 
 	return ur, xattrs, nil
 }
 
-func hash(uid UserID) (h1, h2 uint32) {
+func hashUid(uid UserID) (h1, h2 uint32) {
 	data := md5.Sum([]byte(uid))
 	h1 = crc32.ChecksumIEEE(data[:])
 	s := fmt.Sprintf("%d", h1)

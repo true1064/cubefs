@@ -204,7 +204,7 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 
 	if owner != "" {
 		// if has owner, we should verify perm
-		if err = d.verifyPerm(ctx, vol, pathIno, uid, readOnlyPerm); err != nil {
+		if err := d.verifyPerm(ctx, vol, pathIno, uid, readOnlyPerm); err != nil {
 			span.Errorf("verify perm error: %v, path=%s uid=%s", err, path, uid)
 			c.RespondError(err)
 			return
