@@ -110,6 +110,12 @@ func (node *mockNode) OnceLookup(isDir bool) {
 		})
 }
 
+func (node *mockNode) LookupN(n int) {
+	for i := 0; i < n; i++ {
+		node.OnceLookup(false)
+	}
+}
+
 func (node *mockNode) OnceGetInode() {
 	node.Volume.EXPECT().GetInode(A, A).DoAndReturn(
 		func(_ context.Context, ino uint64) (*sdk.InodeInfo, error) {

@@ -237,12 +237,6 @@ func (d *DriveNode) handleFileRename(c *rpc.Context) {
 	}
 	ctx, span := d.ctxSpan(c)
 
-	root, vol, err := d.getRootInoAndVolume(ctx, d.userID(c))
-	if err != nil {
-		c.RespondError(err)
-		return
-	}
-
 	args.Src.Clean()
 	args.Dst.Clean()
 	if !args.Src.Valid() || !args.Dst.Valid() {
@@ -251,6 +245,12 @@ func (d *DriveNode) handleFileRename(c *rpc.Context) {
 		return
 	}
 	span.Info("to rename", args)
+
+	root, vol, err := d.getRootInoAndVolume(ctx, d.userID(c))
+	if err != nil {
+		c.RespondError(err)
+		return
+	}
 
 	if args.Src.IsDir() {
 		args.Src = args.Src[:len(args.Src)-1]
@@ -317,6 +317,7 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 		c.RespondError(err)
 		return
 	}
+
 	inode, err := vol.GetInode(ctx, file.Inode)
 	if err != nil {
 		c.RespondError(err)

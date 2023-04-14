@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/cubefs/cubefs/blobstore/common/rpc"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
@@ -269,5 +270,127 @@ func TestHandleFileDownload(t *testing.T) {
 		require.Equal(t, 206, resp.StatusCode)
 		buff, _ := io.ReadAll(resp.Body)
 		require.Equal(t, body.buff[size-28:size], buff)
+	}
+}
+
+func TestHandleFileRename(t *testing.T) {
+	node := newMockNode(t)
+	d := node.DriveNode
+	server, client := newTestServer(d)
+	defer server.Close()
+
+	doRequest := func(querys ...string) rpc.HTTPError {
+		url := genURL(server.URL, "/v1/files/rename", querys...)
+		req, _ := http.NewRequest(http.MethodPost, url, nil)
+		req.Header.Add(headerUserID, testUserID)
+		resp, err := client.Do(Ctx, req)
+		require.NoError(t, err)
+		defer resp.Body.Close()
+		err = rpc.ParseData(resp, nil)
+		if err != nil {
+			return err.(rpc.HTTPError)
+		}
+		return nil
+	}
+
+	{
+		require.Equal(t, 400, doRequest("src", "/a").StatusCode())
+		require.Equal(t, 400, doRequest("src", "/a", "dst", "a/b/../../..").StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, &sdk.Error{Status: 521})
+		require.Equal(t, 521, doRequest("src", "/dir/a", "dst", "/dir/b").StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		node.OnceLookup(true)
+		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, &sdk.Error{Status: 522})
+		require.Equal(t, 522, doRequest("src", "/dir/a", "dst", "/dir/b").StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		node.OnceLookup(true)
+		node.OnceLookup(true)
+		node.Volume.EXPECT().Rename(A, A, A, A, A).Return(&sdk.Error{Status: 523})
+		require.Equal(t, 523, doRequest("src", "/dir/a/", "dst", "/dir/b/").StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		node.OnceLookup(true)
+		node.OnceLookup(true)
+		node.Volume.EXPECT().Rename(A, A, A, A, A).Return(nil)
+		require.NoError(t, doRequest("src", "/dir/a", "dst", "/dir/b"))
+	}
+}
+
+func TestHandleFileCopy(t *testing.T) {
+	node := newMockNode(t)
+	d := node.DriveNode
+	server, client := newTestServer(d)
+	defer server.Close()
+
+	doRequest := func(querys ...string) rpc.HTTPError {
+		url := genURL(server.URL, "/v1/files/copy", querys...)
+		req, _ := http.NewRequest(http.MethodPost, url, nil)
+		req.Header.Add(headerUserID, testUserID)
+		resp, err := client.Do(Ctx, req)
+		require.NoError(t, err)
+		defer resp.Body.Close()
+		err = rpc.ParseData(resp, nil)
+		if err != nil {
+			return err.(rpc.HTTPError)
+		}
+		return nil
+	}
+
+	{
+		require.Equal(t, 400, doRequest("src", "/a").StatusCode())
+		require.Equal(t, 400, doRequest("src", "/a", "dst", "a/b/../../..").StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, &sdk.Error{Status: 521})
+		require.Equal(t, 521, doRequest("src", "/dir/a", "dst", "/dir/b").StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		node.LookupN(2)
+		node.Volume.EXPECT().GetInode(A, A).Return(nil, &sdk.Error{Status: 522})
+		require.Equal(t, 522, doRequest("src", "/dir/a", "dst", "/dir/b").StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		node.LookupN(2)
+		node.OnceGetInode()
+		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, &sdk.Error{Status: 523})
+		require.Equal(t, 523, doRequest("src", "/dir/a", "dst", "/dir/b").StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		node.LookupN(2)
+		node.OnceGetInode()
+		node.OnceLookup(true)
+		node.Volume.EXPECT().GetInode(A, A).Return(nil, &sdk.Error{Status: 524})
+		require.Equal(t, 524, doRequest("src", "/dir/a", "dst", "/dir/b").StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		node.LookupN(2)
+		node.OnceGetInode()
+		node.OnceLookup(true)
+		node.OnceGetInode()
+		node.Volume.EXPECT().UploadFile(A).Return(nil, nil)
+		require.NoError(t, doRequest("src", "/dir/a", "dst", "/dir/b"))
+	}
+	{
+		node.OnceGetUser()
+		node.LookupN(2)
+		node.OnceGetInode()
+		node.OnceLookup(true)
+		node.OnceGetInode()
+		node.Volume.EXPECT().GetXAttrMap(A, A).Return(nil, nil)
+		node.Volume.EXPECT().UploadFile(A).Return(nil, nil)
+		require.NoError(t, doRequest("src", "/dir/a", "dst", "/dir/b", "meta", "1"))
 	}
 }
