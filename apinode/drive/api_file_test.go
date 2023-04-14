@@ -109,3 +109,59 @@ func TestHandleFileUpload(t *testing.T) {
 		require.Equal(t, "Uploaded-", file.Properties["upload"])
 	}
 }
+
+func TestHandleFileWrite(t *testing.T) {
+	node := newMockNode(t)
+	d := node.DriveNode
+	server, client := newTestServer(d)
+	defer server.Close()
+
+	doRequest := func(body *mockBody, ranged string, querys ...string) *http.Response {
+		url := genURL(server.URL, "/v1/files/content", querys...)
+		req, _ := http.NewRequest(http.MethodPut, url, body)
+		req.Header.Add(headerUserID, testUserID)
+		req.Header.Add(headerCrc32, fmt.Sprint(body.Sum32()))
+		if ranged != "" {
+			req.Header.Add(headerRange, ranged)
+		}
+		resp, err := client.Do(Ctx, req)
+		require.NoError(t, err)
+		return resp
+	}
+
+	{
+		resp := doRequest(newMockBody(64), "")
+		defer resp.Body.Close()
+		require.Equal(t, 400, resp.StatusCode)
+	}
+	{
+		node.OnceGetUser()
+		node.Volume.EXPECT().GetInode(A, A).Return(nil, &sdk.Error{Status: 521})
+		resp := doRequest(newMockBody(64), "", "fileId", "1111")
+		defer resp.Body.Close()
+		require.Equal(t, 521, resp.StatusCode)
+	}
+	{
+		node.OnceGetUser()
+		node.Volume.EXPECT().GetInode(A, A).Return(&sdk.InodeInfo{Size: 1024}, nil)
+		resp := doRequest(newMockBody(64), "bytes=i-j", "fileId", "1111")
+		defer resp.Body.Close()
+		require.Equal(t, 400, resp.StatusCode)
+	}
+	{
+		node.OnceGetUser()
+		node.Volume.EXPECT().GetInode(A, A).Return(&sdk.InodeInfo{Size: 1024}, nil)
+		node.Volume.EXPECT().WriteFile(A, A, A, A, A).Return(&sdk.Error{Status: 522})
+		resp := doRequest(newMockBody(64), "bytes=100-", "fileId", "1111")
+		defer resp.Body.Close()
+		require.Equal(t, 522, resp.StatusCode)
+	}
+	{
+		node.OnceGetUser()
+		node.Volume.EXPECT().GetInode(A, A).Return(&sdk.InodeInfo{Size: 1024}, nil)
+		node.Volume.EXPECT().WriteFile(A, A, A, A, A).Return(nil)
+		resp := doRequest(newMockBody(64), "bytes=100-", "fileId", "1111")
+		defer resp.Body.Close()
+		require.Equal(t, 200, resp.StatusCode)
+	}
+}

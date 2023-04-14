@@ -120,22 +120,20 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 		return
 	}
 
-	size, err := c.RequestLength()
-	if err != nil {
-		span.Warn(err)
-		c.RespondError(sdk.ErrBadRequest)
-		return
-	}
-
 	reader, err := newCrc32Reader(c.Request.Header, c.Request.Body, span.Warnf)
 	if err != nil {
 		c.RespondError(err)
 		return
 	}
 
+	var size uint64
+	if l, _ := c.RequestLength(); l > 0 {
+		size = uint64(l)
+	} else {
+		size-- // max
+	}
 	span.Infof("write file: %d offset:%d size:%d", args.FileID, ranged.Start, size)
-	c.RespondError(vol.WriteFile(ctx, uint64(args.FileID),
-		uint64(ranged.Start), uint64(size), reader))
+	c.RespondError(vol.WriteFile(ctx, uint64(args.FileID), uint64(ranged.Start), size, reader))
 }
 
 // ArgsFileDownload file download argument.
