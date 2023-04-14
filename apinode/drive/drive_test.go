@@ -114,6 +114,7 @@ func (node *mockNode) OnceGetInode() {
 	node.Volume.EXPECT().GetInode(A, A).DoAndReturn(
 		func(_ context.Context, ino uint64) (*sdk.InodeInfo, error) {
 			return &sdk.InodeInfo{
+				Size:  1024,
 				Inode: ino,
 			}, nil
 		})

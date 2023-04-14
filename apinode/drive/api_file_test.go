@@ -15,6 +15,7 @@
 package drive
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -124,6 +125,9 @@ func TestHandleFileWrite(t *testing.T) {
 		if ranged != "" {
 			req.Header.Add(headerRange, ranged)
 		}
+		if body.remain > 100 {
+			req.ContentLength = int64(body.remain)
+		}
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
 		return resp
@@ -163,5 +167,107 @@ func TestHandleFileWrite(t *testing.T) {
 		resp := doRequest(newMockBody(64), "bytes=100-", "fileId", "1111")
 		defer resp.Body.Close()
 		require.Equal(t, 200, resp.StatusCode)
+	}
+	{
+		node.OnceGetUser()
+		node.Volume.EXPECT().GetInode(A, A).Return(&sdk.InodeInfo{Size: 1024}, nil)
+		body := newMockBody(128)
+		node.Volume.EXPECT().WriteFile(A, A, A, A, A).DoAndReturn(
+			func(_ context.Context, _, _, size uint64, r io.Reader) error {
+				buff := make([]byte, size)
+				io.ReadFull(r, buff)
+				require.Equal(t, body.buff[:128], buff)
+				return nil
+			})
+		resp := doRequest(body, "bytes=100-", "fileId", "1111")
+		defer resp.Body.Close()
+		require.Equal(t, 200, resp.StatusCode)
+	}
+}
+
+func TestHandleFileDownload(t *testing.T) {
+	node := newMockNode(t)
+	d := node.DriveNode
+	server, client := newTestServer(d)
+	defer server.Close()
+
+	doRequest := func(body *mockBody, ranged string, querys ...string) *http.Response {
+		url := genURL(server.URL, "/v1/files/content", querys...)
+		req, _ := http.NewRequest(http.MethodGet, url, body)
+		req.Header.Add(headerUserID, testUserID)
+		if ranged != "" {
+			req.Header.Add(headerRange, ranged)
+		}
+		resp, err := client.Do(Ctx, req)
+		require.NoError(t, err)
+		return resp
+	}
+
+	{
+		resp := doRequest(newMockBody(64), "")
+		defer resp.Body.Close()
+		require.Equal(t, 400, resp.StatusCode)
+	}
+	{
+		resp := doRequest(newMockBody(64), "", "path", "../")
+		defer resp.Body.Close()
+		require.Equal(t, 400, resp.StatusCode)
+	}
+	{
+		node.OnceGetUser()
+		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, &sdk.Error{Status: 521})
+		resp := doRequest(newMockBody(64), "", "path", "/download")
+		defer resp.Body.Close()
+		require.Equal(t, 521, resp.StatusCode)
+	}
+	{
+		node.OnceGetUser()
+		node.OnceLookup(false)
+		node.Volume.EXPECT().GetInode(A, A).Return(nil, &sdk.Error{Status: 522})
+		resp := doRequest(newMockBody(64), "", "path", "/download")
+		defer resp.Body.Close()
+		require.Equal(t, 522, resp.StatusCode)
+	}
+	{
+		node.OnceGetUser()
+		node.OnceLookup(false)
+		node.OnceGetInode()
+		resp := doRequest(newMockBody(64), "bytes=i-j", "path", "/download")
+		defer resp.Body.Close()
+		require.Equal(t, 400, resp.StatusCode)
+	}
+	{
+		size := 128
+		node.OnceGetUser()
+		node.OnceLookup(false)
+		node.OnceGetInode()
+		body := newMockBody(size)
+		node.Volume.EXPECT().ReadFile(A, A, A, A).DoAndReturn(
+			func(_ context.Context, _, _ uint64, p []byte) (int, error) {
+				copy(p, body.buff[:size])
+				return size, io.EOF
+			})
+		resp := doRequest(body, "", "path", "/download")
+		defer resp.Body.Close()
+		require.Equal(t, 200, resp.StatusCode)
+		buff, _ := io.ReadAll(resp.Body)
+		require.Equal(t, body.buff[:size], buff)
+	}
+	{
+		size := 128
+		node.OnceGetUser()
+		node.OnceLookup(false)
+		node.OnceGetInode()
+		body := newMockBody(size)
+		node.Volume.EXPECT().ReadFile(A, A, A, A).DoAndReturn(
+			func(_ context.Context, _, _ uint64, p []byte) (int, error) {
+				copy(p, body.buff[size-28:size])
+				return 28, io.EOF
+			})
+		resp := doRequest(body, "bytes=-28", "path", "/download")
+		defer resp.Body.Close()
+		require.Equal(t, 206, resp.StatusCode)
+		buff, _ := io.ReadAll(resp.Body)
+		require.Equal(t, body.buff[size-28:size], buff)
 	}
 }
