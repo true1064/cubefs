@@ -15,7 +15,7 @@
 // Package testing for mocking interfaces with `go generate`
 package testing
 
-//go:generate mockgen -destination=./mocks/api_sdk.go -package=mocks -mock_names IVolume=MockIVolume,ICluster=MockICluster,ClusterManager=MockClusterManager github.com/cubefs/cubefs/apinode/sdk IVolume,ICluster,ClusterManager
+//go:generate mockgen -destination=./mocks/api_sdk.go -package=mocks -mock_names IVolume=MockIVolume,ICluster=MockICluster,ClusterManager=MockClusterManager,IMaster=MockMaster github.com/cubefs/cubefs/apinode/sdk IVolume,ICluster,ClusterManager,IMaster
 //go:generate mockgen -destination=./mocks/api_crypto.go -package=mocks -mock_names TransCipher=MockTransCipher,FileCipher=MockFileCipher github.com/cubefs/cubefs/apinode/crypto TransCipher,FileCipher
 
 import (

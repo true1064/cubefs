@@ -3,6 +3,7 @@ package impl
 type InodeLock struct{}
 
 func (l *InodeLock) Lock(inode uint64, expireTime int) error {
+
 	return nil
 }
 

@@ -5,8 +5,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cubefs/cubefs/blobstore/common/trace"
-
 	"github.com/cubefs/cubefs/apinode/sdk"
 )
 
@@ -24,7 +22,7 @@ type cluster struct {
 	newVol func(ctx context.Context, name, owner, addr string) (sdk.IVolume, error)
 }
 
-func newCluster(ctx context.Context, addr, cId string) (sdk.ICluster, error) {
+func newClusterIn(ctx context.Context, addr, cId string) (*cluster, error) {
 	cl := &cluster{
 		masterAddr: addr,
 		clusterId:  cId,
@@ -39,6 +37,14 @@ func newCluster(ctx context.Context, addr, cId string) (sdk.ICluster, error) {
 
 	cl.newVol = newVolume
 	cl.cli = cli
+	return cl, nil
+}
+
+func newCluster(ctx context.Context, addr, cId string) (sdk.ICluster, error) {
+	cl, err := newClusterIn(ctx, addr, cId)
+	if err != nil {
+		return nil, err
+	}
 	// get all volume in cluster
 	cl.updateVols(ctx)
 	go func() {

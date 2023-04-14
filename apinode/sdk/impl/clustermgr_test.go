@@ -4,8 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/cubefs/cubefs/blobstore/common/trace"
-
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/apinode/testing/mocks"
 	"github.com/golang/mock/gomock"
@@ -14,7 +12,7 @@ import (
 
 var any = gomock.Any()
 
-func TestAddCluster(t *testing.T) {
+func TestClusterMgr(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -57,5 +55,9 @@ func TestAddCluster(t *testing.T) {
 
 		tmpC := mgr.GetCluster(tc.cid).(*mocks.MockICluster)
 		tmpC.EXPECT().Addr().Return(tc.addr).AnyTimes()
+		tmpC.EXPECT().Info().AnyTimes()
 	}
+
+	cs := mgr.ListCluster()
+	require.True(t, len(cs) == 2)
 }
