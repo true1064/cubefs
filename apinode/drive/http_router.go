@@ -107,6 +107,7 @@ func (*DriveNode) userID(c *rpc.Context) UserID {
 func (*DriveNode) getProperties(c *rpc.Context) map[string]string {
 	properties := make(map[string]string)
 	for key, values := range c.Request.Header {
+		key = strings.ToLower(key)
 		if strings.HasPrefix(key, userPropertyPrefix) {
 			properties[key[len(userPropertyPrefix):]] = values[0]
 		}

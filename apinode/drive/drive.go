@@ -189,8 +189,8 @@ type DriveNode struct {
 	mu          sync.RWMutex
 	userRouter  *userRouteMgr
 	clusterMgr  sdk.ClusterManager
-	groupRouter *singleflight.Group
-	stop        chan struct{}
+	groupRouter singleflight.Group
+
 	closer.Closer
 }
 
@@ -202,11 +202,9 @@ func New() *DriveNode {
 		log.Fatal(err)
 	}
 	return &DriveNode{
-		userRouter:  urm,
-		clusterMgr:  cm,
-		groupRouter: &singleflight.Group{},
-		stop:        make(chan struct{}),
-		Closer:      closer.New(),
+		userRouter: urm,
+		clusterMgr: cm,
+		Closer:     closer.New(),
 	}
 }
 
@@ -392,8 +390,8 @@ func (d *DriveNode) initClusterConfig() error {
 	})
 
 	d.mu.Lock()
-	defer d.mu.Unlock()
 	d.clusters = clusters
+	d.mu.Unlock()
 	return nil
 }
 
@@ -403,7 +401,7 @@ func (d *DriveNode) run() {
 
 	for {
 		select {
-		case <-d.stop:
+		case <-d.Closer.Done():
 			return
 		case <-ticker.C:
 			d.initClusterConfig()

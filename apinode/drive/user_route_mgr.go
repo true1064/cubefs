@@ -40,6 +40,14 @@ type UserRoute struct {
 	Params      string `json:"params"` // cfs
 }
 
+func (ur *UserRoute) Marshal() ([]byte, error) {
+	return json.Marshal(ur)
+}
+
+func (ur *UserRoute) Unmarshal(data []byte) error {
+	return json.Unmarshal(data, &ur)
+}
+
 type ConfigEntry struct {
 	Status int8  `json:"status"`
 	Time   int64 `json:"time"`
@@ -161,7 +169,7 @@ func (d *DriveNode) setUserRouteToFile(ctx context.Context, uid UserID, ur *User
 			return err
 		}
 	}
-	val, err := json.Marshal(ur)
+	val, err := ur.Marshal()
 	if err != nil {
 		return err
 	}
@@ -183,7 +191,7 @@ func (d *DriveNode) getUserRouteFromFile(ctx context.Context, uid UserID) (*User
 		return nil, err
 	}
 	ur := &UserRoute{}
-	if err = json.Unmarshal([]byte(data), ur); err != nil {
+	if err = ur.Unmarshal([]byte(data)); err != nil {
 		return nil, err
 	}
 	return ur, nil

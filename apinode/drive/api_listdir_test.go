@@ -22,10 +22,8 @@ import (
 	"testing"
 
 	"github.com/cubefs/cubefs/apinode/testing/mocks"
-	_ "github.com/cubefs/cubefs/blobstore/testing/nolog"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/sync/singleflight"
 )
 
 func TestFilterBuilder(t *testing.T) {
@@ -95,10 +93,9 @@ func TestHandleListDir(t *testing.T) {
 	mockVol := mocks.NewMockIVolume(ctrl)
 	mockClusterMgr := mocks.NewMockClusterManager(ctrl)
 	d := &DriveNode{
-		vol:         mockVol,
-		userRouter:  urm,
-		clusterMgr:  mockClusterMgr,
-		groupRouter: &singleflight.Group{},
+		vol:        mockVol,
+		userRouter: urm,
+		clusterMgr: mockClusterMgr,
 	}
 	ts := httptest.NewServer(d.RegisterAPIRouters())
 	defer ts.Close()

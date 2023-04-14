@@ -2,19 +2,181 @@ package drive
 
 import (
 	"context"
+	crand "crypto/rand"
 	"encoding/json"
 	"fmt"
+	"hash/crc32"
+	"io"
+	"io/fs"
 	"math/rand"
+	"net/http/httptest"
+	"net/url"
 	"os"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/cubefs/cubefs/apinode/sdk"
-	"github.com/cubefs/cubefs/apinode/testing/mocks"
+	"github.com/cubefs/cubefs/blobstore/common/rpc"
+	_ "github.com/cubefs/cubefs/blobstore/testing/nolog"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/sync/singleflight"
+
+	"github.com/cubefs/cubefs/apinode/sdk"
+	"github.com/cubefs/cubefs/apinode/testing/mocks"
 )
+
+const (
+	testUserID = "test-user-1"
+)
+
+var (
+	A = gomock.Any()
+	C = gomock.NewController
+
+	Ctx = context.Background()
+)
+
+type mockNode struct {
+	DriveNode  *DriveNode
+	Volume     *mocks.MockIVolume
+	ClusterMgr *mocks.MockClusterManager
+	Cluster    *mocks.MockICluster
+	GenInode   func() uint64
+}
+
+func newMockNode(tb testing.TB) mockNode {
+	urm, _ := NewUserRouteMgr()
+	volume := mocks.NewMockIVolume(C(tb))
+	clusterMgr := mocks.NewMockClusterManager(C(tb))
+	inode := uint64(1)
+	return mockNode{
+		DriveNode: &DriveNode{
+			vol:        volume,
+			userRouter: urm,
+			clusterMgr: clusterMgr,
+		},
+		Volume:     volume,
+		ClusterMgr: clusterMgr,
+		Cluster:    mocks.NewMockICluster(C(tb)),
+		GenInode: func() uint64 {
+			return atomic.AddUint64(&inode, 1)
+		},
+	}
+}
+
+func (node *mockNode) OnceGetUser() {
+	path := getUserRouteFile(testUserID)
+	LookupN := len(strings.Split(strings.Trim(path, "/"), "/"))
+	node.Volume.EXPECT().Lookup(A, A, A).DoAndReturn(
+		func(_ context.Context, _ uint64, name string) (*sdk.DirInfo, error) {
+			return &sdk.DirInfo{
+				Name:  name,
+				Inode: node.GenInode(),
+			}, nil
+		}).Times(LookupN)
+	node.Volume.EXPECT().GetXAttr(A, A, A).DoAndReturn(
+		func(ctx context.Context, ino uint64, key string) (string, error) {
+			uid := UserID(key)
+			ur := UserRoute{
+				Uid:         uid,
+				ClusterType: 1,
+				ClusterID:   "cluster01",
+				VolumeID:    "volume01",
+				DriveID:     string(uid) + "_drive",
+				RootPath:    getRootPath(uid),
+				RootFileID:  FileID(ino),
+				Ctime:       time.Now().Unix(),
+			}
+			val, _ := ur.Marshal()
+			return string(val), nil
+		})
+	node.ClusterMgr.EXPECT().GetCluster(A).Return(node.Cluster)
+	node.Cluster.EXPECT().GetVol(A).Return(node.Volume)
+}
+
+func (node *mockNode) OnceLookup(isDir bool) {
+	typ := uint32(0)
+	if isDir {
+		typ = uint32(fs.ModeDir)
+	}
+	node.Volume.EXPECT().Lookup(A, A, A).DoAndReturn(
+		func(_ context.Context, _ uint64, name string) (*sdk.DirInfo, error) {
+			return &sdk.DirInfo{
+				Name:  name,
+				Inode: node.GenInode(),
+				Type:  typ,
+			}, nil
+		})
+}
+
+func (node *mockNode) OnceGetInode() {
+	node.Volume.EXPECT().GetInode(A, A).DoAndReturn(
+		func(_ context.Context, ino uint64) (*sdk.InodeInfo, error) {
+			return &sdk.InodeInfo{
+				Inode: ino,
+			}, nil
+		})
+}
+
+// httptest server need close by you.
+func newTestServer(d *DriveNode) (*httptest.Server, rpc.Client) {
+	server := httptest.NewServer(d.RegisterAPIRouters())
+	return server, rpc.NewClient(&rpc.Config{})
+}
+
+func genURL(host string, uri string, querys ...string) string {
+	if len(querys)%2 == 1 {
+		querys = append(querys, "")
+	}
+	q := make(url.Values)
+	for i := 0; i < len(querys); i += 2 {
+		q.Set(querys[i], querys[i+1])
+	}
+	if len(q) > 0 {
+		return fmt.Sprintf("%s%s?%s", host, uri, q.Encode())
+	}
+	return fmt.Sprintf("%s%s", host, uri)
+}
+
+type mockBody struct {
+	remain int
+	buff   []byte
+}
+
+func (r *mockBody) Read(p []byte) (n int, err error) {
+	if r.remain <= 0 {
+		return 0, io.EOF
+	}
+	buff := r.buff[:]
+	if r.remain < len(buff) {
+		buff = buff[:r.remain]
+	}
+	n = copy(p, buff)
+	return
+}
+
+func (r *mockBody) Sum32() uint32 {
+	crc := crc32.NewIEEE()
+	remain, buff := r.remain, r.buff[:]
+	for remain > 0 {
+		if remain < len(buff) {
+			buff = buff[:remain]
+		}
+		n, _ := crc.Write(buff)
+		remain -= n
+	}
+	return crc.Sum32()
+}
+
+func newMockBody(size int) *mockBody {
+	buff := make([]byte, 1<<20)
+	crand.Read(buff)
+	return &mockBody{
+		remain: size,
+		buff:   buff,
+	}
+}
 
 func TestGetUserRouteInfo(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -24,10 +186,9 @@ func TestGetUserRouteInfo(t *testing.T) {
 	mockVol := mocks.NewMockIVolume(ctrl)
 	mockClusterMgr := mocks.NewMockClusterManager(ctrl)
 	d := &DriveNode{
-		vol:         mockVol,
-		userRouter:  urm,
-		clusterMgr:  mockClusterMgr,
-		groupRouter: &singleflight.Group{},
+		vol:        mockVol,
+		userRouter: urm,
+		clusterMgr: mockClusterMgr,
 	}
 
 	mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("look up error"))
@@ -78,10 +239,9 @@ func TestGetRootInoAndVolume(t *testing.T) {
 	mockVol := mocks.NewMockIVolume(ctrl)
 	mockClusterMgr := mocks.NewMockClusterManager(ctrl)
 	d := &DriveNode{
-		vol:         mockVol,
-		userRouter:  urm,
-		clusterMgr:  mockClusterMgr,
-		groupRouter: &singleflight.Group{},
+		vol:        mockVol,
+		userRouter: urm,
+		clusterMgr: mockClusterMgr,
 	}
 
 	mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
