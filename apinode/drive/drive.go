@@ -359,12 +359,13 @@ func (d *DriveNode) initClusterConfig() error {
 		return err
 	}
 	data := make([]byte, inoInfo.Size)
-	if _, err = d.vol.ReadFile(context.TODO(), dirInfo.Inode, 0, data); err != nil {
+	n, err := d.vol.ReadFile(context.TODO(), dirInfo.Inode, 0, data)
+	if err != nil {
 		return err
 	}
 	cfg := ClusterConfig{}
 
-	if err = json.Unmarshal(data, &cfg); err != nil {
+	if err = json.Unmarshal(data[:n], &cfg); err != nil {
 		log.Errorf("umarshal cluster config error: %v", err)
 		return err
 	}
@@ -376,9 +377,6 @@ func (d *DriveNode) initClusterConfig() error {
 	for _, cluster := range cfg.Clusters {
 		for i := 0; i < cluster.Priority; i++ {
 			clusters = append(clusters, cluster.ClusterID)
-		}
-		if cluster.ClusterID == d.clusterID {
-			continue
 		}
 		if err = d.clusterMgr.AddCluster(context.TODO(), cluster.ClusterID, cluster.Master); err != nil {
 			return err

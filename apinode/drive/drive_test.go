@@ -512,3 +512,118 @@ func TestCreateFile(t *testing.T) {
 	require.Nil(t, err)
 	require.Equal(t, inoInfo.Inode, uint64(4))
 }
+
+func TestInitClusterConfig(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	urm, _ := NewUserRouteMgr()
+	mockVol := mocks.NewMockIVolume(ctrl)
+	mockClusterMgr := mocks.NewMockClusterManager(ctrl)
+	d := &DriveNode{
+		vol:         mockVol,
+		userRouter:  urm,
+		clusterMgr:  mockClusterMgr,
+		groupRouter: &singleflight.Group{},
+	}
+
+	mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, sdk.ErrNotDir)
+	err := d.initClusterConfig()
+	require.ErrorIs(t, err, sdk.ErrNotDir)
+
+	mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, parentIno uint64, name string) (*sdk.DirInfo, error) {
+			mode := uint32(os.ModeDir)
+			if name == "clusters.conf" {
+				mode = uint32(os.ModeIrregular)
+			}
+			return &sdk.DirInfo{
+				Name:  name,
+				Inode: parentIno + 1,
+				Type:  mode,
+			}, nil
+		}).Times(2)
+	mockVol.EXPECT().GetInode(gomock.Any(), gomock.Any()).Return(nil, sdk.ErrNotFound)
+	err = d.initClusterConfig()
+	require.ErrorIs(t, err, sdk.ErrNotFound)
+
+	mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, parentIno uint64, name string) (*sdk.DirInfo, error) {
+			mode := uint32(os.ModeDir)
+			if name == "clusters.conf" {
+				mode = uint32(os.ModeIrregular)
+			}
+			return &sdk.DirInfo{
+				Name:  name,
+				Inode: parentIno + 1,
+				Type:  mode,
+			}, nil
+		}).AnyTimes()
+	mockVol.EXPECT().GetInode(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, inode uint64) (*sdk.InodeInfo, error) {
+			return &sdk.InodeInfo{
+				Inode: inode,
+				Mode:  uint32(os.ModeIrregular),
+				Size:  10,
+			}, nil
+		})
+	mockVol.EXPECT().ReadFile(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(0, sdk.ErrUnauthorized)
+	err = d.initClusterConfig()
+	require.ErrorIs(t, err, sdk.ErrUnauthorized)
+
+	mockVol.EXPECT().GetInode(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, inode uint64) (*sdk.InodeInfo, error) {
+			return &sdk.InodeInfo{
+				Inode: inode,
+				Mode:  uint32(os.ModeIrregular),
+				Size:  10,
+			}, nil
+		})
+	mockVol.EXPECT().ReadFile(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, inode uint64, off uint64, data []byte) (n int, err error) {
+			copy(data, []byte("1234567890"))
+			return 10, nil
+		})
+	err = d.initClusterConfig()
+	require.NotNil(t, err)
+
+	cfg := ClusterConfig{}
+	for i := 0; i < 5; i++ {
+		cfg.Clusters = append(cfg.Clusters, ClusterInfo{
+			ClusterID: fmt.Sprintf("%d", i+1),
+			Master:    "127.0.0.1:9000,127.0.0.1:9001,127.0.0.1:9002",
+			Priority:  10,
+		})
+	}
+
+	data, _ := json.Marshal(&cfg)
+	mockVol.EXPECT().GetInode(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, inode uint64) (*sdk.InodeInfo, error) {
+			return &sdk.InodeInfo{
+				Inode: inode,
+				Mode:  uint32(os.ModeIrregular),
+				Size:  uint64(len(data)),
+			}, nil
+		})
+	mockVol.EXPECT().ReadFile(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, inode uint64, off uint64, b []byte) (n int, err error) {
+			copy(b, data)
+			return len(data), nil
+		})
+	clusterIDs := []string{}
+	masters := []string{}
+	mockClusterMgr.EXPECT().AddCluster(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, clusterid string, master string) error {
+			clusterIDs = append(clusterIDs, clusterid)
+			masters = append(masters, master)
+			return nil
+		}).Times(5)
+	err = d.initClusterConfig()
+	require.Nil(t, err)
+	require.Equal(t, len(clusterIDs), 5)
+	require.Equal(t, len(masters), 5)
+	for i := 0; i < 5; i++ {
+		require.Equal(t, clusterIDs[i], cfg.Clusters[i].ClusterID)
+		require.Equal(t, masters[i], cfg.Clusters[i].Master)
+	}
+}
