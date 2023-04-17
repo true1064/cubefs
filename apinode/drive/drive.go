@@ -198,7 +198,7 @@ func New() *DriveNode {
 }
 
 func (d *DriveNode) Start(cfg *config.Config) error {
-	d.masterAddr = cfg.GetString("masterAddr")
+	d.masterAddr = cfg.GetString(proto.MasterAddr)
 	d.clusterID = cfg.GetString("clusterID")
 	d.volumeName = cfg.GetString("volumeName")
 

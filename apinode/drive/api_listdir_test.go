@@ -131,4 +131,9 @@ func TestHandleListDir(t *testing.T) {
 		defer res.Body.Close()
 		require.Equal(t, res.StatusCode, http.StatusInternalServerError)
 	}
+
+	{
+		urm.Set("test", &UserRoute{})
+
+	}
 }

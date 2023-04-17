@@ -287,3 +287,7 @@ func (m *userRouteMgr) Get(key UserID) *UserRoute {
 func (m *userRouteMgr) Set(key UserID, value *UserRoute) {
 	m.cache.Set(key, value)
 }
+
+func (m *userRouteMgr) Remove(key UserID) {
+	m.cache.Remove(key)
+}

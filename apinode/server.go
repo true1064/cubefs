@@ -57,6 +57,7 @@ const (
 
 type serviceNode interface {
 	RegisterAPIRouters() *rpc.Router
+	Start(cfg *config.Config) error
 	closer.Closer
 }
 
@@ -138,7 +139,7 @@ func (s *apiNode) loadConfig(cfg *config.Config) error {
 	}
 	s.mc = master.NewMasterClient(masters, false)
 
-	return nil
+	return s.serviceNode.Start(cfg)
 }
 
 func handleStart(svr common.Server, cfg *config.Config) error {
