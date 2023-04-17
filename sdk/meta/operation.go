@@ -2186,6 +2186,47 @@ func (mw *MetaWrapper) batchSetXAttr(mp *MetaPartition, inode uint64, attrs map[
 	return
 }
 
+func (mw *MetaWrapper) setInodeLock(mp *MetaPartition, req *proto.InodeLockReq) (status int, err error) {
+	bgTime := stat.BeginStat()
+	defer func() {
+		stat.EndStat("setInodeLock", err, bgTime, 1)
+	}()
+
+	req.PartitionId = mp.PartitionID
+
+	packet := proto.NewPacketReqID()
+	packet.Opcode = proto.OpMetaSetInodeLock
+	packet.PartitionID = mp.PartitionID
+	err = packet.MarshalData(req)
+	if err != nil {
+		log.LogErrorf("setInodeLock: marshal packet fail, err(%v)", err)
+		return
+	}
+	log.LogDebugf("setInodeLock: packet(%v) mp(%v) req(%v) err(%v)", packet, mp, *req, err)
+
+	metric := exporter.NewTPCnt(packet.GetOpMsg())
+	defer func() {
+		metric.SetWithLabels(err, map[string]string{exporter.Vol: mw.volname})
+	}()
+
+	packet, err = mw.sendToMetaPartition(mp, packet)
+	if err != nil {
+		log.LogErrorf("setInodeLock: send to partition fail, packet(%v) mp(%v) req(%v) err(%v)",
+			packet, mp, *req, err)
+		return
+	}
+
+	status = parseStatus(packet.ResultCode)
+	if status != statusOK {
+		err = errors.New(packet.GetResultMsg())
+		log.LogErrorf("setInodeLock: received fail status, packet(%v) mp(%v) req(%v) result(%v)", packet, mp, *req, packet.GetResultMsg())
+		return
+	}
+
+	log.LogDebugf("setInodeLock: packet(%v) mp(%v) req(%v) result(%v)", packet, mp, *req, packet.GetResultMsg())
+	return
+}
+
 func (mw *MetaWrapper) setXAttr(mp *MetaPartition, inode uint64, name []byte, value []byte) (status int, err error) {
 	bgTime := stat.BeginStat()
 	defer func() {

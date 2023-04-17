@@ -14,7 +14,14 @@
 
 package metanode
 
-import "fmt"
+import (
+	"fmt"
+	"github.com/cubefs/cubefs/proto"
+	"github.com/cubefs/cubefs/util/log"
+	"strconv"
+	"strings"
+	"time"
+)
 
 type ExtendOpResult struct {
 	Status uint8
@@ -40,6 +47,94 @@ func (mp *metaPartition) fsmSetXAttr(extend *Extend) (err error) {
 	}
 
 	return
+}
+
+// TODO support snap
+func (mp *metaPartition) fsmSetInodeLock(req *proto.InodeLockReq) (status uint8) {
+	if req.LockType == proto.InodeLockStatus {
+		return mp.inodeLock(req)
+	} else if req.LockType == proto.InodeUnLockStatus {
+		return mp.inodeUnlock(req)
+	} else {
+		log.LogErrorf("request type is not valid, type %d", req.LockType)
+		return proto.OpArgMismatchErr
+	}
+}
+
+func (mp *metaPartition) inodeLock(req *proto.InodeLockReq) (status uint8) {
+	tmpE := &Extend{inode: req.Inode}
+	now := time.Now().Unix()
+	val := fmt.Sprintf("%s-%d", req.Id, now+int64(req.ExpireTime))
+	key := []byte(proto.InodeLockKey)
+
+	var e *Extend
+	item := mp.extendTree.CopyGet(tmpE)
+	if item == nil {
+		e = NewExtend(req.Inode)
+		e.Put([]byte(proto.InodeLockKey), []byte(val), 0)
+		mp.extendTree.ReplaceOrInsert(e, true)
+		return proto.OpOk
+	}
+	e = item.(*Extend)
+
+	oldVal, exist := e.Get(key)
+	if !exist {
+		e.Put(key, []byte(val), 0)
+		return proto.OpOk
+	}
+
+	oldValStr := strings.TrimSpace(string(oldVal))
+	if len(oldVal) == 0 {
+		e.Put(key, []byte(val), 0)
+		return proto.OpOk
+	}
+
+	arr := strings.Split(oldValStr, "-")
+	if len(arr) != 2 {
+		log.LogErrorf("inode val is not valid, ino %d, val %s", req.Inode, oldValStr)
+		return proto.OpArgMismatchErr
+	}
+
+	expireTime, err := strconv.Atoi(arr[1])
+	if err != nil {
+		log.LogErrorf("inode val is not valid, ino %d, val %s", req.Inode, oldValStr)
+		return proto.OpArgMismatchErr
+	}
+
+	if now > int64(expireTime) {
+		e.Put(key, []byte(val), 0)
+		return proto.OpOk
+	}
+
+	return proto.OpExistErr
+}
+
+func (mp *metaPartition) inodeUnlock(req *proto.InodeLockReq) (status uint8) {
+	tmpE := &Extend{inode: req.Inode}
+	key := []byte(proto.InodeLockKey)
+	item := mp.extendTree.CopyGet(tmpE)
+
+	if item == nil {
+		log.LogErrorf("inode lock, extend still not exist, inode %d", req.Inode)
+		return proto.OpArgMismatchErr
+	}
+
+	var e *Extend
+	e = item.(*Extend)
+	oldVal, ok := e.Get(key)
+	if !ok {
+		log.LogErrorf("inode unlock, lock key not exist, inode %d", req.Inode)
+		return proto.OpArgMismatchErr
+	}
+
+	arr := strings.Split(string(oldVal), "-")
+	if arr[0] == req.Id {
+		e.Remove(key)
+		return proto.OpOk
+	}
+
+	log.LogErrorf("inodeUnlock lock used by other, id %s, val %s", req.Id, string(oldVal))
+	return proto.OpArgMismatchErr
 }
 
 // todo(leon chang):check snapshot delete relation with attr

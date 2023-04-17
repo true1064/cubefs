@@ -33,6 +33,7 @@ type MetaOp interface {
 	AppendExtentKeys(inode uint64, eks []proto.ExtentKey) error
 	BatchSetXAttr_ll(inode uint64, attrs map[string]string) error
 	XAttrGetAll_ll(inode uint64) (*proto.XAttrInfo, error)
+	SetInodeLock_ll(inode uint64, req *proto.InodeLockReq) error
 	XAttrSet_ll(inode uint64, name, value []byte) error
 	XAttrGet_ll(inode uint64, name string) (*proto.XAttrInfo, error)
 	XAttrDel_ll(inode uint64, name string) error

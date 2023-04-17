@@ -219,6 +219,8 @@ func (m *metadataManager) HandleMetadataOperation(conn net.Conn, p *Packet, remo
 	// operations for extend attributes
 	case proto.OpMetaSetXAttr:
 		err = m.opMetaSetXAttr(conn, p, remoteAddr)
+	case proto.OpMetaSetInodeLock:
+		err = m.opMetaSetInodeLock(conn, p, remoteAddr)
 	case proto.OpMetaBatchSetXAttr:
 		err = m.opMetaBatchSetXAttr(conn, p, remoteAddr)
 	case proto.OpMetaGetXAttr:

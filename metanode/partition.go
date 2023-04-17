@@ -147,6 +147,7 @@ type OpInode interface {
 
 type OpExtend interface {
 	SetXAttr(req *proto.SetXAttrRequest, p *Packet) (err error)
+	SetInodeLock(req *proto.InodeLockReq, p *Packet) (err error)
 	BatchSetXAttr(req *proto.BatchSetXAttrRequest, p *Packet) (err error)
 	GetXAttr(req *proto.GetXAttrRequest, p *Packet) (err error)
 	GetAllXAttr(req *proto.GetAllXAttrRequest, p *Packet) (err error)

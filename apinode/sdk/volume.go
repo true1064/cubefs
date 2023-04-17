@@ -49,6 +49,6 @@ type IVolume interface {
 // can used as a distributed lock
 type InodeLockApi interface {
 	// Lock expireTime means lock will become invalid expireTime seconds
-	Lock(inode uint64, expireTime int) error
-	UnLock(inode uint64) error
+	Lock(ctx context.Context, inode uint64, expireTime int) error
+	UnLock(ctx context.Context, inode uint64) error
 }

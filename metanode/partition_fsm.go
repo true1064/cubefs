@@ -291,6 +291,13 @@ func (mp *metaPartition) Apply(command []byte, index uint64) (resp interface{}, 
 			return
 		}
 		err = mp.fsmSetXAttr(extend)
+	case opSetInodeLock:
+		req := new(proto.InodeLockReq)
+		err = json.Unmarshal(msg.V, req)
+		if err != nil {
+			return
+		}
+		resp = mp.fsmSetInodeLock(req)
 	case opFSMRemoveXAttr:
 		var extend *Extend
 		if extend, err = NewExtendFromBytes(msg.V); err != nil {

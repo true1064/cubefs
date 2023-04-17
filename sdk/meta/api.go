@@ -2145,6 +2145,25 @@ func (mw *MetaWrapper) BatchSetXAttr_ll(inode uint64, attrs map[string]string) e
 	return nil
 }
 
+func (mw *MetaWrapper) SetInodeLock_ll(inode uint64, req *proto.InodeLockReq) error {
+	var err error
+	mp := mw.getPartitionByInode(inode)
+	if mp == nil {
+		log.LogErrorf("SetInodeLock: no such partition, inode(%v)", inode)
+		return syscall.ENOENT
+	}
+
+	var status int
+	status, err = mw.setInodeLock(mp, req)
+	if err != nil || status != statusOK {
+		return statusToErrno(status)
+	}
+
+	log.LogDebugf("SetInodeLock: setInodeLock success: volume(%v) inode(%v) req(%v) status(%v)",
+		mw.volname, inode, req, status)
+	return nil
+}
+
 func (mw *MetaWrapper) XAttrGetAll_ll(inode uint64) (*proto.XAttrInfo, error) {
 	mp := mw.getPartitionByInode(inode)
 	if mp == nil {

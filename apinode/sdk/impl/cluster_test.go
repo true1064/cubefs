@@ -2,13 +2,15 @@ package impl
 
 import (
 	"context"
+	"testing"
+
+	"github.com/cubefs/blobstore/common/trace"
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/apinode/testing/mocks"
 	"github.com/cubefs/cubefs/proto"
 	"github.com/cubefs/cubefs/sdk/master"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestCluster_initMasterCli(t *testing.T) {
@@ -40,7 +42,6 @@ func TestCluster_initMasterCli(t *testing.T) {
 		_, err := initMasterCli(ctx, cId, tc.addr)
 		require.True(t, err == tc.result)
 	}
-
 }
 
 func TestCluster_updateVols(t *testing.T) {
@@ -104,5 +105,4 @@ func TestNewCluster(t *testing.T) {
 	//_, ctx := trace.StartSpanFromContext(context.TODO(), "")
 	//_, err := newCluster(ctx, errAddr, "c1")
 	//require.True(t, err == sdk.ErrBadRequest)
-
 }

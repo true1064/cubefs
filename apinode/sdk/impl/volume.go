@@ -11,7 +11,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/cubefs/cubefs/blobstore/common/trace"
+	"github.com/cubefs/blobstore/common/trace"
+	"github.com/google/uuid"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/proto"
@@ -68,7 +69,16 @@ func newVolume(ctx context.Context, name, owner, addr string) (sdk.IVolume, erro
 // }
 
 func (v *volume) NewInodeLock() sdk.InodeLockApi {
-	lk := &InodeLock{}
+	uidByte, _ := uuid.New().MarshalBinary()
+	m := md5.New()
+	m.Write(uidByte)
+	md5Val := hex.EncodeToString(m.Sum(nil))
+
+	lk := &InodeLock{
+		v:      v,
+		id:     md5Val,
+		status: 0,
+	}
 	return lk
 }
 

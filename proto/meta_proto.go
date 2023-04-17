@@ -52,6 +52,20 @@ type CreateMetaPartitionResponse struct {
 	Result      string
 }
 
+const (
+	InodeLockStatus   = uint8(0)
+	InodeUnLockStatus = uint8(0)
+	InodeLockKey      = "xattr_inode_lock"
+)
+
+type InodeLockReq struct {
+	PartitionId uint64 `pid`
+	LockType    uint8  `json:"lock_type"`
+	Id          string `json:"id"`
+	ExpireTime  int    `json:"expire_time"`
+	Inode       uint64 `json:"ino"`
+}
+
 type UidSpaceInfo struct {
 	VolName   string
 	Uid       uint32

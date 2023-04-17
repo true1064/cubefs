@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cubefs/cubefs/blobstore/common/trace"
+
 	"github.com/cubefs/cubefs/apinode/sdk"
 )
 

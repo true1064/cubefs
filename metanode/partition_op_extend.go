@@ -84,6 +84,23 @@ func (mp *metaPartition) SetXAttr(req *proto.SetXAttrRequest, p *Packet) (err er
 	return
 }
 
+func (mp *metaPartition) SetInodeLock(req *proto.InodeLockReq, p *Packet) (err error) {
+	data, err := json.Marshal(req)
+	if err != nil {
+		p.PacketErrorWithBody(proto.OpErr, []byte(err.Error()))
+		return
+	}
+
+	resp, err := mp.submit(opSetInodeLock, data)
+	if err != nil {
+		p.PacketErrorWithBody(proto.OpErr, []byte(err.Error()))
+		return
+	}
+
+	p.PacketErrorWithBody(resp.(uint8), nil)
+	return
+}
+
 func (mp *metaPartition) BatchSetXAttr(req *proto.BatchSetXAttrRequest, p *Packet) (err error) {
 	var extend = NewExtend(req.Inode)
 	for key, val := range req.Attrs {

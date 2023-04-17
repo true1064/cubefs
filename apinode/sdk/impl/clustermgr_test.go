@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/cubefs/blobstore/common/trace"
+
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/apinode/testing/mocks"
 	"github.com/golang/mock/gomock"
