@@ -155,20 +155,9 @@ const (
 
 type ArgsListDir struct {
 	Path   string `json:"path"`
-	Owner  UserID `json:"owner,omitempty"`
 	Marker string `json:"marker,omitempty"`
 	Limit  int    `json:"limit"`
 	Filter string `json:"filter,omitempty"`
-}
-
-type ArgsShare struct {
-	Path string `json:"path"`
-	Perm string `json:"perm"`
-}
-
-type ArgsUnShare struct {
-	Path  string `json:"path"`
-	Users string `json:"users,omitempty"`
 }
 
 type ArgsGetProperties struct {

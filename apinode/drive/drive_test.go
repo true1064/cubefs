@@ -24,6 +24,7 @@ import (
 
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/apinode/testing/mocks"
+	"golang.org/x/sync/singleflight"
 )
 
 const (
@@ -524,7 +525,7 @@ func TestInitClusterConfig(t *testing.T) {
 		vol:         mockVol,
 		userRouter:  urm,
 		clusterMgr:  mockClusterMgr,
-		groupRouter: &singleflight.Group{},
+		groupRouter: singleflight.Group{},
 	}
 
 	mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, sdk.ErrNotDir)

@@ -164,7 +164,7 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 
 	uid := d.userID(c)
 
-	path, owner, marker, limit := filepath.Clean(args.Path), args.Owner, args.Marker, args.Limit
+	path, marker, limit := filepath.Clean(args.Path), args.Marker, args.Limit
 
 	var (
 		rootIno Inode
@@ -173,11 +173,7 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 		err     error
 	)
 	// 1. get user route info
-	if owner == "" {
-		rootIno, vol, err = d.getRootInoAndVolume(ctx, uid)
-	} else {
-		rootIno, vol, err = d.getRootInoAndVolume(ctx, owner)
-	}
+	rootIno, vol, err = d.getRootInoAndVolume(ctx, uid)
 	if err != nil {
 		span.Errorf("Failed to get volume: %v", err)
 		c.RespondError(err)
@@ -202,14 +198,6 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 		pathIno = Inode(dirInodeInfo.Inode)
 	}
 
-	if owner != "" {
-		// if has owner, we should verify perm
-		if err := d.verifyPerm(ctx, vol, pathIno, uid, readOnlyPerm); err != nil {
-			span.Errorf("verify perm error: %v, path=%s uid=%s", err, path, uid)
-			c.RespondError(err)
-			return
-		}
-	}
 	var (
 		res ListDirResult
 		wg  sync.WaitGroup

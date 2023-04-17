@@ -75,10 +75,6 @@ func (d *DriveNode) RegisterAPIRouters() *rpc.Router {
 	r.Handle(http.MethodPost, "/v1/files/properties", d.handleSetProperties, rpc.OptArgsQuery())
 	r.Handle(http.MethodGet, "/v1/files/properties", d.handleGetProperties, rpc.OptArgsQuery())
 
-	r.Handle(http.MethodPost, "/v1/files/share", d.handleShare, rpc.OptArgsQuery())
-	r.Handle(http.MethodDelete, "/v1/files/share", d.handleUnShare, rpc.OptArgsQuery())
-	r.Handle(http.MethodGet, "/v1/files/shares", d.handleListShare, rpc.OptArgsQuery())
-
 	return r
 }
 
