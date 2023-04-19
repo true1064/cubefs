@@ -42,7 +42,7 @@ func newClusterIn(ctx context.Context, addr, cId string) (*cluster, error) {
 	return cl, nil
 }
 
-func newCluster(ctx context.Context, addr, cId string) (sdk.ICluster, error) {
+func newCluster(ctx context.Context, cId, addr string) (sdk.ICluster, error) {
 	cl, err := newClusterIn(ctx, addr, cId)
 	if err != nil {
 		return nil, err

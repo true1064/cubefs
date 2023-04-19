@@ -16,6 +16,7 @@
 package testing
 
 //go:generate mockgen -destination=./mocks/api_sdk.go -package=mocks -mock_names IVolume=MockIVolume,ICluster=MockICluster,ClusterManager=MockClusterManager,IMaster=MockMaster github.com/cubefs/cubefs/apinode/sdk IVolume,ICluster,ClusterManager,IMaster
+//go:generate mockgen -destination=./mocks/api_cfsop.go -package=mocks -mock_names DataOp=MockDataOp,MetaOp=MockMetaOp github.com/cubefs/cubefs/apinode/sdk DataOp,MetaOp
 //go:generate mockgen -destination=./mocks/api_crypto.go -package=mocks -mock_names TransCipher=MockTransCipher,FileCipher=MockFileCipher github.com/cubefs/cubefs/apinode/crypto TransCipher,FileCipher
 
 import (

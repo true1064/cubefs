@@ -27,8 +27,6 @@ import (
 
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/apinode/sdk/impl"
-	"github.com/cubefs/cubefs/blobstore/util/closer"
-	"github.com/cubefs/cubefs/blobstore/util/log"
 	"github.com/cubefs/cubefs/proto"
 	"github.com/cubefs/cubefs/util/config"
 	"golang.org/x/sync/singleflight"
@@ -202,7 +200,8 @@ func (d *DriveNode) Start(cfg *config.Config) error {
 	d.clusterID = cfg.GetString("clusterID")
 	d.volumeName = cfg.GetString("volumeName")
 
-	if err := d.clusterMgr.AddCluster(context.TODO(), d.clusterID, d.masterAddr); err != nil {
+	_, ctx := trace.StartSpanFromContext(context.TODO(), "")
+	if err := d.clusterMgr.AddCluster(ctx, d.clusterID, d.masterAddr); err != nil {
 		return err
 	}
 	cluster := d.clusterMgr.GetCluster(d.clusterID)

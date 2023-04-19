@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
+	"github.com/cubefs/cubefs/blobstore/common/trace"
 	"io"
 	"math"
 	"os"
@@ -11,7 +12,6 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/cubefs/blobstore/common/trace"
 	"github.com/google/uuid"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
@@ -21,11 +21,32 @@ import (
 	"github.com/cubefs/cubefs/util"
 )
 
+var (
+	newMetaWrapper  = newMetaOp
+	newExtentClient = newDataOp
+)
+
 type volume struct {
 	mw    sdk.MetaOp
 	ec    sdk.DataOp
 	name  string
 	owner string
+}
+
+type DataOpImp struct {
+	*stream.ExtentClient
+}
+
+func newDataOp(cfg *stream.ExtentConfig) (sdk.DataOp, error) {
+	return stream.NewExtentClient(cfg)
+}
+
+type MetaOpImp struct {
+	*meta.MetaWrapper
+}
+
+func newMetaOp(config *meta.MetaConfig) (sdk.MetaOp, error) {
+	return meta.NewMetaWrapper(config)
 }
 
 func newVolume(ctx context.Context, name, owner, addr string) (sdk.IVolume, error) {
@@ -38,17 +59,26 @@ func newVolume(ctx context.Context, name, owner, addr string) (sdk.IVolume, erro
 		Masters: addrList,
 	}
 
-	mw, err := meta.NewMetaWrapper(metaCfg)
+	mw, err := newMetaWrapper(metaCfg)
 	if err != nil {
 		span.Errorf("init meta wrapper failed, name %s, owner %s, addr %s", name, owner, addr)
 		return nil, sdk.ErrInternalServerError
 	}
 
 	ecCfg := &stream.ExtentConfig{
-		Volume:  name,
-		Masters: addrList,
+		Volume:       name,
+		Masters:      addrList,
+		FollowerRead: true,
+		NearRead:     true,
+		OnGetExtents: mw.GetExtents,
+		OnTruncate:   mw.Truncate,
 	}
-	ec, err := stream.NewExtentClient(ecCfg)
+
+	if mw1, ok := mw.(*meta.MetaWrapper); ok {
+		ecCfg.OnAppendExtentKey = mw1.AppendExtentKey
+	}
+
+	ec, err := newExtentClient(ecCfg)
 	if err != nil {
 		span.Errorf("init extent client failed, name %s, owner %s, addr %s", name, owner, addr)
 		return nil, sdk.ErrInternalServerError
@@ -58,6 +88,7 @@ func newVolume(ctx context.Context, name, owner, addr string) (sdk.IVolume, erro
 		mw:    mw,
 		ec:    ec,
 		owner: owner,
+		name:  name,
 	}
 
 	return v, nil

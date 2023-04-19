@@ -25,11 +25,6 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/cubefs/cubefs/apinode/drive"
-	"github.com/cubefs/cubefs/blobstore/common/profile"
-	"github.com/cubefs/cubefs/blobstore/common/rpc"
-	"github.com/cubefs/cubefs/blobstore/common/rpc/auditlog"
-	"github.com/cubefs/cubefs/blobstore/util/closer"
-	"github.com/cubefs/cubefs/blobstore/util/log"
 	"github.com/cubefs/cubefs/cmd/common"
 	"github.com/cubefs/cubefs/proto"
 	"github.com/cubefs/cubefs/sdk/master"
@@ -133,11 +128,11 @@ func (s *apiNode) loadConfig(cfg *config.Config) error {
 	}
 	s.listen = listen
 
-	masters := cfg.GetStringSlice(configMasterAddr)
+	masters := cfg.GetString(configMasterAddr)
 	if len(masters) == 0 {
 		return config.NewIllegalConfigError(configMasterAddr)
 	}
-	s.mc = master.NewMasterClient(masters, false)
+	s.mc = master.NewMasterClientFromString(masters, false)
 
 	return s.serviceNode.Start(cfg)
 }
