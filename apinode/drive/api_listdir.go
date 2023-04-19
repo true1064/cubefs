@@ -220,12 +220,19 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 		fileInfo, err := d.listDir(ctx, pathIno.Uint64(), vol, marker, limit)
 		if err != nil {
 			span.Errorf("list dir error: %v, path=%s", err, path)
+			wg.Wait()
 			c.RespondError(err)
 			return
 		}
 
 		if limit < 0 || len(fileInfo) < limit { // already at the end of the list
 			getMore = false
+			marker = "" // clear marker
+		}
+
+		if getMore && len(fileInfo) > 0 {
+			marker = fileInfo[len(fileInfo)-1].Name
+			fileInfo = fileInfo[:len(fileInfo)-1]
 		}
 
 		builders := []filterBuilder{}
@@ -235,6 +242,7 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 			if err != nil {
 				span.Errorf("makeFilterBuilders error: %v, path=%s, filter=%s", err, path, args.Filter)
 				c.RespondError(err)
+				wg.Wait()
 				return
 			}
 		}
@@ -254,16 +262,13 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 		} else {
 			res.Files = fileInfo
 		}
-		if getMore && len(res.Files) == limit {
+		if getMore && len(res.Files) == limit-1 {
 			getMore = false
 		}
 	}
 
 	wg.Wait()
-	if limit > 0 && len(res.Files) == limit {
-		res.NextMarker = res.Files[len(res.Files)-1].Name
-		res.Files = res.Files[:len(res.Files)-1]
-	}
+	res.NextMarker = marker
 	c.RespondJSON(res)
 }
 

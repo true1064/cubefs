@@ -25,6 +25,7 @@ import (
 
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/memcache"
+	"github.com/cubefs/cubefs/blobstore/common/trace"
 	"github.com/google/uuid"
 )
 
@@ -131,7 +132,13 @@ func (d *DriveNode) CreateUserRoute(ctx context.Context, uid UserID) (string, er
 // There may be a problem of inaccurate count here. cfs does not support distributed file locking.
 // There is only increment here, and it is not so accurate.
 func (d *DriveNode) assignVolume(ctx context.Context, uid UserID) (clusterid, volumeid string, err error) {
+	span := trace.SpanFromContextSafe(ctx)
 	d.mu.RLock()
+	if len(d.clusters) == 0 {
+		d.mu.RUnlock()
+		err = sdk.ErrNoCluster
+		return
+	}
 	idx := rand.Int31n(int32(len(d.clusters)))
 	clusterid = d.clusters[idx]
 	d.mu.RUnlock()
@@ -149,6 +156,7 @@ func (d *DriveNode) assignVolume(ctx context.Context, uid UserID) (clusterid, vo
 	data := md5.Sum([]byte(uid))
 	val := crc32.ChecksumIEEE(data[0:])
 	volumeid = vols[int(val)%len(vols)].Name
+	span.Infof("assign cluster=%s volume=%s for user=%s", clusterid, volumeid, string(uid))
 	return
 }
 
@@ -276,12 +284,12 @@ func (m *userRouteMgr) Get(key UserID) *UserRoute {
 	if value == nil {
 		return nil
 	}
-	ur, ok := value.(UserRoute)
+	ur, ok := value.(*UserRoute)
 	if !ok {
 		return nil
 	}
 
-	return &ur
+	return ur
 }
 
 func (m *userRouteMgr) Set(key UserID, value *UserRoute) {

@@ -30,6 +30,9 @@ import (
 
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/apinode/sdk/impl"
+	"github.com/cubefs/cubefs/blobstore/common/trace"
+	"github.com/cubefs/cubefs/blobstore/util/closer"
+	"github.com/cubefs/cubefs/blobstore/util/log"
 	"github.com/cubefs/cubefs/proto"
 	"github.com/cubefs/cubefs/util/config"
 	"golang.org/x/sync/singleflight"
@@ -364,14 +367,16 @@ func (d *DriveNode) initClusterConfig() error {
 		return fmt.Errorf("cluster config is empty")
 	}
 
-	clusters := make([]string, 0, len(cfg.Clusters))
+	var clusters []string
 	for _, cluster := range cfg.Clusters {
 		for i := 0; i < cluster.Priority; i++ {
 			clusters = append(clusters, cluster.ClusterID)
 		}
 		if err = d.clusterMgr.AddCluster(context.TODO(), cluster.ClusterID, cluster.Master); err != nil {
+			log.Errorf("add cluster %v error: %v", cluster, err)
 			return err
 		}
+		log.Infof("get cluster %v", cluster)
 	}
 	rand.Seed(time.Now().UnixNano())
 	rand.Shuffle(len(clusters), func(i, j int) {

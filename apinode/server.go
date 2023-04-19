@@ -30,6 +30,11 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/cubefs/cubefs/apinode/drive"
+	"github.com/cubefs/cubefs/blobstore/common/profile"
+	"github.com/cubefs/cubefs/blobstore/common/rpc"
+	"github.com/cubefs/cubefs/blobstore/common/rpc/auditlog"
+	"github.com/cubefs/cubefs/blobstore/util/closer"
+	"github.com/cubefs/cubefs/blobstore/util/log"
 	"github.com/cubefs/cubefs/cmd/common"
 	"github.com/cubefs/cubefs/proto"
 	"github.com/cubefs/cubefs/sdk/master"
@@ -98,7 +103,7 @@ func (s *apiNode) loadConfig(cfg *config.Config) error {
 	// no app log and audit log if logDir is empty
 	if logDir != "" {
 		log.SetOutput(&lumberjack.Logger{
-			Filename:   path.Join(logDir, service, ".log"),
+			Filename:   path.Join(logDir, service, fmt.Sprintf("%s.log", service)),
 			MaxSize:    1024,
 			MaxAge:     7,
 			MaxBackups: 7,
@@ -193,8 +198,7 @@ func (s *apiNode) startRestAPI() (err error) {
 		hs = append(hs, profileHandler)
 	}
 
-	driveNode := &drive.DriveNode{}
-	router := driveNode.RegisterAPIRouters()
+	router := s.serviceNode.RegisterAPIRouters()
 	handler := rpc.MiddlewareHandlerWith(router, hs...)
 	server := &http.Server{
 		Addr:    s.listen,

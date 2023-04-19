@@ -15,12 +15,15 @@
 package drive
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"testing"
 
+	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/apinode/testing/mocks"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
@@ -90,6 +93,7 @@ func TestHandleListDir(t *testing.T) {
 	defer ctrl.Finish()
 
 	urm, _ := NewUserRouteMgr()
+	mockCluster := mocks.NewMockICluster(ctrl)
 	mockVol := mocks.NewMockIVolume(ctrl)
 	mockClusterMgr := mocks.NewMockClusterManager(ctrl)
 	d := &DriveNode{
@@ -133,7 +137,69 @@ func TestHandleListDir(t *testing.T) {
 	}
 
 	{
-		urm.Set("test", &UserRoute{})
+		urm.Set("test", &UserRoute{
+			Uid:        UserID("test"),
+			ClusterID:  "1",
+			VolumeID:   "1",
+			RootPath:   getRootPath("test"),
+			RootFileID: 4,
+		})
+		defer urm.Remove("test")
 
+		mockClusterMgr.EXPECT().GetCluster(gomock.Any()).Return(mockCluster)
+		mockCluster.EXPECT().GetVol(gomock.Any()).Return(mockVol)
+		mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+			func(ctx context.Context, parentIno uint64, name string) (*sdk.DirInfo, error) {
+				if name == "test" {
+					return &sdk.DirInfo{
+						Name:  name,
+						Inode: parentIno + 1,
+						Type:  uint32(os.ModeIrregular),
+					}, nil
+				}
+				return nil, sdk.ErrNotFound
+			})
+		tgt := fmt.Sprintf("%s/v1/files?path=%s&limit=10", ts.URL, url.QueryEscape("/test"))
+		req, err := http.NewRequest(http.MethodGet, tgt, nil)
+		require.Nil(t, err)
+		req.Header.Set(headerUserID, "test")
+		res, err := client.Do(req)
+		require.Nil(t, err)
+		defer res.Body.Close()
+		require.Equal(t, res.StatusCode, 452)
+	}
+
+	{
+		urm.Set("test", &UserRoute{
+			Uid:        UserID("test"),
+			ClusterID:  "1",
+			VolumeID:   "1",
+			RootPath:   getRootPath("test"),
+			RootFileID: 4,
+		})
+		defer urm.Remove("test")
+
+		mockClusterMgr.EXPECT().GetCluster(gomock.Any()).Return(mockCluster)
+		mockCluster.EXPECT().GetVol(gomock.Any()).Return(mockVol)
+		mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+			func(ctx context.Context, parentIno uint64, name string) (*sdk.DirInfo, error) {
+				if name == "test" {
+					return &sdk.DirInfo{
+						Name:  name,
+						Inode: parentIno + 1,
+						Type:  uint32(os.ModeDir),
+					}, nil
+				}
+				return nil, sdk.ErrNotFound
+			})
+		mockVol.EXPECT().GetXAttr(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil)
+		tgt := fmt.Sprintf("%s/v1/files?path=%s&limit=10", ts.URL, url.QueryEscape("/test"))
+		req, err := http.NewRequest(http.MethodGet, tgt, nil)
+		require.Nil(t, err)
+		req.Header.Set(headerUserID, "test")
+		res, err := client.Do(req)
+		require.Nil(t, err)
+		defer res.Body.Close()
+		require.Equal(t, res.StatusCode, 452)
 	}
 }
