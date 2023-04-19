@@ -300,6 +300,7 @@ func (d *DriveNode) listDir(ctx context.Context, ino uint64, vol sdk.IVolume, ma
 		wg  sync.WaitGroup
 		mu  sync.Mutex
 	)
+	res = make(map[uint64]result)
 	defer pool.Close()
 	wg.Add(n)
 	for i := 0; i < n; i++ {

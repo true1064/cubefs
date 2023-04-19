@@ -22,7 +22,7 @@ import (
 
 type ArgsMkDir struct {
 	Path      string `json:"path"`
-	Recursive bool   `json:"recursive"`
+	Recursive bool   `json:"recursive,omitempty"`
 }
 
 // POST /v1/files/mkdir?path=/abc&recursive=bool
