@@ -68,7 +68,7 @@ const (
 	volumeRootIno    = 1
 	hashMask         = 1024
 	defaultCacheSize = 1 << 17
-	userConfigPath   = "/.user/config"
+	userConfigPath   = "/.usr/config"
 )
 
 type userRouteMgr struct {

@@ -22,11 +22,13 @@ import (
 	"net/url"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/apinode/testing/mocks"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/singleflight"
 )
 
 func TestFilterBuilder(t *testing.T) {
@@ -97,9 +99,10 @@ func TestHandleListDir(t *testing.T) {
 	mockVol := mocks.NewMockIVolume(ctrl)
 	mockClusterMgr := mocks.NewMockClusterManager(ctrl)
 	d := &DriveNode{
-		vol:        mockVol,
-		userRouter: urm,
-		clusterMgr: mockClusterMgr,
+		vol:         mockVol,
+		userRouter:  urm,
+		clusterMgr:  mockClusterMgr,
+		groupRouter: singleflight.Group{},
 	}
 	ts := httptest.NewServer(d.RegisterAPIRouters())
 	defer ts.Close()
@@ -192,7 +195,37 @@ func TestHandleListDir(t *testing.T) {
 				}
 				return nil, sdk.ErrNotFound
 			})
-		mockVol.EXPECT().GetXAttr(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil)
+		mockVol.EXPECT().GetXAttrMap(gomock.Any(), gomock.Any()).Return(nil, nil)
+		mockVol.EXPECT().Readdir(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+			func(ctx context.Context, parIno uint64, marker string, count uint32) ([]sdk.DirInfo, error) {
+				infos := []sdk.DirInfo{
+					{Name: "123", Inode: 100, Type: uint32(os.ModeDir)},
+					{Name: "234", Inode: 101, Type: uint32(os.ModeIrregular)},
+				}
+				return infos, nil
+			})
+
+		mockVol.EXPECT().BatchGetInodes(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(ctx context.Context, inos []uint64) ([]*sdk.InodeInfo, error) {
+				infos := []*sdk.InodeInfo{}
+				for _, ino := range inos {
+					mode := uint32(os.ModeIrregular)
+					if ino == 100 {
+						mode = uint32(os.ModeDir)
+					}
+					info := &sdk.InodeInfo{
+						Inode:      ino,
+						Size:       1024,
+						Mode:       mode,
+						ModifyTime: time.Now(),
+						CreateTime: time.Now(),
+						AccessTime: time.Now(),
+					}
+					infos = append(infos, info)
+				}
+				return infos, nil
+			})
+		mockVol.EXPECT().GetXAttrMap(gomock.Any(), gomock.Any()).Return(nil, nil).Times(2)
 		tgt := fmt.Sprintf("%s/v1/files?path=%s&limit=10", ts.URL, url.QueryEscape("/test"))
 		req, err := http.NewRequest(http.MethodGet, tgt, nil)
 		require.Nil(t, err)
@@ -200,6 +233,6 @@ func TestHandleListDir(t *testing.T) {
 		res, err := client.Do(req)
 		require.Nil(t, err)
 		defer res.Body.Close()
-		require.Equal(t, res.StatusCode, 452)
+		require.Equal(t, res.StatusCode, http.StatusOK)
 	}
 }

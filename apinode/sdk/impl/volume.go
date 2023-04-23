@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
-	"github.com/cubefs/cubefs/blobstore/common/trace"
 	"io"
 	"math"
 	"os"
@@ -15,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
+	"github.com/cubefs/cubefs/blobstore/common/trace"
 	"github.com/cubefs/cubefs/proto"
 	"github.com/cubefs/cubefs/sdk/data/stream"
 	"github.com/cubefs/cubefs/sdk/meta"

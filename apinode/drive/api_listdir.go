@@ -17,6 +17,7 @@ package drive
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/http"
 	"path/filepath"
 	"regexp"
@@ -180,8 +181,10 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 		return
 	}
 
+	builders := []filterBuilder{}
 	if path == "/" {
 		pathIno = rootIno
+		builders = append(builders, usrFolderFilter)
 	} else {
 		// 2. lookup the inode of dir
 		dirInodeInfo, err := d.lookup(ctx, vol, rootIno, path)
@@ -198,6 +201,16 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 		pathIno = Inode(dirInodeInfo.Inode)
 	}
 
+	if args.Filter != "" {
+		bs, err := makeFilterBuilders(args.Filter)
+		if err != nil {
+			span.Errorf("makeFilterBuilders error: %v, path=%s, filter=%s", err, path, args.Filter)
+			c.RespondError(err)
+			return
+		}
+		builders = append(builders, bs...)
+	}
+
 	var (
 		res ListDirResult
 		wg  sync.WaitGroup
@@ -212,69 +225,64 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 		res.Properties, _ = vol.GetXAttrMap(ctx, res.ID)
 	}()
 
-	if limit > 0 {
-		limit++ // get one more
+	if limit < 0 {
+		limit = math.MaxUint32
 	}
-	getMore := true
-	for getMore {
-		fileInfo, err := d.listDir(ctx, pathIno.Uint64(), vol, marker, limit)
-		if err != nil {
-			span.Errorf("list dir error: %v, path=%s", err, path)
-			wg.Wait()
-			c.RespondError(err)
-			return
-		}
+	if limit > math.MaxUint32 {
+		limit = math.MaxUint32
+	}
+	isLast := false
+	maxPerLimit := 10000 - 1
 
-		if limit < 0 || len(fileInfo) < limit { // already at the end of the list
-			getMore = false
-			marker = "" // clear marker
-		}
-
-		if getMore && len(fileInfo) > 0 {
-			marker = fileInfo[len(fileInfo)-1].Name
-			fileInfo = fileInfo[:len(fileInfo)-1]
-		}
-
-		builders := []filterBuilder{}
-
-		if args.Filter != "" {
-			builders, err = makeFilterBuilders(args.Filter)
+	for len(res.Files) < limit && !isLast {
+		remains := limit - len(res.Files)
+		for i := 0; i < remains && !isLast; i += maxPerLimit {
+			n := maxPerLimit + 1
+			if i+maxPerLimit > remains {
+				n = remains - i + 1
+			}
+			fileInfo, err := d.listDir(ctx, pathIno.Uint64(), vol, marker, uint32(n))
 			if err != nil {
-				span.Errorf("makeFilterBuilders error: %v, path=%s, filter=%s", err, path, args.Filter)
-				c.RespondError(err)
+				span.Errorf("list dir error: %v, path=%s", err, path)
 				wg.Wait()
+				c.RespondError(err)
 				return
 			}
-		}
-		if path == "/" { // exclude /.usr dir
-			builders = append(builders, usrFolderFilter)
-		}
 
-		if len(builders) > 0 {
-			for i := 0; i < len(fileInfo); i++ {
-				for _, builder := range builders {
-					if !builder.matchFileInfo(&fileInfo[i]) {
-						continue
-					}
-					res.Files = append(res.Files, fileInfo[i])
-				}
+			if len(fileInfo) < int(n) { // already at the end
+				isLast = true
+				marker = "" // clear marker
+			} else {
+				marker = fileInfo[len(fileInfo)-1].Name
+				fileInfo = fileInfo[:len(fileInfo)-1]
 			}
-		} else {
-			res.Files = fileInfo
-		}
-		if getMore && len(res.Files) == limit-1 {
-			getMore = false
+
+			if len(builders) > 0 {
+				for i := 0; i < len(fileInfo); i++ {
+					for _, builder := range builders {
+						if !builder.matchFileInfo(&fileInfo[i]) {
+							continue
+						}
+						res.Files = append(res.Files, fileInfo[i])
+					}
+				}
+			} else {
+				res.Files = append(res.Files, fileInfo...)
+			}
 		}
 	}
 
 	wg.Wait()
 	res.NextMarker = marker
+	if len(res.Files) > limit {
+		res.Files = res.Files[:limit]
+	}
 	c.RespondJSON(res)
 }
 
-func (d *DriveNode) listDir(ctx context.Context, ino uint64, vol sdk.IVolume, marker string, limit int) (files []FileInfo, err error) {
+func (d *DriveNode) listDir(ctx context.Context, ino uint64, vol sdk.IVolume, marker string, limit uint32) (files []FileInfo, err error) {
 	// invoke list interface to list files in path
-	dirInfos, err := vol.Readdir(ctx, ino, marker, uint32(limit))
+	dirInfos, err := vol.Readdir(ctx, ino, marker, limit)
 	if err != nil {
 		return nil, err
 	}

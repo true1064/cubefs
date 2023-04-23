@@ -8,6 +8,7 @@ import (
 	"github.com/cubefs/cubefs/blobstore/common/trace"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
+	"github.com/cubefs/cubefs/blobstore/common/trace"
 )
 
 // test can reset newMaster func
