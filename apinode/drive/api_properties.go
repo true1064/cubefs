@@ -41,6 +41,11 @@ func (d *DriveNode) handleSetProperties(c *rpc.Context) {
 		c.RespondStatus(http.StatusBadRequest)
 		return
 	}
+	xattrs := d.getProperties(c)
+
+	if len(xattrs) == 0 {
+		return
+	}
 
 	rootIno, vol, err := d.getRootInoAndVolume(ctx, uid)
 	if err != nil {
@@ -55,7 +60,6 @@ func (d *DriveNode) handleSetProperties(c *rpc.Context) {
 		c.RespondError(err)
 		return
 	}
-	xattrs := d.getProperties(c)
 	if err = vol.BatchSetXAttr(ctx, dirInfo.Inode, xattrs); err != nil {
 		span.Errorf("batch set xattr path=%s error: %v", args.Path, err)
 		c.RespondError(err)
@@ -68,7 +72,7 @@ func (d *DriveNode) handleGetProperties(c *rpc.Context) {
 	ctx, span := d.ctxSpan(c)
 	uid := d.userID(c)
 
-	args := new(ArgsSetProperties)
+	args := new(ArgsGetProperties)
 	if err := c.ParseArgs(args); err != nil {
 		span.Errorf("parse args error: %v", err)
 		c.RespondStatus(http.StatusBadRequest)

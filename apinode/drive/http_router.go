@@ -72,7 +72,7 @@ func (d *DriveNode) RegisterAPIRouters() *rpc.Router {
 	r.Handle(http.MethodGet, "/v1/files/multipart", d.handleMultipartList, rpc.OptArgsQuery())
 	r.Handle(http.MethodDelete, "/v1/files/multipart", d.handleMultipartAbort, rpc.OptArgsQuery())
 
-	r.Handle(http.MethodPost, "/v1/files/properties", d.handleSetProperties, rpc.OptArgsQuery())
+	r.Handle(http.MethodPut, "/v1/files/properties", d.handleSetProperties, rpc.OptArgsQuery())
 	r.Handle(http.MethodGet, "/v1/files/properties", d.handleGetProperties, rpc.OptArgsQuery())
 
 	return r
@@ -104,7 +104,7 @@ func (*DriveNode) getProperties(c *rpc.Context) map[string]string {
 	properties := make(map[string]string)
 	for key, values := range c.Request.Header {
 		key = strings.ToLower(key)
-		if strings.HasPrefix(key, userPropertyPrefix) {
+		if len(key) > len(userPropertyPrefix) && strings.HasPrefix(key, userPropertyPrefix) {
 			properties[key[len(userPropertyPrefix):]] = values[0]
 		}
 	}
