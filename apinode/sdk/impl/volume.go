@@ -11,6 +11,8 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/cubefs/cubefs/blobstore/common/trace"
+
 	"github.com/google/uuid"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
@@ -396,12 +398,17 @@ func (v *volume) UploadFile(req *sdk.UploadFileReq) (*sdk.InodeInfo, error) {
 	span := trace.SpanFromContextSafe(req.Ctx)
 
 	oldIno, mode, err := v.mw.Lookup_ll(req.ParIno, req.Name)
-	if err != nil {
+	if err != nil && err != syscall.ENOENT {
 		span.Errorf("lookup file failed, ino %d, name %s, err %s", req.ParIno, req.Name, err.Error())
 		return nil, syscallToErr(err)
 	}
-
-	if proto.IsDir(mode) || oldIno != req.OldIno {
+	if err == syscall.ENOENT {
+		if oldIno != 0 {
+			span.Errorf("target file already exist but conflict, isDir %v, oldIno %d, reqOld %d",
+				proto.IsDir(mode), oldIno, req.OldIno)
+			return nil, sdk.ErrConflict
+		}
+	} else if proto.IsDir(mode) || oldIno != req.OldIno {
 		span.Errorf("target file already exist but conflict, isDir %v, oldIno %d, reqOld %d",
 			proto.IsDir(mode), oldIno, req.OldIno)
 		return nil, sdk.ErrConflict
@@ -516,6 +523,20 @@ func (v *volume) writeAt(ctx context.Context, ino uint64, off, size int, body io
 }
 
 func (v *volume) WriteFile(ctx context.Context, ino, off, size uint64, body io.Reader) error {
+	span := trace.SpanFromContextSafe(ctx)
+
+	if err := v.ec.OpenStream(ino); err != nil {
+		span.Errorf("open stream failed, ino %d, off %s, err %s", ino, off, err.Error())
+		return syscallToErr(err)
+	}
+
+	defer func() {
+		closeErr := v.ec.CloseStream(ino)
+		if closeErr != nil {
+			span.Errorf("close stream failed, ino %s, err %s", ino, closeErr.Error())
+		}
+	}()
+
 	_, err := v.writeAt(ctx, ino, int(off), int(size), body)
 	return err
 }
@@ -531,7 +552,7 @@ func (v *volume) ReadFile(ctx context.Context, ino, off uint64, data []byte) (n 
 	defer func() {
 		closeErr := v.ec.CloseStream(ino)
 		if closeErr != nil {
-			span.Errorf("close stream failed, ino %s, err %s", ino, err.Error())
+			span.Errorf("close stream failed, ino %s, err %s", ino, closeErr.Error())
 		}
 	}()
 
@@ -544,13 +565,14 @@ func (v *volume) ReadFile(ctx context.Context, ino, off uint64, data []byte) (n 
 	return n, nil
 }
 
-func (v *volume) InitMultiPart(ctx context.Context, path string, oldIno uint64, extend map[string]string) (string, error) {
+func (v *volume) InitMultiPart(ctx context.Context, filepath string, oldIno uint64, extend map[string]string) (string, error) {
+	filepath = path.Join("/", filepath)
 	span := trace.SpanFromContextSafe(ctx)
 	// try check whether ino of path is equal to oldIno.
 	if oldIno != 0 {
-		ino, err := v.mw.LookupPath(path)
+		ino, err := v.mw.LookupPath(filepath)
 		if err != nil && err != sdk.ErrNotFound {
-			span.Errorf("look up path %s failed, err %s", path, err.Error())
+			span.Errorf("look up path %s failed, err %s", filepath, err.Error())
 			return "", err
 		}
 
@@ -560,9 +582,9 @@ func (v *volume) InitMultiPart(ctx context.Context, path string, oldIno uint64, 
 		}
 	}
 
-	uploadId, err := v.mw.InitMultipart_ll(path, extend)
+	uploadId, err := v.mw.InitMultipart_ll(filepath, extend)
 	if err != nil {
-		span.Errorf("init multipart failed, path %s, err %s", path, err.Error())
+		span.Errorf("init multipart failed, path %s, err %s", filepath, err.Error())
 		return "", syscallToErr(err)
 	}
 
@@ -570,6 +592,7 @@ func (v *volume) InitMultiPart(ctx context.Context, path string, oldIno uint64, 
 }
 
 func (v *volume) UploadMultiPart(ctx context.Context, filepath, uploadId string, partNum uint16, read io.Reader) (part *sdk.Part, err error) {
+	filepath = path.Join("/", filepath)
 	span := trace.SpanFromContextSafe(ctx)
 
 	tmpInfo, err := v.mw.InodeCreate_ll(defaultFileMode, 0, 0, nil)
@@ -639,6 +662,7 @@ func (v *volume) UploadMultiPart(ctx context.Context, filepath, uploadId string,
 }
 
 func (v *volume) ListMultiPart(ctx context.Context, filepath, uploadId string, count, marker uint64) (parts []*sdk.Part, next uint64, isTruncated bool, err error) {
+	filepath = path.Join("/", filepath)
 	span := trace.SpanFromContextSafe(ctx)
 
 	info, err := v.mw.GetMultipart_ll(filepath, uploadId)
@@ -666,6 +690,7 @@ func (v *volume) ListMultiPart(ctx context.Context, filepath, uploadId string, c
 }
 
 func (v *volume) AbortMultiPart(ctx context.Context, filepath, uploadId string) error {
+	filepath = path.Join("/", filepath)
 	span := trace.SpanFromContextSafe(ctx)
 
 	multipartInfo, err := v.mw.GetMultipart_ll(filepath, uploadId)
@@ -694,6 +719,7 @@ func (v *volume) AbortMultiPart(ctx context.Context, filepath, uploadId string) 
 }
 
 func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId string, oldIno uint64, partsArg []sdk.Part) (err error) {
+	filepath = path.Join("/", filepath)
 	span := trace.SpanFromContextSafe(ctx)
 
 	for idx, part := range partsArg {
@@ -803,8 +829,16 @@ func (v *volume) mkdirByPath(ctx context.Context, dir string) (ino uint64, err e
 	var childMod uint32
 	var info *proto.InodeInfo
 
+	defer func() {
+		ino = parIno
+	}()
+
 	dirs := strings.Split(dir, "/")
 	for _, name := range dirs {
+		if name == "" {
+			continue
+		}
+
 		childIno, childMod, err = v.mw.Lookup_ll(parIno, name)
 		if err != nil && err != syscall.ENOENT {
 			span.Errorf("lookup file failed, ino %d, name %s, err %s", parIno, name, err.Error())
@@ -821,7 +855,7 @@ func (v *volume) mkdirByPath(ctx context.Context, dir string) (ino uint64, err e
 				}
 
 				if proto.IsDir(mode) {
-					ino, err = existIno, nil
+					parIno, err = existIno, nil
 					continue
 				}
 			}
@@ -833,7 +867,7 @@ func (v *volume) mkdirByPath(ctx context.Context, dir string) (ino uint64, err e
 		}
 
 		if !proto.IsDir(childMod) {
-			span.Errorf("target file exist but not dir, ino %d", childIno)
+			span.Errorf("target file exist but not dir, ino %d, name %v", childIno, name)
 			err = syscall.EINVAL
 			return 0, err
 		}

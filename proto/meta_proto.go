@@ -54,7 +54,7 @@ type CreateMetaPartitionResponse struct {
 
 const (
 	InodeLockStatus   = uint8(0)
-	InodeUnLockStatus = uint8(0)
+	InodeUnLockStatus = uint8(1)
 	InodeLockKey      = "xattr_inode_lock"
 )
 

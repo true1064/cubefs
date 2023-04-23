@@ -3,8 +3,10 @@ package impl
 import (
 	"context"
 	"fmt"
+
 	"io"
 	"reflect"
+	"syscall"
 	"testing"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
@@ -54,7 +56,7 @@ func Test_newVolume(t *testing.T) {
 			got, err := newVolume(ctx, tt.name, tt.owner, tt.addr)
 			require.True(t, err == tt.wantErr)
 			if tt.want != nil {
-				// t.Errorf("got name %s, want name %s", got.Info().Name, tt.want.Info().Name)
+				//t.Errorf("got name %s, want name %s", got.Info().Name, tt.want.Info().Name)
 				require.True(t, got.Info().Name == tt.want.Info().Name)
 			}
 		})
@@ -70,7 +72,16 @@ func Test_syscallToErr(t *testing.T) {
 		args args
 		want *sdk.Error
 	}{
-		// TODO: Add test cases.
+		{"t1", args{sdk.ErrInternalServerError}, sdk.ErrInternalServerError},
+		{"t2", args{syscall.EAGAIN}, sdk.ErrRetryAgain},
+		{"t3", args{syscall.EEXIST}, sdk.ErrExist},
+		{"t4", args{syscall.ENOENT}, sdk.ErrNotFound},
+		{"t5", args{syscall.ENOMEM}, sdk.ErrFull},
+		{"t6", args{syscall.EINVAL}, sdk.ErrBadRequest},
+		{"t7", args{syscall.EPERM}, sdk.ErrForbidden},
+		{"t8", args{syscall.ENOTSUP}, sdk.ErrConflict},
+		{"t9", args{syscall.EBADF}, sdk.ErrBadFile},
+		{"t10", args{fmt.Errorf("unkonwn error")}, sdk.ErrInternalServerError},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

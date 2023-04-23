@@ -4,6 +4,8 @@ import (
 	"context"
 	"sync"
 
+	"github.com/cubefs/cubefs/proto"
+
 	"github.com/cubefs/cubefs/apinode/sdk"
 )
 
@@ -23,6 +25,7 @@ func newClusterMgr() *clusterMgr {
 		clusterMap: make(map[string]sdk.ICluster),
 	}
 
+	proto.InitBufferPool(0)
 	cm.create = newCluster
 	return cm
 }

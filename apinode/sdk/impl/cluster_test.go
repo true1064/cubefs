@@ -84,25 +84,3 @@ func TestCluster_updateVols(t *testing.T) {
 	require.True(t, err == sdk.ErrInternalServerError)
 	require.True(t, len(cl.ListVols()) == 2)
 }
-
-func TestNewCluster(t *testing.T) {
-	//ctrl := gomock.NewController(t)
-	//defer ctrl.Finish()
-	//
-	//cId := "testC1"
-	//errAddr := "errAddr"
-	//
-	//newMaster = func(addr string) sdk.IMaster {
-	//	m := mocks.NewMockMaster(ctrl)
-	//	if addr == errAddr {
-	//		m.EXPECT().GetClusterIP().AnyTimes().Return(proto.ClusterIP{Cluster: "xxx"}, nil)
-	//	} else {
-	//		m.EXPECT().GetClusterIP().AnyTimes().Return(proto.ClusterIP{Cluster: cId}, nil)
-	//	}
-	//	return m
-	//}
-	//
-	//_, ctx := trace.StartSpanFromContext(context.TODO(), "")
-	//_, err := newCluster(ctx, errAddr, "c1")
-	//require.True(t, err == sdk.ErrBadRequest)
-}
