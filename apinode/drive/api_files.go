@@ -17,12 +17,13 @@ package drive
 import (
 	"net/http"
 
+	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
 )
 
 type ArgsMkDir struct {
-	Path      string `json:"path"`
-	Recursive bool   `json:"recursive,omitempty"`
+	Path      FilePath `json:"path"`
+	Recursive bool     `json:"recursive,omitempty"`
 }
 
 // POST /v1/files/mkdir?path=/abc&recursive=bool
@@ -30,22 +31,28 @@ func (d *DriveNode) handleMkDir(c *rpc.Context) {
 	ctx, span := d.ctxSpan(c)
 	args := new(ArgsMkDir)
 	if err := c.ParseArgs(args); err != nil {
-		span.Errorf("parse mkdir paraments error: %v", err)
+		span.Errorf("parse mkdir paraments error: %s", err.Error())
 		c.RespondStatus(http.StatusBadRequest)
+		return
+	}
+
+	if args.Path.Clean(); !args.Path.Valid() {
+		span.Warnf("invalid path: %s", args.Path)
+		c.RespondError(sdk.ErrBadRequest)
 		return
 	}
 
 	uid := d.userID(c)
 	rootIno, vol, err := d.getRootInoAndVolume(ctx, uid)
 	if err != nil {
-		span.Errorf("get root inode and volume error: %v, uid=%s", err, string(uid))
+		span.Errorf("get root inode and volume error: %s, uid=%s", err.Error(), uid)
 		c.RespondError(err)
 		return
 	}
 
-	_, err = d.createDir(ctx, vol, rootIno, args.Path, args.Recursive)
+	_, err = d.createDir(ctx, vol, rootIno, args.Path.String(), args.Recursive)
 	if err != nil {
-		span.Errorf("create dir %s error: %v, uid=%s recursive=%v", args.Path, err, string(uid), args.Recursive)
+		span.Errorf("create dir %s error: %s, uid=%s recursive=%v", args.Path, err.Error(), uid, args.Recursive)
 		c.RespondError(err)
 		return
 	}

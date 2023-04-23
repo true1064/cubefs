@@ -17,14 +17,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cubefs/cubefs/blobstore/common/rpc"
-	_ "github.com/cubefs/cubefs/blobstore/testing/nolog"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/singleflight"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/apinode/testing/mocks"
-	"golang.org/x/sync/singleflight"
+	"github.com/cubefs/cubefs/blobstore/common/rpc"
+	_ "github.com/cubefs/cubefs/blobstore/testing/nolog"
 )
 
 const (
@@ -44,6 +44,8 @@ type mockNode struct {
 	ClusterMgr *mocks.MockClusterManager
 	Cluster    *mocks.MockICluster
 	GenInode   func() uint64
+
+	cachedUser map[string]struct{}
 }
 
 func newMockNode(tb testing.TB) mockNode {
@@ -63,35 +65,43 @@ func newMockNode(tb testing.TB) mockNode {
 		GenInode: func() uint64 {
 			return atomic.AddUint64(&inode, 1)
 		},
+		cachedUser: make(map[string]struct{}),
 	}
 }
 
-func (node *mockNode) OnceGetUser() {
-	path := getUserRouteFile(testUserID)
-	LookupN := len(strings.Split(strings.Trim(path, "/"), "/"))
-	node.Volume.EXPECT().Lookup(A, A, A).DoAndReturn(
-		func(_ context.Context, _ uint64, name string) (*sdk.DirInfo, error) {
-			return &sdk.DirInfo{
-				Name:  name,
-				Inode: node.GenInode(),
-			}, nil
-		}).Times(LookupN)
-	node.Volume.EXPECT().GetXAttr(A, A, A).DoAndReturn(
-		func(ctx context.Context, ino uint64, key string) (string, error) {
-			uid := UserID(key)
-			ur := UserRoute{
-				Uid:         uid,
-				ClusterType: 1,
-				ClusterID:   "cluster01",
-				VolumeID:    "volume01",
-				DriveID:     string(uid) + "_drive",
-				RootPath:    getRootPath(uid),
-				RootFileID:  FileID(ino),
-				Ctime:       time.Now().Unix(),
-			}
-			val, _ := ur.Marshal()
-			return string(val), nil
-		})
+func (node *mockNode) OnceGetUser(uids ...string) {
+	for _, uid := range uids {
+		if _, ok := node.cachedUser[uid]; ok {
+			continue
+		}
+		node.cachedUser[uid] = struct{}{}
+
+		path := getUserRouteFile(testUserID)
+		LookupN := len(strings.Split(strings.Trim(path, "/"), "/"))
+		node.Volume.EXPECT().Lookup(A, A, A).DoAndReturn(
+			func(_ context.Context, _ uint64, name string) (*sdk.DirInfo, error) {
+				return &sdk.DirInfo{
+					Name:  name,
+					Inode: node.GenInode(),
+				}, nil
+			}).Times(LookupN)
+		node.Volume.EXPECT().GetXAttr(A, A, A).DoAndReturn(
+			func(ctx context.Context, ino uint64, key string) (string, error) {
+				uid := UserID(key)
+				ur := UserRoute{
+					Uid:         uid,
+					ClusterType: 1,
+					ClusterID:   "cluster01",
+					VolumeID:    "volume01",
+					DriveID:     string(uid) + "_drive",
+					RootPath:    getRootPath(uid),
+					RootFileID:  FileID(ino),
+					Ctime:       time.Now().Unix(),
+				}
+				val, _ := ur.Marshal()
+				return string(val), nil
+			})
+	}
 	node.ClusterMgr.EXPECT().GetCluster(A).Return(node.Cluster)
 	node.Cluster.EXPECT().GetVol(A).Return(node.Volume)
 }

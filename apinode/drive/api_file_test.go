@@ -58,7 +58,7 @@ func TestHandleFileUpload(t *testing.T) {
 		require.Equal(t, 400, resp.StatusCode)
 	}
 	{
-		node.OnceGetUser()
+		node.OnceGetUser(testUserID)
 		// create dir error
 		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, &sdk.Error{Status: 521})
 		resp := doRequest(newMockBody(64), "path", "/dir/a/../filename")
@@ -140,7 +140,7 @@ func TestHandleFileWrite(t *testing.T) {
 		require.Equal(t, 400, resp.StatusCode)
 	}
 	{
-		node.OnceGetUser()
+		node.OnceGetUser(testUserID)
 		node.Volume.EXPECT().GetInode(A, A).Return(nil, &sdk.Error{Status: 521})
 		resp := doRequest(newMockBody(64), "", "fileId", "1111")
 		defer resp.Body.Close()
@@ -215,7 +215,7 @@ func TestHandleFileDownload(t *testing.T) {
 		require.Equal(t, 400, resp.StatusCode)
 	}
 	{
-		node.OnceGetUser()
+		node.OnceGetUser(testUserID)
 		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, &sdk.Error{Status: 521})
 		resp := doRequest(newMockBody(64), "", "path", "/download")
 		defer resp.Body.Close()
@@ -298,7 +298,7 @@ func TestHandleFileRename(t *testing.T) {
 		require.Equal(t, 400, doRequest("src", "/a", "dst", "a/b/../../..").StatusCode())
 	}
 	{
-		node.OnceGetUser()
+		node.OnceGetUser(testUserID)
 		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, &sdk.Error{Status: 521})
 		require.Equal(t, 521, doRequest("src", "/dir/a", "dst", "/dir/b").StatusCode())
 	}
@@ -349,7 +349,7 @@ func TestHandleFileCopy(t *testing.T) {
 		require.Equal(t, 400, doRequest("src", "/a", "dst", "a/b/../../..").StatusCode())
 	}
 	{
-		node.OnceGetUser()
+		node.OnceGetUser(testUserID)
 		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, &sdk.Error{Status: 521})
 		require.Equal(t, 521, doRequest("src", "/dir/a", "dst", "/dir/b").StatusCode())
 	}
