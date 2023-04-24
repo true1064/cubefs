@@ -11,8 +11,6 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/cubefs/cubefs/blobstore/common/trace"
-
 	"github.com/google/uuid"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
