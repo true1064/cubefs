@@ -16,35 +16,32 @@ import (
 	"github.com/cubefs/cubefs/apinode/testing/mocks"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/sync/singleflight"
 )
 
 func TestHandleCreateDrive(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	urm, _ := NewUserRouteMgr()
 	mockCluster := mocks.NewMockICluster(ctrl)
 	mockVol := mocks.NewMockIVolume(ctrl)
 	mockClusterMgr := mocks.NewMockClusterManager(ctrl)
 	d := &DriveNode{
-		vol:         mockVol,
-		userRouter:  urm,
-		clusterMgr:  mockClusterMgr,
-		groupRouter: singleflight.Group{},
-		clusters:    []string{"1", "2"},
+		vol:        mockVol,
+		userRouter: urm,
+		clusterMgr: mockClusterMgr,
+		clusters:   []string{"1", "2"},
 	}
 	ts := httptest.NewServer(d.RegisterAPIRouters())
 	defer ts.Close()
 
 	client := ts.Client()
 
+	vols := []*sdk.VolInfo{
+		{Name: "1", Weight: 10},
+		{Name: "2", Weight: 10},
+	}
 	{
 		mockClusterMgr.EXPECT().GetCluster(gomock.Any()).Return(mockCluster)
-		mockCluster.EXPECT().ListVols().Return([]*sdk.VolInfo{
-			&sdk.VolInfo{"1", 10},
-			&sdk.VolInfo{"2", 10},
-		})
+		mockCluster.EXPECT().ListVols().Return(vols)
 		mockCluster.EXPECT().GetVol(gomock.Any()).Return(mockVol)
 		mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 			func(ctx context.Context, parentIno uint64, name string) (*sdk.DirInfo, error) {
@@ -136,10 +133,7 @@ func TestHandleCreateDrive(t *testing.T) {
 
 	{
 		mockClusterMgr.EXPECT().GetCluster(gomock.Any()).Return(mockCluster)
-		mockCluster.EXPECT().ListVols().Return([]*sdk.VolInfo{
-			&sdk.VolInfo{"1", 10},
-			&sdk.VolInfo{"2", 10},
-		})
+		mockCluster.EXPECT().ListVols().Return(vols)
 		mockCluster.EXPECT().GetVol(gomock.Any()).Return(nil)
 		tgt := fmt.Sprintf("%s/v1/drive", ts.URL)
 		req, err := http.NewRequest(http.MethodPost, tgt, nil)
@@ -153,10 +147,7 @@ func TestHandleCreateDrive(t *testing.T) {
 
 	{
 		mockClusterMgr.EXPECT().GetCluster(gomock.Any()).Return(mockCluster)
-		mockCluster.EXPECT().ListVols().Return([]*sdk.VolInfo{
-			&sdk.VolInfo{"1", 10},
-			&sdk.VolInfo{"2", 10},
-		})
+		mockCluster.EXPECT().ListVols().Return(vols)
 		mockCluster.EXPECT().GetVol(gomock.Any()).Return(mockVol)
 		mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, sdk.ErrConflict)
 		tgt := fmt.Sprintf("%s/v1/drive", ts.URL)
@@ -171,10 +162,7 @@ func TestHandleCreateDrive(t *testing.T) {
 
 	{
 		mockClusterMgr.EXPECT().GetCluster(gomock.Any()).Return(mockCluster)
-		mockCluster.EXPECT().ListVols().Return([]*sdk.VolInfo{
-			&sdk.VolInfo{"1", 10},
-			&sdk.VolInfo{"2", 10},
-		})
+		mockCluster.EXPECT().ListVols().Return(vols)
 		mockCluster.EXPECT().GetVol(gomock.Any()).Return(mockVol)
 		mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 			func(ctx context.Context, parentIno uint64, name string) (*sdk.DirInfo, error) {
@@ -227,18 +215,15 @@ func TestHandleCreateDrive(t *testing.T) {
 
 func TestHandleAddUserConfig(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	urm, _ := NewUserRouteMgr()
 	mockCluster := mocks.NewMockICluster(ctrl)
 	mockVol := mocks.NewMockIVolume(ctrl)
 	mockClusterMgr := mocks.NewMockClusterManager(ctrl)
 	d := &DriveNode{
-		vol:         mockVol,
-		userRouter:  urm,
-		clusterMgr:  mockClusterMgr,
-		groupRouter: singleflight.Group{},
-		clusters:    []string{"1", "2"},
+		vol:        mockVol,
+		userRouter: urm,
+		clusterMgr: mockClusterMgr,
+		clusters:   []string{"1", "2"},
 	}
 	ts := httptest.NewServer(d.RegisterAPIRouters())
 	defer ts.Close()
@@ -397,18 +382,15 @@ func TestHandleAddUserConfig(t *testing.T) {
 
 func TestHandleGetUserConfig(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	urm, _ := NewUserRouteMgr()
 	mockCluster := mocks.NewMockICluster(ctrl)
 	mockVol := mocks.NewMockIVolume(ctrl)
 	mockClusterMgr := mocks.NewMockClusterManager(ctrl)
 	d := &DriveNode{
-		vol:         mockVol,
-		userRouter:  urm,
-		clusterMgr:  mockClusterMgr,
-		groupRouter: singleflight.Group{},
-		clusters:    []string{"1", "2"},
+		vol:        mockVol,
+		userRouter: urm,
+		clusterMgr: mockClusterMgr,
+		clusters:   []string{"1", "2"},
 	}
 	ts := httptest.NewServer(d.RegisterAPIRouters())
 	defer ts.Close()

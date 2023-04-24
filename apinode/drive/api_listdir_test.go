@@ -24,11 +24,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cubefs/cubefs/apinode/sdk"
-	"github.com/cubefs/cubefs/apinode/testing/mocks"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/sync/singleflight"
+
+	"github.com/cubefs/cubefs/apinode/sdk"
+	"github.com/cubefs/cubefs/apinode/testing/mocks"
 )
 
 func TestFilterBuilder(t *testing.T) {
@@ -92,17 +92,14 @@ func TestFilterBuilder(t *testing.T) {
 
 func TestHandleListDir(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	urm, _ := NewUserRouteMgr()
 	mockCluster := mocks.NewMockICluster(ctrl)
 	mockVol := mocks.NewMockIVolume(ctrl)
 	mockClusterMgr := mocks.NewMockClusterManager(ctrl)
 	d := &DriveNode{
-		vol:         mockVol,
-		userRouter:  urm,
-		clusterMgr:  mockClusterMgr,
-		groupRouter: singleflight.Group{},
+		vol:        mockVol,
+		userRouter: urm,
+		clusterMgr: mockClusterMgr,
 	}
 	ts := httptest.NewServer(d.RegisterAPIRouters())
 	defer ts.Close()

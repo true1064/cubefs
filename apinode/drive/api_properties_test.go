@@ -16,22 +16,18 @@ import (
 	"github.com/cubefs/cubefs/apinode/testing/mocks"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/sync/singleflight"
 )
 
 func TestHandleSetProperties(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	urm, _ := NewUserRouteMgr()
 	mockCluster := mocks.NewMockICluster(ctrl)
 	mockVol := mocks.NewMockIVolume(ctrl)
 	mockClusterMgr := mocks.NewMockClusterManager(ctrl)
 	d := &DriveNode{
-		vol:         mockVol,
-		userRouter:  urm,
-		clusterMgr:  mockClusterMgr,
-		groupRouter: singleflight.Group{},
+		vol:        mockVol,
+		userRouter: urm,
+		clusterMgr: mockClusterMgr,
 	}
 	ts := httptest.NewServer(d.RegisterAPIRouters())
 	defer ts.Close()
@@ -181,17 +177,14 @@ func TestHandleSetProperties(t *testing.T) {
 
 func TestHandleGetProperties(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	urm, _ := NewUserRouteMgr()
 	mockCluster := mocks.NewMockICluster(ctrl)
 	mockVol := mocks.NewMockIVolume(ctrl)
 	mockClusterMgr := mocks.NewMockClusterManager(ctrl)
 	d := &DriveNode{
-		vol:         mockVol,
-		userRouter:  urm,
-		clusterMgr:  mockClusterMgr,
-		groupRouter: singleflight.Group{},
+		vol:        mockVol,
+		userRouter: urm,
+		clusterMgr: mockClusterMgr,
 	}
 	ts := httptest.NewServer(d.RegisterAPIRouters())
 	defer ts.Close()
@@ -239,6 +232,7 @@ func TestHandleGetProperties(t *testing.T) {
 		res, err := client.Do(req)
 		require.Nil(t, err)
 		body, err := io.ReadAll(res.Body)
+		res.Body.Close()
 		require.Nil(t, err)
 		var result GetPropertiesResult
 		json.Unmarshal(body, &result)

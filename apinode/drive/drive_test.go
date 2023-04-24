@@ -19,7 +19,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/sync/singleflight"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/apinode/testing/mocks"
@@ -198,8 +197,6 @@ func newMockBody(size int) *mockBody {
 
 func TestGetUserRouteInfo(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	urm, _ := NewUserRouteMgr()
 	mockVol := mocks.NewMockIVolume(ctrl)
 	mockClusterMgr := mocks.NewMockClusterManager(ctrl)
@@ -251,8 +248,6 @@ func TestGetUserRouteInfo(t *testing.T) {
 
 func TestGetRootInoAndVolume(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	urm, _ := NewUserRouteMgr()
 	mockVol := mocks.NewMockIVolume(ctrl)
 	mockClusterMgr := mocks.NewMockClusterManager(ctrl)
@@ -304,8 +299,6 @@ func TestGetRootInoAndVolume(t *testing.T) {
 
 func TestLookup(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	d := &DriveNode{}
 	mockVol := mocks.NewMockIVolume(ctrl)
 
@@ -330,8 +323,6 @@ func TestLookup(t *testing.T) {
 
 func TestCreateDir(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	mockVol := mocks.NewMockIVolume(ctrl)
 	d := &DriveNode{}
 	_, err := d.createDir(context.TODO(), mockVol, 1, "/", false)
@@ -440,8 +431,6 @@ func TestCreateDir(t *testing.T) {
 
 func TestCreateFile(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	mockVol := mocks.NewMockIVolume(ctrl)
 	d := &DriveNode{}
 
@@ -526,16 +515,13 @@ func TestCreateFile(t *testing.T) {
 
 func TestInitClusterConfig(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	urm, _ := NewUserRouteMgr()
 	mockVol := mocks.NewMockIVolume(ctrl)
 	mockClusterMgr := mocks.NewMockClusterManager(ctrl)
 	d := &DriveNode{
-		vol:         mockVol,
-		userRouter:  urm,
-		clusterMgr:  mockClusterMgr,
-		groupRouter: singleflight.Group{},
+		vol:        mockVol,
+		userRouter: urm,
+		clusterMgr: mockClusterMgr,
 	}
 
 	mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, sdk.ErrNotDir)

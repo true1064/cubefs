@@ -23,9 +23,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/cubefs/cubefs/proto"
 	"github.com/cubefs/cubefs/util/config"
-	"github.com/stretchr/testify/require"
 )
 
 type mockMaster struct{}
@@ -54,7 +55,7 @@ func TestServer(t *testing.T) {
 		os.RemoveAll(logdir)
 	}()
 
-	masterAddrs := "\"" + configMasterAddr + "\":[\"" + ma + "\"]"
+	masterAddrs := "\"" + configMasterAddr + "\":\"" + ma + "\""
 	kv := func(k, v string) string {
 		return fmt.Sprintf("\"%s\": \"%s\"", k, v)
 	}
@@ -100,6 +101,6 @@ func TestServer(t *testing.T) {
 		}
 		s := NewServer()
 		cfg := config.LoadConfigString("{" + strings.Join(kvs, ",") + "}")
-		require.NoError(t, s.Start(cfg))
+		require.Error(t, s.Start(cfg))
 	}
 }

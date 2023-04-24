@@ -15,8 +15,6 @@
 package drive
 
 import (
-	"net/http"
-
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
 )
@@ -31,8 +29,7 @@ func (d *DriveNode) handleMkDir(c *rpc.Context) {
 	ctx, span := d.ctxSpan(c)
 	args := new(ArgsMkDir)
 	if err := c.ParseArgs(args); err != nil {
-		span.Errorf("parse mkdir paraments error: %s", err.Error())
-		c.RespondStatus(http.StatusBadRequest)
+		c.RespondError(err)
 		return
 	}
 
@@ -45,7 +42,6 @@ func (d *DriveNode) handleMkDir(c *rpc.Context) {
 	uid := d.userID(c)
 	rootIno, vol, err := d.getRootInoAndVolume(ctx, uid)
 	if err != nil {
-		span.Errorf("get root inode and volume error: %s, uid=%s", err.Error(), uid)
 		c.RespondError(err)
 		return
 	}

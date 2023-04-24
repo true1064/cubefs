@@ -27,7 +27,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestParseRange(t *testing.T) {
+func TestHelperParseRange(t *testing.T) {
 	cases := []struct {
 		header string
 		size   int64
@@ -60,7 +60,7 @@ func TestParseRange(t *testing.T) {
 	}
 }
 
-func TestCrc32Reader(t *testing.T) {
+func TestHelperCrc32Reader(t *testing.T) {
 	count := 0
 	logger := func(string, ...interface{}) {
 		count++
