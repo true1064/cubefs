@@ -147,7 +147,6 @@ func TestHandleListDir(t *testing.T) {
 			RootPath:   getRootPath("test"),
 			RootFileID: 4,
 		})
-		defer urm.Remove("test")
 
 		mockClusterMgr.EXPECT().GetCluster(gomock.Any()).Return(mockCluster)
 		mockCluster.EXPECT().GetVol(gomock.Any()).Return(mockVol)
@@ -168,8 +167,9 @@ func TestHandleListDir(t *testing.T) {
 		req.Header.Set(headerUserID, "test")
 		res, err := client.Do(req)
 		require.Nil(t, err)
-		defer res.Body.Close()
+		res.Body.Close()
 		require.Equal(t, res.StatusCode, 452)
+		urm.Remove("test")
 	}
 
 	{
@@ -180,7 +180,6 @@ func TestHandleListDir(t *testing.T) {
 			RootPath:   getRootPath("test"),
 			RootFileID: 4,
 		})
-		defer urm.Remove("test")
 
 		mockClusterMgr.EXPECT().GetCluster(gomock.Any()).Return(mockCluster)
 		mockCluster.EXPECT().GetVol(gomock.Any()).Return(mockVol)
@@ -232,7 +231,8 @@ func TestHandleListDir(t *testing.T) {
 		req.Header.Set(headerUserID, "test")
 		res, err := client.Do(req)
 		require.Nil(t, err)
-		defer res.Body.Close()
+		res.Body.Close()
 		require.Equal(t, res.StatusCode, http.StatusOK)
+		urm.Remove("test")
 	}
 }

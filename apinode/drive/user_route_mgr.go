@@ -88,13 +88,9 @@ func NewUserRouteMgr() (*userRouteMgr, error) {
 
 func (d *DriveNode) CreateUserRoute(ctx context.Context, uid UserID) (string, error) {
 	// Assign clusters and volumes
-	clusterid, volumeid, err := d.assignVolume(ctx, uid)
+	cluster, clusterid, volumeid, err := d.assignVolume(ctx, uid)
 	if err != nil {
 		return "", err
-	}
-	cluster := d.clusterMgr.GetCluster(clusterid)
-	if cluster == nil {
-		return "", sdk.ErrNoCluster
 	}
 	vol := cluster.GetVol(volumeid)
 	if vol == nil {
@@ -131,7 +127,7 @@ func (d *DriveNode) CreateUserRoute(ctx context.Context, uid UserID) (string, er
 
 // There may be a problem of inaccurate count here. cfs does not support distributed file locking.
 // There is only increment here, and it is not so accurate.
-func (d *DriveNode) assignVolume(ctx context.Context, uid UserID) (clusterid, volumeid string, err error) {
+func (d *DriveNode) assignVolume(ctx context.Context, uid UserID) (cluster sdk.ICluster, clusterid, volumeid string, err error) {
 	span := trace.SpanFromContextSafe(ctx)
 	d.mu.RLock()
 	if len(d.clusters) == 0 {
@@ -142,7 +138,7 @@ func (d *DriveNode) assignVolume(ctx context.Context, uid UserID) (clusterid, vo
 	idx := rand.Int31n(int32(len(d.clusters)))
 	clusterid = d.clusters[idx]
 	d.mu.RUnlock()
-	cluster := d.clusterMgr.GetCluster(clusterid)
+	cluster = d.clusterMgr.GetCluster(clusterid)
 	if cluster == nil {
 		err = sdk.ErrNoCluster
 		return
@@ -207,7 +203,7 @@ func (d *DriveNode) getUserRouteFromFile(ctx context.Context, uid UserID) (*User
 
 func getUserRouteFile(uid UserID) string {
 	h1, h2 := hashUid(uid)
-	return fmt.Sprintf("/user/clusters/%d/%d", h1%hashMask, h2%hashMask)
+	return fmt.Sprintf("/usr/clusters/%d/%d", h1%hashMask, h2%hashMask)
 }
 
 func getRootPath(uid UserID) string {
