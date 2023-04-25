@@ -74,7 +74,13 @@ func (d *DriveNode) handleAddUserConfig(c *rpc.Context) {
 func (d *DriveNode) handleGetUserConfig(c *rpc.Context) {
 	ctx, span := d.ctxSpan(c)
 	uid := d.userID(c)
-	ur, xattrs, err := d.getUserConfig(ctx, uid)
+	ur, err := d.GetUserRouteInfo(ctx, uid)
+	if err != nil {
+		span.Errorf("get user route error: %v, uid=%s", err, string(uid))
+		c.RespondError(err)
+		return
+	}
+	xattrs, err := d.getUserConfigFromFile(ctx, uid, ur.ClusterID, ur.VolumeID, uint64(ur.RootFileID))
 	if err != nil {
 		span.Errorf("get user config error: %v, uid=%s", err, string(uid))
 		c.RespondError(err)

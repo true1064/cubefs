@@ -179,7 +179,7 @@ type DriveNode struct {
 	mu          sync.RWMutex
 	userRouter  *userRouteMgr
 	clusterMgr  sdk.ClusterManager
-	groupRouter singleflight.Group
+	groupRouter singleflight.Group // for get user route
 
 	closer.Closer
 }

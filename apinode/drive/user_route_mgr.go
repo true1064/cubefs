@@ -241,35 +241,31 @@ func (d *DriveNode) addUserConfig(ctx context.Context, uid UserID, path string) 
 	return vol.SetXAttr(ctx, inoInfo.Inode, path, string(val))
 }
 
-func (d *DriveNode) getUserConfig(ctx context.Context, uid UserID) (*UserRoute, map[string]string, error) {
-	ur, err := d.GetUserRouteInfo(ctx, uid)
-	if err != nil {
-		return nil, nil, err
-	}
-	cluster := d.clusterMgr.GetCluster(ur.ClusterID)
+func (d *DriveNode) getUserConfigFromFile(ctx context.Context, uid UserID, clusterid, volumeid string, rootIno uint64) (map[string]string, error) {
+	cluster := d.clusterMgr.GetCluster(clusterid)
 	if cluster == nil {
-		return nil, nil, sdk.ErrNoCluster
+		return nil, sdk.ErrNoCluster
 	}
-	vol := cluster.GetVol(ur.VolumeID)
+	vol := cluster.GetVol(volumeid)
 	if vol == nil {
-		return nil, nil, sdk.ErrNoVolume
+		return nil, sdk.ErrNoVolume
 	}
-	dirInfo, err := d.lookup(ctx, vol, ur.RootFileID, userConfigPath)
+	dirInfo, err := d.lookup(ctx, vol, Inode(rootIno), userConfigPath)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	xattrs, err := vol.GetXAttrMap(ctx, dirInfo.Inode)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	return ur, xattrs, nil
+	return xattrs, nil
 }
 
 func hashUid(uid UserID) (h1, h2 uint32) {
 	data := md5.Sum([]byte(uid))
 	h1 = crc32.ChecksumIEEE(data[:])
-	s := fmt.Sprintf("%d", h1)
 
+	s := fmt.Sprintf("%d", h1)
 	data = md5.Sum([]byte(s))
 	h2 = crc32.ChecksumIEEE(data[:])
 	return h1, h2
@@ -280,12 +276,7 @@ func (m *userRouteMgr) Get(key UserID) *UserRoute {
 	if value == nil {
 		return nil
 	}
-	ur, ok := value.(*UserRoute)
-	if !ok {
-		return nil
-	}
-
-	return ur
+	return value.(*UserRoute)
 }
 
 func (m *userRouteMgr) Set(key UserID, value *UserRoute) {

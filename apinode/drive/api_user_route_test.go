@@ -2,7 +2,9 @@ package drive
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -389,6 +391,174 @@ func TestHandleAddUserConfig(t *testing.T) {
 		res, err := client.Do(req)
 		require.Nil(t, err)
 		require.Equal(t, res.StatusCode, sdk.ErrConflict.Status)
+		res.Body.Close()
+	}
+}
+
+func TestHandleGetUserConfig(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	urm, _ := NewUserRouteMgr()
+	mockCluster := mocks.NewMockICluster(ctrl)
+	mockVol := mocks.NewMockIVolume(ctrl)
+	mockClusterMgr := mocks.NewMockClusterManager(ctrl)
+	d := &DriveNode{
+		vol:         mockVol,
+		userRouter:  urm,
+		clusterMgr:  mockClusterMgr,
+		groupRouter: singleflight.Group{},
+		clusters:    []string{"1", "2"},
+	}
+	ts := httptest.NewServer(d.RegisterAPIRouters())
+	defer ts.Close()
+
+	client := ts.Client()
+
+	{
+		urm.Set("test", &UserRoute{
+			Uid:        UserID("test"),
+			ClusterID:  "1",
+			VolumeID:   "1",
+			RootPath:   getRootPath("test"),
+			RootFileID: 4,
+		})
+		mockClusterMgr.EXPECT().GetCluster(gomock.Any()).Return(mockCluster)
+		mockCluster.EXPECT().GetVol(gomock.Any()).Return(mockVol)
+		mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+			func(ctx context.Context, parentIno uint64, name string) (*sdk.DirInfo, error) {
+				filetype := uint32(os.ModeDir)
+				if name == "config" {
+					filetype = uint32(os.ModeIrregular)
+				}
+				return &sdk.DirInfo{
+					Name:  name,
+					Inode: parentIno + 1,
+					Type:  filetype,
+				}, nil
+			}).Times(2)
+		mockVol.EXPECT().GetXAttrMap(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(ctx context.Context, ino uint64) (map[string]string, error) {
+				xattrs := map[string]string{}
+				ent := ConfigEntry{
+					Status: 1,
+					Time:   time.Now().Unix(),
+				}
+				val, _ := json.Marshal(&ent)
+				xattrs["/usr/local/include"] = string(val)
+				xattrs["/usr/local/lib"] = string(val)
+				return xattrs, nil
+			})
+		tgt := fmt.Sprintf("%s/v1/route", ts.URL)
+		req, err := http.NewRequest(http.MethodGet, tgt, nil)
+		req.Header.Set(headerUserID, "test")
+		require.Nil(t, err)
+		res, err := client.Do(req)
+		require.Nil(t, err)
+		require.Equal(t, res.StatusCode, http.StatusOK)
+		body, err := io.ReadAll(res.Body)
+		res.Body.Close()
+		require.Nil(t, err)
+		var result GetUserConfigResult
+		json.Unmarshal(body, &result)
+		ur := urm.Get("test")
+		require.Equal(t, result.ClusterID, ur.ClusterID)
+		require.Equal(t, result.VolumeID, ur.VolumeID)
+		require.Equal(t, result.RootPath, ur.RootPath)
+		require.Equal(t, len(result.AppPaths), 2)
+		pathMap := map[string]struct{}{}
+		for i := 0; i < 2; i++ {
+			pathMap[result.AppPaths[i].Path] = struct{}{}
+		}
+		_, ok := pathMap["/usr/local/include"]
+		require.True(t, ok)
+		_, ok = pathMap["/usr/local/lib"]
+		require.True(t, ok)
+		urm.Remove("test")
+	}
+
+	{
+		mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, sdk.ErrBadFile)
+		tgt := fmt.Sprintf("%s/v1/route", ts.URL)
+		req, err := http.NewRequest(http.MethodGet, tgt, nil)
+		req.Header.Set(headerUserID, "test")
+		require.Nil(t, err)
+		res, err := client.Do(req)
+		require.Nil(t, err)
+		require.Equal(t, res.StatusCode, sdk.ErrBadFile.Status)
+		res.Body.Close()
+	}
+
+	urm.Set("test", &UserRoute{
+		Uid:        UserID("test"),
+		ClusterID:  "1",
+		VolumeID:   "1",
+		RootPath:   getRootPath("test"),
+		RootFileID: 4,
+	})
+	defer urm.Remove("test")
+	{
+		mockClusterMgr.EXPECT().GetCluster(gomock.Any()).Return(nil)
+		tgt := fmt.Sprintf("%s/v1/route", ts.URL)
+		req, err := http.NewRequest(http.MethodGet, tgt, nil)
+		req.Header.Set(headerUserID, "test")
+		require.Nil(t, err)
+		res, err := client.Do(req)
+		require.Nil(t, err)
+		require.Equal(t, res.StatusCode, sdk.ErrNoCluster.Status)
+		res.Body.Close()
+	}
+
+	{
+		mockClusterMgr.EXPECT().GetCluster(gomock.Any()).Return(mockCluster)
+		mockCluster.EXPECT().GetVol(gomock.Any()).Return(nil)
+		tgt := fmt.Sprintf("%s/v1/route", ts.URL)
+		req, err := http.NewRequest(http.MethodGet, tgt, nil)
+		req.Header.Set(headerUserID, "test")
+		require.Nil(t, err)
+		res, err := client.Do(req)
+		require.Nil(t, err)
+		require.Equal(t, res.StatusCode, sdk.ErrNoVolume.Status)
+		res.Body.Close()
+	}
+
+	{
+		mockClusterMgr.EXPECT().GetCluster(gomock.Any()).Return(mockCluster)
+		mockCluster.EXPECT().GetVol(gomock.Any()).Return(mockVol)
+		mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, sdk.ErrLimitExceed)
+		tgt := fmt.Sprintf("%s/v1/route", ts.URL)
+		req, err := http.NewRequest(http.MethodGet, tgt, nil)
+		req.Header.Set(headerUserID, "test")
+		require.Nil(t, err)
+		res, err := client.Do(req)
+		require.Nil(t, err)
+		require.Equal(t, res.StatusCode, sdk.ErrLimitExceed.Status)
+		res.Body.Close()
+	}
+
+	{
+		mockClusterMgr.EXPECT().GetCluster(gomock.Any()).Return(mockCluster)
+		mockCluster.EXPECT().GetVol(gomock.Any()).Return(mockVol)
+		mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+			func(ctx context.Context, parentIno uint64, name string) (*sdk.DirInfo, error) {
+				filetype := uint32(os.ModeDir)
+				if name == "config" {
+					filetype = uint32(os.ModeIrregular)
+				}
+				return &sdk.DirInfo{
+					Name:  name,
+					Inode: parentIno + 1,
+					Type:  filetype,
+				}, nil
+			}).Times(2)
+		mockVol.EXPECT().GetXAttrMap(gomock.Any(), gomock.Any()).Return(nil, sdk.ErrNotFound)
+		tgt := fmt.Sprintf("%s/v1/route", ts.URL)
+		req, err := http.NewRequest(http.MethodGet, tgt, nil)
+		req.Header.Set(headerUserID, "test")
+		require.Nil(t, err)
+		res, err := client.Do(req)
+		require.Nil(t, err)
+		require.Equal(t, res.StatusCode, sdk.ErrNotFound.Status)
 		res.Body.Close()
 	}
 }
