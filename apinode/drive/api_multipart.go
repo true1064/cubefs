@@ -43,8 +43,8 @@ func (d *DriveNode) handleMultipartUploads(c *rpc.Context) {
 		c.RespondError(err)
 		return
 	}
-	if args.Path.Clean(); !args.Path.IsFile() {
-		c.RespondError(sdk.ErrBadRequest)
+	if err := args.Path.Clean(); err != nil {
+		c.RespondError(err)
 		return
 	}
 
@@ -139,8 +139,8 @@ func (d *DriveNode) handleMultipartPart(c *rpc.Context) {
 		c.RespondError(err)
 		return
 	}
-	if args.Path.Clean(); !args.Path.IsFile() {
-		c.RespondError(sdk.ErrBadRequest)
+	if err := args.Path.Clean(); err != nil {
+		c.RespondError(err)
 		return
 	}
 	ctx, span := d.ctxSpan(c)
@@ -189,8 +189,8 @@ func (d *DriveNode) handleMultipartList(c *rpc.Context) {
 		c.RespondError(err)
 		return
 	}
-	if args.Path.Clean(); !args.Path.IsFile() {
-		c.RespondError(sdk.ErrBadRequest)
+	if err := args.Path.Clean(); err != nil {
+		c.RespondError(err)
 		return
 	}
 	ctx, span := d.ctxSpan(c)
@@ -235,8 +235,8 @@ func (d *DriveNode) handleMultipartAbort(c *rpc.Context) {
 		c.RespondError(err)
 		return
 	}
-	if args.Path.Clean(); !args.Path.IsFile() {
-		c.RespondError(sdk.ErrBadRequest)
+	if err := args.Path.Clean(); err != nil {
+		c.RespondError(err)
 		return
 	}
 	ctx, span := d.ctxSpan(c)

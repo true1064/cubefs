@@ -52,6 +52,7 @@ var (
 	ErrNotFound     = &Error{Status: 404, Code: "NotFound", Message: "not found"}
 	ErrNotDir       = &Error{Status: 452, Code: "ENOTDIR", Message: "not a directory"}
 
+	ErrInvalidPath      = &Error{Status: 400, Code: "BadRequest", Message: "invalid path"}
 	ErrMismatchChecksum = &Error{Status: 461, Code: "MismatchChecksum", Message: "mismatch checksum"}
 
 	ErrInvalidPartOrder = newErr(http.StatusBadRequest, "request part order is invalid")

@@ -15,7 +15,6 @@
 package drive
 
 import (
-	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
 )
 
@@ -33,9 +32,9 @@ func (d *DriveNode) handleMkDir(c *rpc.Context) {
 		return
 	}
 
-	if args.Path.Clean(); !args.Path.Valid() {
+	if err := args.Path.Clean(); err != nil {
 		span.Warnf("invalid path: %s", args.Path)
-		c.RespondError(sdk.ErrBadRequest)
+		c.RespondError(err)
 		return
 	}
 

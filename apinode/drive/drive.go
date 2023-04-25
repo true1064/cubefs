@@ -82,7 +82,7 @@ func (p *FilePath) IsFile() bool {
 }
 
 // Clean replace origin path to cleaned path.
-func (p *FilePath) Clean() {
+func (p *FilePath) Clean() error {
 	s := string(*p)
 	isDir := len(s) > 0 && s[len(s)-1] == os.PathSeparator
 	path := filepath.Clean(s)
@@ -90,6 +90,11 @@ func (p *FilePath) Clean() {
 		path += string(os.PathSeparator)
 	}
 	*p = FilePath(path)
+
+	if !p.Valid() {
+		return sdk.ErrInvalidPath
+	}
+	return nil
 }
 
 // Split splits path immediately following the final path separator.

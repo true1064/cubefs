@@ -42,7 +42,7 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 	originPath := string(args.Path)
 	if args.Path.Clean(); !args.Path.IsFile() {
 		span.Warnf("not a file path: %s -> %s", originPath, args.Path)
-		c.RespondError(sdk.ErrBadRequest)
+		c.RespondError(sdk.ErrInvalidPath)
 		return
 	}
 
@@ -152,7 +152,7 @@ func (d *DriveNode) handleFileDownload(c *rpc.Context) {
 
 	if args.Path.Clean(); !args.Path.IsFile() {
 		span.Warn("invalid path", args.Path)
-		c.RespondError(sdk.ErrBadRequest)
+		c.RespondError(sdk.ErrInvalidPath)
 		return
 	}
 
@@ -241,7 +241,7 @@ func (d *DriveNode) handleFileRename(c *rpc.Context) {
 	args.Dst.Clean()
 	if !args.Src.Valid() || !args.Dst.Valid() {
 		span.Warn("invalid rename", args)
-		c.RespondError(sdk.ErrBadRequest)
+		c.RespondError(sdk.ErrInvalidPath)
 		return
 	}
 	span.Info("to rename", args)
@@ -300,7 +300,7 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 	args.Dst.Clean()
 	if !args.Src.IsFile() || !args.Dst.IsFile() {
 		span.Warn("invalid copy", args)
-		c.RespondError(sdk.ErrBadRequest)
+		c.RespondError(sdk.ErrInvalidPath)
 		return
 	}
 	span.Info("to copy", args)
