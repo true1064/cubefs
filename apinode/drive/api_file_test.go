@@ -83,7 +83,7 @@ func TestHandleFileUpload(t *testing.T) {
 		node.OnceGetUser()
 		node.OnceLookup(true)
 		node.OnceGetInode()
-		node.Volume.EXPECT().UploadFile(A).Return(nil, &sdk.Error{Status: 522})
+		node.Volume.EXPECT().UploadFile(A, A).Return(nil, &sdk.Error{Status: 522})
 		// uploda file error
 		resp := doRequest(newMockBody(64), "path", "/dir/a/../filename")
 		defer resp.Body.Close()
@@ -93,7 +93,7 @@ func TestHandleFileUpload(t *testing.T) {
 		node.OnceGetUser()
 		node.OnceLookup(true)
 		node.OnceGetInode()
-		node.Volume.EXPECT().UploadFile(A).DoAndReturn(
+		node.Volume.EXPECT().UploadFile(A, A).DoAndReturn(
 			func(_ *sdk.UploadFileReq) (*sdk.InodeInfo, error) {
 				return &sdk.InodeInfo{
 					Inode: node.GenInode(),
@@ -380,7 +380,7 @@ func TestHandleFileCopy(t *testing.T) {
 		node.OnceGetInode()
 		node.OnceLookup(true)
 		node.OnceGetInode()
-		node.Volume.EXPECT().UploadFile(A).Return(nil, nil)
+		node.Volume.EXPECT().UploadFile(A, A).Return(nil, nil)
 		require.NoError(t, doRequest("src", "/dir/a", "dst", "/dir/b"))
 	}
 	{
@@ -390,7 +390,7 @@ func TestHandleFileCopy(t *testing.T) {
 		node.OnceLookup(true)
 		node.OnceGetInode()
 		node.Volume.EXPECT().GetXAttrMap(A, A).Return(nil, nil)
-		node.Volume.EXPECT().UploadFile(A).Return(nil, nil)
+		node.Volume.EXPECT().UploadFile(A, A).Return(nil, nil)
 		require.NoError(t, doRequest("src", "/dir/a", "dst", "/dir/b", "meta", "1"))
 	}
 }

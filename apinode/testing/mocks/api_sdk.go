@@ -95,11 +95,12 @@ func (mr *MockIVolumeMockRecorder) BatchSetXAttr(arg0, arg1, arg2 interface{}) *
 }
 
 // CompleteMultiPart mocks base method.
-func (m *MockIVolume) CompleteMultiPart(arg0 context.Context, arg1, arg2 string, arg3 uint64, arg4 []proto.MultipartPartInfo) error {
+func (m *MockIVolume) CompleteMultiPart(arg0 context.Context, arg1, arg2 string, arg3 uint64, arg4 []proto.MultipartPartInfo) (*proto.InodeInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CompleteMultiPart", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(*proto.InodeInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // CompleteMultiPart indicates an expected call of CompleteMultiPart.
@@ -404,18 +405,18 @@ func (mr *MockIVolumeMockRecorder) StatFs(arg0, arg1 interface{}) *gomock.Call {
 }
 
 // UploadFile mocks base method.
-func (m *MockIVolume) UploadFile(arg0 *sdk.UploadFileReq) (*proto.InodeInfo, error) {
+func (m *MockIVolume) UploadFile(arg0 context.Context, arg1 *sdk.UploadFileReq) (*proto.InodeInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UploadFile", arg0)
+	ret := m.ctrl.Call(m, "UploadFile", arg0, arg1)
 	ret0, _ := ret[0].(*proto.InodeInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UploadFile indicates an expected call of UploadFile.
-func (mr *MockIVolumeMockRecorder) UploadFile(arg0 interface{}) *gomock.Call {
+func (mr *MockIVolumeMockRecorder) UploadFile(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UploadFile", reflect.TypeOf((*MockIVolume)(nil).UploadFile), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UploadFile", reflect.TypeOf((*MockIVolume)(nil).UploadFile), arg0, arg1)
 }
 
 // UploadMultiPart mocks base method.

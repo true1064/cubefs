@@ -371,11 +371,22 @@ func (v *volume) CreateFile(ctx context.Context, parentIno uint64, name string) 
 func (v *volume) Delete(ctx context.Context, parIno uint64, name string, isDir bool) error {
 	span := trace.SpanFromContextSafe(ctx)
 
-	_, err := v.mw.Delete_ll(parIno, name, isDir)
+	ifo, err := v.mw.Delete_ll(parIno, name, isDir)
 	if err != nil {
 		span.Errorf("delete file failed, ino %d, name %s, dir %v, err %s", parIno, name, isDir, err.Error())
 		return syscallToErr(err)
 	}
+
+	if isDir || ifo == nil {
+		return nil
+	}
+
+	err = v.mw.Evict(ifo.Inode)
+	if err != nil {
+		span.Errorf("evict file failed, ino %d, name %s, dir %v, err %s", parIno, name, isDir, err.Error())
+		return syscallToErr(err)
+	}
+
 	return nil
 }
 
@@ -392,8 +403,8 @@ func (v *volume) Rename(ctx context.Context, srcParIno, dstParIno uint64, srcNam
 	return nil
 }
 
-func (v *volume) UploadFile(req *sdk.UploadFileReq) (*sdk.InodeInfo, error) {
-	span := trace.SpanFromContextSafe(req.Ctx)
+func (v *volume) UploadFile(ctx context.Context, req *sdk.UploadFileReq) (*sdk.InodeInfo, error) {
+	span := trace.SpanFromContextSafe(ctx)
 
 	oldIno, mode, err := v.mw.Lookup_ll(req.ParIno, req.Name)
 	if err != nil && err != syscall.ENOENT {
@@ -448,7 +459,7 @@ func (v *volume) UploadFile(req *sdk.UploadFileReq) (*sdk.InodeInfo, error) {
 		}
 	}()
 
-	_, err = v.writeAt(req.Ctx, tmpIno, 0, -1, req.Body)
+	_, err = v.writeAt(ctx, tmpIno, 0, -1, req.Body)
 	if err != nil {
 		span.Errorf("writeAt file failed, ino %s, err %s", tmpIno, err.Error())
 		return nil, err
@@ -564,14 +575,17 @@ func (v *volume) ReadFile(ctx context.Context, ino, off uint64, data []byte) (n 
 }
 
 func (v *volume) InitMultiPart(ctx context.Context, filepath string, oldIno uint64, extend map[string]string) (string, error) {
-	filepath = path.Join("/", filepath)
+	if !startWithSlash(filepath) {
+		return "", sdk.ErrBadRequest
+	}
+
 	span := trace.SpanFromContextSafe(ctx)
 	// try check whether ino of path is equal to oldIno.
 	if oldIno != 0 {
 		ino, err := v.mw.LookupPath(filepath)
-		if err != nil && err != sdk.ErrNotFound {
+		if err != nil && err != syscall.ENOENT {
 			span.Errorf("look up path %s failed, err %s", filepath, err.Error())
-			return "", err
+			return "", syscallToErr(err)
 		}
 
 		if ino != oldIno {
@@ -590,7 +604,11 @@ func (v *volume) InitMultiPart(ctx context.Context, filepath string, oldIno uint
 }
 
 func (v *volume) UploadMultiPart(ctx context.Context, filepath, uploadId string, partNum uint16, read io.Reader) (part *sdk.Part, err error) {
-	filepath = path.Join("/", filepath)
+	if !startWithSlash(filepath) {
+		err = sdk.ErrBadRequest
+		return
+	}
+
 	span := trace.SpanFromContextSafe(ctx)
 
 	tmpInfo, err := v.mw.InodeCreate_ll(defaultFileMode, 0, 0, nil)
@@ -660,7 +678,11 @@ func (v *volume) UploadMultiPart(ctx context.Context, filepath, uploadId string,
 }
 
 func (v *volume) ListMultiPart(ctx context.Context, filepath, uploadId string, count, marker uint64) (parts []*sdk.Part, next uint64, isTruncated bool, err error) {
-	filepath = path.Join("/", filepath)
+	if !startWithSlash(filepath) {
+		err = sdk.ErrBadRequest
+		return
+	}
+
 	span := trace.SpanFromContextSafe(ctx)
 
 	info, err := v.mw.GetMultipart_ll(filepath, uploadId)
@@ -687,8 +709,15 @@ func (v *volume) ListMultiPart(ctx context.Context, filepath, uploadId string, c
 	return parts, next, isTruncated, nil
 }
 
+func startWithSlash(filepath string) bool {
+	return strings.HasPrefix(filepath, "/")
+}
+
 func (v *volume) AbortMultiPart(ctx context.Context, filepath, uploadId string) error {
-	filepath = path.Join("/", filepath)
+	if !startWithSlash(filepath) {
+		return sdk.ErrBadRequest
+	}
+
 	span := trace.SpanFromContextSafe(ctx)
 
 	multipartInfo, err := v.mw.GetMultipart_ll(filepath, uploadId)
@@ -716,25 +745,28 @@ func (v *volume) AbortMultiPart(ctx context.Context, filepath, uploadId string) 
 	return nil
 }
 
-func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId string, oldIno uint64, partsArg []sdk.Part) (err error) {
-	filepath = path.Join("/", filepath)
+func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId string, oldIno uint64, partsArg []sdk.Part) (ifo *sdk.InodeInfo, err error) {
+	if !startWithSlash(filepath) {
+		return nil, sdk.ErrBadRequest
+	}
+
 	span := trace.SpanFromContextSafe(ctx)
 
 	for idx, part := range partsArg {
 		if part.ID != uint16(idx+1) {
-			return sdk.ErrInvalidPartOrder
+			return nil, sdk.ErrInvalidPartOrder
 		}
 	}
 
 	info, err := v.mw.GetMultipart_ll(filepath, uploadId)
 	if err != nil {
 		span.Errorf("get multipart info failed, path %s, uploadId %s, err %s", filepath, uploadId, err.Error())
-		return syscallToErr(err)
+		return nil, syscallToErr(err)
 	}
 
 	if len(partsArg) != len(info.Parts) {
 		span.Errorf("request part is not valid, path %s, uploadId %s", filepath, uploadId)
-		return sdk.ErrInvalidPart
+		return nil, sdk.ErrInvalidPart
 	}
 
 	partArr := make([]*sdk.Part, 0, len(partsArg))
@@ -742,7 +774,7 @@ func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId strin
 		tmpPart := partsArg[idx]
 		if tmpPart.MD5 != part.MD5 {
 			span.Errorf("request part md5 is invalid, path %s, uploadId %s, num %d, md5 %s", filepath, uploadId, tmpPart.ID, tmpPart.MD5)
-			return sdk.ErrInvalidPart
+			return nil, sdk.ErrInvalidPart
 		}
 		partArr = append(partArr, part)
 	}
@@ -750,7 +782,7 @@ func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId strin
 	completeInfo, err := v.mw.InodeCreate_ll(defaultFileMode, 0, 0, nil)
 	if err != nil {
 		span.Errorf("inode create failed, path %s, err %s", filepath, err.Error())
-		return syscallToErr(err)
+		return nil, syscallToErr(err)
 	}
 	cIno := completeInfo.Inode
 
@@ -771,7 +803,7 @@ func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId strin
 		_, _, eks, err = v.mw.GetExtents(part.Inode)
 		if err != nil {
 			span.Errorf("get part extent failed, ino %d, err %s", part.Inode, err.Error())
-			return syscallToErr(err)
+			return nil, syscallToErr(err)
 		}
 
 		for _, ek := range eks {
@@ -785,20 +817,20 @@ func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId strin
 	err = v.mw.AppendExtentKeys(cIno, totalExtents)
 	if err != nil {
 		span.Errorf("append ino to complete ino failed, ino %d, err %s", cIno, err.Error())
-		return
+		return nil, syscallToErr(err)
 	}
 
 	dir, name := path.Split(filepath)
 	parIno, err := v.mkdirByPath(ctx, dir)
 	if err != nil {
 		span.Errorf("mkdir dir failed, dir %s, err %s", dir, err.Error())
-		return syscallToErr(err)
+		return nil, syscallToErr(err)
 	}
 
 	err = v.mw.RemoveMultipart_ll(filepath, uploadId)
 	if err != nil {
 		span.Errorf("remove multipart failed, path %s, id %s, err %s", filepath, uploadId, err.Error())
-		return
+		return nil, syscallToErr(err)
 	}
 
 	for _, part := range partArr {
@@ -812,10 +844,10 @@ func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId strin
 	if err != nil {
 		span.Errorf("final create dentry failed, parIno %d, name %s, childIno %d, err %s",
 			parIno, name, cIno, err.Error())
-		return syscallToErr(err)
+		return nil, syscallToErr(err)
 	}
 
-	return nil
+	return completeInfo, nil
 }
 
 func (v *volume) mkdirByPath(ctx context.Context, dir string) (ino uint64, err error) {

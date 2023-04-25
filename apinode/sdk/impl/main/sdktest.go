@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
@@ -50,7 +51,7 @@ func testDirOp(ctx context.Context, vol sdk.IVolume) {
 	span.Infof("start test dir op ===================")
 	defer span.Infof("end test dir op ===================")
 
-	tmpDir := "testDirD1"
+	tmpDir := "testDirD2"
 	dirIfo, err := vol.Mkdir(ctx, proto.RootIno, tmpDir)
 	if err != nil {
 		span.Fatalf("create dir failed, dir %s, err %s", tmpDir, err.Error())
@@ -215,7 +216,6 @@ func testCreateFile(ctx context.Context, vol sdk.IVolume) {
 
 	// test file upload
 	req := &sdk.UploadFileReq{
-		Ctx:    ctx,
 		ParIno: dirIfo.Inode,
 		Name:   "file2",
 		OldIno: 0,
@@ -224,7 +224,7 @@ func testCreateFile(ctx context.Context, vol sdk.IVolume) {
 	}
 
 	var uploadIfo *sdk.InodeInfo
-	uploadIfo, err = vol.UploadFile(req)
+	uploadIfo, err = vol.UploadFile(ctx, req)
 	if err != nil {
 		span.Fatalf("upload file failed, name %s, err %s", req.Name, err.Error())
 	}
@@ -232,7 +232,7 @@ func testCreateFile(ctx context.Context, vol sdk.IVolume) {
 
 	req.OldIno = uploadIfo.Inode
 	req.Body = bytes.NewBuffer(data)
-	uploadIfo, err = vol.UploadFile(req)
+	uploadIfo, err = vol.UploadFile(ctx, req)
 	if err != nil {
 		span.Fatalf("upload file failed, name %s, err %s", req.Name, err.Error())
 	}
@@ -398,7 +398,7 @@ func testXAttrOp(ctx context.Context, vol sdk.IVolume) {
 
 func testMultiPartOp(ctx context.Context, vol sdk.IVolume) {
 	span := trace.SpanFromContextSafe(ctx)
-	tmpFile := "testMultiPartOp8"
+	tmpFile := "/testMultiPartOp11"
 
 	span.Info("start testMultiPartOp =================")
 	defer span.Info("end testMultiPartOp =================")
@@ -457,12 +457,12 @@ func testMultiPartOp(ctx context.Context, vol sdk.IVolume) {
 			MD5: part.MD5,
 		})
 	}
-	err = vol.CompleteMultiPart(ctx, tmpFile, uploadId, 0, newPartArr)
+	_, err = vol.CompleteMultiPart(ctx, tmpFile, uploadId, 0, newPartArr)
 	if err != nil {
 		span.Fatalf("complete multipart failed, file %s, err %s", tmpFile, err.Error())
 	}
 
-	err = vol.Delete(ctx, proto.RootIno, tmpFile, false)
+	err = vol.Delete(ctx, proto.RootIno, strings.TrimPrefix(tmpFile, "/"), false)
 	if err != nil {
 		span.Fatalf("delete multipart failed, file %v, err %s", tmpFile, err.Error())
 	}

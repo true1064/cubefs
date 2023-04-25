@@ -34,7 +34,7 @@ type IVolume interface {
 	Rename(ctx context.Context, srcParIno, dstParIno uint64, srcName, destName string) error
 
 	// UploadFile file
-	UploadFile(req *UploadFileReq) (*InodeInfo, error)
+	UploadFile(ctx context.Context, req *UploadFileReq) (*InodeInfo, error)
 	WriteFile(ctx context.Context, ino, off, size uint64, body io.Reader) error
 	// ReadFile read() will make a rpc request to server, if n less than len(data), it means no more data
 	ReadFile(ctx context.Context, ino, off uint64, data []byte) (n int, err error)
@@ -42,7 +42,7 @@ type IVolume interface {
 	UploadMultiPart(ctx context.Context, filepath, uploadId string, partNum uint16, read io.Reader) (*Part, error)
 	ListMultiPart(ctx context.Context, filepath, uploadId string, count, marker uint64) (parts []*Part, next uint64, isTruncated bool, err error)
 	AbortMultiPart(ctx context.Context, filepath, uploadId string) error
-	CompleteMultiPart(ctx context.Context, filepath, uploadId string, oldIno uint64, parts []Part) error
+	CompleteMultiPart(ctx context.Context, filepath, uploadId string, oldIno uint64, parts []Part) (*InodeInfo, error)
 	NewInodeLock() InodeLockApi
 }
 

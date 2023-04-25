@@ -117,7 +117,7 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 		})
 	}
 
-	err = vol.CompleteMultiPart(ctx, args.Path.String(), args.UploadID, uint64(args.FileID), sParts)
+	_, err = vol.CompleteMultiPart(ctx, args.Path.String(), args.UploadID, uint64(args.FileID), sParts)
 	if err != nil {
 		span.Error("multipart complete", args, parts, err)
 	} else {

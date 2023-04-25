@@ -1,7 +1,6 @@
 package sdk
 
 import (
-	"context"
 	"io"
 
 	"github.com/cubefs/cubefs/proto"
@@ -29,7 +28,6 @@ type DirInfo = proto.Dentry
 type Part = proto.MultipartPartInfo
 
 type UploadFileReq struct {
-	Ctx    context.Context
 	ParIno uint64
 	Name   string
 	OldIno uint64
