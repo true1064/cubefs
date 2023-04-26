@@ -54,6 +54,18 @@ func (d *DriveNode) handleCreateDrive(c *rpc.Context) {
 	c.RespondJSON(CreateDriveResult{driveid})
 }
 
+func (d *DriveNode) handleGetDrive(c *rpc.Context) {
+	ctx, span := d.ctxSpan(c)
+	uid := d.userID(c)
+	ur, err := d.GetUserRouteInfo(ctx, uid)
+	if err != nil {
+		span.Errorf("get user route error: %v, uid=%s", err, string(uid))
+		c.RespondError(err)
+		return
+	}
+	c.RespondJSON(ur)
+}
+
 func (d *DriveNode) handleAddUserConfig(c *rpc.Context) {
 	ctx, span := d.ctxSpan(c)
 	args := new(ArgsAddUserConfig)

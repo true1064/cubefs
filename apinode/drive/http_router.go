@@ -49,6 +49,7 @@ func (d *DriveNode) RegisterAPIRouters() *rpc.Router {
 	r.Use(d.setHeaders)
 
 	r.Handle(http.MethodPut, "/v1/drive", d.handleCreateDrive)
+	r.Handle(http.MethodGet, "/v1/drive", d.handleGetDrive)
 
 	r.Handle(http.MethodPut, "/v1/user/config", d.handleAddUserConfig, rpc.OptArgsQuery())
 	r.Handle(http.MethodDelete, "/v1/user/config", d.handleDelUserConfig, rpc.OptArgsQuery())
