@@ -71,6 +71,23 @@ func (d *DriveNode) handleAddUserConfig(c *rpc.Context) {
 	c.Respond()
 }
 
+func (d *DriveNode) handleDelUserConfig(c *rpc.Context) {
+	ctx, span := d.ctxSpan(c)
+	args := new(ArgsAddUserConfig)
+	if err := c.ParseArgs(args); err != nil {
+		c.RespondError(err)
+		return
+	}
+	uid := d.userID(c)
+	err := d.delUserConfig(ctx, uid, args.Path)
+	if err != nil {
+		span.Errorf("add user config error: %v, uid=%s", err, string(uid))
+		c.RespondError(err)
+		return
+	}
+	c.Respond()
+}
+
 func (d *DriveNode) handleGetUserConfig(c *rpc.Context) {
 	ctx, span := d.ctxSpan(c)
 	uid := d.userID(c)

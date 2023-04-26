@@ -232,4 +232,78 @@ func TestHandleListDir(t *testing.T) {
 		require.Equal(t, res.StatusCode, http.StatusOK)
 		urm.Remove("test")
 	}
+
+	/*
+		{
+			urm.Set("test", &UserRoute{
+				Uid:        UserID("test"),
+				ClusterID:  "1",
+				VolumeID:   "1",
+				RootPath:   getRootPath("test"),
+				RootFileID: 4,
+			})
+
+			mockClusterMgr.EXPECT().GetCluster(gomock.Any()).Return(mockCluster)
+			mockCluster.EXPECT().GetVol(gomock.Any()).Return(mockVol)
+			mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+				func(ctx context.Context, parentIno uint64, name string) (*sdk.DirInfo, error) {
+					if name == "test" {
+						return &sdk.DirInfo{
+							Name:  name,
+							Inode: parentIno + 1,
+							Type:  uint32(os.ModeDir),
+						}, nil
+					}
+					return nil, sdk.ErrNotFound
+				})
+			mockVol.EXPECT().GetXAttrMap(gomock.Any(), gomock.Any()).Return(nil, nil)
+			mockVol.EXPECT().Readdir(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+				func(ctx context.Context, parIno uint64, marker string, count uint32) ([]sdk.DirInfo, error) {
+					infos := []sdk.DirInfo{}
+					idx, _ := strconv.Atoi(marker)
+					idx = idx - 200
+					for i := idx; i < 100 && count > 0; i++ {
+						info := sdk.DirInfo{
+							Name:  fmt.Sprintf("%d", 200+i),
+							Inode: uint64(100 + i),
+							Type:  uint32(os.ModeIrregular),
+						}
+						infos = append(infos, info)
+						count--
+					}
+					return infos, nil
+				})
+
+			mockVol.EXPECT().BatchGetInodes(gomock.Any(), gomock.Any()).DoAndReturn(
+				func(ctx context.Context, inos []uint64) ([]*sdk.InodeInfo, error) {
+					infos := []*sdk.InodeInfo{}
+					for _, ino := range inos {
+						mode := uint32(os.ModeIrregular)
+						if ino == 100 {
+							mode = uint32(os.ModeDir)
+						}
+						info := &sdk.InodeInfo{
+							Inode:      ino,
+							Size:       1024,
+							Mode:       mode,
+							ModifyTime: time.Now(),
+							CreateTime: time.Now(),
+							AccessTime: time.Now(),
+						}
+						infos = append(infos, info)
+					}
+					return infos, nil
+				})
+			mockVol.EXPECT().GetXAttrMap(gomock.Any(), gomock.Any()).Return(nil, nil).Times(2)
+			tgt := fmt.Sprintf("%s/v1/files?path=%s&limit=10", ts.URL, url.QueryEscape("/test"))
+			req, err := http.NewRequest(http.MethodGet, tgt, nil)
+			require.Nil(t, err)
+			req.Header.Set(headerUserID, "test")
+			res, err := client.Do(req)
+			require.Nil(t, err)
+			res.Body.Close()
+			require.Equal(t, res.StatusCode, http.StatusOK)
+			urm.Remove("test")
+		}
+	*/
 }

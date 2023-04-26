@@ -48,10 +48,11 @@ func (d *DriveNode) RegisterAPIRouters() *rpc.Router {
 	// set request id and user id at interceptors.
 	r.Use(d.setHeaders)
 
-	r.Handle(http.MethodPost, "/v1/drive", d.handleCreateDrive)
+	r.Handle(http.MethodPut, "/v1/drive", d.handleCreateDrive)
 
-	r.Handle(http.MethodPost, "/v1/route", d.handleAddUserConfig, rpc.OptArgsQuery())
-	r.Handle(http.MethodGet, "/v1/route", d.handleGetUserConfig)
+	r.Handle(http.MethodPut, "/v1/user/config", d.handleAddUserConfig, rpc.OptArgsQuery())
+	r.Handle(http.MethodDelete, "/v1/user/config", d.handleDelUserConfig, rpc.OptArgsQuery())
+	r.Handle(http.MethodGet, "/v1/user/config", d.handleGetUserConfig)
 
 	r.Handle(http.MethodPost, "/v1/meta", d.handleSetProperties, rpc.OptArgsQuery())
 	r.Handle(http.MethodGet, "/v1/meta", d.handleGetProperties, rpc.OptArgsQuery())

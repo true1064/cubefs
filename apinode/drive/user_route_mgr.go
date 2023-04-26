@@ -241,6 +241,27 @@ func (d *DriveNode) addUserConfig(ctx context.Context, uid UserID, path string) 
 	return vol.SetXAttr(ctx, inoInfo.Inode, path, string(val))
 }
 
+func (d *DriveNode) delUserConfig(ctx context.Context, uid UserID, path string) error {
+	ur, err := d.GetUserRouteInfo(ctx, uid)
+	if err != nil {
+		return err
+	}
+	cluster := d.clusterMgr.GetCluster(ur.ClusterID)
+	if cluster == nil {
+		return sdk.ErrNoCluster
+	}
+	vol := cluster.GetVol(ur.VolumeID)
+	if vol == nil {
+		return sdk.ErrNoVolume
+	}
+
+	dirInfo, err := d.lookup(ctx, vol, ur.RootFileID, userConfigPath)
+	if err != nil {
+		return err
+	}
+	return vol.DeleteXAttr(ctx, dirInfo.Inode, path)
+}
+
 func (d *DriveNode) getUserConfigFromFile(ctx context.Context, uid UserID, clusterid, volumeid string, rootIno uint64) (map[string]string, error) {
 	cluster := d.clusterMgr.GetCluster(clusterid)
 	if cluster == nil {

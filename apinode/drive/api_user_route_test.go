@@ -83,7 +83,7 @@ func TestHandleCreateDrive(t *testing.T) {
 		mockVol.EXPECT().SetXAttr(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 		tgt := fmt.Sprintf("%s/v1/drive", ts.URL)
-		req, err := http.NewRequest(http.MethodPost, tgt, nil)
+		req, err := http.NewRequest(http.MethodPut, tgt, nil)
 		req.Header.Set(headerUserID, "test")
 		require.Nil(t, err)
 		res, err := client.Do(req)
@@ -95,7 +95,7 @@ func TestHandleCreateDrive(t *testing.T) {
 	{
 		mockClusterMgr.EXPECT().GetCluster(gomock.Any()).Return(nil)
 		tgt := fmt.Sprintf("%s/v1/drive", ts.URL)
-		req, err := http.NewRequest(http.MethodPost, tgt, nil)
+		req, err := http.NewRequest(http.MethodPut, tgt, nil)
 		req.Header.Set(headerUserID, "test")
 		require.Nil(t, err)
 		res, err := client.Do(req)
@@ -108,7 +108,7 @@ func TestHandleCreateDrive(t *testing.T) {
 		tmp := d.clusters
 		d.clusters = []string{}
 		tgt := fmt.Sprintf("%s/v1/drive", ts.URL)
-		req, err := http.NewRequest(http.MethodPost, tgt, nil)
+		req, err := http.NewRequest(http.MethodPut, tgt, nil)
 		req.Header.Set(headerUserID, "test")
 		require.Nil(t, err)
 		res, err := client.Do(req)
@@ -122,7 +122,7 @@ func TestHandleCreateDrive(t *testing.T) {
 		mockClusterMgr.EXPECT().GetCluster(gomock.Any()).Return(mockCluster)
 		mockCluster.EXPECT().ListVols().Return(nil)
 		tgt := fmt.Sprintf("%s/v1/drive", ts.URL)
-		req, err := http.NewRequest(http.MethodPost, tgt, nil)
+		req, err := http.NewRequest(http.MethodPut, tgt, nil)
 		req.Header.Set(headerUserID, "test")
 		require.Nil(t, err)
 		res, err := client.Do(req)
@@ -136,7 +136,7 @@ func TestHandleCreateDrive(t *testing.T) {
 		mockCluster.EXPECT().ListVols().Return(vols)
 		mockCluster.EXPECT().GetVol(gomock.Any()).Return(nil)
 		tgt := fmt.Sprintf("%s/v1/drive", ts.URL)
-		req, err := http.NewRequest(http.MethodPost, tgt, nil)
+		req, err := http.NewRequest(http.MethodPut, tgt, nil)
 		req.Header.Set(headerUserID, "test")
 		require.Nil(t, err)
 		res, err := client.Do(req)
@@ -151,7 +151,7 @@ func TestHandleCreateDrive(t *testing.T) {
 		mockCluster.EXPECT().GetVol(gomock.Any()).Return(mockVol)
 		mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, sdk.ErrConflict)
 		tgt := fmt.Sprintf("%s/v1/drive", ts.URL)
-		req, err := http.NewRequest(http.MethodPost, tgt, nil)
+		req, err := http.NewRequest(http.MethodPut, tgt, nil)
 		req.Header.Set(headerUserID, "test")
 		require.Nil(t, err)
 		res, err := client.Do(req)
@@ -203,7 +203,7 @@ func TestHandleCreateDrive(t *testing.T) {
 			})
 		mockVol.EXPECT().SetXAttr(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(sdk.ErrForbidden)
 		tgt := fmt.Sprintf("%s/v1/drive", ts.URL)
-		req, err := http.NewRequest(http.MethodPost, tgt, nil)
+		req, err := http.NewRequest(http.MethodPut, tgt, nil)
 		req.Header.Set(headerUserID, "test")
 		require.Nil(t, err)
 		res, err := client.Do(req)
@@ -276,8 +276,8 @@ func TestHandleAddUserConfig(t *testing.T) {
 			})
 		mockVol.EXPECT().SetXAttr(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
-		tgt := fmt.Sprintf("%s/v1/route?path=%s", ts.URL, url.QueryEscape("/test"))
-		req, err := http.NewRequest(http.MethodPost, tgt, nil)
+		tgt := fmt.Sprintf("%s/v1/user/config?path=%s", ts.URL, url.QueryEscape("/test"))
+		req, err := http.NewRequest(http.MethodPut, tgt, nil)
 		req.Header.Set(headerUserID, "test")
 		require.Nil(t, err)
 		res, err := client.Do(req)
@@ -288,8 +288,8 @@ func TestHandleAddUserConfig(t *testing.T) {
 	}
 
 	{
-		tgt := fmt.Sprintf("%s/v1/route", ts.URL)
-		req, err := http.NewRequest(http.MethodPost, tgt, nil)
+		tgt := fmt.Sprintf("%s/v1/user/config", ts.URL)
+		req, err := http.NewRequest(http.MethodPut, tgt, nil)
 		req.Header.Set(headerUserID, "test")
 		require.Nil(t, err)
 		res, err := client.Do(req)
@@ -300,8 +300,8 @@ func TestHandleAddUserConfig(t *testing.T) {
 
 	{
 		mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, sdk.ErrNotDir)
-		tgt := fmt.Sprintf("%s/v1/route?path=%s", ts.URL, url.QueryEscape("/test"))
-		req, err := http.NewRequest(http.MethodPost, tgt, nil)
+		tgt := fmt.Sprintf("%s/v1/user/config?path=%s", ts.URL, url.QueryEscape("/test"))
+		req, err := http.NewRequest(http.MethodPut, tgt, nil)
 		req.Header.Set(headerUserID, "test")
 		require.Nil(t, err)
 		res, err := client.Do(req)
@@ -319,8 +319,8 @@ func TestHandleAddUserConfig(t *testing.T) {
 	defer urm.Remove("test")
 	{
 		mockClusterMgr.EXPECT().GetCluster(gomock.Any()).Return(nil)
-		tgt := fmt.Sprintf("%s/v1/route?path=%s", ts.URL, url.QueryEscape("/test"))
-		req, err := http.NewRequest(http.MethodPost, tgt, nil)
+		tgt := fmt.Sprintf("%s/v1/user/config?path=%s", ts.URL, url.QueryEscape("/test"))
+		req, err := http.NewRequest(http.MethodPut, tgt, nil)
 		req.Header.Set(headerUserID, "test")
 		require.Nil(t, err)
 		res, err := client.Do(req)
@@ -333,8 +333,8 @@ func TestHandleAddUserConfig(t *testing.T) {
 		mockClusterMgr.EXPECT().GetCluster(gomock.Any()).Return(mockCluster)
 		mockCluster.EXPECT().GetVol(gomock.Any()).Return(mockVol)
 		mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, sdk.ErrExist)
-		tgt := fmt.Sprintf("%s/v1/route?path=%s", ts.URL, url.QueryEscape("/test"))
-		req, err := http.NewRequest(http.MethodPost, tgt, nil)
+		tgt := fmt.Sprintf("%s/v1/user/config?path=%s", ts.URL, url.QueryEscape("/test"))
+		req, err := http.NewRequest(http.MethodPut, tgt, nil)
 		req.Header.Set(headerUserID, "test")
 		require.Nil(t, err)
 		res, err := client.Do(req)
@@ -369,8 +369,8 @@ func TestHandleAddUserConfig(t *testing.T) {
 				}, nil
 			})
 		mockVol.EXPECT().CreateFile(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, sdk.ErrConflict)
-		tgt := fmt.Sprintf("%s/v1/route?path=%s", ts.URL, url.QueryEscape("/test"))
-		req, err := http.NewRequest(http.MethodPost, tgt, nil)
+		tgt := fmt.Sprintf("%s/v1/user/config?path=%s", ts.URL, url.QueryEscape("/test"))
+		req, err := http.NewRequest(http.MethodPut, tgt, nil)
 		req.Header.Set(headerUserID, "test")
 		require.Nil(t, err)
 		res, err := client.Do(req)
@@ -431,7 +431,7 @@ func TestHandleGetUserConfig(t *testing.T) {
 				xattrs["/usr/local/lib"] = string(val)
 				return xattrs, nil
 			})
-		tgt := fmt.Sprintf("%s/v1/route", ts.URL)
+		tgt := fmt.Sprintf("%s/v1/user/config", ts.URL)
 		req, err := http.NewRequest(http.MethodGet, tgt, nil)
 		req.Header.Set(headerUserID, "test")
 		require.Nil(t, err)
@@ -461,7 +461,7 @@ func TestHandleGetUserConfig(t *testing.T) {
 
 	{
 		mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, sdk.ErrBadFile)
-		tgt := fmt.Sprintf("%s/v1/route", ts.URL)
+		tgt := fmt.Sprintf("%s/v1/user/config", ts.URL)
 		req, err := http.NewRequest(http.MethodGet, tgt, nil)
 		req.Header.Set(headerUserID, "test")
 		require.Nil(t, err)
@@ -481,7 +481,7 @@ func TestHandleGetUserConfig(t *testing.T) {
 	defer urm.Remove("test")
 	{
 		mockClusterMgr.EXPECT().GetCluster(gomock.Any()).Return(nil)
-		tgt := fmt.Sprintf("%s/v1/route", ts.URL)
+		tgt := fmt.Sprintf("%s/v1/user/config", ts.URL)
 		req, err := http.NewRequest(http.MethodGet, tgt, nil)
 		req.Header.Set(headerUserID, "test")
 		require.Nil(t, err)
@@ -494,7 +494,7 @@ func TestHandleGetUserConfig(t *testing.T) {
 	{
 		mockClusterMgr.EXPECT().GetCluster(gomock.Any()).Return(mockCluster)
 		mockCluster.EXPECT().GetVol(gomock.Any()).Return(nil)
-		tgt := fmt.Sprintf("%s/v1/route", ts.URL)
+		tgt := fmt.Sprintf("%s/v1/user/config", ts.URL)
 		req, err := http.NewRequest(http.MethodGet, tgt, nil)
 		req.Header.Set(headerUserID, "test")
 		require.Nil(t, err)
@@ -508,7 +508,7 @@ func TestHandleGetUserConfig(t *testing.T) {
 		mockClusterMgr.EXPECT().GetCluster(gomock.Any()).Return(mockCluster)
 		mockCluster.EXPECT().GetVol(gomock.Any()).Return(mockVol)
 		mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, sdk.ErrLimitExceed)
-		tgt := fmt.Sprintf("%s/v1/route", ts.URL)
+		tgt := fmt.Sprintf("%s/v1/user/config", ts.URL)
 		req, err := http.NewRequest(http.MethodGet, tgt, nil)
 		req.Header.Set(headerUserID, "test")
 		require.Nil(t, err)
@@ -534,7 +534,7 @@ func TestHandleGetUserConfig(t *testing.T) {
 				}, nil
 			}).Times(2)
 		mockVol.EXPECT().GetXAttrMap(gomock.Any(), gomock.Any()).Return(nil, sdk.ErrNotFound)
-		tgt := fmt.Sprintf("%s/v1/route", ts.URL)
+		tgt := fmt.Sprintf("%s/v1/user/config", ts.URL)
 		req, err := http.NewRequest(http.MethodGet, tgt, nil)
 		req.Header.Set(headerUserID, "test")
 		require.Nil(t, err)

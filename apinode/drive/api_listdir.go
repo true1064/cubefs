@@ -258,12 +258,16 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 			}
 
 			if len(builders) > 0 {
-				for i := 0; i < len(fileInfo); i++ {
-					for _, builder := range builders {
-						if !builder.matchFileInfo(&fileInfo[i]) {
-							continue
+				for j := 0; j < len(fileInfo); j++ {
+					match := true
+					for _, builder := range builders { // match all condition
+						if !builder.matchFileInfo(&fileInfo[j]) {
+							match = false
+							break
 						}
-						res.Files = append(res.Files, fileInfo[i])
+					}
+					if match {
+						res.Files = append(res.Files, fileInfo[j])
 					}
 				}
 			} else {
@@ -290,7 +294,7 @@ func (d *DriveNode) listDir(ctx context.Context, ino uint64, vol sdk.IVolume, ma
 	n := len(dirInfos)
 	inodes := make([]uint64, n)
 	for i := 0; i < n; i++ {
-		inodes = append(inodes, dirInfos[i].Inode)
+		inodes[i] = dirInfos[i].Inode
 	}
 	inoInfo, err := vol.BatchGetInodes(ctx, inodes)
 	if err != nil {
