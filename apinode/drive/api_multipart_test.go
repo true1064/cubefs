@@ -79,13 +79,13 @@ func TestHandleMultipartUploads(t *testing.T) {
 		}
 		buff, _ := json.Marshal(parts)
 		body := &mockBody{remain: len(buff), buff: buff}
-		node.Volume.EXPECT().CompleteMultiPart(A, A, A, A, A).Return(&sdk.Error{Status: 522})
+		node.Volume.EXPECT().CompleteMultiPart(A, A, A, A, A).Return(nil, &sdk.Error{Status: 522})
 		require.Equal(t, 522, doRequest(body, nil, "path", "/mpfile", "uploadId", uploadID).StatusCode())
 	}
 	{
 		node.OnceGetUser()
 		body := &mockBody{remain: 2, buff: []byte("[]")}
-		node.Volume.EXPECT().CompleteMultiPart(A, A, A, A, A).Return(nil)
+		node.Volume.EXPECT().CompleteMultiPart(A, A, A, A, A).Return(&sdk.InodeInfo{Inode: node.GenInode()}, nil)
 		require.NoError(t, doRequest(body, nil, "path", "/mpfile", "uploadId", uploadID))
 	}
 }

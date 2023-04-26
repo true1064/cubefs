@@ -93,12 +93,7 @@ func TestHandleFileUpload(t *testing.T) {
 		node.OnceGetUser()
 		node.OnceLookup(true)
 		node.OnceGetInode()
-		node.Volume.EXPECT().UploadFile(A, A).DoAndReturn(
-			func(_ *sdk.UploadFileReq) (*sdk.InodeInfo, error) {
-				return &sdk.InodeInfo{
-					Inode: node.GenInode(),
-				}, nil
-			})
+		node.Volume.EXPECT().UploadFile(A, A).Return(&sdk.InodeInfo{Inode: node.GenInode()}, nil)
 		// uploda file error
 		resp := doRequest(newMockBody(64), "path", "/dir/a/../filename")
 		defer resp.Body.Close()

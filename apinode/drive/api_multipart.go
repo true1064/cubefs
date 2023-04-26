@@ -117,13 +117,15 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 		})
 	}
 
-	_, err = vol.CompleteMultiPart(ctx, args.Path.String(), args.UploadID, uint64(args.FileID), sParts)
+	inode, err := vol.CompleteMultiPart(ctx, args.Path.String(), args.UploadID, uint64(args.FileID), sParts)
 	if err != nil {
 		span.Error("multipart complete", args, parts, err)
-	} else {
-		span.Info("multipart complete", args, parts)
+		c.RespondError(err)
+		return
 	}
-	c.RespondError(err)
+	span.Info("multipart complete", args, parts)
+	_, filename := args.Path.Split()
+	c.RespondJSON(inode2file(inode, filename, nil))
 }
 
 // ArgsMPUpload multipart upload part argument.
