@@ -29,3 +29,6 @@ package apinode
 // code golangci lint with 'golangci-lint' version v1.43.0
 // go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.43.0
 //go:generate golangci-lint run --issues-exit-code=1 -D errcheck -E bodyclose ./...
+
+// run testing
+//go:generate go test ./...
