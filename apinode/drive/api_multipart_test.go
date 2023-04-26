@@ -34,8 +34,8 @@ func TestHandleMultipartUploads(t *testing.T) {
 	server, client := newTestServer(d)
 	defer server.Close()
 
-	doRequest := func(body *mockBody, r interface{}, querys ...string) rpc.HTTPError {
-		url := genURL(server.URL, "/v1/files/multipart", querys...)
+	doRequest := func(body *mockBody, r interface{}, queries ...string) rpc.HTTPError {
+		url := genURL(server.URL, "/v1/files/multipart", queries...)
 		req, _ := http.NewRequest(http.MethodPost, url, body)
 		req.ContentLength = int64(body.remain)
 		req.Header.Add(headerUserID, testUserID)
@@ -96,8 +96,8 @@ func TestHandleMultipartParts(t *testing.T) {
 	server, client := newTestServer(d)
 	defer server.Close()
 
-	doRequest := func(body *mockBody, r interface{}, querys ...string) rpc.HTTPError {
-		url := genURL(server.URL, "/v1/files/multipart", querys...)
+	doRequest := func(body *mockBody, r interface{}, queries ...string) rpc.HTTPError {
+		url := genURL(server.URL, "/v1/files/multipart", queries...)
 		req, _ := http.NewRequest(http.MethodPut, url, body)
 		req.ContentLength = int64(body.remain)
 		req.Header.Add(headerUserID, testUserID)
@@ -136,8 +136,8 @@ func TestHandleMultipartList(t *testing.T) {
 	server, client := newTestServer(d)
 	defer server.Close()
 
-	doRequest := func(r interface{}, querys ...string) rpc.HTTPError {
-		url := genURL(server.URL, "/v1/files/multipart", querys...)
+	doRequest := func(r interface{}, queries ...string) rpc.HTTPError {
+		url := genURL(server.URL, "/v1/files/multipart", queries...)
 		req, _ := http.NewRequest(http.MethodGet, url, nil)
 		req.Header.Add(headerUserID, testUserID)
 		resp, err := client.Do(Ctx, req)
@@ -180,8 +180,8 @@ func TestHandleMultipartAbort(t *testing.T) {
 	server, client := newTestServer(d)
 	defer server.Close()
 
-	doRequest := func(querys ...string) rpc.HTTPError {
-		url := genURL(server.URL, "/v1/files/multipart", querys...)
+	doRequest := func(queries ...string) rpc.HTTPError {
+		url := genURL(server.URL, "/v1/files/multipart", queries...)
 		req, _ := http.NewRequest(http.MethodDelete, url, nil)
 		req.Header.Add(headerUserID, testUserID)
 		resp, err := client.Do(Ctx, req)

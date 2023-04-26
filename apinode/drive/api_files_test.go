@@ -30,8 +30,8 @@ func TestHandleFilesMakedir(t *testing.T) {
 	server, client := newTestServer(d)
 	defer server.Close()
 
-	doRequest := func(querys ...string) rpc.HTTPError {
-		url := genURL(server.URL, "/v1/files/mkdir", querys...)
+	doRequest := func(queries ...string) rpc.HTTPError {
+		url := genURL(server.URL, "/v1/files/mkdir", queries...)
 		req, _ := http.NewRequest(http.MethodPost, url, nil)
 		req.Header.Add(headerRequestID, "user_request_id")
 		req.Header.Add(headerUserID, testUserID)

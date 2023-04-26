@@ -34,8 +34,8 @@ func TestHandleFileUpload(t *testing.T) {
 	server, client := newTestServer(d)
 	defer server.Close()
 
-	doRequest := func(body *mockBody, querys ...string) *http.Response {
-		url := genURL(server.URL, "/v1/files/upload", querys...)
+	doRequest := func(body *mockBody, queries ...string) *http.Response {
+		url := genURL(server.URL, "/v1/files/upload", queries...)
 		req, _ := http.NewRequest(http.MethodPut, url, body)
 		req.Header.Add(headerUserID, testUserID)
 		req.Header.Add(headerCrc32, fmt.Sprint(body.Sum32()))
@@ -113,8 +113,8 @@ func TestHandleFileWrite(t *testing.T) {
 	server, client := newTestServer(d)
 	defer server.Close()
 
-	doRequest := func(body *mockBody, ranged string, querys ...string) *http.Response {
-		url := genURL(server.URL, "/v1/files/content", querys...)
+	doRequest := func(body *mockBody, ranged string, queries ...string) *http.Response {
+		url := genURL(server.URL, "/v1/files/content", queries...)
 		req, _ := http.NewRequest(http.MethodPut, url, body)
 		req.Header.Add(headerUserID, testUserID)
 		req.Header.Add(headerCrc32, fmt.Sprint(body.Sum32()))
@@ -187,8 +187,8 @@ func TestHandleFileDownload(t *testing.T) {
 	server, client := newTestServer(d)
 	defer server.Close()
 
-	doRequest := func(body *mockBody, ranged string, querys ...string) *http.Response {
-		url := genURL(server.URL, "/v1/files/content", querys...)
+	doRequest := func(body *mockBody, ranged string, queries ...string) *http.Response {
+		url := genURL(server.URL, "/v1/files/content", queries...)
 		req, _ := http.NewRequest(http.MethodGet, url, body)
 		req.Header.Add(headerUserID, testUserID)
 		if ranged != "" {
@@ -274,8 +274,8 @@ func TestHandleFileRename(t *testing.T) {
 	server, client := newTestServer(d)
 	defer server.Close()
 
-	doRequest := func(querys ...string) rpc.HTTPError {
-		url := genURL(server.URL, "/v1/files/rename", querys...)
+	doRequest := func(queries ...string) rpc.HTTPError {
+		url := genURL(server.URL, "/v1/files/rename", queries...)
 		req, _ := http.NewRequest(http.MethodPost, url, nil)
 		req.Header.Add(headerUserID, testUserID)
 		resp, err := client.Do(Ctx, req)
@@ -325,8 +325,8 @@ func TestHandleFileCopy(t *testing.T) {
 	server, client := newTestServer(d)
 	defer server.Close()
 
-	doRequest := func(querys ...string) rpc.HTTPError {
-		url := genURL(server.URL, "/v1/files/copy", querys...)
+	doRequest := func(queries ...string) rpc.HTTPError {
+		url := genURL(server.URL, "/v1/files/copy", queries...)
 		req, _ := http.NewRequest(http.MethodPost, url, nil)
 		req.Header.Add(headerUserID, testUserID)
 		resp, err := client.Do(Ctx, req)

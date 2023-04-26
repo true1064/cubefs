@@ -142,13 +142,13 @@ func newTestServer(d *DriveNode) (*httptest.Server, rpc.Client) {
 	return server, rpc.NewClient(&rpc.Config{})
 }
 
-func genURL(host string, uri string, querys ...string) string {
-	if len(querys)%2 == 1 {
-		querys = append(querys, "")
+func genURL(host string, uri string, queries ...string) string {
+	if len(queries)%2 == 1 {
+		queries = append(queries, "")
 	}
 	q := make(url.Values)
-	for i := 0; i < len(querys); i += 2 {
-		q.Set(querys[i], querys[i+1])
+	for i := 0; i < len(queries); i += 2 {
+		q.Set(queries[i], queries[i+1])
 	}
 	if len(q) > 0 {
 		return fmt.Sprintf("%s%s?%s", host, uri, q.Encode())
