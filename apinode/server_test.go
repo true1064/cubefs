@@ -61,25 +61,19 @@ func TestServer(t *testing.T) {
 	}
 	cases := [][]string{
 		nil,
-		{kv(configService, "none")},
-		{kv(configService, serviceDrive)},
 		{
-			kv(configService, serviceDrive),
 			kv(configLogDir, logdir),
 		},
 		{
-			kv(configService, serviceDrive),
 			kv(configLogDir, logdir),
 			kv(configLogLevel, "warn"),
 		},
 		{
-			kv(configService, serviceDrive),
 			kv(configLogDir, logdir),
 			kv(configListen, "0"),
 			kv(configLogLevel, "debug"),
 		},
 		{
-			kv(configService, serviceDrive),
 			kv(configLogDir, logdir),
 			kv(configListen, ":0"),
 			kv(configLogLevel, "error"),
@@ -93,7 +87,6 @@ func TestServer(t *testing.T) {
 
 	{
 		kvs := []string{
-			kv(configService, serviceDrive),
 			kv(configLogDir, logdir),
 			kv(configListen, ":0"),
 			kv(configLogLevel, "info"),

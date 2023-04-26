@@ -17,11 +17,11 @@ package apinode
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"path"
 	"strconv"
 
+	"github.com/gorilla/mux"
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/cubefs/cubefs/apinode/drive"
@@ -43,7 +43,8 @@ const (
 	configMasterAddr = proto.MasterAddr
 	configLogDir     = "logDir"
 	configLogLevel   = "logLevel"
-	configService    = "service"
+
+	headerService = "x-cfa-service"
 )
 
 // Default of configuration value
@@ -55,20 +56,44 @@ const (
 	serviceS3     = "s3"
 )
 
-type serviceNode interface {
+type rpcNode interface {
 	RegisterAPIRouters() *rpc.Router
 	Start(cfg *config.Config) error
 	closer.Closer
 }
 
+type muxNode interface {
+	RegisterAPIRouters() *mux.Route
+	Start(cfg *config.Config) error
+	closer.Closer
+}
+
 type apiNode struct {
-	listen      string
-	audit       auditlog.Config
-	service     string
-	serviceNode serviceNode
-	mc          *master.MasterClient
-	httpServer  *http.Server
-	control     common.Control
+	listen     string
+	httpServer *http.Server
+	mc         *master.MasterClient
+	control    common.Control
+
+	audit  auditlog.Config
+	defers []func() // close logger after http server closed
+	router struct {
+		Drive struct {
+			node    rpcNode
+			handler http.Handler
+		}
+		S3 struct {
+			node    muxNode
+			handler http.Handler
+		}
+		Posix struct {
+			node    rpcNode
+			handler http.Handler
+		}
+		Hdfs struct {
+			node    rpcNode
+			handler http.Handler
+		}
+	}
 }
 
 func (s *apiNode) Start(cfg *config.Config) error {
@@ -84,42 +109,29 @@ func (s *apiNode) Sync() {
 }
 
 func (s *apiNode) loadConfig(cfg *config.Config) error {
-	service := cfg.GetString(configService)
-	switch service {
-	case serviceDrive:
-		s.serviceNode = drive.New()
-	case servicePosix, serviceHdfs, serviceS3:
-	default:
-		return fmt.Errorf("invalid sevice type: %s", service)
-	}
-	s.service = service
-
 	logDir := cfg.GetString(configLogDir)
-	// no app log and audit log if logDir is empty
 	if logDir != "" {
 		log.SetOutput(&lumberjack.Logger{
-			Filename:   path.Join(logDir, service, fmt.Sprintf("%s.log", service)),
+			Filename:   path.Join(logDir, "apinode.log"),
 			MaxSize:    1024,
 			MaxAge:     7,
 			MaxBackups: 7,
 			LocalTime:  true,
 		})
 
-		s.audit.LogDir = logDir
+		s.audit.LogDir = path.Join(logDir, "audit")
 		s.audit.LogFileSuffix = ".log"
 		s.audit.Backup = 30
 	}
 
 	strLevel := cfg.GetString(configLogLevel)
 	var logLevel log.Level
-	switch strLevel {
-	case "debug":
-		logLevel = log.Ldebug
-	case "info":
-		logLevel = log.Linfo
-	case "error":
-		logLevel = log.Lerror
-	default:
+	if err := logLevel.UnmarshalYAML(func(l interface{}) error {
+		if x, ok := l.(*string); ok {
+			*x = strLevel
+		}
+		return nil
+	}); err != nil {
 		logLevel = log.Lwarn
 	}
 	log.SetOutputLevel(logLevel)
@@ -138,8 +150,65 @@ func (s *apiNode) loadConfig(cfg *config.Config) error {
 		return config.NewIllegalConfigError(configMasterAddr)
 	}
 	s.mc = master.NewMasterClientFromString(masters, false)
+	return nil
+}
 
-	return s.serviceNode.Start(cfg)
+func (s *apiNode) startRouters(cfg *config.Config) error {
+	{
+		node := drive.New()
+		lh, logf, err := auditlog.Open("drive", &s.audit)
+		if err != nil {
+			return err
+		}
+		if logf != nil {
+			s.defers = append(s.defers, func() { logf.Close() })
+		}
+
+		hs := []rpc.ProgressHandler{lh}
+		// register only once
+		if profileHandler := profile.NewProfileHandler(s.listen); profileHandler != nil {
+			hs = append(hs, profileHandler)
+		}
+
+		r := node.RegisterAPIRouters()
+		s.router.Drive.node = node
+		s.router.Drive.handler = rpc.MiddlewareHandlerWith(r, hs...)
+
+		if err := node.Start(cfg); err != nil {
+			return err
+		}
+	}
+	// TODO: new posix, hdfs, s3
+	return nil
+}
+
+func (s *apiNode) handler(resp http.ResponseWriter, req *http.Request) {
+	service := req.Header.Get(headerService)
+	switch service {
+	case serviceDrive:
+		s.router.Drive.handler.ServeHTTP(resp, req)
+	case servicePosix, serviceS3, serviceHdfs: // TODO
+		panic("Not Implemented")
+	default:
+		panic("Not Implemented")
+	}
+}
+
+func (s *apiNode) startHTTPServer() (err error) {
+	server := &http.Server{
+		Addr:    s.listen,
+		Handler: http.HandlerFunc(s.handler),
+	}
+
+	go func() {
+		if err := server.ListenAndServe(); err != nil {
+			log.Fatal("startHTTPServer: start http server error", err)
+			return
+		}
+	}()
+
+	s.httpServer = server
+	return
 }
 
 func handleStart(svr common.Server, cfg *config.Config) error {
@@ -158,7 +227,11 @@ func handleStart(svr common.Server, cfg *config.Config) error {
 		return err
 	}
 
-	if err := s.startRestAPI(); err != nil {
+	if err := s.startRouters(cfg); err != nil {
+		return err
+	}
+
+	if err := s.startHTTPServer(); err != nil {
 		return err
 	}
 	registerLogLevel()
@@ -176,46 +249,23 @@ func handleShutdown(svr common.Server) {
 	if !ok {
 		return
 	}
-	s.shutdownRestAPI()
+	s.shutdown()
 }
 
-func (s *apiNode) startRestAPI() (err error) {
-	lh, logf, err := auditlog.Open(s.service, &s.audit)
-	if err != nil {
-		return err
-	}
-	if logf != nil {
-		defer logf.Close()
-	}
-
-	hs := []rpc.ProgressHandler{lh}
-	if profileHandler := profile.NewProfileHandler(s.listen); profileHandler != nil {
-		hs = append(hs, profileHandler)
-	}
-
-	router := s.serviceNode.RegisterAPIRouters()
-	handler := rpc.MiddlewareHandlerWith(router, hs...)
-	server := &http.Server{
-		Addr:    s.listen,
-		Handler: handler,
-	}
-
-	go func() {
-		if err := server.ListenAndServe(); err != nil {
-			log.Fatal("startRestAPI: start http server error", err)
-			return
-		}
-	}()
-	s.httpServer = server
-	return
-}
-
-func (s *apiNode) shutdownRestAPI() {
+func (s *apiNode) shutdown() {
 	if s.httpServer != nil {
 		_ = s.httpServer.Shutdown(context.Background())
 		s.httpServer = nil
 	}
-	s.serviceNode.Close()
+
+	defer func() {
+		for _, f := range s.defers {
+			f()
+		}
+	}()
+
+	s.router.Drive.node.Close()
+	// TODO: close posix, hdfs, s3
 }
 
 // NewServer returns empty server.
