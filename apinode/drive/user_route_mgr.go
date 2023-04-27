@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"hash/crc32"
 	"math/rand"
+	"path/filepath"
 	"time"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
@@ -98,6 +99,7 @@ func (d *DriveNode) CreateUserRoute(ctx context.Context, uid UserID) (string, er
 	}
 
 	rootPath := getRootPath(uid)
+	//create user root path
 	inoInfo, err := d.createDir(ctx, vol, volumeRootIno, rootPath, true)
 	if err != nil {
 		return "", err
@@ -158,26 +160,36 @@ func (d *DriveNode) assignVolume(ctx context.Context, uid UserID) (cluster sdk.I
 
 func (d *DriveNode) setUserRouteToFile(ctx context.Context, uid UserID, ur *UserRoute) error {
 	file := getUserRouteFile(uid)
-	inoInfo, err := d.createFile(ctx, d.vol, volumeRootIno, file)
-	var dirInfo *sdk.DirInfo
+	fileIno := uint64(0)
+	dir, name := filepath.Split(file)
+	inoInfo, err := d.createDir(ctx, d.vol, volumeRootIno, dir, true)
+	if err != nil {
+		return err
+	}
+	dirIno := inoInfo.Inode
+	inoInfo, err = d.vol.CreateFile(ctx, dirIno, name)
 	if err != nil {
 		if err != sdk.ErrExist {
 			return err
 		}
-		dirInfo, err = d.lookup(ctx, d.vol, volumeRootIno, file)
+		dirInfo, err := d.vol.Lookup(ctx, dirIno, name)
 		if err != nil {
 			return err
 		}
-		inoInfo, err = d.vol.GetInode(ctx, dirInfo.Inode)
+		fileIno = uint64(dirInfo.Inode)
+		val, err := d.vol.GetXAttr(ctx, fileIno, string(ur.Uid))
 		if err != nil {
 			return err
 		}
+		return json.Unmarshal([]byte(val), ur)
+	} else {
+		fileIno = inoInfo.Inode
 	}
 	val, err := ur.Marshal()
 	if err != nil {
 		return err
 	}
-	err = d.vol.SetXAttr(ctx, inoInfo.Inode, string(ur.Uid), string(val))
+	err = d.vol.SetXAttr(ctx, fileIno, string(ur.Uid), string(val))
 	if err != nil {
 		return err
 	}

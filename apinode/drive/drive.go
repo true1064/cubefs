@@ -300,15 +300,27 @@ func (d *DriveNode) createDir(ctx context.Context, vol sdk.IVolume, parentIno In
 			}
 			info, err = vol.Mkdir(ctx, parentIno.Uint64(), name)
 			if err != nil {
-				return nil, err
+				if err != sdk.ErrExist {
+					return
+				}
+				dirInfo, err = vol.Lookup(ctx, parentIno.Uint64(), name)
+				if err != nil {
+					return
+				}
+				if !dirInfo.IsDir() {
+					err = sdk.ErrConflict
+					return
+				}
+				parentIno = Inode(dirInfo.Inode)
+			} else {
+				parentIno = Inode(info.Inode)
 			}
-			parentIno = Inode(info.Inode)
-			continue
+		} else {
+			if !dirInfo.IsDir() {
+				return nil, sdk.ErrConflict
+			}
+			parentIno = Inode(dirInfo.Inode)
 		}
-		if !dirInfo.IsDir() {
-			return nil, sdk.ErrConflict
-		}
-		parentIno = Inode(dirInfo.Inode)
 	}
 	if info == nil && err == nil {
 		info, err = vol.GetInode(ctx, parentIno.Uint64())
