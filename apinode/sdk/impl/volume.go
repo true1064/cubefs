@@ -169,12 +169,37 @@ func (v *volume) Readdir(ctx context.Context, parIno uint64, marker string, coun
 		return nil, sdk.ErrBadRequest
 	}
 
+	if marker != "" {
+		count++
+	}
+
 	dirs, err := v.mw.ReadDirLimit_ll(parIno, marker, uint64(count))
 	if err != nil {
 		span.Errorf("readdir failed, parentIno: %d, marker %s, count %s, err %s", parIno, marker, count, err.Error())
 		return nil, syscallToErr(err)
 	}
 
+	cnt := len(dirs)
+	if cnt == 0 {
+		return []sdk.DirInfo{}, nil
+	}
+
+	if marker == "" {
+		return dirs[:cnt], nil
+	}
+
+	if dirs[0].Name == marker && cnt == 1 {
+		return []sdk.DirInfo{}, nil
+	}
+
+	if dirs[0].Name == marker {
+		return dirs[1:], nil
+	}
+
+	// all dirs bigger than marker
+	if cnt == int(count) {
+		return dirs[:cnt-1], nil
+	}
 	return dirs, nil
 }
 
@@ -203,8 +228,13 @@ func (v *volume) getStatByIno(ctx context.Context, ino uint64) (info *sdk.StatFs
 	span := trace.SpanFromContextSafe(ctx)
 	info = new(sdk.StatFs)
 	entArr, err := v.ReadDirAll(ctx, ino)
+	if err != nil {
+		span.Errorf("readirAll failed, ino %d, err %s", ino, err.Error())
+		return nil, syscallToErr(err)
+	}
+
 	if len(entArr) == 0 {
-		return
+		return &sdk.StatFs{}, nil
 	}
 
 	var files, dirs int
@@ -406,21 +436,17 @@ func (v *volume) Rename(ctx context.Context, srcParIno, dstParIno uint64, srcNam
 func (v *volume) UploadFile(ctx context.Context, req *sdk.UploadFileReq) (*sdk.InodeInfo, error) {
 	span := trace.SpanFromContextSafe(ctx)
 
-	oldIno, mode, err := v.mw.Lookup_ll(req.ParIno, req.Name)
-	if err != nil && err != syscall.ENOENT {
-		span.Errorf("lookup file failed, ino %d, name %s, err %s", req.ParIno, req.Name, err.Error())
-		return nil, syscallToErr(err)
-	}
-	if err == syscall.ENOENT {
-		if oldIno != 0 {
+	if req.OldIno != 0 {
+		oldIno, mode, err := v.mw.Lookup_ll(req.ParIno, req.Name)
+		if err != nil && err != syscall.ENOENT {
+			span.Errorf("lookup file failed, ino %d, name %s, err %s", req.ParIno, req.Name, err.Error())
+			return nil, syscallToErr(err)
+		}
+		if oldIno != req.OldIno || proto.IsDir(mode) {
 			span.Errorf("target file already exist but conflict, isDir %v, oldIno %d, reqOld %d",
 				proto.IsDir(mode), oldIno, req.OldIno)
 			return nil, sdk.ErrConflict
 		}
-	} else if proto.IsDir(mode) || oldIno != req.OldIno {
-		span.Errorf("target file already exist but conflict, isDir %v, oldIno %d, reqOld %d",
-			proto.IsDir(mode), oldIno, req.OldIno)
-		return nil, sdk.ErrConflict
 	}
 
 	tmpInoInfo, err := v.mw.InodeCreate_ll(defaultFileMode, 0, 0, nil)
@@ -455,7 +481,7 @@ func (v *volume) UploadFile(ctx context.Context, req *sdk.UploadFileReq) (*sdk.I
 	defer func() {
 		err1 := v.ec.CloseStream(tmpIno)
 		if err1 != nil {
-			span.Warnf("close stream failed, ino %d, err %s", tmpIno, err.Error())
+			span.Warnf("close stream failed, ino %d, err %s", tmpIno, err1.Error())
 		}
 	}()
 
@@ -522,11 +548,11 @@ func (v *volume) writeAt(ctx context.Context, ino uint64, off, size int, body io
 
 		total += n
 		if total >= size {
-			return 0, nil
+			return total, nil
 		}
 
 		if err == io.EOF {
-			return 0, nil
+			return total, nil
 		}
 	}
 }
@@ -666,7 +692,7 @@ func (v *volume) UploadMultiPart(ctx context.Context, filepath, uploadId string,
 		return
 	}
 
-	err = v.mw.AddMultipartPart_ll(filepath, uploadId, partNum, uint64(size), "", tmpInfo)
+	err = v.mw.AddMultipartPart_ll(filepath, uploadId, partNum, uint64(size), md5Val, tmpInfo)
 	if err != nil {
 		span.Errorf("add multi part failed, path %s, uploadId %s, num %d, ino %d, err %s",
 			filepath, uploadId, partNum, tmpIno, err.Error())

@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cubefs/cubefs/depends/tiglabs/raft/util/log"
+
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/apinode/sdk/impl"
 	"github.com/cubefs/cubefs/blobstore/common/trace"
@@ -20,6 +22,7 @@ const (
 )
 
 func main() {
+	log.InitFileLog("/tmp/cfs", "test", "debug")
 	mgr := impl.NewClusterMgr()
 	span, ctx := trace.StartSpanFromContext(context.TODO(), "")
 	err := mgr.AddCluster(ctx, cluster, addr)
@@ -51,7 +54,7 @@ func testDirOp(ctx context.Context, vol sdk.IVolume) {
 	span.Infof("start test dir op ===================")
 	defer span.Infof("end test dir op ===================")
 
-	tmpDir := "testDirD2"
+	tmpDir := "testDirD6"
 	dirIfo, err := vol.Mkdir(ctx, proto.RootIno, tmpDir)
 	if err != nil {
 		span.Fatalf("create dir failed, dir %s, err %s", tmpDir, err.Error())
@@ -70,11 +73,15 @@ func testDirOp(ctx context.Context, vol sdk.IVolume) {
 	cases := []struct {
 		dir  bool
 		name string
+		idx  int
 	}{
-		{false, "a1"},
-		{true, "d2"},
-		{false, "f1"},
-		{false, "f2"},
+		{false, "a1", 1},
+		{false, "f1", 3},
+		{true, "d2", 2},
+		{false, "f2", 4},
+		{false, "test0003", 7},
+		{false, "test0001", 5},
+		{false, "test0002", 6},
 	}
 
 	inos := make([]uint64, 0)
@@ -114,10 +121,33 @@ func testDirOp(ctx context.Context, vol sdk.IVolume) {
 
 	span.Infof("read dir success, get dents %d", len(items))
 
-	for idx, t := range items {
-		c := cases[idx]
-		if t.Name != c.name {
-			span.Fatalf("read file order is not valid, get %s, want %s", t.Name, c.name)
+	for _, t := range cases {
+		c := items[t.idx-1]
+		if t.name != c.Name {
+			span.Fatalf("read file order is not valid, get %s, want %s", c.Name, t.name)
+		}
+	}
+
+	marker := ""
+	totalItems := make([]sdk.DirInfo, 0)
+	var tmpItems []sdk.DirInfo
+	for {
+		tmpItems, err = vol.Readdir(ctx, dirIfo.Inode, marker, 1)
+		if err != nil {
+			span.Fatalf("readdir failed, ino %d, err %s", dirIfo.Inode, err.Error())
+		}
+		if len(tmpItems) == 0 {
+			break
+		}
+		totalItems = append(totalItems, tmpItems...)
+		marker = tmpItems[0].Name
+		span.Infof("read limit, marker %v, items %v, total %d", marker, tmpItems, len(totalItems))
+	}
+
+	for _, t := range cases {
+		c := totalItems[t.idx-1]
+		if t.name != c.Name {
+			span.Fatalf("read file order is not valid, get %s, want %s", c.Name, t.name)
 		}
 	}
 

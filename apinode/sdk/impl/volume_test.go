@@ -1,12 +1,16 @@
 package impl
 
 import (
+	"bytes"
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
-	"io"
 	"reflect"
 	"syscall"
 	"testing"
+
+	"github.com/cubefs/cubefs/util"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/apinode/testing/mocks"
@@ -331,7 +335,7 @@ func Test_volume_CreateFile(t *testing.T) {
 	{
 		// create failed (parentID uint64, name string, mode, uid, gid uint32, target []byte) (*proto.InodeInfo, error)
 		mockMeta.EXPECT().Create_ll(parIno, fileName, any, any, any, nil).Return(nil, syscall.EEXIST)
-		_, err = v.CreateFile(ctx, parIno, fileName)
+		ifo, err = v.CreateFile(ctx, parIno, fileName)
 		require.Equal(t, err, syscallToErr(syscall.EEXIST))
 	}
 	{
@@ -510,34 +514,33 @@ func Test_volume_InitMultiPart(t *testing.T) {
 
 	{
 		// path not valid
-		_, err = v.InitMultiPart(ctx, "testInit", oldIno, nil)
+		uploadId, err = v.InitMultiPart(ctx, "testInit", oldIno, nil)
 		require.Equal(t, err, sdk.ErrBadRequest)
 	}
 
 	{
 		// failed LookupPath(subdir string) (uint64, error)
 		mockMeta.EXPECT().LookupPath(filePath).Return(uint64(0), syscall.EAGAIN)
-		_, err = v.InitMultiPart(ctx, filePath, oldIno, nil)
+		uploadId, err = v.InitMultiPart(ctx, filePath, oldIno, nil)
 		require.Equal(t, err, syscallToErr(syscall.EAGAIN))
 	}
 	{
 		// lookup ino not equal id
 		mockMeta.EXPECT().LookupPath(filePath).Return(uint64(5), nil)
-		_, err = v.InitMultiPart(ctx, filePath, oldIno, nil)
+		uploadId, err = v.InitMultiPart(ctx, filePath, oldIno, nil)
 		require.Equal(t, err, sdk.ErrConflict)
 	}
 	mockMeta.EXPECT().LookupPath(filePath).Return(oldIno, nil).AnyTimes()
 	{
 		// failed InitMultipart_ll(path string, extend map[string]string) (multipartId string, err error)
 		mockMeta.EXPECT().InitMultipart_ll(filePath, nil).Return("", syscall.EAGAIN)
-		_, err = v.InitMultiPart(ctx, filePath, oldIno, nil)
+		uploadId, err = v.InitMultiPart(ctx, filePath, oldIno, nil)
 		require.Equal(t, err, syscallToErr(syscall.EAGAIN))
 	}
 
 	tmpUploadId := "testUploadId"
 	mockMeta.EXPECT().InitMultipart_ll(filePath, nil).Return(tmpUploadId, nil)
 	uploadId, err = v.InitMultiPart(ctx, filePath, oldIno, nil)
-	require.NoError(t, err)
 	require.Equal(t, uploadId, tmpUploadId)
 
 	t.Logf("get uploadId %s", uploadId)
@@ -662,503 +665,505 @@ func Test_volume_Lookup(t *testing.T) {
 }
 
 func Test_volume_Mkdir(t *testing.T) {
-	type fields struct {
-		mw    sdk.MetaOp
-		ec    sdk.DataOp
-		name  string
-		owner string
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockMeta := mocks.NewMockMetaOp(ctrl)
+	v := &volume{
+		mw: mockMeta,
 	}
-	type args struct {
-		ctx    context.Context
-		parIno uint64
-		name   string
+
+	_, ctx := trace.StartSpanFromContext(context.TODO(), "")
+	var err error
+	parIno := uint64(10)
+	name := "tmpLookName"
+	{
+		// failed Create_ll(parentID uint64, name string, mode, uid, gid uint32, target []byte) (*proto.InodeInfo, error)
+		mockMeta.EXPECT().Create_ll(parIno, name, any, any, any, nil).Return(nil, syscall.EEXIST)
+		_, err = v.Mkdir(ctx, parIno, name)
+		require.Equal(t, err, syscallToErr(syscall.EEXIST))
 	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    *sdk.InodeInfo
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			v := &volume{
-				mw:    tt.fields.mw,
-				ec:    tt.fields.ec,
-				name:  tt.fields.name,
-				owner: tt.fields.owner,
-			}
-			got, err := v.Mkdir(tt.args.ctx, tt.args.parIno, tt.args.name)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Mkdir() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Mkdir() got = %v, want %v", got, tt.want)
-			}
-		})
+	{
+		inoIfo := &proto.InodeInfo{
+			Inode: 10,
+		}
+		mockMeta.EXPECT().Create_ll(parIno, name, any, any, any, nil).Return(inoIfo, nil)
+		newIfo, err := v.Mkdir(ctx, parIno, name)
+		require.NoError(t, err)
+		require.True(t, inoIfo.Inode == newIfo.Inode)
 	}
 }
 
 func Test_volume_NewInodeLock(t *testing.T) {
-	type fields struct {
-		mw    sdk.MetaOp
-		ec    sdk.DataOp
-		name  string
-		owner string
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		want   sdk.InodeLockApi
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			v := &volume{
-				mw:    tt.fields.mw,
-				ec:    tt.fields.ec,
-				name:  tt.fields.name,
-				owner: tt.fields.owner,
-			}
-			if got := v.NewInodeLock(); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewInodeLock() = %v, want %v", got, tt.want)
-			}
-		})
-	}
+	v := &volume{}
+	v.NewInodeLock()
 }
 
 func Test_volume_ReadDirAll(t *testing.T) {
-	type fields struct {
-		mw    sdk.MetaOp
-		ec    sdk.DataOp
-		name  string
-		owner string
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockMeta := mocks.NewMockMetaOp(ctrl)
+	v := &volume{
+		mw: mockMeta,
 	}
-	type args struct {
-		ctx context.Context
-		ino uint64
+
+	_, ctx := trace.StartSpanFromContext(context.TODO(), "")
+	var err error
+	parIno := uint64(10)
+	{
+		// failed // ReadDirLimit_ll(parentID uint64, from string, limit uint64) ([]proto.Dentry, error)
+		mockMeta.EXPECT().ReadDirLimit_ll(parIno, any, any).Return(nil, syscall.ENOENT)
+		_, err = v.ReadDirAll(ctx, parIno)
+		require.Equal(t, err, syscallToErr(syscall.ENOENT))
 	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    []sdk.DirInfo
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			v := &volume{
-				mw:    tt.fields.mw,
-				ec:    tt.fields.ec,
-				name:  tt.fields.name,
-				owner: tt.fields.owner,
-			}
-			got, err := v.ReadDirAll(tt.args.ctx, tt.args.ino)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ReadDirAll() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ReadDirAll() got = %v, want %v", got, tt.want)
-			}
-		})
+	{
+		dirs := []proto.Dentry{
+			{Inode: 11},
+			{Inode: 12},
+		}
+		mockMeta.EXPECT().ReadDirLimit_ll(parIno, any, any).Return(dirs, nil)
+		_, err = v.ReadDirAll(ctx, parIno)
+		require.NoError(t, err)
 	}
 }
 
 func Test_volume_ReadFile(t *testing.T) {
-	type fields struct {
-		mw    sdk.MetaOp
-		ec    sdk.DataOp
-		name  string
-		owner string
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockMeta := mocks.NewMockMetaOp(ctrl)
+	mockData := mocks.NewMockDataOp(ctrl)
+	v := &volume{
+		mw: mockMeta,
+		ec: mockData,
 	}
-	type args struct {
-		ctx  context.Context
-		ino  uint64
-		off  uint64
-		data []byte
+
+	_, ctx := trace.StartSpanFromContext(context.TODO(), "")
+	var err error
+	parIno := uint64(10)
+	data := make([]byte, 10)
+	{
+		// failed OpenStream(inode uint64) error
+		mockData.EXPECT().OpenStream(parIno).Return(syscall.ENOENT)
+		_, err = v.ReadFile(ctx, parIno, uint64(0), data)
+		require.Equal(t, err, syscallToErr(syscall.ENOENT))
 	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantN   int
-		wantErr bool
-	}{
-		// TODO: Add test cases.
+	mockData.EXPECT().OpenStream(parIno).Return(nil).AnyTimes()
+	{
+		// close&read failed
+		mockData.EXPECT().CloseStream(parIno).Return(syscall.ENOENT)
+		// Read(inode uint64, data []byte, offset int, size int) (read int, err error)
+		mockData.EXPECT().Read(parIno, any, any, any).Return(0, syscall.EBADF)
+		_, err = v.ReadFile(ctx, parIno, uint64(0), data)
+		require.Equal(t, err, syscallToErr(syscall.EBADF))
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			v := &volume{
-				mw:    tt.fields.mw,
-				ec:    tt.fields.ec,
-				name:  tt.fields.name,
-				owner: tt.fields.owner,
-			}
-			gotN, err := v.ReadFile(tt.args.ctx, tt.args.ino, tt.args.off, tt.args.data)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ReadFile() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if gotN != tt.wantN {
-				t.Errorf("ReadFile() gotN = %v, want %v", gotN, tt.wantN)
-			}
-		})
+	mockData.EXPECT().CloseStream(parIno).Return(nil)
+	{
+		cnt := 10
+		mockData.EXPECT().Read(parIno, any, any, any).Return(cnt, nil)
+		size, err := v.ReadFile(ctx, parIno, uint64(0), data)
+		require.NoError(t, err)
+		require.True(t, size == cnt)
 	}
 }
 
 func Test_volume_Readdir(t *testing.T) {
-	type fields struct {
-		mw    sdk.MetaOp
-		ec    sdk.DataOp
-		name  string
-		owner string
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockMeta := mocks.NewMockMetaOp(ctrl)
+	v := &volume{
+		mw: mockMeta,
 	}
-	type args struct {
-		ctx    context.Context
-		parIno uint64
-		marker string
-		count  uint32
+
+	_, ctx := trace.StartSpanFromContext(context.TODO(), "")
+	var err error
+	parIno := uint64(10)
+	{
+		_, err = v.Readdir(ctx, parIno, "", 10001)
+		require.Equal(t, err, sdk.ErrBadRequest)
 	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    []sdk.DirInfo
-		wantErr bool
-	}{
-		// TODO: Add test cases.
+	{
+		// failed // ReadDirLimit_ll(parentID uint64, from string, limit uint64) ([]proto.Dentry, error)
+		mockMeta.EXPECT().ReadDirLimit_ll(parIno, any, any).Return(nil, syscall.ENOENT)
+		_, err = v.Readdir(ctx, parIno, "", 2)
+		require.Equal(t, err, syscallToErr(syscall.ENOENT))
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			v := &volume{
-				mw:    tt.fields.mw,
-				ec:    tt.fields.ec,
-				name:  tt.fields.name,
-				owner: tt.fields.owner,
-			}
-			got, err := v.Readdir(tt.args.ctx, tt.args.parIno, tt.args.marker, tt.args.count)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Readdir() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Readdir() got = %v, want %v", got, tt.want)
-			}
-		})
+	{
+		dirs := []proto.Dentry{
+			{Inode: 11},
+			{Inode: 12},
+		}
+		mockMeta.EXPECT().ReadDirLimit_ll(parIno, any, any).Return(dirs, nil)
+		result, err := v.Readdir(ctx, parIno, "", 2)
+		require.NoError(t, err)
+		require.True(t, len(result) == 2)
 	}
 }
 
 func Test_volume_Rename(t *testing.T) {
-	type fields struct {
-		mw    sdk.MetaOp
-		ec    sdk.DataOp
-		name  string
-		owner string
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockMeta := mocks.NewMockMetaOp(ctrl)
+	v := &volume{
+		mw: mockMeta,
 	}
-	type args struct {
-		ctx       context.Context
-		srcParIno uint64
-		dstParIno uint64
-		srcName   string
-		destName  string
+
+	_, ctx := trace.StartSpanFromContext(context.TODO(), "")
+	var err error
+	srcIno, destIno, srcName, destName := uint64(10), uint64(20), "src_name", "dst_name"
+	{
+		// failed Rename_ll(srcParentID uint64, srcName string, dstParentID uint64, dstName string, overwritten bool) (err error)
+		mockMeta.EXPECT().Rename_ll(srcIno, srcName, destIno, destName, false).Return(syscall.ENOENT)
+		// Rename(ctx context.Context, srcParIno, dstParIno uint64, srcName, destName string) error {
+		err = v.Rename(ctx, srcIno, destIno, srcName, destName)
+		require.Equal(t, err, syscallToErr(syscall.ENOENT))
 	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			v := &volume{
-				mw:    tt.fields.mw,
-				ec:    tt.fields.ec,
-				name:  tt.fields.name,
-				owner: tt.fields.owner,
-			}
-			if err := v.Rename(tt.args.ctx, tt.args.srcParIno, tt.args.dstParIno, tt.args.srcName, tt.args.destName); (err != nil) != tt.wantErr {
-				t.Errorf("Rename() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
+	{
+		mockMeta.EXPECT().Rename_ll(srcIno, srcName, destIno, destName, false).Return(nil)
+		err = v.Rename(ctx, srcIno, destIno, srcName, destName)
+		require.NoError(t, err)
 	}
 }
 
 func Test_volume_SetAttr(t *testing.T) {
-	type fields struct {
-		mw    sdk.MetaOp
-		ec    sdk.DataOp
-		name  string
-		owner string
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockMeta := mocks.NewMockMetaOp(ctrl)
+	v := &volume{
+		mw: mockMeta,
 	}
-	type args struct {
-		ctx context.Context
-		req *sdk.SetAttrReq
+
+	_, ctx := trace.StartSpanFromContext(context.TODO(), "")
+	var err error
+	attr := &sdk.SetAttrReq{}
+	{
+		mockMeta.EXPECT().Setattr(any, any, any, any, any, any, any).Return(syscall.ENOENT)
+		err = v.SetAttr(ctx, attr)
+		require.Equal(t, err, syscallToErr(syscall.ENOENT))
 	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			v := &volume{
-				mw:    tt.fields.mw,
-				ec:    tt.fields.ec,
-				name:  tt.fields.name,
-				owner: tt.fields.owner,
-			}
-			if err := v.SetAttr(tt.args.ctx, tt.args.req); (err != nil) != tt.wantErr {
-				t.Errorf("SetAttr() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
+	{
+		mockMeta.EXPECT().Setattr(any, any, any, any, any, any, any).Return(nil)
+		err = v.SetAttr(ctx, attr)
+		require.NoError(t, err)
 	}
 }
 
 func Test_volume_SetXAttr(t *testing.T) {
-	type fields struct {
-		mw    sdk.MetaOp
-		ec    sdk.DataOp
-		name  string
-		owner string
-	}
-	type args struct {
-		ctx context.Context
-		ino uint64
-		key string
-		val string
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			v := &volume{
-				mw:    tt.fields.mw,
-				ec:    tt.fields.ec,
-				name:  tt.fields.name,
-				owner: tt.fields.owner,
-			}
-			if err := v.SetXAttr(tt.args.ctx, tt.args.ino, tt.args.key, tt.args.val); (err != nil) != tt.wantErr {
-				t.Errorf("SetXAttr() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-func Test_volume_StatFs(t *testing.T) {
-	type fields struct {
-		mw    sdk.MetaOp
-		ec    sdk.DataOp
-		name  string
-		owner string
+	mockMeta := mocks.NewMockMetaOp(ctrl)
+	v := &volume{
+		mw: mockMeta,
 	}
-	type args struct {
-		ctx context.Context
-		ino uint64
+
+	_, ctx := trace.StartSpanFromContext(context.TODO(), "")
+	var err error
+	ino := uint64(10)
+	key, val := "k1", "v1"
+	{
+		// XAttrSet_ll(inode uint64, name, value []byte) error
+		mockMeta.EXPECT().XAttrSet_ll(ino, key, []byte(val)).Return(syscall.ENOENT)
+		err = v.SetXAttr(ctx, ino, key, val)
+		require.Equal(t, err, syscallToErr(syscall.ENOENT))
 	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    *sdk.StatFs
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			v := &volume{
-				mw:    tt.fields.mw,
-				ec:    tt.fields.ec,
-				name:  tt.fields.name,
-				owner: tt.fields.owner,
-			}
-			got, err := v.StatFs(tt.args.ctx, tt.args.ino)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("StatFs() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("StatFs() got = %v, want %v", got, tt.want)
-			}
-		})
+	{
+		mockMeta.EXPECT().XAttrSet_ll(ino, key, []byte(val)).Return(nil)
+		err = v.SetXAttr(ctx, ino, key, val)
+		require.NoError(t, err)
 	}
 }
 
 func Test_volume_UploadFile(t *testing.T) {
-	type fields struct {
-		mw    sdk.MetaOp
-		ec    sdk.DataOp
-		name  string
-		owner string
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockMeta := mocks.NewMockMetaOp(ctrl)
+	mockData := mocks.NewMockDataOp(ctrl)
+	v := &volume{
+		mw: mockMeta,
+		ec: mockData,
 	}
-	type args struct {
-		req *sdk.UploadFileReq
+
+	_, ctx := trace.StartSpanFromContext(context.TODO(), "")
+	var err error
+	req := &sdk.UploadFileReq{
+		ParIno: 1,
+		OldIno: 10,
+		Name:   "upload_test",
+		Body:   bytes.NewBufferString("test hello world"),
+		Extend: map[string]string{"k1": "v1"},
 	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    *sdk.InodeInfo
-		wantErr bool
+
+	lookCase := []struct {
+		ino       uint64
+		mode      uint32
+		returnErr error
+		wantErr   error
 	}{
-		// TODO: Add test cases.
+		{0, 0, syscall.EAGAIN, syscallToErr(syscall.EAGAIN)},
+		{0, 0, syscall.ENOENT, sdk.ErrConflict},
+		{req.OldIno, uint32(defaultDirMod), nil, sdk.ErrConflict},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			v := &volume{
-				mw:    tt.fields.mw,
-				ec:    tt.fields.ec,
-				name:  tt.fields.name,
-				owner: tt.fields.owner,
-			}
-			got, err := v.UploadFile(context.TODO(), tt.args.req)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("UploadFile() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("UploadFile() got = %v, want %v", got, tt.want)
-			}
-		})
+	for _, lc := range lookCase {
+		mockMeta.EXPECT().Lookup_ll(req.ParIno, req.Name).Return(lc.ino, lc.mode, lc.returnErr)
+		_, err = v.UploadFile(ctx, req)
+		require.Equal(t, err, lc.wantErr)
 	}
+
+	mockMeta.EXPECT().Lookup_ll(req.ParIno, req.Name).Return(req.OldIno, uint32(defaultFileMode), nil).AnyTimes()
+	{
+		// failed InodeCreate_ll(mode, uid, gid uint32, target []byte) (*proto.InodeInfo, error)
+		mockMeta.EXPECT().InodeCreate_ll(any, any, any, nil).Return(nil, syscall.EAGAIN)
+		_, err = v.UploadFile(ctx, req)
+		require.Equal(t, err, syscallToErr(syscall.EAGAIN))
+	}
+	ifo := &sdk.InodeInfo{
+		Inode: 10,
+	}
+	mockMeta.EXPECT().InodeCreate_ll(any, any, any, nil).Return(ifo, nil).AnyTimes()
+	{
+		// unlink, evict, open stream failed
+		mockMeta.EXPECT().InodeUnlink_ll(ifo.Inode).Return(nil, syscall.ENOENT)
+		mockMeta.EXPECT().Evict(ifo.Inode).Return(syscall.EAGAIN)
+		mockData.EXPECT().OpenStream(ifo.Inode).Return(syscall.ENOENT)
+		_, err = v.UploadFile(ctx, req)
+		require.Equal(t, err, syscallToErr(syscall.ENOENT))
+	}
+
+	mockMeta.EXPECT().InodeUnlink_ll(ifo.Inode).Return(nil, nil).AnyTimes()
+	mockMeta.EXPECT().Evict(ifo.Inode).Return(nil).AnyTimes()
+	mockData.EXPECT().OpenStream(ifo.Inode).Return(nil).AnyTimes()
+
+	{
+		// write failed Write(inode uint64, offset int, data []byte, flags int) (write int, err error)
+		mockData.EXPECT().CloseStream(ifo.Inode).Return(syscall.EAGAIN)
+		mockData.EXPECT().Write(ifo.Inode, 0, any, any).Return(0, syscall.EBADF)
+		_, err = v.UploadFile(ctx, req)
+		require.Equal(t, err, syscallToErr(syscall.EBADF))
+	}
+
+	mockData.EXPECT().CloseStream(ifo.Inode).Return(nil).AnyTimes()
+	mockData.EXPECT().Write(ifo.Inode, 0, any, any).Return(10, nil).AnyTimes()
+	{
+		// flush failed
+		mockData.EXPECT().Flush(ifo.Inode).Return(syscall.EBADF)
+		_, err = v.UploadFile(ctx, req)
+		require.Equal(t, err, syscallToErr(syscall.EBADF))
+	}
+
+	mockData.EXPECT().Flush(ifo.Inode).Return(nil).AnyTimes()
+	{
+		// InodeGet_ll(inode uint64) (*proto.InodeInfo, error)
+		mockMeta.EXPECT().InodeGet_ll(ifo.Inode).Return(nil, syscall.ENOENT)
+		_, err = v.UploadFile(ctx, req)
+		require.Equal(t, err, syscallToErr(syscall.ENOENT))
+	}
+	mockMeta.EXPECT().InodeGet_ll(ifo.Inode).Return(ifo, nil).AnyTimes()
+	// BatchSetXAttr_ll(inode uint64, attrs map[string]string) error
+	{
+		mockMeta.EXPECT().BatchSetXAttr_ll(ifo.Inode, any).Return(syscall.ENOENT)
+		_, err = v.UploadFile(ctx, req)
+		require.Equal(t, err, syscallToErr(syscall.ENOENT))
+	}
+	mockMeta.EXPECT().BatchSetXAttr_ll(ifo.Inode, any).Return(nil).AnyTimes()
+	{
+		// DentryCreateEx_ll(parentID uint64, name string, inode, oldIno uint64, mode uint32) error
+		mockMeta.EXPECT().DentryCreateEx_ll(req.ParIno, req.Name, ifo.Inode, req.OldIno, any).Return(syscall.EINVAL)
+		_, err = v.UploadFile(ctx, req)
+		require.Equal(t, err, syscallToErr(syscall.EINVAL))
+	}
+
+	mockMeta.EXPECT().DentryCreateEx_ll(req.ParIno, req.Name, ifo.Inode, req.OldIno, any).Return(nil)
+	_, err = v.UploadFile(ctx, req)
+	require.NoError(t, err)
 }
 
 func Test_volume_UploadMultiPart(t *testing.T) {
-	type fields struct {
-		mw    sdk.MetaOp
-		ec    sdk.DataOp
-		name  string
-		owner string
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockMeta := mocks.NewMockMetaOp(ctrl)
+	mockData := mocks.NewMockDataOp(ctrl)
+	v := &volume{
+		mw: mockMeta,
+		ec: mockData,
 	}
-	type args struct {
-		ctx      context.Context
-		filepath string
-		uploadId string
-		partNum  uint16
-		read     io.Reader
+
+	_, ctx := trace.StartSpanFromContext(context.TODO(), "")
+	var err error
+
+	filePath, uploadId, partNum := "/uploadFilePath", "uploadId", uint16(2)
+
+	data := []byte("test upload")
+	body := bytes.NewBuffer(data)
+
+	hash := md5.New()
+	hash.Write(data)
+	tag := hex.EncodeToString(hash.Sum(nil))
+
+	{
+		_, err = v.UploadMultiPart(ctx, "filePath", uploadId, partNum, body)
+		require.Equal(t, err, sdk.ErrBadRequest)
 	}
-	tests := []struct {
-		name     string
-		fields   fields
-		args     args
-		wantPart *sdk.Part
-		wantErr  bool
-	}{
-		// TODO: Add test cases.
+	{
+		// failed InodeCreate_ll(mode, uid, gid uint32, target []byte) (*proto.InodeInfo, error)
+		mockMeta.EXPECT().InodeCreate_ll(any, any, any, nil).Return(nil, syscall.EAGAIN)
+		_, err = v.UploadMultiPart(ctx, filePath, uploadId, partNum, body)
+		require.Equal(t, err, syscallToErr(syscall.EAGAIN))
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			v := &volume{
-				mw:    tt.fields.mw,
-				ec:    tt.fields.ec,
-				name:  tt.fields.name,
-				owner: tt.fields.owner,
-			}
-			gotPart, err := v.UploadMultiPart(tt.args.ctx, tt.args.filepath, tt.args.uploadId, tt.args.partNum, tt.args.read)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("UploadMultiPart() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(gotPart, tt.wantPart) {
-				t.Errorf("UploadMultiPart() gotPart = %v, want %v", gotPart, tt.wantPart)
-			}
-		})
+	ifo := &sdk.InodeInfo{
+		Inode: 10,
 	}
+	mockMeta.EXPECT().InodeCreate_ll(any, any, any, nil).Return(ifo, nil).AnyTimes()
+	{
+		// unlink, evict, open stream failed
+		mockMeta.EXPECT().InodeUnlink_ll(ifo.Inode).Return(nil, syscall.ENOENT)
+		mockMeta.EXPECT().Evict(ifo.Inode).Return(syscall.EAGAIN)
+		mockData.EXPECT().OpenStream(ifo.Inode).Return(syscall.ENOENT)
+		_, err = v.UploadMultiPart(ctx, filePath, uploadId, partNum, body)
+		require.Equal(t, err, syscallToErr(syscall.ENOENT))
+	}
+
+	mockMeta.EXPECT().InodeUnlink_ll(ifo.Inode).Return(nil, nil).AnyTimes()
+	mockMeta.EXPECT().Evict(ifo.Inode).Return(nil).AnyTimes()
+	mockData.EXPECT().OpenStream(ifo.Inode).Return(nil).AnyTimes()
+
+	{
+		// write failed Write(inode uint64, offset int, data []byte, flags int) (write int, err error)
+		mockData.EXPECT().CloseStream(ifo.Inode).Return(syscall.EAGAIN)
+		mockData.EXPECT().Write(ifo.Inode, 0, any, any).Return(0, syscall.EBADF)
+		_, err = v.UploadMultiPart(ctx, filePath, uploadId, partNum, body)
+		require.Equal(t, err, syscallToErr(syscall.EBADF))
+	}
+
+	mockData.EXPECT().CloseStream(ifo.Inode).Return(nil).AnyTimes()
+	mockData.EXPECT().Write(ifo.Inode, 0, any, any).Return(10, nil).AnyTimes()
+	{
+		// flush failed
+		mockData.EXPECT().Flush(ifo.Inode).Return(syscall.EBADF)
+		_, err = v.UploadMultiPart(ctx, filePath, uploadId, partNum, body)
+		require.Equal(t, err, syscallToErr(syscall.EBADF))
+	}
+
+	mockData.EXPECT().Flush(ifo.Inode).Return(nil).AnyTimes()
+	{
+		// failed AddMultipartPart_ll(path, multipartId string, partId uint16, size uint64, md5 string, inodeInfo *proto.InodeInfo) (err error)
+		mockMeta.EXPECT().AddMultipartPart_ll(filePath, uploadId, partNum, any, tag, any).Return(syscall.EINVAL)
+		_, err = v.UploadMultiPart(ctx, filePath, uploadId, partNum, body)
+		require.Equal(t, err, syscallToErr(syscall.EINVAL))
+	}
+
+	mockMeta.EXPECT().AddMultipartPart_ll(filePath, uploadId, partNum, any, tag, any).Return(nil)
+	_, err = v.UploadMultiPart(ctx, filePath, uploadId, partNum, body)
+	require.NoError(t, err)
 }
 
 func Test_volume_WriteFile(t *testing.T) {
-	type fields struct {
-		mw    sdk.MetaOp
-		ec    sdk.DataOp
-		name  string
-		owner string
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockMeta := mocks.NewMockMetaOp(ctrl)
+	mockData := mocks.NewMockDataOp(ctrl)
+	v := &volume{
+		mw: mockMeta,
+		ec: mockData,
 	}
-	type args struct {
-		ctx  context.Context
-		ino  uint64
-		off  uint64
-		size uint64
-		body io.Reader
+
+	ino, off, size := uint64(10), uint64(0), uint64(100)
+	body := bytes.NewBufferString("test write file")
+
+	_, ctx := trace.StartSpanFromContext(context.TODO(), "")
+	var err error
+	{
+		// failed OpenStream(inode uint64) error
+		mockData.EXPECT().OpenStream(ino).Return(syscall.ENOENT)
+		err = v.WriteFile(ctx, ino, off, size, body)
+		require.Equal(t, err, syscallToErr(syscall.ENOENT))
 	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
+	mockData.EXPECT().OpenStream(ino).Return(nil).AnyTimes()
+	{
+		// close failed, write failed
+		mockData.EXPECT().CloseStream(ino).Return(syscall.EBADF)
+		mockData.EXPECT().Write(ino, any, any, any).Return(10, syscall.EBADF)
+		err = v.WriteFile(ctx, ino, off, size, body)
+		require.Equal(t, err, syscallToErr(syscall.EBADF))
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			v := &volume{
-				mw:    tt.fields.mw,
-				ec:    tt.fields.ec,
-				name:  tt.fields.name,
-				owner: tt.fields.owner,
-			}
-			if err := v.WriteFile(tt.args.ctx, tt.args.ino, tt.args.off, tt.args.size, tt.args.body); (err != nil) != tt.wantErr {
-				t.Errorf("WriteFile() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
+
+	body = bytes.NewBufferString("test write file")
+	mockData.EXPECT().CloseStream(ino).Return(nil)
+	mockData.EXPECT().Write(ino, any, any, any).Return(10, nil)
+	err = v.WriteFile(ctx, ino, off, size, body)
+	require.NoError(t, err)
 }
 
 func Test_volume_getStatByIno(t *testing.T) {
-	type fields struct {
-		mw    sdk.MetaOp
-		ec    sdk.DataOp
-		name  string
-		owner string
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockMeta := mocks.NewMockMetaOp(ctrl)
+	v := &volume{
+		mw: mockMeta,
 	}
-	type args struct {
-		ctx context.Context
-		ino uint64
+
+	ino := uint64(10)
+	_, ctx := trace.StartSpanFromContext(context.TODO(), "")
+	var err error
+	var st *sdk.StatFs
+	{
+		// failed ReadDirLimit_ll(parentID uint64, from string, limit uint64) ([]proto.Dentry, error)
+		mockMeta.EXPECT().ReadDirLimit_ll(ino, any, any).Return(nil, syscall.ENOENT)
+		st, err = v.getStatByIno(ctx, ino)
+		require.Equal(t, err, syscallToErr(syscall.ENOENT))
 	}
-	tests := []struct {
-		name     string
-		fields   fields
-		args     args
-		wantInfo *sdk.StatFs
-		wantErr  bool
-	}{
-		// TODO: Add test cases.
+	{
+		// return empty
+		mockMeta.EXPECT().ReadDirLimit_ll(ino, any, any).Return([]proto.Dentry{}, nil)
+		st, err = v.getStatByIno(ctx, ino)
+		require.NoError(t, err)
+		require.Equal(t, 0, st.Size)
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			v := &volume{
-				mw:    tt.fields.mw,
-				ec:    tt.fields.ec,
-				name:  tt.fields.name,
-				owner: tt.fields.owner,
-			}
-			gotInfo, err := v.getStatByIno(tt.args.ctx, tt.args.ino)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("getStatByIno() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(gotInfo, tt.wantInfo) {
-				t.Errorf("getStatByIno() gotInfo = %v, want %v", gotInfo, tt.wantInfo)
-			}
-		})
+	{
+		mockMeta.EXPECT().ReadDirLimit_ll(ino, any, any).Return([]proto.Dentry{}, nil)
+		st, err = v.getStatByIno(ctx, ino)
+		require.NoError(t, err)
+		require.Equal(t, 0, st.Size)
 	}
+
+	dirs := []proto.Dentry{
+		{Name: "d1", Inode: 11, Type: uint32(defaultDirMod)},
+		{Name: "f1", Inode: 12, Type: 0},
+		{Name: "f2", Inode: 13, Type: 0},
+	}
+
+	mockMeta.EXPECT().ReadDirLimit_ll(ino, any, any).Return(dirs, nil).AnyTimes()
+	{
+		// subDir read dir failed
+		mockMeta.EXPECT().ReadDirLimit_ll(uint64(11), any, any).Return(nil, syscall.EBADF)
+		st, err = v.getStatByIno(ctx, ino)
+		require.Equal(t, err, syscallToErr(syscall.EBADF))
+	}
+
+	mockMeta.EXPECT().ReadDirLimit_ll(uint64(11), any, any).Return([]proto.Dentry{}, nil).AnyTimes()
+	{
+		// failed BatchInodeGetWith(inodes []uint64) (batchInfos []*proto.InodeInfo, err error)
+		mockMeta.EXPECT().BatchInodeGetWith(any).Return(nil, syscall.ENOENT)
+		st, err = v.getStatByIno(ctx, ino)
+		require.Equal(t, err, syscallToErr(syscall.ENOENT))
+	}
+
+	inoInfos := []*sdk.InodeInfo{
+		{Size: 101, Inode: 12},
+		{Size: 103, Inode: 13},
+	}
+	mockMeta.EXPECT().BatchInodeGetWith(any).Return(inoInfos, nil)
+	st, err = v.getStatByIno(ctx, ino)
+	require.NoError(t, err)
+	require.True(t, st.Size == 204)
 }
 
 func Test_volume_mkdirByPath(t *testing.T) {
@@ -1173,39 +1178,42 @@ func Test_volume_mkdirByPath(t *testing.T) {
 	_, ctx := trace.StartSpanFromContext(context.TODO(), "")
 	var err error
 	var ino uint64
-	tmpDirs := []string{
-		" ", "/",
-	}
 
-	for _, dir := range tmpDirs {
-		ino, err = v.mkdirByPath(ctx, dir)
-		require.True(t, err == nil)
-		require.True(t, ino == proto.RootIno)
+	{
+		tmpDirs := []string{
+			" ", "/",
+		}
+
+		for _, dir := range tmpDirs {
+			ino, err = v.mkdirByPath(ctx, dir)
+			require.True(t, err == nil)
+			require.True(t, ino == proto.RootIno)
+		}
 	}
 
 	defIno := uint64(0)
 	defMode := uint32(0)
 	tmpDir := "/test/createDir"
-	// lookup failed (parentID uint64, name string) (inode uint64, mode uint32, err error)
-	mockMeta.EXPECT().Lookup_ll(any, any).Return(defIno, defMode, syscall.EAGAIN)
-	_, err = v.mkdirByPath(ctx, tmpDir)
-	require.True(t, err != nil)
-
-	// lookup success but not dir
-	mockMeta.EXPECT().Lookup_ll(any, any).Return(defIno, defMode, nil)
-	_, err = v.mkdirByPath(ctx, tmpDir)
-	require.True(t, err != nil)
-
-	// lookup success
-	mockMeta.EXPECT().Lookup_ll(any, any).Return(defIno, defMode, nil)
-
+	{
+		// lookup failed (parentID uint64, name string) (inode uint64, mode uint32, err error)
+		mockMeta.EXPECT().Lookup_ll(any, any).Return(defIno, defMode, syscall.EAGAIN)
+		_, err = v.mkdirByPath(ctx, tmpDir)
+		require.True(t, err != nil)
+	}
+	{
+		// lookup success but not dir
+		mockMeta.EXPECT().Lookup_ll(any, any).Return(defIno, defMode, nil)
+		_, err = v.mkdirByPath(ctx, tmpDir)
+		require.True(t, err != nil)
+	}
 	// lookup no entry
 	mockMeta.EXPECT().Lookup_ll(any, any).Return(defIno, defMode, syscall.ENOENT).AnyTimes()
-	// create failed, (parentID uint64, name string, mode, uid, gid uint32, target []byte) (*proto.InodeInfo, error)
-	mockMeta.EXPECT().Create_ll(any, any, any, any, any, any).Return(nil, syscall.ENOMEM).AnyTimes()
-	_, err = v.mkdirByPath(ctx, tmpDir)
-	require.True(t, err != nil)
-
+	{
+		// create failed, (parentID uint64, name string, mode, uid, gid uint32, target []byte) (*proto.InodeInfo, error)
+		mockMeta.EXPECT().Create_ll(any, any, any, any, any, any).Return(nil, syscall.ENOMEM).AnyTimes()
+		_, err = v.mkdirByPath(ctx, tmpDir)
+		require.True(t, err != nil)
+	}
 	{
 		// create return exist
 		mockMeta.EXPECT().Create_ll(any, any, any, any, any, any).Return(nil, syscall.EEXIST).AnyTimes()
@@ -1222,45 +1230,52 @@ func Test_volume_mkdirByPath(t *testing.T) {
 	}
 }
 
+type mockReader struct{}
+
+func (mr *mockReader) Read(data []byte) (int, error) {
+	return 0, syscall.EBADF
+}
+
 func Test_volume_writeAt(t *testing.T) {
-	type fields struct {
-		mw    sdk.MetaOp
-		ec    sdk.DataOp
-		name  string
-		owner string
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockMeta := mocks.NewMockMetaOp(ctrl)
+	mockData := mocks.NewMockDataOp(ctrl)
+	v := &volume{
+		mw: mockMeta,
+		ec: mockData,
 	}
-	type args struct {
-		ctx  context.Context
-		ino  uint64
-		off  int
-		size int
-		body io.Reader
+
+	_, ctx := trace.StartSpanFromContext(context.TODO(), "")
+	var err error
+	ino, off, size := uint64(1020), 0, 1024*512
+
+	data := make([]byte, 1024*1024)
+	body := bytes.NewReader(data)
+	{
+		_, err = v.writeAt(ctx, ino, off, size, &mockReader{})
+		require.Equal(t, err, sdk.ErrBadRequest)
 	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantS   int
-		wantErr bool
-	}{
-		// TODO: Add test cases.
+	{
+		// failed Write(inode uint64, offset int, data []byte, flags int) (write int, err error)
+		mockData.EXPECT().Write(ino, any, any, any).Return(0, syscall.ENOENT)
+		_, err = v.writeAt(ctx, ino, off, size, body)
+		require.Equal(t, err, syscallToErr(syscall.ENOENT))
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			v := &volume{
-				mw:    tt.fields.mw,
-				ec:    tt.fields.ec,
-				name:  tt.fields.name,
-				owner: tt.fields.owner,
-			}
-			gotS, err := v.writeAt(tt.args.ctx, tt.args.ino, tt.args.off, tt.args.size, tt.args.body)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("writeAt() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if gotS != tt.wantS {
-				t.Errorf("writeAt() gotS = %v, want %v", gotS, tt.wantS)
-			}
-		})
+
+	body = bytes.NewReader(data)
+	mockData.EXPECT().Write(ino, any, any, any).Return(util.BlockSize, nil).AnyTimes()
+	{
+		total, err := v.writeAt(ctx, ino, off, size, body)
+		require.NoError(t, err)
+		require.Equal(t, total, size)
+	}
+
+	body = bytes.NewReader(data)
+	{
+		total, err := v.writeAt(ctx, ino, off, len(data)*2, body)
+		require.NoError(t, err)
+		require.Equal(t, total, len(data))
 	}
 }
