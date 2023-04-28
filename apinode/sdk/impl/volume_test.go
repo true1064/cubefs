@@ -335,7 +335,7 @@ func Test_volume_CreateFile(t *testing.T) {
 	{
 		// create failed (parentID uint64, name string, mode, uid, gid uint32, target []byte) (*proto.InodeInfo, error)
 		mockMeta.EXPECT().Create_ll(parIno, fileName, any, any, any, nil).Return(nil, syscall.EEXIST)
-		ifo, err = v.CreateFile(ctx, parIno, fileName)
+		_, err = v.CreateFile(ctx, parIno, fileName)
 		require.Equal(t, err, syscallToErr(syscall.EEXIST))
 	}
 	{
@@ -514,33 +514,34 @@ func Test_volume_InitMultiPart(t *testing.T) {
 
 	{
 		// path not valid
-		uploadId, err = v.InitMultiPart(ctx, "testInit", oldIno, nil)
+		_, err = v.InitMultiPart(ctx, "testInit", oldIno, nil)
 		require.Equal(t, err, sdk.ErrBadRequest)
 	}
 
 	{
 		// failed LookupPath(subdir string) (uint64, error)
 		mockMeta.EXPECT().LookupPath(filePath).Return(uint64(0), syscall.EAGAIN)
-		uploadId, err = v.InitMultiPart(ctx, filePath, oldIno, nil)
+		_, err = v.InitMultiPart(ctx, filePath, oldIno, nil)
 		require.Equal(t, err, syscallToErr(syscall.EAGAIN))
 	}
 	{
 		// lookup ino not equal id
 		mockMeta.EXPECT().LookupPath(filePath).Return(uint64(5), nil)
-		uploadId, err = v.InitMultiPart(ctx, filePath, oldIno, nil)
+		_, err = v.InitMultiPart(ctx, filePath, oldIno, nil)
 		require.Equal(t, err, sdk.ErrConflict)
 	}
 	mockMeta.EXPECT().LookupPath(filePath).Return(oldIno, nil).AnyTimes()
 	{
 		// failed InitMultipart_ll(path string, extend map[string]string) (multipartId string, err error)
 		mockMeta.EXPECT().InitMultipart_ll(filePath, nil).Return("", syscall.EAGAIN)
-		uploadId, err = v.InitMultiPart(ctx, filePath, oldIno, nil)
+		_, err = v.InitMultiPart(ctx, filePath, oldIno, nil)
 		require.Equal(t, err, syscallToErr(syscall.EAGAIN))
 	}
 
 	tmpUploadId := "testUploadId"
 	mockMeta.EXPECT().InitMultipart_ll(filePath, nil).Return(tmpUploadId, nil)
 	uploadId, err = v.InitMultiPart(ctx, filePath, oldIno, nil)
+	require.NoError(t, err)
 	require.Equal(t, uploadId, tmpUploadId)
 
 	t.Logf("get uploadId %s", uploadId)
@@ -1117,7 +1118,7 @@ func Test_volume_getStatByIno(t *testing.T) {
 	{
 		// failed ReadDirLimit_ll(parentID uint64, from string, limit uint64) ([]proto.Dentry, error)
 		mockMeta.EXPECT().ReadDirLimit_ll(ino, any, any).Return(nil, syscall.ENOENT)
-		st, err = v.getStatByIno(ctx, ino)
+		_, err = v.getStatByIno(ctx, ino)
 		require.Equal(t, err, syscallToErr(syscall.ENOENT))
 	}
 	{
@@ -1144,7 +1145,7 @@ func Test_volume_getStatByIno(t *testing.T) {
 	{
 		// subDir read dir failed
 		mockMeta.EXPECT().ReadDirLimit_ll(uint64(11), any, any).Return(nil, syscall.EBADF)
-		st, err = v.getStatByIno(ctx, ino)
+		_, err = v.getStatByIno(ctx, ino)
 		require.Equal(t, err, syscallToErr(syscall.EBADF))
 	}
 
@@ -1152,7 +1153,7 @@ func Test_volume_getStatByIno(t *testing.T) {
 	{
 		// failed BatchInodeGetWith(inodes []uint64) (batchInfos []*proto.InodeInfo, err error)
 		mockMeta.EXPECT().BatchInodeGetWith(any).Return(nil, syscall.ENOENT)
-		st, err = v.getStatByIno(ctx, ino)
+		_, err = v.getStatByIno(ctx, ino)
 		require.Equal(t, err, syscallToErr(syscall.ENOENT))
 	}
 

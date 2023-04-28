@@ -99,7 +99,7 @@ func (d *DriveNode) CreateUserRoute(ctx context.Context, uid UserID) (string, er
 	}
 
 	rootPath := getRootPath(uid)
-	//create user root path
+	// create user root path
 	inoInfo, err := d.createDir(ctx, vol, volumeRootIno, rootPath, true)
 	if err != nil {
 		return "", err
@@ -172,19 +172,23 @@ func (d *DriveNode) setUserRouteToFile(ctx context.Context, uid UserID, ur *User
 		if err != sdk.ErrExist {
 			return err
 		}
-		dirInfo, err := d.vol.Lookup(ctx, dirIno, name)
+
+		var dirInfo *sdk.DirInfo
+		dirInfo, err = d.vol.Lookup(ctx, dirIno, name)
 		if err != nil {
 			return err
 		}
 		fileIno = uint64(dirInfo.Inode)
-		val, err := d.vol.GetXAttr(ctx, fileIno, string(ur.Uid))
+
+		var val string
+		val, err = d.vol.GetXAttr(ctx, fileIno, string(ur.Uid))
 		if err != nil {
 			return err
 		}
 		return json.Unmarshal([]byte(val), ur)
-	} else {
-		fileIno = inoInfo.Inode
 	}
+
+	fileIno = inoInfo.Inode
 	val, err := ur.Marshal()
 	if err != nil {
 		return err
