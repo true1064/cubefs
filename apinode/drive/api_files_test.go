@@ -66,3 +66,61 @@ func TestHandleFilesMakedir(t *testing.T) {
 		require.NoError(t, doRequest("path", "/dira/dirb/", "recursive", "1"))
 	}
 }
+
+func TestHandleFilesDelete(t *testing.T) {
+	node := newMockNode(t)
+	d := node.DriveNode
+	server, client := newTestServer(d)
+	defer server.Close()
+
+	doRequest := func(queries ...string) rpc.HTTPError {
+		url := genURL(server.URL, "/v1/files", queries...)
+		req, _ := http.NewRequest(http.MethodDelete, url, nil)
+		req.Header.Add(headerUserID, testUserID)
+		resp, err := client.Do(Ctx, req)
+		require.NoError(t, err)
+		defer resp.Body.Close()
+		err = rpc.ParseData(resp, nil)
+		if err != nil {
+			return err.(rpc.HTTPError)
+		}
+		return nil
+	}
+
+	{
+		require.Equal(t, 400, doRequest("src", "/a").StatusCode())
+		require.Equal(t, 400, doRequest("path", "a/b/../../..").StatusCode())
+	}
+	{
+		node.OnceGetUser(testUserID)
+		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, &sdk.Error{Status: 521})
+		require.Equal(t, 521, doRequest("path", "/dir/a").StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		node.OnceLookup(true)
+		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, &sdk.Error{Status: 522})
+		require.Equal(t, 522, doRequest("path", "/dir/a").StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		node.OnceLookup(true)
+		node.OnceLookup(false)
+		node.Volume.EXPECT().Delete(A, A, A, A).Return(&sdk.Error{Status: 523})
+		require.Equal(t, 523, doRequest("path", "/dir/a").StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		node.OnceLookup(true)
+		node.OnceLookup(false)
+		node.Volume.EXPECT().Delete(A, A, A, A).Return(nil)
+		require.NoError(t, doRequest("path", "/dir/a"))
+	}
+	{
+		node.OnceGetUser()
+		node.OnceLookup(true)
+		node.OnceLookup(true)
+		node.Volume.EXPECT().Delete(A, A, A, A).Return(nil)
+		require.NoError(t, doRequest("path", "/dir/a/"))
+	}
+}

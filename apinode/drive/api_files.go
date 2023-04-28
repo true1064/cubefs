@@ -53,3 +53,46 @@ func (d *DriveNode) handleMkDir(c *rpc.Context) {
 	}
 	c.Respond()
 }
+
+// ArgsDelete file delete argument.
+type ArgsDelete struct {
+	Path FilePath `json:"path"`
+}
+
+func (d *DriveNode) handleFilesDelete(c *rpc.Context) {
+	args := new(ArgsDelete)
+	if err := c.ParseArgs(args); err != nil {
+		c.RespondError(err)
+		return
+	}
+	ctx, span := d.ctxSpan(c)
+
+	if err := args.Path.Clean(); err != nil {
+		c.RespondError(err)
+		return
+	}
+	if args.Path.IsDir() {
+		args.Path = args.Path[:len(args.Path)-1]
+	}
+
+	root, vol, err := d.getRootInoAndVolume(ctx, d.userID(c))
+	if err != nil {
+		c.RespondError(err)
+		return
+	}
+
+	pName, name := args.Path.Split()
+	parent, err := d.lookup(ctx, vol, root, pName.String())
+	if err != nil {
+		span.Warn(err)
+		c.RespondError(err)
+		return
+	}
+	file, err := d.lookup(ctx, vol, Inode(parent.Inode), name)
+	if err != nil {
+		span.Warn(err)
+		c.RespondError(err)
+		return
+	}
+	c.RespondError(vol.Delete(ctx, parent.Inode, name, file.IsDir()))
+}
