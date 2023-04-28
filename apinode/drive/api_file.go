@@ -208,12 +208,24 @@ func (d *DriveNode) handleFileDownload(c *rpc.Context) {
 type downReader struct {
 	ctx    context.Context
 	vol    sdk.IVolume
+	err    error
 	inode  uint64
 	offset uint64
 }
 
 func (r *downReader) Read(p []byte) (n int, err error) {
+	if r.err != nil {
+		err = r.err
+		return
+	}
 	n, err = r.vol.ReadFile(r.ctx, r.inode, r.offset, p)
+	if err != nil {
+		r.err = err
+	}
+	if r.err == nil && n < len(p) {
+		r.err = io.EOF
+		err = r.err
+	}
 	r.offset += uint64(n)
 	return
 }
