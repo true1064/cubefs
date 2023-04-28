@@ -167,6 +167,10 @@ func (c *client) FileRename(src, dst string) error {
 	return c.request(post, genURI("/v1/files/rename", "src", src, "dst", dst), nil)
 }
 
+func (c *client) FileDelete(path string) error {
+	return c.request(del, genURI("/v1/files", "path", path), nil)
+}
+
 func genURI(uri string, queries ...interface{}) string {
 	if len(queries)%2 == 1 {
 		queries = append(queries, "")

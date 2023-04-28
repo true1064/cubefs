@@ -179,6 +179,16 @@ func addCmdFile(cmd *grumble.Command) {
 		},
 	})
 	fileCommand.AddCommand(&grumble.Command{
+		Name: "delete",
+		Help: "delete file or empty dir",
+		Flags: func(f *grumble.Flags) {
+			f.StringL("path", "", "path")
+		},
+		Run: func(c *grumble.Context) error {
+			return cli.FileDelete(c.Flags.String("path"))
+		},
+	})
+	fileCommand.AddCommand(&grumble.Command{
 		Name: "upload",
 		Help: "upload file",
 		Flags: func(f *grumble.Flags) {
