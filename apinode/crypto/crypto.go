@@ -14,7 +14,11 @@
 
 package crypto
 
-import "io"
+import (
+	"io"
+
+	_ "oppo.com/andes-crypto/kit/server"
+)
 
 // EnvironmentType for describing the usage environment.
 type EnvironmentType uint16
