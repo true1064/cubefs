@@ -25,6 +25,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cubefs/cubefs/apinode/oplog"
+	"github.com/cubefs/cubefs/apinode/oplog/kafka"
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/apinode/sdk/impl"
 	"github.com/cubefs/cubefs/blobstore/common/trace"
@@ -186,6 +188,8 @@ type DriveNode struct {
 	clusterMgr  sdk.ClusterManager
 	groupRouter singleflight.Group // for get user route
 
+	out *oplog.Output
+
 	closer.Closer
 }
 
@@ -199,6 +203,7 @@ func New() *DriveNode {
 	return &DriveNode{
 		userRouter: urm,
 		clusterMgr: cm,
+		out:        oplog.NewOutput(),
 		Closer:     closer.New(),
 	}
 }
@@ -219,6 +224,15 @@ func (d *DriveNode) Start(cfg *config.Config) error {
 	d.vol = cluster.GetVol(d.volumeName)
 	if d.vol == nil {
 		return fmt.Errorf("not get volume volumeName: %s", d.volumeName)
+	}
+
+	oplogCfgFile := cfg.GetString("oplogKafkaCfgFile")
+	if oplogCfgFile != "" {
+		kafkaSink, err := kafka.NewKafkaSink(oplogCfgFile)
+		if err != nil {
+			return err
+		}
+		d.out.AddSinks(kafkaSink)
 	}
 	if err := d.initClusterConfig(); err != nil {
 		return err
