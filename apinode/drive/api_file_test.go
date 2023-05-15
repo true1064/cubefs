@@ -135,16 +135,22 @@ func TestHandleFileWrite(t *testing.T) {
 		require.Equal(t, 400, resp.StatusCode)
 	}
 	{
+		resp := doRequest(newMockBody(64), "", "path", "../a", "fileId", "1111")
+		defer resp.Body.Close()
+		require.Equal(t, 400, resp.StatusCode)
+	}
+	queries := []string{"path", "/a", "fileId", "1111"}
+	{
 		node.OnceGetUser(testUserID)
 		node.Volume.EXPECT().GetInode(A, A).Return(nil, &sdk.Error{Status: 521})
-		resp := doRequest(newMockBody(64), "", "fileId", "1111")
+		resp := doRequest(newMockBody(64), "", queries...)
 		defer resp.Body.Close()
 		require.Equal(t, 521, resp.StatusCode)
 	}
 	{
 		node.OnceGetUser()
 		node.Volume.EXPECT().GetInode(A, A).Return(&sdk.InodeInfo{Size: 1024}, nil)
-		resp := doRequest(newMockBody(64), "bytes=i-j", "fileId", "1111")
+		resp := doRequest(newMockBody(64), "bytes=i-j", queries...)
 		defer resp.Body.Close()
 		require.Equal(t, 400, resp.StatusCode)
 	}
@@ -152,7 +158,7 @@ func TestHandleFileWrite(t *testing.T) {
 		node.OnceGetUser()
 		node.Volume.EXPECT().GetInode(A, A).Return(&sdk.InodeInfo{Size: 1024}, nil)
 		node.Volume.EXPECT().WriteFile(A, A, A, A, A).Return(&sdk.Error{Status: 522})
-		resp := doRequest(newMockBody(64), "bytes=100-", "fileId", "1111")
+		resp := doRequest(newMockBody(64), "bytes=100-", queries...)
 		defer resp.Body.Close()
 		require.Equal(t, 522, resp.StatusCode)
 	}
@@ -160,7 +166,7 @@ func TestHandleFileWrite(t *testing.T) {
 		node.OnceGetUser()
 		node.Volume.EXPECT().GetInode(A, A).Return(&sdk.InodeInfo{Size: 1024}, nil)
 		node.Volume.EXPECT().WriteFile(A, A, A, A, A).Return(nil)
-		resp := doRequest(newMockBody(64), "bytes=100-", "fileId", "1111")
+		resp := doRequest(newMockBody(64), "bytes=100-", queries...)
 		defer resp.Body.Close()
 		require.Equal(t, 200, resp.StatusCode)
 	}
@@ -175,7 +181,7 @@ func TestHandleFileWrite(t *testing.T) {
 				require.Equal(t, body.buff[:128], buff)
 				return nil
 			})
-		resp := doRequest(body, "bytes=100-", "fileId", "1111")
+		resp := doRequest(body, "bytes=100-", queries...)
 		defer resp.Body.Close()
 		require.Equal(t, 200, resp.StatusCode)
 	}

@@ -89,7 +89,8 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 
 // ArgsFileWrite file write.
 type ArgsFileWrite struct {
-	FileID FileID `json:"fileId"`
+	Path   FilePath `json:"path"`
+	FileID FileID   `json:"fileId"`
 }
 
 func (d *DriveNode) handleFileWrite(c *rpc.Context) {
@@ -99,6 +100,11 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 		return
 	}
 	ctx, span := d.ctxSpan(c)
+
+	if err := args.Path.Clean(); err != nil {
+		c.RespondError(sdk.ErrInvalidPath)
+		return
+	}
 
 	uid := d.userID(c)
 	_, vol, err := d.getRootInoAndVolume(ctx, uid)
