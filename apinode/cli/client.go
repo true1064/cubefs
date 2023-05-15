@@ -131,8 +131,8 @@ func (c *client) FileUpload(path string, fileID uint64, body io.Reader, meta ...
 	return
 }
 
-func (c *client) FileWrite(fileID uint64, from, to int, body io.Reader) error {
-	return c.requestWithHeader(put, genURI("/v1/files/content", "fileId", fileID), body,
+func (c *client) FileWrite(path string, fileID uint64, from, to int, body io.Reader) error {
+	return c.requestWithHeader(put, genURI("/v1/files/content", "path", path, "fileId", fileID), body,
 		map[string]string{"Range": fmt.Sprintf("bytes=%d-%d", from, to)}, nil)
 }
 

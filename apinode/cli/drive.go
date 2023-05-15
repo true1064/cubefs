@@ -125,9 +125,9 @@ func addCmdDir(cmd *grumble.Command) {
 		Name: "list",
 		Help: "list dir",
 		Flags: func(f *grumble.Flags) {
-			f.StringL("path", "", "path")
+			f.StringL("path", "/", "path")
 			f.StringL("marker", "", "marker")
-			f.StringL("limit", "", "limit")
+			f.StringL("limit", "10", "limit")
 			f.StringL("filter", "", "filter")
 		},
 		Run: func(c *grumble.Context) error {
@@ -194,7 +194,7 @@ func addCmdFile(cmd *grumble.Command) {
 		Flags: func(f *grumble.Flags) {
 			f.StringL("path", "", "path")
 			f.Uint64L("fileid", 0, "fileid")
-			f.StringL("filepath", "", "filepath")
+			f.StringL("localpath", "", "localpath")
 			f.StringL("raw", "", "raw")
 		},
 		Args: func(a *grumble.Args) {
@@ -205,7 +205,7 @@ func addCmdFile(cmd *grumble.Command) {
 			if raw := c.Flags.String("raw"); len(raw) > 0 {
 				body = bytes.NewReader([]byte(raw))
 			} else {
-				f, err := os.OpenFile(c.Flags.String("filepath"), os.O_RDONLY, 0o666)
+				f, err := os.OpenFile(c.Flags.String("localpath"), os.O_RDONLY, 0o666)
 				if err != nil {
 					return err
 				}
@@ -220,10 +220,11 @@ func addCmdFile(cmd *grumble.Command) {
 		Name: "write",
 		Help: "write file",
 		Flags: func(f *grumble.Flags) {
+			f.StringL("path", "", "path")
 			f.Uint64L("fileid", 0, "fileid")
 			f.IntL("from", -1, "from")
 			f.IntL("to", -1, "to")
-			f.StringL("filepath", "", "filepath")
+			f.StringL("localpath", "", "localpath")
 			f.StringL("raw", "", "raw")
 		},
 		Run: func(c *grumble.Context) error {
@@ -231,7 +232,7 @@ func addCmdFile(cmd *grumble.Command) {
 			if raw := c.Flags.String("raw"); len(raw) > 0 {
 				body = bytes.NewReader([]byte(raw))
 			} else {
-				f, err := os.OpenFile(c.Flags.String("filepath"), os.O_RDONLY, 0o666)
+				f, err := os.OpenFile(c.Flags.String("localpath"), os.O_RDONLY, 0o666)
 				if err != nil {
 					return err
 				}
@@ -243,7 +244,7 @@ func addCmdFile(cmd *grumble.Command) {
 			if from < 0 || to < 0 {
 				return fmt.Errorf("to set from(%d) and to(%d)", from, to)
 			}
-			return cli.FileWrite(c.Flags.Uint64("fileid"), from, to, body)
+			return cli.FileWrite(c.Flags.String("path"), c.Flags.Uint64("fileid"), from, to, body)
 		},
 	})
 	fileCommand.AddCommand(&grumble.Command{
@@ -253,7 +254,7 @@ func addCmdFile(cmd *grumble.Command) {
 			f.StringL("path", "", "path")
 			f.IntL("from", -1, "from")
 			f.IntL("to", -1, "to")
-			f.StringL("filepath", "", "filepath")
+			f.StringL("localpath", "", "localpath")
 		},
 		Run: func(c *grumble.Context) error {
 			r, err := cli.FileDownload(c.Flags.String("path"), c.Flags.Int("from"), c.Flags.Int("to"))
@@ -262,9 +263,9 @@ func addCmdFile(cmd *grumble.Command) {
 			}
 			defer r.Close()
 
-			filepath := c.Flags.String("filepath")
-			if filepath != "" {
-				f, err := os.OpenFile(filepath, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o666)
+			localpath := c.Flags.String("localpath")
+			if localpath != "" {
+				f, err := os.OpenFile(localpath, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o666)
 				if err != nil {
 					return err
 				}

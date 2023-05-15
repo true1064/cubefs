@@ -58,5 +58,4 @@ func (out *Output) Close() {
 	for _, sink := range sinks {
 		sink.Close()
 	}
-	return
 }
