@@ -123,6 +123,7 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 		c.RespondError(err)
 		return
 	}
+	d.out.Publish(ctx, makeOpLog(OpUploadFile, d.userID(c), args.Path.String(), "size", inode.Size))
 	span.Info("multipart complete", args, parts)
 	_, filename := args.Path.Split()
 	c.RespondJSON(inode2file(inode, filename, nil))

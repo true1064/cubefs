@@ -83,6 +83,7 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 		return
 	}
 
+	d.out.Publish(ctx, makeOpLog(OpUploadFile, uid, string(args.Path), "size", inode.Size))
 	c.RespondJSON(inode2file(inode, filename, extend))
 }
 
@@ -132,7 +133,12 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 		size-- // max
 	}
 	span.Infof("write file: %d offset:%d size:%d", args.FileID, ranged.Start, size)
-	c.RespondError(vol.WriteFile(ctx, uint64(args.FileID), uint64(ranged.Start), size, reader))
+	if err = vol.WriteFile(ctx, uint64(args.FileID), uint64(ranged.Start), size, reader); err != nil {
+		c.RespondError(err)
+		return
+	}
+	//d.out.Publish(ctx, makeOpLog(OpUpdateFile, uid, string(args.Path), "size", inode.Size))
+	c.Respond()
 }
 
 // ArgsFileDownload file download argument.
@@ -289,6 +295,7 @@ func (d *DriveNode) handleFileRename(c *rpc.Context) {
 	if err != nil {
 		span.Error("rename error", args, err)
 	}
+	d.out.Publish(ctx, makeOpLog(OpUpdateFile, d.userID(c), string(args.Src), "dst", string(args.Dst)))
 	c.RespondError(err)
 }
 
@@ -360,5 +367,8 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 		Extend: extend,
 		Body:   body,
 	})
+	if err != nil {
+		d.out.Publish(ctx, makeOpLog(OpCopyFile, d.userID(c), string(args.Src), "dst", string(args.Dst)))
+	}
 	c.RespondError(err)
 }

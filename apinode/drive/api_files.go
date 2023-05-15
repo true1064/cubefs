@@ -51,6 +51,7 @@ func (d *DriveNode) handleMkDir(c *rpc.Context) {
 		c.RespondError(err)
 		return
 	}
+	d.out.Publish(ctx, makeOpLog(OpCreateDir, uid, args.Path.String()))
 	c.Respond()
 }
 
@@ -94,5 +95,15 @@ func (d *DriveNode) handleFilesDelete(c *rpc.Context) {
 		c.RespondError(err)
 		return
 	}
-	c.RespondError(vol.Delete(ctx, parent.Inode, name, file.IsDir()))
+	err = vol.Delete(ctx, parent.Inode, name, file.IsDir())
+	if err != nil {
+		c.RespondError(err)
+		return
+	}
+	op := OpDeleteFile
+	if file.IsDir() {
+		op = OpDeleteDir
+	}
+	d.out.Publish(ctx, makeOpLog(op, d.userID(c), args.Path.String()))
+	c.Respond()
 }
