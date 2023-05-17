@@ -9,6 +9,7 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/cubefs/cubefs/apinode/oplog"
+	"github.com/cubefs/cubefs/blobstore/util/log"
 )
 
 type config struct {
@@ -33,6 +34,8 @@ func NewKafkaSink(filename string) (oplog.Sink, error) {
 		return nil, err
 	}
 	conf := sarama.NewConfig()
+	conf.Version = sarama.V0_10_0_0
+	conf.Producer.RequiredAcks = sarama.WaitForAll
 	producer, err := sarama.NewAsyncProducer(strings.Split(cfg.Addrs, ","), conf)
 	if err != nil {
 		return nil, err
@@ -48,7 +51,9 @@ func NewKafkaSink(filename string) (oplog.Sink, error) {
 		defer s.wg.Done()
 		for {
 			select {
-			case <-s.producer.Errors():
+			case m := <-s.producer.Errors():
+				data, _ := m.Msg.Value.Encode()
+				log.Errorf("Send %s to kafka error: %v", string(data), m.Err)
 			case <-s.stopc:
 				return
 			}
