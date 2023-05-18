@@ -283,21 +283,39 @@ func (d *DriveNode) handleFileRename(c *rpc.Context) {
 	}
 
 	srcDir, srcName := args.Src.Split()
-	srcParent, err := d.lookup(ctx, vol, root, string(srcDir))
-	if err != nil {
-		span.Warn("lookup src", srcDir, err)
-		c.RespondError(err)
+	srcParentIno := root
+	dstParentIno := root
+	if srcName == "" {
+		span.Error("invalid src=", args.Src)
+		c.RespondError(sdk.ErrBadRequest)
 		return
+	}
+	if srcDir != "" && srcDir != "/" {
+		srcParent, err := d.lookup(ctx, vol, root, string(srcDir))
+		if err != nil {
+			span.Warn("lookup src", srcDir, err)
+			c.RespondError(err)
+			return
+		}
+		srcParentIno = Inode(srcParent.Inode)
 	}
 	dstDir, dstName := args.Dst.Split()
-	dstParent, err := d.lookup(ctx, vol, root, string(dstDir))
-	if err != nil {
-		span.Warn("lookup dst", dstDir, err)
-		c.RespondError(err)
+	if dstName == "" {
+		span.Error("invalid dst=", args.Dst)
+		c.RespondError(sdk.ErrBadRequest)
 		return
 	}
+	if dstDir != "" && dstDir != "/" {
+		dstParent, err := d.lookup(ctx, vol, root, string(dstDir))
+		if err != nil {
+			span.Warn("lookup dst", dstDir, err)
+			c.RespondError(err)
+			return
+		}
+		dstParentIno = Inode(dstParent.Inode)
+	}
 
-	err = vol.Rename(ctx, srcParent.Inode, dstParent.Inode, srcName, dstName)
+	err = vol.Rename(ctx, srcParentIno.Uint64(), dstParentIno.Uint64(), srcName, dstName)
 	if err != nil {
 		span.Error("rename error", args, err)
 	}

@@ -33,10 +33,10 @@ import (
 
 type ListDirResult struct {
 	ID         uint64            `json:"id"`
-	Type       string            `type:"type"`
-	NextMarker string            `type:"nextMarker"`
-	Properties map[string]string `type:"properties"`
-	Files      []FileInfo        `type:"files"`
+	Type       string            `json:"type"`
+	NextMarker string            `json:"nextMarker"`
+	Properties map[string]string `json:"properties"`
+	Files      []FileInfo        `json:"files"`
 }
 
 type filterBuilder struct {
@@ -217,6 +217,7 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 	)
 
 	res.ID = pathIno.Uint64()
+	res.Type = "folder"
 
 	wg.Add(1)
 	// lookup filePath's inode concurrency

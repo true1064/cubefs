@@ -20,6 +20,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cubefs/cubefs/apinode/oplog"
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/apinode/testing/mocks"
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
@@ -57,6 +58,7 @@ func newMockNode(tb testing.TB) mockNode {
 			vol:        volume,
 			userRouter: urm,
 			clusterMgr: clusterMgr,
+			out:        oplog.NewOutput(),
 		},
 		Volume:     volume,
 		ClusterMgr: clusterMgr,
