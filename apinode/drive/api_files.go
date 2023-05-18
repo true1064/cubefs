@@ -82,20 +82,24 @@ func (d *DriveNode) handleFilesDelete(c *rpc.Context) {
 		return
 	}
 
-	pName, name := args.Path.Split()
-	parent, err := d.lookup(ctx, vol, root, pName.String())
+	dir, name := args.Path.Split()
+	parentIno := root
+	if dir != "" && dir != "/" {
+		parent, err := d.lookup(ctx, vol, root, dir.String())
+		if err != nil {
+			span.Warn(err)
+			c.RespondError(err)
+			return
+		}
+		parentIno = Inode(parent.Inode)
+	}
+	file, err := d.lookup(ctx, vol, parentIno, name)
 	if err != nil {
 		span.Warn(err)
 		c.RespondError(err)
 		return
 	}
-	file, err := d.lookup(ctx, vol, Inode(parent.Inode), name)
-	if err != nil {
-		span.Warn(err)
-		c.RespondError(err)
-		return
-	}
-	err = vol.Delete(ctx, parent.Inode, name, file.IsDir())
+	err = vol.Delete(ctx, parentIno.Uint64(), name, file.IsDir())
 	if err != nil {
 		c.RespondError(err)
 		return
