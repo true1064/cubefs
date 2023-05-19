@@ -17,6 +17,7 @@ package drive
 import (
 	"encoding/json"
 	"io"
+	"path"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
@@ -69,7 +70,8 @@ func (d *DriveNode) multipartUploads(c *rpc.Context, args *ArgsMPUploads) {
 	}
 
 	extend := d.getProperties(c)
-	uploadID, err := vol.InitMultiPart(ctx, args.Path.String(), uint64(args.FileID), extend)
+	fullPath := multipartFullPath(d.userID(c), args.Path)
+	uploadID, err := vol.InitMultiPart(ctx, fullPath, uint64(args.FileID), extend)
 	if err != nil {
 		span.Error("multipart uploads", args, err)
 		c.RespondError(err)
@@ -117,7 +119,8 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 		})
 	}
 
-	inode, err := vol.CompleteMultiPart(ctx, args.Path.String(), args.UploadID, uint64(args.FileID), sParts)
+	fullPath := multipartFullPath(d.userID(c), args.Path)
+	inode, err := vol.CompleteMultiPart(ctx, fullPath, args.UploadID, uint64(args.FileID), sParts)
 	if err != nil {
 		span.Error("multipart complete", args, parts, err)
 		c.RespondError(err)
@@ -163,7 +166,8 @@ func (d *DriveNode) handleMultipartPart(c *rpc.Context) {
 		return
 	}
 
-	part, err := vol.UploadMultiPart(ctx, args.Path.String(), args.UploadID, args.PartNumber, reader)
+	fullPath := multipartFullPath(d.userID(c), args.Path)
+	part, err := vol.UploadMultiPart(ctx, fullPath, args.UploadID, args.PartNumber, reader)
 	if err != nil {
 		span.Error("multipart upload", args, err)
 		c.RespondError(err)
@@ -211,7 +215,8 @@ func (d *DriveNode) handleMultipartList(c *rpc.Context) {
 		args.Count = 400
 	}
 
-	sParts, next, _, err := vol.ListMultiPart(ctx, args.Path.String(), args.UploadID, uint64(args.Count), args.Marker.Uint64())
+	fullPath := multipartFullPath(d.userID(c), args.Path)
+	sParts, next, _, err := vol.ListMultiPart(ctx, fullPath, args.UploadID, uint64(args.Count), args.Marker.Uint64())
 	if err != nil {
 		span.Error("multipart list", args, err)
 		c.RespondError(err)
@@ -253,10 +258,16 @@ func (d *DriveNode) handleMultipartAbort(c *rpc.Context) {
 		return
 	}
 
-	if err = vol.AbortMultiPart(ctx, args.Path.String(), args.UploadID); err != nil {
+	fullPath := multipartFullPath(d.userID(c), args.Path)
+	if err = vol.AbortMultiPart(ctx, fullPath, args.UploadID); err != nil {
 		span.Error("multipart abort", args, err)
 	} else {
 		span.Warn("multipart abort", args)
 	}
 	c.RespondError(err)
+}
+
+func multipartFullPath(uid UserID, p FilePath) string {
+	root := getRootPath(uid)
+	return path.Join(root, p.String())
 }
