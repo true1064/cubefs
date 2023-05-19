@@ -316,12 +316,23 @@ func TestHandleFileRename(t *testing.T) {
 		node.Volume.EXPECT().Rename(A, A, A, A, A).Return(&sdk.Error{Status: 523})
 		require.Equal(t, 523, doRequest("src", "/dir/a/", "dst", "/dir/b/").StatusCode())
 	}
-	{
+	for _, cs := range []struct {
+		lookup   int
+		src, dst string
+	}{
+		{lookup: 2, src: "/dir/a", dst: "/dir/b"},
+		{lookup: 2, src: "dir/a", dst: "dir/b"},
+		{lookup: 1, src: "/dir/a", dst: "/b"},
+		{lookup: 1, src: "/a", dst: "/dir/b"},
+		{lookup: 0, src: "a", dst: "/b"},
+		{lookup: 0, src: "a", dst: "b"},
+	} {
 		node.OnceGetUser()
-		node.OnceLookup(true)
-		node.OnceLookup(true)
+		for i := 0; i < cs.lookup; i++ {
+			node.OnceLookup(true)
+		}
 		node.Volume.EXPECT().Rename(A, A, A, A, A).Return(nil)
-		require.NoError(t, doRequest("src", "/dir/a", "dst", "/dir/b"))
+		require.NoError(t, doRequest("src", cs.src, "dst", cs.dst))
 	}
 }
 

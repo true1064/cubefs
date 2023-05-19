@@ -123,4 +123,10 @@ func TestHandleFilesDelete(t *testing.T) {
 		node.Volume.EXPECT().Delete(A, A, A, A).Return(nil)
 		require.NoError(t, doRequest("path", "/dir/a/"))
 	}
+	{
+		node.OnceGetUser()
+		node.OnceLookup(true)
+		node.Volume.EXPECT().Delete(A, A, A, A).Return(nil)
+		require.NoError(t, doRequest("path", "a"))
+	}
 }

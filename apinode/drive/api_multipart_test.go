@@ -88,6 +88,12 @@ func TestHandleMultipartUploads(t *testing.T) {
 		node.Volume.EXPECT().CompleteMultiPart(A, A, A, A, A).Return(&sdk.InodeInfo{Inode: node.GenInode()}, nil)
 		require.NoError(t, doRequest(body, nil, "path", "/mpfile", "uploadId", uploadID))
 	}
+	{
+		node.OnceGetUser()
+		body := &mockBody{remain: 2, buff: []byte("[]")}
+		node.Volume.EXPECT().CompleteMultiPart(A, A, A, A, A).Return(&sdk.InodeInfo{Inode: node.GenInode()}, nil)
+		require.NoError(t, doRequest(body, nil, "path", "mpfile", "uploadId", uploadID))
+	}
 }
 
 func TestHandleMultipartParts(t *testing.T) {
@@ -115,6 +121,7 @@ func TestHandleMultipartParts(t *testing.T) {
 		require.Equal(t, 400, doRequest(newMockBody(0), nil, "path", "/a").StatusCode())
 		require.Equal(t, 400, doRequest(newMockBody(0), nil, "path", "/a", "uploadId", uploadID).StatusCode())
 		require.Equal(t, 400, doRequest(newMockBody(0), nil, "path", "/a", "uploadId", uploadID, "partNumber", "x").StatusCode())
+		require.Equal(t, 400, doRequest(newMockBody(0), nil, "path", "/a", "uploadId", uploadID, "partNumber", "0").StatusCode())
 	}
 	{
 		node.OnceGetUser(testUserID)

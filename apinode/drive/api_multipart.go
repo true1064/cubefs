@@ -142,6 +142,10 @@ func (d *DriveNode) handleMultipartPart(c *rpc.Context) {
 		c.RespondError(err)
 		return
 	}
+	if args.PartNumber == 0 {
+		c.RespondError(sdk.ErrBadRequest)
+		return
+	}
 	if err := args.Path.Clean(); err != nil {
 		c.RespondError(err)
 		return
