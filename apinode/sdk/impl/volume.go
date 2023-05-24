@@ -46,7 +46,8 @@ type MetaOpImp struct {
 }
 
 func newMetaOp(config *meta.MetaConfig) (sdk.MetaOp, error) {
-	return meta.NewMetaWrapper(config)
+	mw, err := meta.NewMetaWrapper(config)
+	return mw, err
 }
 
 func newVolume(ctx context.Context, name, owner, addr string) (sdk.IVolume, error) {
@@ -82,6 +83,10 @@ func newVolume(ctx context.Context, name, owner, addr string) (sdk.IVolume, erro
 	if err != nil {
 		span.Errorf("init extent client failed, name %s, owner %s, addr %s", name, owner, addr)
 		return nil, sdk.ErrInternalServerError
+	}
+
+	if mw1, ok := mw.(*meta.MetaWrapper); ok {
+		mw1.Client = ec.(*stream.ExtentClient)
 	}
 
 	v := &volume{
@@ -449,7 +454,7 @@ func (v *volume) UploadFile(ctx context.Context, req *sdk.UploadFileReq) (*sdk.I
 		}
 	}
 
-	tmpInoInfo, err := v.mw.InodeCreate_ll(defaultFileMode, 0, 0, nil)
+	tmpInoInfo, err := v.mw.InodeCreate_ll(defaultFileMode, 0, 0, nil, nil)
 	if err != nil {
 		span.Errorf("create inode failed, err %s", err.Error())
 		return nil, syscallToErr(err)
@@ -637,7 +642,7 @@ func (v *volume) UploadMultiPart(ctx context.Context, filepath, uploadId string,
 
 	span := trace.SpanFromContextSafe(ctx)
 
-	tmpInfo, err := v.mw.InodeCreate_ll(defaultFileMode, 0, 0, nil)
+	tmpInfo, err := v.mw.InodeCreate_ll(defaultFileMode, 0, 0, nil, nil)
 	if err != nil {
 		span.Errorf("create ino failed", err.Error())
 		return nil, syscallToErr(err)
@@ -692,7 +697,7 @@ func (v *volume) UploadMultiPart(ctx context.Context, filepath, uploadId string,
 		return
 	}
 
-	err = v.mw.AddMultipartPart_ll(filepath, uploadId, partNum, uint64(size), md5Val, tmpInfo)
+	_, _, err = v.mw.AddMultipartPart_ll(filepath, uploadId, partNum, uint64(size), md5Val, tmpInfo)
 	if err != nil {
 		span.Errorf("add multi part failed, path %s, uploadId %s, num %d, ino %d, err %s",
 			filepath, uploadId, partNum, tmpIno, err.Error())
@@ -805,7 +810,7 @@ func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId strin
 		partArr = append(partArr, part)
 	}
 
-	completeInfo, err := v.mw.InodeCreate_ll(defaultFileMode, 0, 0, nil)
+	completeInfo, err := v.mw.InodeCreate_ll(defaultFileMode, 0, 0, nil, nil)
 	if err != nil {
 		span.Errorf("inode create failed, path %s, err %s", filepath, err.Error())
 		return nil, syscallToErr(err)

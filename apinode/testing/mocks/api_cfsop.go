@@ -130,11 +130,13 @@ func (m *MockMetaOp) EXPECT() *MockMetaOpMockRecorder {
 }
 
 // AddMultipartPart_ll mocks base method.
-func (m *MockMetaOp) AddMultipartPart_ll(arg0, arg1 string, arg2 uint16, arg3 uint64, arg4 string, arg5 *proto.InodeInfo) error {
+func (m *MockMetaOp) AddMultipartPart_ll(arg0, arg1 string, arg2 uint16, arg3 uint64, arg4 string, arg5 *proto.InodeInfo) (uint64, bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddMultipartPart_ll", arg0, arg1, arg2, arg3, arg4, arg5)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(bool)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // AddMultipartPart_ll indicates an expected call of AddMultipartPart_ll.
@@ -306,18 +308,18 @@ func (mr *MockMetaOpMockRecorder) InitMultipart_ll(arg0, arg1 interface{}) *gomo
 }
 
 // InodeCreate_ll mocks base method.
-func (m *MockMetaOp) InodeCreate_ll(arg0, arg1, arg2 uint32, arg3 []byte) (*proto.InodeInfo, error) {
+func (m *MockMetaOp) InodeCreate_ll(arg0, arg1, arg2 uint32, arg3 []byte, arg4 []uint64) (*proto.InodeInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InodeCreate_ll", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "InodeCreate_ll", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(*proto.InodeInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // InodeCreate_ll indicates an expected call of InodeCreate_ll.
-func (mr *MockMetaOpMockRecorder) InodeCreate_ll(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockMetaOpMockRecorder) InodeCreate_ll(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InodeCreate_ll", reflect.TypeOf((*MockMetaOp)(nil).InodeCreate_ll), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InodeCreate_ll", reflect.TypeOf((*MockMetaOp)(nil).InodeCreate_ll), arg0, arg1, arg2, arg3, arg4)
 }
 
 // InodeDelete_ll mocks base method.

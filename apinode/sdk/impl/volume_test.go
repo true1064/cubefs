@@ -274,12 +274,12 @@ func Test_volume_CompleteMultiPart(t *testing.T) {
 	any := gomock.Any()
 	{
 		// inode create failed
-		mockMeta.EXPECT().InodeCreate_ll(any, any, any, any).Return(nil, syscall.EAGAIN)
+		mockMeta.EXPECT().InodeCreate_ll(any, any, any, any, any).Return(nil, syscall.EAGAIN)
 		_, err = v.CompleteMultiPart(ctx, filePath, uploadId, 0, parts)
 		require.True(t, err == syscallToErr(syscall.EAGAIN))
 	}
 	newIno := uint64(10)
-	mockMeta.EXPECT().InodeCreate_ll(any, any, any, any).Return(&proto.InodeInfo{Inode: newIno}, nil).AnyTimes()
+	mockMeta.EXPECT().InodeCreate_ll(any, any, any, any, any).Return(&proto.InodeInfo{Inode: newIno}, nil).AnyTimes()
 	{
 		// delete error (*proto.InodeInfo, error)
 		mockMeta.EXPECT().InodeDelete_ll(newIno).Return(syscall.ENOENT).AnyTimes()
@@ -868,12 +868,12 @@ func Test_volume_SetXAttr(t *testing.T) {
 	key, val := "k1", "v1"
 	{
 		// XAttrSet_ll(inode uint64, name, value []byte) error
-		mockMeta.EXPECT().XAttrSet_ll(ino, key, []byte(val)).Return(syscall.ENOENT)
+		mockMeta.EXPECT().XAttrSet_ll(ino, []byte(key), []byte(val)).Return(syscall.ENOENT)
 		err = v.SetXAttr(ctx, ino, key, val)
 		require.Equal(t, err, syscallToErr(syscall.ENOENT))
 	}
 	{
-		mockMeta.EXPECT().XAttrSet_ll(ino, key, []byte(val)).Return(nil)
+		mockMeta.EXPECT().XAttrSet_ll(ino, []byte(key), []byte(val)).Return(nil)
 		err = v.SetXAttr(ctx, ino, key, val)
 		require.NoError(t, err)
 	}
@@ -919,14 +919,14 @@ func Test_volume_UploadFile(t *testing.T) {
 	mockMeta.EXPECT().Lookup_ll(req.ParIno, req.Name).Return(req.OldIno, uint32(defaultFileMode), nil).AnyTimes()
 	{
 		// failed InodeCreate_ll(mode, uid, gid uint32, target []byte) (*proto.InodeInfo, error)
-		mockMeta.EXPECT().InodeCreate_ll(any, any, any, nil).Return(nil, syscall.EAGAIN)
+		mockMeta.EXPECT().InodeCreate_ll(any, any, any, nil, any).Return(nil, syscall.EAGAIN)
 		_, err = v.UploadFile(ctx, req)
 		require.Equal(t, err, syscallToErr(syscall.EAGAIN))
 	}
 	ifo := &sdk.InodeInfo{
 		Inode: 10,
 	}
-	mockMeta.EXPECT().InodeCreate_ll(any, any, any, nil).Return(ifo, nil).AnyTimes()
+	mockMeta.EXPECT().InodeCreate_ll(any, any, any, nil, any).Return(ifo, nil).AnyTimes()
 	{
 		// unlink, evict, open stream failed
 		mockMeta.EXPECT().InodeUnlink_ll(ifo.Inode).Return(nil, syscall.ENOENT)
@@ -1013,14 +1013,14 @@ func Test_volume_UploadMultiPart(t *testing.T) {
 	}
 	{
 		// failed InodeCreate_ll(mode, uid, gid uint32, target []byte) (*proto.InodeInfo, error)
-		mockMeta.EXPECT().InodeCreate_ll(any, any, any, nil).Return(nil, syscall.EAGAIN)
+		mockMeta.EXPECT().InodeCreate_ll(any, any, any, nil, any).Return(nil, syscall.EAGAIN)
 		_, err = v.UploadMultiPart(ctx, filePath, uploadId, partNum, body)
 		require.Equal(t, err, syscallToErr(syscall.EAGAIN))
 	}
 	ifo := &sdk.InodeInfo{
 		Inode: 10,
 	}
-	mockMeta.EXPECT().InodeCreate_ll(any, any, any, nil).Return(ifo, nil).AnyTimes()
+	mockMeta.EXPECT().InodeCreate_ll(any, any, any, nil, any).Return(ifo, nil).AnyTimes()
 	{
 		// unlink, evict, open stream failed
 		mockMeta.EXPECT().InodeUnlink_ll(ifo.Inode).Return(nil, syscall.ENOENT)
@@ -1053,13 +1053,15 @@ func Test_volume_UploadMultiPart(t *testing.T) {
 
 	mockData.EXPECT().Flush(ifo.Inode).Return(nil).AnyTimes()
 	{
+		body = bytes.NewBuffer(data)
 		// failed AddMultipartPart_ll(path, multipartId string, partId uint16, size uint64, md5 string, inodeInfo *proto.InodeInfo) (err error)
-		mockMeta.EXPECT().AddMultipartPart_ll(filePath, uploadId, partNum, any, tag, any).Return(syscall.EINVAL)
+		mockMeta.EXPECT().AddMultipartPart_ll(filePath, uploadId, partNum, any, tag, any).Return(uint64(0), true, syscall.EINVAL)
 		_, err = v.UploadMultiPart(ctx, filePath, uploadId, partNum, body)
 		require.Equal(t, err, syscallToErr(syscall.EINVAL))
 	}
 
-	mockMeta.EXPECT().AddMultipartPart_ll(filePath, uploadId, partNum, any, tag, any).Return(nil)
+	body = bytes.NewBuffer(data)
+	mockMeta.EXPECT().AddMultipartPart_ll(filePath, uploadId, partNum, any, tag, any).Return(uint64(0), true, nil)
 	_, err = v.UploadMultiPart(ctx, filePath, uploadId, partNum, body)
 	require.NoError(t, err)
 }
