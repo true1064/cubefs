@@ -955,6 +955,8 @@ func syscallToErr(err error) *sdk.Error {
 		return sdk.ErrExist
 	case syscall.ENOENT:
 		return sdk.ErrNotFound
+	case syscall.ENOTEMPTY:
+		return sdk.ErrNotEmpty
 	case syscall.ENOMEM:
 		return sdk.ErrFull
 	case syscall.EINVAL:

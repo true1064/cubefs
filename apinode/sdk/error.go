@@ -50,7 +50,9 @@ var (
 	ErrUnauthorized = &Error{Status: 401, Code: "Unauthorized", Message: "unauthorized"}
 	ErrForbidden    = &Error{Status: 403, Code: "Forbidden", Message: "forbidden"}
 	ErrNotFound     = &Error{Status: 404, Code: "NotFound", Message: "not found"}
-	ErrNotDir       = &Error{Status: 452, Code: "ENOTDIR", Message: "not a directory"}
+
+	ErrNotDir   = &Error{Status: 452, Code: "ENOTDIR", Message: "not a directory"}
+	ErrNotEmpty = &Error{Status: 453, Code: "ENOTEMPTY", Message: "directory not empty"}
 
 	ErrInvalidPath      = &Error{Status: 400, Code: "BadRequest", Message: "invalid path"}
 	ErrMismatchChecksum = &Error{Status: 461, Code: "MismatchChecksum", Message: "mismatch checksum"}

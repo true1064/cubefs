@@ -143,7 +143,7 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 		c.RespondError(err)
 		return
 	}
-	//d.out.Publish(ctx, makeOpLog(OpUpdateFile, uid, string(args.Path), "size", inode.Size))
+	// d.out.Publish(ctx, makeOpLog(OpUpdateFile, uid, string(args.Path), "size", inode.Size))
 	c.Respond()
 }
 
@@ -291,7 +291,8 @@ func (d *DriveNode) handleFileRename(c *rpc.Context) {
 		return
 	}
 	if srcDir != "" && srcDir != "/" {
-		srcParent, err := d.lookup(ctx, vol, root, string(srcDir))
+		var srcParent *sdk.DirInfo
+		srcParent, err = d.lookup(ctx, vol, root, srcDir.String())
 		if err != nil {
 			span.Warn("lookup src", srcDir, err)
 			c.RespondError(err)
@@ -306,7 +307,8 @@ func (d *DriveNode) handleFileRename(c *rpc.Context) {
 		return
 	}
 	if dstDir != "" && dstDir != "/" {
-		dstParent, err := d.lookup(ctx, vol, root, string(dstDir))
+		var dstParent *sdk.DirInfo
+		dstParent, err = d.lookup(ctx, vol, root, dstDir.String())
 		if err != nil {
 			span.Warn("lookup dst", dstDir, err)
 			c.RespondError(err)

@@ -85,10 +85,10 @@ func (d *DriveNode) handleFilesDelete(c *rpc.Context) {
 	dir, name := args.Path.Split()
 	parentIno := root
 	if dir != "" && dir != "/" {
-		parent, err := d.lookup(ctx, vol, root, dir.String())
-		if err != nil {
-			span.Warn(err)
-			c.RespondError(err)
+		parent, errx := d.lookup(ctx, vol, root, dir.String())
+		if errx != nil {
+			span.Warn(errx)
+			c.RespondError(errx)
 			return
 		}
 		parentIno = Inode(parent.Inode)
