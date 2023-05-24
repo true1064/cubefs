@@ -25,6 +25,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cubefs/cubefs/apinode/crypto"
 	"github.com/cubefs/cubefs/apinode/oplog"
 	"github.com/cubefs/cubefs/apinode/oplog/kafka"
 	"github.com/cubefs/cubefs/apinode/sdk"
@@ -44,6 +45,7 @@ const (
 	headerUserID    = "x-cfa-user-id"
 	headerCrc32     = "x-cfa-content-crc32"
 	// headerSign      = "x-cfa-sign"
+	headerCipherMaterial = "x-cfa-cipher-material"
 
 	userPropertyPrefix = "x-cfa-meta-"
 )
@@ -190,6 +192,8 @@ type DriveNode struct {
 
 	out *oplog.Output
 
+	cipherTrans crypto.TransCipher
+
 	closer.Closer
 }
 
@@ -200,11 +204,15 @@ func New() *DriveNode {
 	if err != nil {
 		log.Fatal(err)
 	}
+	if err := crypto.Init(); err != nil {
+		log.Fatal(err)
+	}
 	return &DriveNode{
-		userRouter: urm,
-		clusterMgr: cm,
-		out:        oplog.NewOutput(),
-		Closer:     closer.New(),
+		userRouter:  urm,
+		clusterMgr:  cm,
+		out:         oplog.NewOutput(),
+		cipherTrans: crypto.NewTransCipher(),
+		Closer:      closer.New(),
 	}
 }
 

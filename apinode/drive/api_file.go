@@ -69,6 +69,11 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 		c.RespondError(err)
 		return
 	}
+	reader, err = d.cipherTrans.Decryptor(c.Request.Header.Get(headerCipherMaterial), reader)
+	if err != nil {
+		c.RespondError(err)
+		return
+	}
 
 	extend := d.getProperties(c)
 	inode, err := vol.UploadFile(ctx, &sdk.UploadFileReq{
@@ -127,6 +132,11 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 	}
 
 	reader, err := newCrc32Reader(c.Request.Header, c.Request.Body, span.Warnf)
+	if err != nil {
+		c.RespondError(err)
+		return
+	}
+	reader, err = d.cipherTrans.Decryptor(c.Request.Header.Get(headerCipherMaterial), reader)
 	if err != nil {
 		c.RespondError(err)
 		return
@@ -195,9 +205,9 @@ func (d *DriveNode) handleFileDownload(c *rpc.Context) {
 	size := inode.Size
 	header := c.Request.Header.Get(headerRange)
 	if header != "" {
-		ranged, err := parseRange(header, int64(inode.Size))
-		if err != nil {
-			span.Warn(err)
+		ranged, errx := parseRange(header, int64(inode.Size))
+		if errx != nil {
+			span.Warn(errx)
 			c.RespondError(sdk.ErrBadRequest)
 			return
 		}
@@ -214,6 +224,12 @@ func (d *DriveNode) handleFileDownload(c *rpc.Context) {
 	}
 
 	body := makeReader(ctx, vol, inode.Inode, offset)
+	body, err = d.cipherTrans.Encryptor(c.Request.Header.Get(headerCipherMaterial), body)
+	if err != nil {
+		c.RespondError(err)
+		return
+	}
+
 	c.RespondWithReader(status, int(size), rpc.MIMEStream, body, headers)
 }
 

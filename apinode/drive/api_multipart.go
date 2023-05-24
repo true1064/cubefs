@@ -165,6 +165,11 @@ func (d *DriveNode) handleMultipartPart(c *rpc.Context) {
 		c.RespondError(err)
 		return
 	}
+	reader, err = d.cipherTrans.Decryptor(c.Request.Header.Get(headerCipherMaterial), reader)
+	if err != nil {
+		c.RespondError(err)
+		return
+	}
 
 	fullPath := multipartFullPath(d.userID(c), args.Path)
 	part, err := vol.UploadMultiPart(ctx, fullPath, args.UploadID, args.PartNumber, reader)

@@ -20,6 +20,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cubefs/cubefs/apinode/crypto"
 	"github.com/cubefs/cubefs/apinode/oplog"
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/apinode/testing/mocks"
@@ -55,10 +56,11 @@ func newMockNode(tb testing.TB) mockNode {
 	inode := uint64(1)
 	return mockNode{
 		DriveNode: &DriveNode{
-			vol:        volume,
-			userRouter: urm,
-			clusterMgr: clusterMgr,
-			out:        oplog.NewOutput(),
+			vol:         volume,
+			userRouter:  urm,
+			clusterMgr:  clusterMgr,
+			cipherTrans: crypto.MockTransCipher(),
+			out:         oplog.NewOutput(),
 		},
 		Volume:     volume,
 		ClusterMgr: clusterMgr,

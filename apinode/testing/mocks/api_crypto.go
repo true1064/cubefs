@@ -34,62 +34,34 @@ func (m *MockTransCipher) EXPECT() *MockTransCipherMockRecorder {
 	return m.recorder
 }
 
-// Decrypt mocks base method.
-func (m *MockTransCipher) Decrypt(arg0 []byte) ([]byte, error) {
+// Decryptor mocks base method.
+func (m *MockTransCipher) Decryptor(arg0 string, arg1 io.Reader) (io.Reader, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Decrypt", arg0)
-	ret0, _ := ret[0].([]byte)
+	ret := m.ctrl.Call(m, "Decryptor", arg0, arg1)
+	ret0, _ := ret[0].(io.Reader)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
-}
-
-// Decrypt indicates an expected call of Decrypt.
-func (mr *MockTransCipherMockRecorder) Decrypt(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Decrypt", reflect.TypeOf((*MockTransCipher)(nil).Decrypt), arg0)
-}
-
-// Decryptor mocks base method.
-func (m *MockTransCipher) Decryptor(arg0 io.Reader) io.Reader {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Decryptor", arg0)
-	ret0, _ := ret[0].(io.Reader)
-	return ret0
 }
 
 // Decryptor indicates an expected call of Decryptor.
-func (mr *MockTransCipherMockRecorder) Decryptor(arg0 interface{}) *gomock.Call {
+func (mr *MockTransCipherMockRecorder) Decryptor(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Decryptor", reflect.TypeOf((*MockTransCipher)(nil).Decryptor), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Decryptor", reflect.TypeOf((*MockTransCipher)(nil).Decryptor), arg0, arg1)
 }
 
-// Encrypt mocks base method.
-func (m *MockTransCipher) Encrypt(arg0 []byte) ([]byte, error) {
+// Encryptor mocks base method.
+func (m *MockTransCipher) Encryptor(arg0 string, arg1 io.Reader) (io.Reader, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Encrypt", arg0)
-	ret0, _ := ret[0].([]byte)
+	ret := m.ctrl.Call(m, "Encryptor", arg0, arg1)
+	ret0, _ := ret[0].(io.Reader)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Encrypt indicates an expected call of Encrypt.
-func (mr *MockTransCipherMockRecorder) Encrypt(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Encrypt", reflect.TypeOf((*MockTransCipher)(nil).Encrypt), arg0)
-}
-
-// Encryptor mocks base method.
-func (m *MockTransCipher) Encryptor(arg0 io.Reader) io.Reader {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Encryptor", arg0)
-	ret0, _ := ret[0].(io.Reader)
-	return ret0
-}
-
 // Encryptor indicates an expected call of Encryptor.
-func (mr *MockTransCipherMockRecorder) Encryptor(arg0 interface{}) *gomock.Call {
+func (mr *MockTransCipherMockRecorder) Encryptor(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Encryptor", reflect.TypeOf((*MockTransCipher)(nil).Encryptor), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Encryptor", reflect.TypeOf((*MockTransCipher)(nil).Encryptor), arg0, arg1)
 }
 
 // MockFileCipher is a mock of FileCipher interface.
@@ -115,74 +87,30 @@ func (m *MockFileCipher) EXPECT() *MockFileCipherMockRecorder {
 	return m.recorder
 }
 
-// Decrypt mocks base method.
-func (m *MockFileCipher) Decrypt(arg0 []byte) ([]byte, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Decrypt", arg0)
-	ret0, _ := ret[0].([]byte)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Decrypt indicates an expected call of Decrypt.
-func (mr *MockFileCipherMockRecorder) Decrypt(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Decrypt", reflect.TypeOf((*MockFileCipher)(nil).Decrypt), arg0)
-}
-
 // Decryptor mocks base method.
-func (m *MockFileCipher) Decryptor(arg0 io.Reader) io.Reader {
+func (m *MockFileCipher) Decryptor(arg0 []byte, arg1 io.Reader) io.Reader {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Decryptor", arg0)
+	ret := m.ctrl.Call(m, "Decryptor", arg0, arg1)
 	ret0, _ := ret[0].(io.Reader)
 	return ret0
 }
 
 // Decryptor indicates an expected call of Decryptor.
-func (mr *MockFileCipherMockRecorder) Decryptor(arg0 interface{}) *gomock.Call {
+func (mr *MockFileCipherMockRecorder) Decryptor(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Decryptor", reflect.TypeOf((*MockFileCipher)(nil).Decryptor), arg0)
-}
-
-// Encrypt mocks base method.
-func (m *MockFileCipher) Encrypt(arg0 []byte) ([]byte, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Encrypt", arg0)
-	ret0, _ := ret[0].([]byte)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Encrypt indicates an expected call of Encrypt.
-func (mr *MockFileCipherMockRecorder) Encrypt(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Encrypt", reflect.TypeOf((*MockFileCipher)(nil).Encrypt), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Decryptor", reflect.TypeOf((*MockFileCipher)(nil).Decryptor), arg0, arg1)
 }
 
 // Encryptor mocks base method.
-func (m *MockFileCipher) Encryptor(arg0 io.Reader) io.Reader {
+func (m *MockFileCipher) Encryptor(arg0 []byte, arg1 io.Reader) io.Reader {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Encryptor", arg0)
+	ret := m.ctrl.Call(m, "Encryptor", arg0, arg1)
 	ret0, _ := ret[0].(io.Reader)
 	return ret0
 }
 
 // Encryptor indicates an expected call of Encryptor.
-func (mr *MockFileCipherMockRecorder) Encryptor(arg0 interface{}) *gomock.Call {
+func (mr *MockFileCipherMockRecorder) Encryptor(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Encryptor", reflect.TypeOf((*MockFileCipher)(nil).Encryptor), arg0)
-}
-
-// Key mocks base method.
-func (m *MockFileCipher) Key() []byte {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Key")
-	ret0, _ := ret[0].([]byte)
-	return ret0
-}
-
-// Key indicates an expected call of Key.
-func (mr *MockFileCipherMockRecorder) Key() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Key", reflect.TypeOf((*MockFileCipher)(nil).Key))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Encryptor", reflect.TypeOf((*MockFileCipher)(nil).Encryptor), arg0, arg1)
 }
