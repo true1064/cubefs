@@ -155,6 +155,13 @@ func (mp *metaPartition) QuotaCreateDentry(req *proto.QuotaCreateDentryRequest, 
 		Type:     req.Mode,
 	}
 	dentry.setVerSeq(mp.verSeq)
+
+	// TODO createDentryEx support snap and tx
+	if req.OldIno != 0 {
+		return mp.createDentryEx(dentry, req.OldIno, p)
+	}
+
+	dentry.setVerSeq(mp.verSeq)
 	log.LogDebugf("action[CreateDentry] mp[%v] with seq %v,dentry [%v]", mp.config.PartitionId, mp.verSeq, dentry)
 	val, err := dentry.Marshal()
 	if err != nil {
@@ -167,6 +174,27 @@ func (mp *metaPartition) QuotaCreateDentry(req *proto.QuotaCreateDentryRequest, 
 	}
 	p.ResultCode = resp.(uint8)
 	return
+}
+
+func (mp *metaPartition) createDentryEx(den *Dentry, oldIno uint64, p *Packet) error {
+	dex := &DentryEx{
+		Dentry: den,
+		OldIno: oldIno,
+	}
+
+	val, err := json.Marshal(dex)
+	if err != nil {
+		return err
+	}
+
+	resp, err := mp.submit(opCreateDentryEx, val)
+	if err != nil {
+		p.PacketErrorWithBody(proto.OpAgain, []byte(err.Error()))
+		return err
+	}
+
+	p.ResultCode = resp.(uint8)
+	return nil
 }
 
 func (mp *metaPartition) TxDeleteDentry(req *proto.TxDeleteDentryRequest, p *Packet) (err error) {

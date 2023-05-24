@@ -478,6 +478,66 @@ func (mw *MetaWrapper) BatchInodeGet(inodes []uint64) []*proto.InodeInfo {
 	return batchInfos
 }
 
+func (mw *MetaWrapper) BatchInodeGetWith(inodes []uint64) (batchInfos []*proto.InodeInfo, err error) {
+	var wg sync.WaitGroup
+
+	resp := make(chan []*proto.InodeInfo, BatchIgetRespBuf)
+	candidates := make(map[uint64][]uint64)
+
+	// Target partition does not have to be very accurate.
+	for _, ino := range inodes {
+		mp := mw.getPartitionByInode(ino)
+		if mp == nil {
+			continue
+		}
+		if _, ok := candidates[mp.PartitionID]; !ok {
+			candidates[mp.PartitionID] = make([]uint64, 0, 256)
+		}
+		candidates[mp.PartitionID] = append(candidates[mp.PartitionID], ino)
+	}
+
+	// used to control goroutine number
+	limit := make(chan struct{}, 10)
+
+	for id, inos := range candidates {
+		limit <- struct{}{}
+		mp := mw.getPartitionByID(id)
+		if mp == nil {
+			continue
+		}
+		wg.Add(1)
+		go func(nodes []uint64) {
+			defer func() {
+				wg.Done()
+				<-limit
+			}()
+			subInfos, err1 := mw.batchIgetWithErr(mp, nodes)
+			if err1 != nil {
+				err = fmt.Errorf("invoke batchIgetWithErr failed, err %s", err1.Error())
+				return
+			}
+
+			resp <- subInfos
+		}(inos)
+	}
+
+	go func() {
+		wg.Wait()
+		close(resp)
+	}()
+
+	if err != nil {
+		return
+	}
+
+	for infos := range resp {
+		batchInfos = append(batchInfos, infos...)
+	}
+
+	log.LogDebugf("BatchInodeGet: inodesCnt(%d)", len(inodes))
+	return batchInfos, nil
+}
+
 // InodeDelete_ll is a low-level api that removes specified inode immediately
 // and do not effect extent data managed by this inode.
 func (mw *MetaWrapper) InodeDelete_ll(inode uint64) error {
@@ -1375,6 +1435,19 @@ func (mw *MetaWrapper) DentryCreate_ll(parentID uint64, name string, inode uint6
 	var err error
 	var status int
 	if status, err = mw.dcreate(parentMP, parentID, name, inode, mode); err != nil || status != statusOK {
+		return statusToErrno(status)
+	}
+	return nil
+}
+
+func (mw *MetaWrapper) DentryCreateEx_ll(parentID uint64, name string, inode, oldIno uint64, mode uint32) error {
+	parentMP := mw.getPartitionByInode(parentID)
+	if parentMP == nil {
+		return syscall.ENOENT
+	}
+	var err error
+	var status int
+	if status, err = mw.dcreateEx(parentMP, parentID, name, inode, oldIno, mode, nil); err != nil || status != statusOK {
 		return statusToErrno(status)
 	}
 	return nil

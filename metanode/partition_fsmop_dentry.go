@@ -129,6 +129,57 @@ func (mp *metaPartition) fsmCreateDentry(dentry *Dentry,
 		parIno.IncNLink(mp.verSeq)
 		parIno.SetMtime()
 	}
+
+	return
+}
+
+// Insert a dentry while old ino into the dentry tree.
+func (mp *metaPartition) fsmCreateDentryEx(dentry *DentryEx) (status uint8) {
+	status = proto.OpOk
+	var parIno *Inode
+	item := mp.inodeTree.CopyGet(NewInode(dentry.ParentId, 0))
+	if item == nil {
+		log.LogErrorf("action[fsmCreateDentryEx] ParentId [%v] get nil, dentry name [%v], inode [%v]", dentry.ParentId, dentry.Name, dentry.Inode)
+		status = proto.OpNotExistErr
+		return
+	}
+
+	parIno = item.(*Inode)
+	if parIno.ShouldDelete() {
+		log.LogErrorf("action[fsmCreateDentryEx] ParentId [%v] get [%v] but should del, dentry name [%v], inode [%v]", dentry.ParentId, parIno, dentry.Name, dentry.Inode)
+		status = proto.OpNotExistErr
+		return
+	}
+
+	if !proto.IsDir(parIno.Type) {
+		status = proto.OpArgMismatchErr
+		return
+	}
+
+	den := dentry.Dentry
+	mp.dentryTree.CopyFind(den, func(item BtreeItem) {
+		if item == nil {
+			log.LogErrorf("action[fsmCreateDentryEx] dentry is nil, but old ino not zero, parIno %d, name %s, oldIno %d", dentry.ParentId, dentry.Name, dentry.OldIno)
+			status = proto.OpNotExistErr
+			return
+		}
+
+		d := item.(*Dentry)
+		// already update success
+		if dentry.ParentId == d.ParentId && strings.Compare(dentry.Name, d.Name) == 0 && dentry.Inode == d.Inode {
+			return
+		}
+
+		if d.Inode != dentry.OldIno {
+			log.LogErrorf("action[fsmCreateDentryEx] exist ino %d is not equal to oldIno %d, parIno %d, name %s", d.Inode, dentry.OldIno, dentry.ParentId, dentry.Name)
+			status = proto.OpArgMismatchErr
+			return
+		}
+
+		d.Inode = den.Inode
+		d.Type = den.Type
+	})
+
 	return
 }
 

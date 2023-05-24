@@ -565,7 +565,12 @@ func (mw *MetaWrapper) quotaDcreate(mp *MetaPartition, parentID uint64, name str
 	return
 }
 
-func (mw *MetaWrapper) dcreate(mp *MetaPartition, parentID uint64, name string, inode uint64, mode uint32) (status int, err error) {
+func (mw *MetaWrapper) dcreate(mp *MetaPartition, parentID uint64, name string, inode uint64, mode uint32, quotaIds []uint32) (status int, err error) {
+	return mw.dcreateEx(mp, parentID, name, inode, 0, mode, quotaIds)
+}
+
+func (mw *MetaWrapper) dcreateEx(mp *MetaPartition, parentID uint64, name string, inode, oldIno uint64, mode uint32,
+	quotaIds []uint32) (status int, err error) {
 	bgTime := stat.BeginStat()
 	defer func() {
 		stat.EndStat("dcreate", err, bgTime, 1)
@@ -585,6 +590,8 @@ func (mw *MetaWrapper) dcreate(mp *MetaPartition, parentID uint64, name string, 
 		Inode:       inode,
 		Name:        name,
 		Mode:        mode,
+		QuotaIds:    quotaIds,
+		OldIno:      oldIno,
 		VerSeq:      verSeq,
 	}
 
