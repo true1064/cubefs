@@ -57,6 +57,7 @@ var (
 	ErrInvalidPath      = &Error{Status: 400, Code: "BadRequest", Message: "invalid path"}
 	ErrMismatchChecksum = &Error{Status: 461, Code: "MismatchChecksum", Message: "mismatch checksum"}
 	ErrTransCipher      = &Error{Status: 462, Code: "TransCipher", Message: "trans cipher"}
+	ErrServerCipher     = &Error{Status: 500, Code: "ServerCipher", Message: "server cipher"}
 
 	ErrInvalidPartOrder = newErr(http.StatusBadRequest, "request part order is invalid")
 	ErrInvalidPart      = newErr(http.StatusBadRequest, "request part is invalid")

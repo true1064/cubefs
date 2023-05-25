@@ -20,7 +20,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cubefs/cubefs/apinode/crypto"
 	"github.com/cubefs/cubefs/apinode/oplog"
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/apinode/testing/mocks"
@@ -53,14 +52,24 @@ func newMockNode(tb testing.TB) mockNode {
 	urm, _ := NewUserRouteMgr()
 	volume := mocks.NewMockIVolume(C(tb))
 	clusterMgr := mocks.NewMockClusterManager(C(tb))
+	cryptor := mocks.NewMockCryptor(C(tb))
+	cryptor.EXPECT().TransEncryptor(A, A).DoAndReturn(
+		func(_ string, r io.Reader) (io.Reader, error) {
+			return r, nil
+		}).AnyTimes()
+	cryptor.EXPECT().TransDecryptor(A, A).DoAndReturn(
+		func(_ string, r io.Reader) (io.Reader, error) {
+			return r, nil
+		}).AnyTimes()
+	cryptor.EXPECT().GenKey().Return(nil, nil).AnyTimes()
 	inode := uint64(1)
 	return mockNode{
 		DriveNode: &DriveNode{
-			vol:         volume,
-			userRouter:  urm,
-			clusterMgr:  clusterMgr,
-			cipherTrans: crypto.MockTransCipher(),
-			out:         oplog.NewOutput(),
+			vol:        volume,
+			userRouter: urm,
+			clusterMgr: clusterMgr,
+			cryptor:    cryptor,
+			out:        oplog.NewOutput(),
 		},
 		Volume:     volume,
 		ClusterMgr: clusterMgr,

@@ -59,8 +59,8 @@ func fileError(en *errno.Errno) error {
 		return nil
 	}
 	return &sdk.Error{
-		Status:  500,
-		Code:    "CryptoError",
+		Status:  sdk.ErrServerCipher.Status,
+		Code:    sdk.ErrServerCipher.Code,
 		Message: fmt.Sprintf("%d: %s", en.Code(), en.Error()),
 	}
 }
@@ -88,29 +88,24 @@ func Init() error {
 	return initOnce()
 }
 
-// TransCipher cipher for transmitting.
-type TransCipher interface {
-	Encryptor(material string, plaintexter io.Reader) (ciphertexter io.Reader, err error)
-	Decryptor(material string, ciphertexter io.Reader) (plaintexter io.Reader, err error)
+// Cryptor for transmitting and file content.
+type Cryptor interface {
+	// Trans encrypt and decrypt every byte.
+	TransEncryptor(material string, plaintexter io.Reader) (ciphertexter io.Reader, err error)
+	TransDecryptor(material string, ciphertexter io.Reader) (plaintexter io.Reader, err error)
+
+	// File encrypt and decrypt every BlockSize bytes.
+	GenKey() (key []byte, err error)
+	FileEncryptor(key []byte, plaintexter io.Reader) (ciphertexter io.Reader, err error)
+	FileDecryptor(key []byte, ciphertexter io.Reader) (plaintexter io.Reader, err error)
 }
 
-// FileCipher cipher for file content.
-type FileCipher interface {
-	Encryptor(key []byte, plaintexter io.Reader) (ciphertexter io.Reader)
-	Decryptor(key []byte, ciphertexter io.Reader) (plaintexter io.Reader)
-}
-
-// NewTransCipher returns the transfer encryption and decryption object.
-func NewTransCipher() TransCipher {
+// NewCryptor returns the encryption and decryption object.
+func NewCryptor() Cryptor {
 	if err := initOnce(); err != nil {
 		panic(err)
 	}
-	return transCipher{}
-}
-
-// MockTransCipher for testing.
-func MockTransCipher() TransCipher {
-	return transCipher{}
+	return cryptor{}
 }
 
 func newTransReader(mode engine.CipherMode, material string, r io.Reader) (io.Reader, *errno.Errno) {
@@ -126,107 +121,127 @@ func newTransReader(mode engine.CipherMode, material string, r io.Reader) (io.Re
 		return nil, errno.TransCipherIVBase64DecodeError
 	}
 
-	cipher, err := cryptoKit.NewEngineTransCipherStream(mode, io.MultiReader(bytes.NewReader(key), r))
-	if err != nil {
-		return nil, err
-	}
-	return cipher, nil
+	return cryptoKit.NewEngineTransCipherStream(mode, io.MultiReader(bytes.NewReader(key), r))
 }
 
-type transCipher struct{}
+type cryptor struct{}
 
-func (transCipher) Encryptor(material string, plaintexter io.Reader) (io.Reader, error) {
+func (cryptor) TransEncryptor(material string, plaintexter io.Reader) (io.Reader, error) {
 	r, err := newTransReader(engine.ENCRYPT_MODE, material, plaintexter)
 	return r, transError(err)
 }
 
-func (transCipher) Decryptor(material string, ciphertexter io.Reader) (io.Reader, error) {
+func (cryptor) TransDecryptor(material string, ciphertexter io.Reader) (io.Reader, error) {
 	r, err := newTransReader(engine.DECRYPT_MODE, material, ciphertexter)
 	return r, transError(err)
 }
 
-// NewFileCipher returns the file encryption and decryption object.
-func NewFileCipher() (FileCipher, error) {
-	if err := initOnce(); err != nil {
-		return nil, err
+func (cryptor) GenKey() ([]byte, error) {
+	_, key, err := cryptoKit.NewEngineFileCipherStream(nil, uint64(BlockSize), engine.ENCRYPT_MODE, nil)
+	if err != errno.OK {
+		return nil, fileError(err)
 	}
-	return fileCipher{}, nil
+	return key, nil
 }
 
-type fileCipher struct{}
-
-type blockCrypt func([]byte, uint64) ([]byte, *errno.Errno)
-
-type cryptor struct {
-	err    error
-	reader io.Reader
-	fn     blockCrypt
-
-	once   sync.Once
-	remain []byte
+func (cryptor) FileEncryptor(key []byte, plaintexter io.Reader) (io.Reader, error) {
+	if key == nil {
+		return plaintexter, nil
+	}
+	cipher, _, err := cryptoKit.NewEngineFileCipherStream(key, uint64(BlockSize), engine.ENCRYPT_MODE, plaintexter)
+	if err != errno.OK {
+		return nil, fileError(err)
+	}
+	return &fileCryptor{
+		remain:  pool.Get().([]byte)[:0],
+		reader:  plaintexter,
+		cryptor: cipher.EncryptBlock,
+	}, nil
 }
 
-func (e *cryptor) free() {
-	e.once.Do(func() {
-		pool.Put(e.remain) // nolint: staticcheck
+func (cryptor) FileDecryptor(key []byte, ciphertexter io.Reader) (io.Reader, error) {
+	if key == nil {
+		return ciphertexter, nil
+	}
+	cipher, _, err := cryptoKit.NewEngineFileCipherStream(key, uint64(BlockSize), engine.DECRYPT_MODE, ciphertexter)
+	if err != errno.OK {
+		return nil, fileError(err)
+	}
+	return &fileCryptor{
+		remain:  pool.Get().([]byte)[:0],
+		reader:  ciphertexter,
+		cryptor: cipher.DecryptBlock,
+	}, nil
+}
+
+type fileCryptor struct {
+	once    sync.Once
+	remain  []byte
+	reader  io.Reader
+	err     error
+	cryptor func([]byte, []byte, uint64) *errno.Errno
+}
+
+func (r *fileCryptor) free() {
+	r.once.Do(func() {
+		if r.remain != nil {
+			block := r.remain
+			r.remain = nil
+			pool.Put(block) // nolint: staticcheck
+		}
 	})
 }
 
-func (e *cryptor) Read(p []byte) (n int, err error) {
-	if e.err != nil {
-		e.free()
-		err = e.err
-		return
+func (r *fileCryptor) Read(p []byte) (n int, err error) {
+	if r.err != nil {
+		r.free()
+		return 0, r.err
 	}
 
 	for len(p) > 0 {
-		// read remain firstly, return if it still have remaining.
-		if l := len(e.remain); l > 0 {
-			cn := copy(p, e.remain)
-			e.remain = e.remain[cn:]
-			p = p[cn:]
-			if cn < l {
-				return cn, nil
+		if len(r.remain) == 0 {
+			if r.err = r.nextBlock(); r.err != nil {
+				if n > 0 {
+					return n, nil
+				}
+				r.free()
+				return n, r.err
 			}
 		}
 
-		e.nextBlock()
-	}
+		read := copy(p, r.remain)
+		r.remain = r.remain[read:]
 
-	buff := e.remain[0:BlockSize]
-	for len(p) > 0 {
-		n, err = e.reader.Read(buff)
-		if err != nil {
-			return
+		p = p[read:]
+		n += read
+	}
+	return n, nil
+}
+
+func (r *fileCryptor) nextBlock() error {
+	block := r.remain[0:BlockSize]
+	n, err := readFullOrToEnd(r.reader, block)
+	if n > 0 {
+		block = block[:n]
+		eno := r.cryptor(block, block, 0)
+		if eno != errno.OK {
+			return fileError(eno)
+		}
+		r.remain = block
+	}
+	return err
+}
+
+func readFullOrToEnd(r io.Reader, buffer []byte) (n int, err error) {
+	nn, size := 0, len(buffer)
+
+	for n < size && err == nil {
+		nn, err = r.Read(buffer[n:])
+		n += nn
+		if n != 0 && err == io.EOF {
+			return n, nil
 		}
 	}
-	return
-}
 
-func (e *cryptor) nextBlock() {
-	if len(e.remain) > 0 {
-		return
-	}
-}
-
-func (fileCipher) Encryptor(key []byte, plaintexter io.Reader) (ciphertexter io.Reader) {
-	cipher, _, err := cryptoKit.NewEngineFileCipher(key, uint64(BlockSize))
-
-	var fn blockCrypt
-	if cipher != nil {
-		fn = cipher.EncryptBlock
-	}
-
-	buff := pool.Get().([]byte)
-	buff = buff[:0]
-	return &cryptor{
-		err:    fileError(err),
-		reader: plaintexter,
-		fn:     fn,
-		remain: buff,
-	}
-}
-
-func (fileCipher) Decryptor(key []byte, ciphertexter io.Reader) (plaintexter io.Reader) {
-	return nil
+	return n, err
 }

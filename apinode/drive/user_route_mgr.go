@@ -38,6 +38,7 @@ type UserRoute struct {
 	DriveID     string `json:"driveId"`
 	RootPath    string `json:"rootPath"`
 	RootFileID  FileID `json:"rootFileId"`
+	CipherKey   []byte `json:"cipherKey"`
 	Ctime       int64  `json:"ctime"`
 	Params      string `json:"params"` // cfs
 }
@@ -104,6 +105,11 @@ func (d *DriveNode) CreateUserRoute(ctx context.Context, uid UserID) (string, er
 	if err != nil {
 		return "", err
 	}
+	cipherKey, err := d.cryptor.GenKey()
+	if err != nil {
+		return "", err
+	}
+
 	// Locate the user file of the default cluster according to the hash of uid
 	ur := &UserRoute{
 		Uid:         uid,
@@ -113,6 +119,7 @@ func (d *DriveNode) CreateUserRoute(ctx context.Context, uid UserID) (string, er
 		DriveID:     uuid.New().String(),
 		RootPath:    rootPath,
 		RootFileID:  Inode(inoInfo.Inode),
+		CipherKey:   cipherKey,
 		Ctime:       time.Now().Unix(),
 	}
 

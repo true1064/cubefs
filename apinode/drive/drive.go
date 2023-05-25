@@ -192,7 +192,7 @@ type DriveNode struct {
 
 	out *oplog.Output
 
-	cipherTrans crypto.TransCipher
+	cryptor crypto.Cryptor
 
 	closer.Closer
 }
@@ -208,11 +208,11 @@ func New() *DriveNode {
 		log.Fatal(err)
 	}
 	return &DriveNode{
-		userRouter:  urm,
-		clusterMgr:  cm,
-		out:         oplog.NewOutput(),
-		cipherTrans: crypto.NewTransCipher(),
-		Closer:      closer.New(),
+		userRouter: urm,
+		clusterMgr: cm,
+		out:        oplog.NewOutput(),
+		cryptor:    crypto.NewCryptor(),
+		Closer:     closer.New(),
 	}
 }
 
