@@ -7,11 +7,11 @@ Copyright OPPO Corp. All Rights Reserved.
 package engine
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"fmt"
 	"io"
-	"strings"
 
 	"golang.org/x/crypto/xts"
 
@@ -67,8 +67,12 @@ func NewEngineFileCipherStream(plainKey, cipherKey []byte, blockSize uint64, cip
 		return nil, nil, errno.FileCipherKeyLengthError.Append(fmt.Sprintf("key length:%d", len(plainKey)))
 	}
 
-	if blockSize%16 != 0 {
+	if blockSize%16 != 0 || blockSize == 0 {
 		return nil, nil, errno.FileCipherBlockSizeError.Append(fmt.Sprintf("block size:%d", blockSize))
+	}
+
+	if reader == nil {
+		return nil, nil, errno.FileCipherStreamModeNilStreamError
 	}
 
 	var err error
@@ -117,9 +121,21 @@ func (e *EngineFileCipherStream) Read(p []byte) (int, error) {
 		if err == io.EOF {
 			switch e.cipherMode {
 			case ENCRYPT_MODE:
-				e.finalReader = strings.NewReader(string(e.finalEncryptFile()))
+				data, finalErr := e.finalEncryptFile()
+				if finalErr == nil {
+					e.finalReader = bytes.NewReader(data)
+				} else {
+					err = finalErr
+				}
+
 			case DECRYPT_MODE:
-				e.finalReader = strings.NewReader(string(e.finalDecryptFile()))
+				data, finalErr := e.finalDecryptFile()
+				if finalErr == nil {
+					e.finalReader = bytes.NewReader(data)
+				} else {
+					err = finalErr
+				}
+
 			default:
 				return 0, fmt.Errorf("Error with cipher mode:%d", e.cipherMode)
 			}
@@ -133,82 +149,133 @@ func (e *EngineFileCipherStream) Read(p []byte) (int, error) {
 	}
 }
 
-// EncryptBlock 以分组块的形式加密一段数据，数据长度必须大于等于分组长度，且小于分组长度的2倍。
+// EncryptBlock 以分组块的形式加密一段数据，如果数据小于一个block size，认为整个文件的大小是block size；
+// 如果需要加密最后一个不足一个分组大小的数据，则应当将前一个分组也一并传入；其他情况应以分组传入数据。
 //
 //  @receiver e
 //  @param ciphertext 存储加密后的数据。
 //  @param plaintext 待加密的明文数据。
-//  @param sectorNum 待加密的明文数据的分组序号。
+//  @param sectorNum 待加密的明文数据的分组序号，它是这段数据的起始序号。
 //  @return *errno.Errno 如果出错，返回出错错误码以及详细信息。
 func (e *EngineFileCipherStream) EncryptBlock(ciphertext, plaintext []byte, sectorNum uint64) *errno.Errno {
-	plaintextLen := len(plaintext)
-	if plaintextLen < int(e.blockSize) || plaintextLen-int(e.blockSize) >= int(e.blockSize) {
-		return errno.FileCipherBlockModePlaintextLengthError.Append(fmt.Sprintf("plaintext len:%d, block size:%d", len(plaintext), e.blockSize))
+	if sectorNum < 0 {
+		return errno.FileCipherBlockModeSectorNumError
 	}
 
+	plaintextLen := len(plaintext)
+	if len(ciphertext) < plaintextLen {
+		return errno.FileCipherBlockModeCiphertextLengthError
+	}
+
+	// 刚好一个分组大小
 	if plaintextLen == int(e.blockSize) {
 		e.cipher.Encrypt(ciphertext, plaintext, sectorNum)
-	} else {
-		if sectorNum < 1 {
-			return errno.FileCipherBlockModeSectorNumError
+		return errno.OK
+	}
+
+	// 不足一个块，认为数据总长度只有这么长，因此切换为AES-CTR
+	if plaintextLen < int(e.blockSize) {
+		data, err := e.encryptCTR(plaintext)
+		if err != nil {
+			return errno.FileCipherNewXtsCipherError.Append(err.Error())
 		}
 
-		// 加密倒数第2个块
-		block := plaintext[:e.blockSize]
-		blockCiphertext := make([]byte, e.blockSize)
-		e.cipher.Encrypt(blockCiphertext, block, sectorNum-1)
-
-		// 加密倒数第1个块
-		lastPlaintext := plaintext[e.blockSize:]
-		lastPlaintextLen := len(lastPlaintext)
-		lastPlaintextBlock := append(lastPlaintext, blockCiphertext[lastPlaintextLen:]...)
-		lastCiphertext := make([]byte, e.blockSize)
-		e.cipher.Encrypt(lastCiphertext, lastPlaintextBlock, sectorNum)
-
-		// 组装密文块
-		lastCiphertext = append(lastCiphertext, blockCiphertext[:lastPlaintextLen]...)
-		copy(ciphertext, lastCiphertext)
+		copy(ciphertext, data)
+		return errno.OK
 	}
+
+	// 大于一个块，需要分组加密
+	start := 0
+	for start < plaintextLen {
+		end := start + int(e.blockSize)
+		if end <= plaintextLen {
+			e.cipher.Encrypt(ciphertext[start:end], plaintext[start:end], sectorNum)
+		} else {
+			lastBlockLen := plaintextLen - start
+			reserveLen := e.blockSize - uint64(lastBlockLen)
+			lastPlaintext := plaintext[start:plaintextLen]
+			lastBlockPlaintext := append(lastPlaintext, ciphertext[uint64(start)-reserveLen:start]...)
+
+			// 加密最后一个分组
+			lastBlockCiphertext := make([]byte, e.blockSize)
+			e.cipher.Encrypt(lastBlockCiphertext, lastBlockPlaintext, sectorNum)
+
+			// 倒数第2个密文分组的部分数据移动到密文的尾部
+			copy(ciphertext[start:], ciphertext[start-int(e.blockSize):lastBlockLen])
+			// 倒数第1密文分组移动到倒数第2个分组
+			copy(ciphertext[start-int(e.blockSize):start], lastBlockCiphertext)
+		}
+
+		start += int(e.blockSize)
+		sectorNum += 1
+	}
+
 	return errno.OK
 }
 
-// DecryptBlock 以分组块的形式解密一段数据，数据长度必须大于等于分组长度，且小于分组长度的2倍。
+// DecryptBlock 以分组块的形式解密一段数据，如果数据小于一个block size，认为整个文件的大小是block size；
+// 如果需要解密最后一个不足一个分组大小的数据，则应当将前一个分组也一并传入；其他情况应以分组传入数据。
 //
 //  @receiver e
 //  @param plaintext 解密后的明文数据。
 //  @param ciphertext 待解密的用户数据。
-//  @param sectorNum 密文数据的分组序号。
+//  @param sectorNum 密文数据的分组序号，它是这段数据的起始序号。
 //  @return *errno.Errno 如果出错，返回出错错误码以及详细信息。
 func (e *EngineFileCipherStream) DecryptBlock(plaintext, ciphertext []byte, sectorNum uint64) *errno.Errno {
-	ciphertextLen := len(ciphertext)
-	if ciphertextLen < int(e.blockSize) || ciphertextLen-int(e.blockSize) >= int(e.blockSize) {
-		return errno.FileCipherBlockModeCiphertextLengthError.Append(fmt.Sprintf("ciphertext len:%d, block size:%d", len(ciphertext), e.blockSize))
+	if sectorNum < 0 {
+		return errno.FileCipherBlockModeSectorNumError
 	}
 
+	ciphertextLen := len(ciphertext)
+	if len(plaintext) < ciphertextLen {
+		return errno.FileCipherBlockModePlaintextLengthError
+	}
+
+	// 刚好一个分组大小
 	if ciphertextLen == int(e.blockSize) {
 		e.cipher.Decrypt(plaintext, ciphertext, sectorNum)
-	} else {
-		if sectorNum < 1 {
-			return errno.FileCipherBlockModeSectorNumError
-		}
-
-		// 解密倒数第2个块
-		block := ciphertext[:e.blockSize]
-		blockPlaintext := make([]byte, e.blockSize)
-		e.cipher.Decrypt(blockPlaintext, block, sectorNum)
-
-		// 解密倒数第1个块
-		lastCiphertext := ciphertext[e.blockSize:]
-		lastCiphertextLen := len(lastCiphertext)
-		lastCiphertextBlock := append(lastCiphertext, blockPlaintext[lastCiphertextLen:]...)
-		lastPlaintext := make([]byte, e.blockSize)
-		e.cipher.Decrypt(lastPlaintext, lastCiphertextBlock, sectorNum-1)
-
-		// 组装明文块
-		lastPlaintext = append(lastPlaintext, blockPlaintext[:lastCiphertextLen]...)
-		copy(plaintext, lastPlaintext)
+		return errno.OK
 	}
 
+	// 不足一个块，认为数据总长度只有这么长，因此切换为AES-CTR
+	if ciphertextLen < int(e.blockSize) {
+		data, err := e.decryptCTR(ciphertext)
+		if err != nil {
+			return errno.FileCipherNewXtsCipherError.Append(err.Error())
+		}
+
+		copy(plaintext, data)
+		return errno.OK
+	}
+
+	// 大于一个块，需要分组解密
+	start := 0
+	for start < ciphertextLen {
+		end := start + int(e.blockSize)
+		if end <= ciphertextLen {
+			e.cipher.Decrypt(plaintext[start:end], ciphertext[start:end], sectorNum)
+		} else {
+			// 重新解密倒数第2个块，其sector num需要调整下
+			e.cipher.Decrypt(plaintext[start-int(e.blockSize):start], ciphertext[start-int(e.blockSize):start], sectorNum)
+
+			lastBlockLen := ciphertextLen - start
+			reserveLen := e.blockSize - uint64(lastBlockLen)
+			lastCiphertext := ciphertext[start:ciphertextLen]
+			lastBlockCiphertext := append(lastCiphertext, plaintext[uint64(start)-reserveLen:start]...)
+
+			// 加密最后一个分组
+			lastBlockPlaintext := make([]byte, e.blockSize)
+			e.cipher.Decrypt(lastBlockPlaintext, lastBlockCiphertext, sectorNum-1)
+
+			// 倒数第2个密文分组的部分数据移动到密文的尾部
+			copy(plaintext[start:], plaintext[start-int(e.blockSize):lastBlockLen])
+			// 倒数第1密文分组移动到倒数第2个分组
+			copy(plaintext[start-int(e.blockSize):start], lastBlockPlaintext)
+		}
+
+		start += int(e.blockSize)
+		sectorNum += 1
+	}
 	return errno.OK
 }
 
@@ -216,34 +283,33 @@ func (e *EngineFileCipherStream) DecryptBlock(plaintext, ciphertext []byte, sect
 //  @receiver e
 //  @param plaintext 待加密的明文数据。
 //  @return []byte 加密成功后的密文数据。
-func (e *EngineFileCipherStream) encryptCTR(plaintext []byte) []byte {
+func (e *EngineFileCipherStream) encryptCTR(plaintext []byte) ([]byte, error) {
 	block, err := aes.NewCipher(e.plainKey)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	stream := cipher.NewCTR(block, e.plainKey[:block.BlockSize()])
 	ciphertext := make([]byte, len(plaintext))
 	stream.XORKeyStream(ciphertext, plaintext)
-
-	return ciphertext
+	return ciphertext, nil
 }
 
 // decryptCTR 使用AES-256-CTR算法解密一段数据。
 //  @receiver e
 //  @param ciphertext 待解密的密文数据。
 //  @return []byte 解密成功后的明文数据。
-func (e *EngineFileCipherStream) decryptCTR(ciphertext []byte) []byte {
+func (e *EngineFileCipherStream) decryptCTR(ciphertext []byte) ([]byte, error) {
 	block, err := aes.NewCipher(e.plainKey)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	stream := cipher.NewCTR(block, e.plainKey[:block.BlockSize()])
 	plaintext := make([]byte, len(ciphertext))
 	stream.XORKeyStream(plaintext, ciphertext)
 
-	return plaintext
+	return plaintext, nil
 }
 
 // encrypt 加密一个文件，通过多次调用达到对一个文件的完整加密。
@@ -318,16 +384,15 @@ func (e *EngineFileCipherStream) decrypt(plaintext, ciphertext []byte) int {
 //
 //  @receiver e
 //  @return []byte 最后分组数据的密文。
-func (e *EngineFileCipherStream) finalEncryptFile() []byte {
+func (e *EngineFileCipherStream) finalEncryptFile() ([]byte, error) {
 	dataReservedLen := len(e.dataReserved)
 	if e.lastBlockReserved == nil {
 		return e.encryptCTR(e.dataReserved)
-		// return nil, errno.FileCipherFileModeTotalBlockLessThanOneError.Append(fmt.Sprintf("data len:%d, block size:%d", dataReservedLen, e.blockSize))
 	}
 
 	// 最后一个分组的长度刚好等于一个分组长度，这种不需要窃取补位
 	if len(e.dataReserved) == 0 {
-		return e.lastBlockReserved
+		return e.lastBlockReserved, nil
 	} else { // 最后一个分组窃取补位。
 		e.dataReserved = append(e.dataReserved, e.lastBlockReserved[dataReservedLen:]...)
 		// 加密数据，同时将分组序号递增
@@ -337,7 +402,7 @@ func (e *EngineFileCipherStream) finalEncryptFile() []byte {
 
 		// 将缓存的分组以及最后一个分组密文一起返回。
 		ciphertext = append(ciphertext, e.lastBlockReserved[:dataReservedLen]...)
-		return ciphertext
+		return ciphertext, nil
 	}
 }
 
@@ -345,7 +410,7 @@ func (e *EngineFileCipherStream) finalEncryptFile() []byte {
 //
 //  @receiver e
 //  @return []byte 解密后的数据明文。
-func (e *EngineFileCipherStream) finalDecryptFile() []byte {
+func (e *EngineFileCipherStream) finalDecryptFile() ([]byte, error) {
 	var plaintext []byte
 	dataReservedLen := len(e.dataReserved)
 
@@ -372,7 +437,7 @@ func (e *EngineFileCipherStream) finalDecryptFile() []byte {
 		plaintext = append(plaintext, plaintextTemp[:dataReservedLen]...)
 	}
 
-	return plaintext
+	return plaintext, nil
 }
 
 // prepareBlockSizeData 将传进来的数据按设定的分组大小分组。

@@ -77,8 +77,7 @@ C8CRvNwziVocvBF/bQ/1dG/c
 // 	EnvCodePROD: "http://datasec-kms-cn.oppo.local",
 // }
 
-// ServiceBased Based on the service-based encryption and decryption scheme, the encrypted data
-// can be decrypted on the terminal and the cloud at the same time.
+// ServiceBased 服务级加密方案，端云数据传输基于数字信封，云侧数据存储基于KMS，托管文件密钥。
 type ServiceBased struct {
 
 	// keyId KMS NXG KeyID
@@ -96,23 +95,23 @@ type ServiceBased struct {
 //	@receiver service
 //	@return error
 func (s *ServiceBased) initKMSEx(kmsParam *KmsParam, env EnvironmentType) *errno.Errno {
-	param := okey.Params{
-		AppName: kmsParam.AppName,
-		Ak:      kmsParam.AK,
-		Sk:      kmsParam.SK,
-		KmsUrl:  KmsExUrl[env],
-		AuthUrl: AuthUrl,
-	}
-	// log.Printf("kmsEx param:%+v\n", param)
+	// param := okey.Params{
+	// 	AppName: kmsParam.AppName,
+	// 	Ak:      kmsParam.AK,
+	// 	Sk:      kmsParam.SK,
+	// 	KmsUrl:  KmsExUrl[env],
+	// 	AuthUrl: AuthUrl,
+	// }
+	// // log.Printf("kmsEx param:%+v\n", param)
 
-	var err error
-	if s.kmsEx, err = okey.GetInstance(param); err != nil {
-		return errno.KmsParamError.Append(err.Error())
-	}
+	// var err error
+	// if s.kmsEx, err = okey.GetInstance(param); err != nil {
+	// 	return errno.KmsParamError.Append(err.Error())
+	// }
 
-	if err = s.kmsEx.Init(); err != nil {
-		return errno.KmsInitError.Append(err.Error())
-	}
+	// if err = s.kmsEx.Init(); err != nil {
+	// 	return errno.KmsInitError.Append(err.Error())
+	// }
 
 	return errno.OK
 }

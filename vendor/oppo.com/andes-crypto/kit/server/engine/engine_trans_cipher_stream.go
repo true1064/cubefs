@@ -66,6 +66,10 @@ func NewEngineTransCipherStream(key, iv []byte, needHmac bool, cipherMode Cipher
 		return nil, errno.TransCipherIVLengthError
 	}
 
+	if reader == nil {
+		return nil, errno.TransCipherStreamModeNilStreamError
+	}
+
 	if block, err := aes.NewCipher(key); err == nil {
 		return &EngineTransCipherStream{
 			stream:     cipher.NewCTR(block, iv),

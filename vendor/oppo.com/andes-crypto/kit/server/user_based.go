@@ -11,8 +11,7 @@ import (
 	"oppo.com/andes-crypto/kit/server/errno"
 )
 
-// UserBased Based on the user-based encryption and decryption scheme, the encrypted data can
-// be decrypted on all devices of the user's same account.
+// UserBased
 type UserBased struct{}
 
 // Init AndesCryptoKit初始化，完成不同加密方案的秘钥托管配置管理以及认证鉴权。

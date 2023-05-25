@@ -75,6 +75,9 @@ var (
 	// TransCipherMaterialUnexpectedEOfError 传输加密材料长度不够344字节错误。
 	TransCipherMaterialUnexpectedEOfError = &Errno{code: 30016, message: "tran cipher material len error: unexpected EOF."}
 
+	// TransCipherStreamModeNilStreamError 传输加密传入空流错误。
+	TransCipherStreamModeNilStreamError = &Errno{code: 40010, message: "trans cipher stream mode nil stream error."}
+
 	/*  文件存储错误，前缀为 400 */
 	// FileCipherKeyLengthError 文件加密密钥长度错误，必须为32字节或者64字节。
 	FileCipherKeyLengthError = &Errno{code: 40001, message: "file cipher param key length(must 32 or 64 bytes) error."}
@@ -100,7 +103,11 @@ var (
 	// FileCipherFileModeTotalBlockLessThanOneError 文件加密明文或者密文的总长度不足一个分组大小的错误。
 	FileCipherFileModeTotalBlockLessThanOneError = &Errno{code: 40008, message: "file cipher file mode total block number is less than one error."}
 
+	// FileCipherBlockModeSectorNumError 文件加密分组序号错误。
 	FileCipherBlockModeSectorNumError = &Errno{code: 40009, message: "file cipher block mode sector number error."}
+
+	// FileCipherBlockModeSectorNumError 文件加密传入空流错误。
+	FileCipherStreamModeNilStreamError = &Errno{code: 40010, message: "file cipher stream mode nil stream error."}
 
 	/*  文件存储错误，前缀为 500 */
 	ServiceBasedDataEncryptKeyError = &Errno{code: 50001, message: "service based scheme data encrypt key(DEK) get error."}

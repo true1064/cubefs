@@ -2,7 +2,7 @@
 Copyright OPPO Corp. All Rights Reserved.
 */
 
-// package andescryptokit is used to define all interfaces exposed to users, and different
+// package server is used to define all interfaces exposed to users, and different
 // encryption schemes should implement these interfaces.
 package server
 
