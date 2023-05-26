@@ -162,11 +162,13 @@ func (d *DriveNode) handleMultipartPart(c *rpc.Context) {
 
 	reader, err := d.cryptor.TransDecryptor(c.Request.Header.Get(headerCipherMaterial), c.Request.Body)
 	if err != nil {
+		span.Warn(err)
 		c.RespondError(err)
 		return
 	}
 	reader, err = newCrc32Reader(c.Request.Header, reader, span.Warnf)
 	if err != nil {
+		span.Warn(err)
 		c.RespondError(err)
 		return
 	}

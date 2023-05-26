@@ -101,6 +101,7 @@ func (d *DriveNode) handleFilesDelete(c *rpc.Context) {
 	}
 	err = vol.Delete(ctx, parentIno.Uint64(), name, file.IsDir())
 	if err != nil {
+		span.Error(err)
 		c.RespondError(err)
 		return
 	}

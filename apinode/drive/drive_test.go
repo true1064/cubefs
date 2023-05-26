@@ -338,11 +338,18 @@ func TestCreateDir(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockVol := mocks.NewMockIVolume(ctrl)
 	d := &DriveNode{}
-	_, err := d.createDir(context.TODO(), mockVol, 1, "/", false)
-	require.ErrorIs(t, err, sdk.ErrBadRequest)
+	for _, path := range []string{"", "/"} {
+		mockVol.EXPECT().GetInode(A, A).Return(nil, sdk.ErrNotFound)
+		_, err := d.createDir(context.TODO(), mockVol, 1, path, false)
+		require.ErrorIs(t, err, sdk.ErrNotFound)
+
+		mockVol.EXPECT().GetInode(A, A).Return(nil, nil)
+		_, err = d.createDir(context.TODO(), mockVol, 1, path, false)
+		require.NoError(t, err)
+	}
 
 	mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, sdk.ErrNotFound).Times(2)
-	_, err = d.createDir(context.TODO(), mockVol, 1, "/a/b", false)
+	_, err := d.createDir(context.TODO(), mockVol, 1, "/a/b", false)
 	require.ErrorIs(t, err, sdk.ErrNotFound)
 	mockVol.EXPECT().Mkdir(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, sdk.ErrForbidden)
 	_, err = d.createDir(context.TODO(), mockVol, 1, "/a", false)

@@ -304,6 +304,10 @@ func (d *DriveNode) lookup(ctx context.Context, vol sdk.IVolume, parentIno Inode
 }
 
 func (d *DriveNode) createDir(ctx context.Context, vol sdk.IVolume, parentIno Inode, path string, recursive bool) (info *sdk.InodeInfo, err error) {
+	if path == "" || path == "/" {
+		return vol.GetInode(ctx, parentIno.Uint64())
+	}
+
 	var dirInfo *sdk.DirInfo
 	err = sdk.ErrBadRequest
 	names := strings.Split(path, "/")

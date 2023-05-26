@@ -66,11 +66,13 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 
 	reader, err := d.cryptor.TransDecryptor(c.Request.Header.Get(headerCipherMaterial), c.Request.Body)
 	if err != nil {
+		span.Warn(err)
 		c.RespondError(err)
 		return
 	}
 	reader, err = newCrc32Reader(c.Request.Header, reader, span.Warnf)
 	if err != nil {
+		span.Warn(err)
 		c.RespondError(err)
 		return
 	}
@@ -84,6 +86,7 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 		Body:   reader,
 	})
 	if err != nil {
+		span.Error(err)
 		c.RespondError(err)
 		return
 	}
@@ -133,11 +136,13 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 
 	reader, err := d.cryptor.TransDecryptor(c.Request.Header.Get(headerCipherMaterial), c.Request.Body)
 	if err != nil {
+		span.Warn(err)
 		c.RespondError(err)
 		return
 	}
 	reader, err = newCrc32Reader(c.Request.Header, reader, span.Warnf)
 	if err != nil {
+		span.Warn(err)
 		c.RespondError(err)
 		return
 	}
@@ -150,6 +155,7 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 	}
 	span.Infof("write file: %d offset:%d size:%d", args.FileID, ranged.Start, size)
 	if err = vol.WriteFile(ctx, uint64(args.FileID), uint64(ranged.Start), size, reader); err != nil {
+		span.Error(err)
 		c.RespondError(err)
 		return
 	}
@@ -190,7 +196,6 @@ func (d *DriveNode) handleFileDownload(c *rpc.Context) {
 
 	file, err := d.lookup(ctx, vol, root, args.Path.String())
 	if err != nil {
-		span.Warn(err)
 		c.RespondError(err)
 		return
 	}
@@ -226,6 +231,7 @@ func (d *DriveNode) handleFileDownload(c *rpc.Context) {
 	body := makeReader(ctx, vol, inode.Inode, offset)
 	body, err = d.cryptor.TransEncryptor(c.Request.Header.Get(headerCipherMaterial), body)
 	if err != nil {
+		span.Warn(err)
 		c.RespondError(err)
 		return
 	}
@@ -373,7 +379,6 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 
 	file, err := d.lookup(ctx, vol, root, args.Src.String())
 	if err != nil {
-		span.Warn(err)
 		c.RespondError(err)
 		return
 	}
@@ -390,6 +395,7 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 	if args.Meta {
 		extend, err = vol.GetXAttrMap(ctx, inode.Inode)
 		if err != nil {
+			span.Warn(err)
 			c.RespondError(err)
 			return
 		}
@@ -398,6 +404,7 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 	dir, filename := args.Dst.Split()
 	dstParent, err := d.createDir(ctx, vol, root, dir.String(), true)
 	if err != nil {
+		span.Warn(err)
 		c.RespondError(err)
 		return
 	}
@@ -409,8 +416,10 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 		Extend: extend,
 		Body:   body,
 	})
-	if err != nil {
+	if err == nil {
 		d.out.Publish(ctx, makeOpLog(OpCopyFile, d.userID(c), string(args.Src), "dst", string(args.Dst)))
+	} else {
+		span.Error(err)
 	}
 	c.RespondError(err)
 }
