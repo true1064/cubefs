@@ -128,7 +128,7 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 	}
 
 	ranged, err := parseRange(c.Request.Header.Get(headerRange), int64(inode.Size))
-	if err != nil {
+	if err != nil && err != errOverSize {
 		span.Warn(err)
 		c.RespondError(sdk.ErrBadRequest)
 		return

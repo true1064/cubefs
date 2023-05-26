@@ -62,7 +62,7 @@ func init() {
 }
 
 var (
-	host string = "http://localhost"
+	host string = "http://localhost:9999"
 	user string = "test"
 )
 

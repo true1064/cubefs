@@ -15,6 +15,7 @@
 package drive
 
 import (
+	"errors"
 	"fmt"
 	"hash"
 	"hash/crc32"
@@ -25,6 +26,8 @@ import (
 
 	"github.com/cubefs/cubefs/apinode/sdk"
 )
+
+var errOverSize = errors.New("start out of size")
 
 // returns bytes contains the End byte.
 type ranges struct {
@@ -57,6 +60,9 @@ func parseRange(header string, size int64) (ranges, error) {
 		start = size - end
 		end = size - 1
 	} else if endErr != nil {
+		if start > size {
+			return ranges{Start: start}, errOverSize
+		}
 		end = size - 1
 	}
 

@@ -133,7 +133,7 @@ func (c *client) FileUpload(path string, fileID uint64, body io.Reader, meta ...
 
 func (c *client) FileWrite(path string, fileID uint64, from, to int, body io.Reader) error {
 	return c.requestWithHeader(put, genURI("/v1/files/content", "path", path, "fileId", fileID), body,
-		map[string]string{"Range": fmt.Sprintf("bytes=%d-%d", from, to)}, nil)
+		map[string]string{"Range": getRange(from, to)}, nil)
 }
 
 func (c *client) FileDownload(path string, from, to int) (r io.ReadCloser, err error) {
@@ -143,8 +143,8 @@ func (c *client) FileDownload(path string, from, to int) (r io.ReadCloser, err e
 	}
 	req.Header.Set("x-cfa-service", "drive")
 	req.Header.Set("x-cfa-user-id", user)
-	if from >= 0 && to >= 0 {
-		req.Header.Set("Range", fmt.Sprintf("bytes=%d-%d", from, to))
+	if from >= 0 || to >= 0 {
+		req.Header.Set("Range", getRange(from, to))
 	}
 
 	resp, err := c.Do(context.Background(), req)
@@ -183,4 +183,16 @@ func genURI(uri string, queries ...interface{}) string {
 		return uri + "?" + q.Encode()
 	}
 	return uri
+}
+
+func getRange(from, to int) string {
+	if from >= 0 {
+		if to >= 0 {
+			return fmt.Sprintf("bytes=%d-%d", from, to)
+		}
+		return fmt.Sprintf("bytes=%d-", from)
+	} else if to >= 0 {
+		return fmt.Sprintf("bytes=-%d", to)
+	}
+	return "bytes="
 }

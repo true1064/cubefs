@@ -241,8 +241,8 @@ func addCmdFile(cmd *grumble.Command) {
 			}
 			from := c.Flags.Int("from")
 			to := c.Flags.Int("to")
-			if from < 0 || to < 0 {
-				return fmt.Errorf("to set from(%d) and to(%d)", from, to)
+			if from < 0 && to < 0 {
+				return fmt.Errorf("to set from(%d) or to(%d)", from, to)
 			}
 			return cli.FileWrite(c.Flags.String("path"), c.Flags.Uint64("fileid"), from, to, body)
 		},
