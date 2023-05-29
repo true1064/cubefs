@@ -16,6 +16,7 @@ package drive
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
@@ -129,6 +130,11 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 		c.RespondError(err)
 		return
 	}
+	ur, err := d.GetUserRouteInfo(ctx, uid)
+	if err != nil {
+		c.RespondError(err)
+		return
+	}
 
 	inode, err := vol.GetInode(ctx, uint64(args.FileID))
 	if err != nil {
@@ -168,6 +174,26 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 		return
 	}
 	size := uint64(l)
+
+	first, err := d.blockReaderFirst(ctx, vol, inode, uint64(ranged.Start), ur.CipherKey)
+	if err != nil {
+		span.Warn(err)
+		c.RespondError(err)
+		return
+	}
+	last, err := d.blockReaderLast(ctx, vol, inode, uint64(ranged.End), ur.CipherKey)
+	if err != nil {
+		span.Warn(err)
+		c.RespondError(err)
+		return
+	}
+
+	reader, err = d.cryptor.FileEncryptor(ur.CipherKey, io.MultiReader(first, reader, last))
+	if err != nil {
+		span.Warn(err)
+		c.RespondError(err)
+		return
+	}
 	span.Infof("write file: %d offset:%d size:%d", args.FileID, ranged.Start, size)
 	if err = vol.WriteFile(ctx, uint64(args.FileID), uint64(ranged.Start), size, reader); err != nil {
 		span.Error(err)
