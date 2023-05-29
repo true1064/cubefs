@@ -15,9 +15,7 @@
 package drive
 
 import (
-	"context"
 	"fmt"
-	"io"
 	"net/http"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
@@ -210,6 +208,11 @@ func (d *DriveNode) handleFileDownload(c *rpc.Context) {
 		c.RespondError(err)
 		return
 	}
+	ur, err := d.GetUserRouteInfo(ctx, uid)
+	if err != nil {
+		c.RespondError(err)
+		return
+	}
 
 	file, err := d.lookup(ctx, vol, root, args.Path.String())
 	if err != nil {
@@ -222,30 +225,36 @@ func (d *DriveNode) handleFileDownload(c *rpc.Context) {
 		c.RespondError(err)
 		return
 	}
+	if inode.Size == 0 {
+		c.Respond()
+		return
+	}
 
-	offset := uint64(0)
-	size := inode.Size
-	header := c.Request.Header.Get(headerRange)
-	if header != "" {
-		ranged, errx := parseRange(header, int64(inode.Size))
-		if errx != nil {
-			span.Warn(errx)
+	ranged := ranges{Start: 0, End: int64(inode.Size) - 1}
+	if header := c.Request.Header.Get(headerRange); header != "" {
+		ranged, err = parseRange(header, int64(inode.Size))
+		if err != nil {
+			span.Warn(err)
 			c.RespondError(sdk.ErrBadRequest)
 			return
 		}
-		offset = uint64(ranged.Start)
-		size = uint64(ranged.End - ranged.Start + 1)
 	}
+	size := int(ranged.End - ranged.Start + 1)
 
 	status := http.StatusOK
 	headers := make(map[string]string)
-	if size < inode.Size {
+	if uint64(size) < inode.Size {
 		status = http.StatusPartialContent
 		headers[rpc.HeaderContentRange] = fmt.Sprintf("bytes %d-%d/%d",
-			offset, offset+size-1, inode.Size)
+			ranged.Start, ranged.End, inode.Size)
 	}
 
-	body := makeReader(ctx, vol, inode.Inode, offset)
+	body, err := d.makeBlockedReader(ctx, vol, inode.Inode, uint64(ranged.Start), ur.CipherKey)
+	if err != nil {
+		span.Warn(err)
+		c.RespondError(err)
+		return
+	}
 	body, err = d.cryptor.TransEncryptor(c.Request.Header.Get(headerCipherMaterial), body)
 	if err != nil {
 		span.Warn(err)
@@ -253,36 +262,7 @@ func (d *DriveNode) handleFileDownload(c *rpc.Context) {
 		return
 	}
 
-	c.RespondWithReader(status, int(size), rpc.MIMEStream, body, headers)
-}
-
-type downReader struct {
-	ctx    context.Context
-	vol    sdk.IVolume
-	err    error
-	inode  uint64
-	offset uint64
-}
-
-func (r *downReader) Read(p []byte) (n int, err error) {
-	if r.err != nil {
-		err = r.err
-		return
-	}
-	n, err = r.vol.ReadFile(r.ctx, r.inode, r.offset, p)
-	if err != nil {
-		r.err = err
-	}
-	if r.err == nil && n < len(p) {
-		r.err = io.EOF
-		err = r.err
-	}
-	r.offset += uint64(n)
-	return
-}
-
-func makeReader(ctx context.Context, vol sdk.IVolume, ino, off uint64) io.Reader {
-	return &downReader{ctx: ctx, vol: vol, inode: ino, offset: off}
+	c.RespondWithReader(status, size, rpc.MIMEStream, body, headers)
 }
 
 // ArgsFileRename rename file or dir.
@@ -405,7 +385,7 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 		c.RespondError(err)
 		return
 	}
-	body := makeReader(ctx, vol, inode.Inode, 0)
+	body := makeFileReader(ctx, vol, inode.Inode, 0)
 
 	// TODO: remove shared meta
 	extend := make(map[string]string)

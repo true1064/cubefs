@@ -178,41 +178,29 @@ func genURL(host string, uri string, queries ...string) string {
 }
 
 type mockBody struct {
-	remain int
-	buff   []byte
+	buff []byte
 }
 
 func (r *mockBody) Read(p []byte) (n int, err error) {
-	if r.remain <= 0 {
+	if r == nil || len(r.buff) == 0 {
 		return 0, io.EOF
 	}
-	buff := r.buff[:]
-	if r.remain < len(buff) {
-		buff = buff[:r.remain]
-	}
-	n = copy(p, buff)
+	n = copy(p, r.buff)
+	r.buff = r.buff[n:]
 	return
 }
 
 func (r *mockBody) Sum32() uint32 {
 	crc := crc32.NewIEEE()
-	remain, buff := r.remain, r.buff[:]
-	for remain > 0 {
-		if remain < len(buff) {
-			buff = buff[:remain]
-		}
-		n, _ := crc.Write(buff)
-		remain -= n
-	}
+	crc.Write(r.buff[0:len(r.buff)])
 	return crc.Sum32()
 }
 
 func newMockBody(size int) *mockBody {
-	buff := make([]byte, 1<<20)
+	buff := make([]byte, size)
 	crand.Read(buff)
 	return &mockBody{
-		remain: size,
-		buff:   buff,
+		buff: buff,
 	}
 }
 

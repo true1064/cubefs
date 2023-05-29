@@ -37,7 +37,7 @@ func TestHandleMultipartUploads(t *testing.T) {
 	doRequest := func(body *mockBody, r interface{}, queries ...string) rpc.HTTPError {
 		url := genURL(server.URL, "/v1/files/multipart", queries...)
 		req, _ := http.NewRequest(http.MethodPost, url, body)
-		req.ContentLength = int64(body.remain)
+		req.ContentLength = int64(len(body.buff))
 		req.Header.Add(headerUserID, testUserID)
 		req.Header.Add(headerCrc32, fmt.Sprint(body.Sum32()))
 		req.Header.Add(userPropertyPrefix+"multipart", "MultiPart")
@@ -78,19 +78,19 @@ func TestHandleMultipartUploads(t *testing.T) {
 			parts = append(parts, MPPart{})
 		}
 		buff, _ := json.Marshal(parts)
-		body := &mockBody{remain: len(buff), buff: buff}
+		body := &mockBody{buff: buff}
 		node.Volume.EXPECT().CompleteMultiPart(A, A, A, A, A).Return(nil, &sdk.Error{Status: 522})
 		require.Equal(t, 522, doRequest(body, nil, "path", "/mpfile", "uploadId", uploadID).StatusCode())
 	}
 	{
 		node.OnceGetUser()
-		body := &mockBody{remain: 2, buff: []byte("[]")}
+		body := &mockBody{buff: []byte("[]")}
 		node.Volume.EXPECT().CompleteMultiPart(A, A, A, A, A).Return(&sdk.InodeInfo{Inode: node.GenInode()}, nil)
 		require.NoError(t, doRequest(body, nil, "path", "/mpfile", "uploadId", uploadID))
 	}
 	{
 		node.OnceGetUser()
-		body := &mockBody{remain: 2, buff: []byte("[]")}
+		body := &mockBody{buff: []byte("[]")}
 		node.Volume.EXPECT().CompleteMultiPart(A, A, A, A, A).Return(&sdk.InodeInfo{Inode: node.GenInode()}, nil)
 		require.NoError(t, doRequest(body, nil, "path", "mpfile", "uploadId", uploadID))
 	}
@@ -105,7 +105,7 @@ func TestHandleMultipartParts(t *testing.T) {
 	doRequest := func(body *mockBody, r interface{}, queries ...string) rpc.HTTPError {
 		url := genURL(server.URL, "/v1/files/multipart", queries...)
 		req, _ := http.NewRequest(http.MethodPut, url, body)
-		req.ContentLength = int64(body.remain)
+		req.ContentLength = int64(len(body.buff))
 		req.Header.Add(headerUserID, testUserID)
 		req.Header.Add(headerCrc32, fmt.Sprint(body.Sum32()))
 		resp, err := client.Do(Ctx, req)

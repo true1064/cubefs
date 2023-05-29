@@ -121,8 +121,8 @@ func TestHandleFileWrite(t *testing.T) {
 		if ranged != "" {
 			req.Header.Add(headerRange, ranged)
 		}
-		if body.remain > 1 {
-			req.ContentLength = int64(body.remain)
+		if cl := len(body.buff); cl > 1 {
+			req.ContentLength = int64(cl)
 		}
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
@@ -188,11 +188,12 @@ func TestHandleFileWrite(t *testing.T) {
 		node.OnceGetUser()
 		node.Volume.EXPECT().GetInode(A, A).Return(&sdk.InodeInfo{Size: 1024}, nil)
 		body := newMockBody(128)
+		origin := body.buff[:]
 		node.Volume.EXPECT().WriteFile(A, A, A, A, A).DoAndReturn(
 			func(_ context.Context, _, _, size uint64, r io.Reader) error {
 				buff := make([]byte, size)
 				io.ReadFull(r, buff)
-				require.Equal(t, body.buff[:128], buff)
+				require.Equal(t, origin[:128], buff)
 				return nil
 			})
 		resp := doRequest(body, "bytes=100-", queries...)
@@ -263,28 +264,28 @@ func TestHandleFileDownload(t *testing.T) {
 				copy(p, body.buff[:size])
 				return size, io.EOF
 			})
-		resp := doRequest(body, "", "path", "/download")
+		resp := doRequest(nil, "", "path", "/download")
 		defer resp.Body.Close()
 		require.Equal(t, 200, resp.StatusCode)
 		buff, _ := io.ReadAll(resp.Body)
 		require.Equal(t, body.buff[:size], buff)
 	}
 	{
-		size := 128
+		size := 1024
 		node.OnceGetUser()
 		node.OnceLookup(false)
 		node.OnceGetInode()
 		body := newMockBody(size)
+		origin := body.buff[size-28 : size]
 		node.Volume.EXPECT().ReadFile(A, A, A, A).DoAndReturn(
 			func(_ context.Context, _, _ uint64, p []byte) (int, error) {
-				copy(p, body.buff[size-28:size])
-				return 28, io.EOF
-			})
-		resp := doRequest(body, "bytes=-28", "path", "/download")
+				return body.Read(p)
+			}).AnyTimes()
+		resp := doRequest(nil, "bytes=-28", "path", "/download")
 		defer resp.Body.Close()
 		require.Equal(t, 206, resp.StatusCode)
 		buff, _ := io.ReadAll(resp.Body)
-		require.Equal(t, body.buff[size-28:size], buff)
+		require.Equal(t, origin, buff)
 	}
 }
 
