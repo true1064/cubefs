@@ -95,7 +95,7 @@ func newCrc32Reader(header http.Header, reader io.Reader, logger logFunc) (io.Re
 	i, err := strconv.Atoi(val)
 	if err != nil || i < 0 {
 		logger("invalid checksum %s", val)
-		return reader, sdk.ErrBadRequest
+		return reader, sdk.ErrBadRequest.Extend(val)
 	}
 	return &crc32Reader{
 		crc32:  uint32(i),
@@ -112,8 +112,9 @@ func (r *crc32Reader) Read(p []byte) (n int, err error) {
 	}
 	if err == io.EOF {
 		if actual := r.hasher.Sum32(); actual != r.crc32 {
+
 			r.logger("mismatch checksum wont=%d actual=%d", r.crc32, actual)
-			err = sdk.ErrMismatchChecksum
+			err = sdk.ErrMismatchChecksum.Extend(r.crc32)
 			return
 		}
 	}

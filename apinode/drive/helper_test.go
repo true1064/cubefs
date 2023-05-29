@@ -23,7 +23,6 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/stretchr/testify/require"
 )
 
@@ -120,7 +119,7 @@ func TestHelperCrc32Reader(t *testing.T) {
 		r, err := newCrc32Reader(header, reader, logger)
 		require.NoError(t, err)
 		_, err = io.ReadAll(r)
-		require.ErrorIs(t, sdk.ErrMismatchChecksum, err)
+		require.Error(t, err)
 		require.Equal(t, 2, count)
 	}
 }

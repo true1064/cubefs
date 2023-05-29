@@ -488,7 +488,7 @@ func testMultiPartOp(ctx context.Context, vol sdk.IVolume) {
 			MD5: part.MD5,
 		})
 	}
-	finalIno := &sdk.InodeInfo{}
+	var finalIno *sdk.InodeInfo
 	finalIno, err = vol.CompleteMultiPart(ctx, tmpFile, uploadId, 0, newPartArr)
 	if err != nil {
 		span.Fatalf("complete multipart failed, file %s, err %s", tmpFile, err.Error())

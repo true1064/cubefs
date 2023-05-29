@@ -15,6 +15,7 @@
 package sdk
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
@@ -42,6 +43,15 @@ func (e *Error) ErrorCode() string {
 // Error implemented rpc.HTTPError.
 func (e *Error) Error() string {
 	return e.Message
+}
+
+// Extend error with full message.
+func (e *Error) Extend(a ...interface{}) *Error {
+	return &Error{
+		Status:  e.Status,
+		Code:    e.Code,
+		Message: fmt.Sprintf("%s : %s", e.Error(), fmt.Sprint(a...)),
+	}
 }
 
 // defined errors.

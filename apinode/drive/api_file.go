@@ -41,7 +41,7 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 	originPath := string(args.Path)
 	if args.Path.Clean(); !args.Path.IsFile() {
 		span.Warnf("not a file path: %s -> %s", originPath, args.Path)
-		c.RespondError(sdk.ErrInvalidPath)
+		c.RespondError(sdk.ErrInvalidPath.Extend(originPath))
 		return
 	}
 
@@ -120,7 +120,7 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 	ctx, span := d.ctxSpan(c)
 
 	if err := args.Path.Clean(); err != nil {
-		c.RespondError(sdk.ErrInvalidPath)
+		c.RespondError(sdk.ErrInvalidPath.Extend(args.Path))
 		return
 	}
 
@@ -150,7 +150,7 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 			return
 		}
 		span.Warn(err)
-		c.RespondError(sdk.ErrBadRequest)
+		c.RespondError(sdk.ErrBadRequest.Extend(err))
 		return
 	}
 
@@ -170,7 +170,7 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 	l, err := c.RequestLength()
 	if err != nil {
 		span.Warn(err)
-		c.RespondError(sdk.ErrBadRequest)
+		c.RespondError(sdk.ErrBadRequest.Extend(err))
 		return
 	}
 	size := uint64(l)
@@ -261,7 +261,7 @@ func (d *DriveNode) handleFileDownload(c *rpc.Context) {
 		ranged, err = parseRange(header, int64(inode.Size))
 		if err != nil {
 			span.Warn(err)
-			c.RespondError(sdk.ErrBadRequest)
+			c.RespondError(sdk.ErrBadRequest.Extend(err))
 			return
 		}
 	}

@@ -77,6 +77,7 @@ func (d *DriveNode) multipartUploads(c *rpc.Context, args *ArgsMPUploads) {
 		c.RespondError(err)
 		return
 	}
+	span.Info("multipart init", args, uploadID, extend)
 	c.RespondJSON(RespMPuploads{UploadID: uploadID})
 }
 
@@ -107,7 +108,7 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 	parts, err := requestParts(c)
 	if err != nil {
 		span.Warn("multipart complete", args, err)
-		c.RespondError(sdk.ErrBadRequest)
+		c.RespondError(sdk.ErrBadRequest.Extend(err))
 		return
 	}
 
@@ -146,7 +147,7 @@ func (d *DriveNode) handleMultipartPart(c *rpc.Context) {
 		return
 	}
 	if args.PartNumber == 0 {
-		c.RespondError(sdk.ErrBadRequest)
+		c.RespondError(sdk.ErrBadRequest.Extend("partNumber is 0"))
 		return
 	}
 	if err := args.Path.Clean(); err != nil {
