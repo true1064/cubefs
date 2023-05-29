@@ -56,6 +56,11 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 		c.RespondError(err)
 		return
 	}
+	ur, err := d.GetUserRouteInfo(ctx, uid)
+	if err != nil {
+		c.RespondError(err)
+		return
+	}
 
 	dir, filename := args.Path.Split()
 	info, err := d.createDir(ctx, vol, root, dir.String(), true)
@@ -71,6 +76,12 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 		return
 	}
 	reader, err = newCrc32Reader(c.Request.Header, reader, span.Warnf)
+	if err != nil {
+		span.Warn(err)
+		c.RespondError(err)
+		return
+	}
+	reader, err = d.cryptor.FileEncryptor(ur.CipherKey, reader)
 	if err != nil {
 		span.Warn(err)
 		c.RespondError(err)
@@ -128,7 +139,12 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 	}
 
 	ranged, err := parseRange(c.Request.Header.Get(headerRange), int64(inode.Size))
-	if err != nil && err != errOverSize {
+	if err != nil {
+		if err == errOverSize {
+			span.Error(err)
+			c.RespondError(sdk.ErrWriteOverSize)
+			return
+		}
 		span.Warn(err)
 		c.RespondError(sdk.ErrBadRequest)
 		return
@@ -147,12 +163,13 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 		return
 	}
 
-	var size uint64
-	if l, _ := c.RequestLength(); l > 0 {
-		size = uint64(l)
-	} else {
-		size-- // max
+	l, err := c.RequestLength()
+	if err != nil {
+		span.Warn(err)
+		c.RespondError(sdk.ErrBadRequest)
+		return
 	}
+	size := uint64(l)
 	span.Infof("write file: %d offset:%d size:%d", args.FileID, ranged.Start, size)
 	if err = vol.WriteFile(ctx, uint64(args.FileID), uint64(ranged.Start), size, reader); err != nil {
 		span.Error(err)

@@ -121,7 +121,7 @@ func TestHandleFileWrite(t *testing.T) {
 		if ranged != "" {
 			req.Header.Add(headerRange, ranged)
 		}
-		if body.remain > 100 {
+		if body.remain > 1 {
 			req.ContentLength = int64(body.remain)
 		}
 		resp, err := client.Do(Ctx, req)
@@ -153,6 +153,20 @@ func TestHandleFileWrite(t *testing.T) {
 		resp := doRequest(newMockBody(64), "bytes=i-j", queries...)
 		defer resp.Body.Close()
 		require.Equal(t, 400, resp.StatusCode)
+	}
+	{
+		node.OnceGetUser()
+		node.Volume.EXPECT().GetInode(A, A).Return(&sdk.InodeInfo{Size: 1024}, nil)
+		resp := doRequest(newMockBody(1), "bytes=1-", queries...)
+		defer resp.Body.Close()
+		require.Equal(t, 400, resp.StatusCode)
+	}
+	{
+		node.OnceGetUser()
+		node.Volume.EXPECT().GetInode(A, A).Return(&sdk.InodeInfo{Size: 1024}, nil)
+		resp := doRequest(newMockBody(64), "bytes=1024-", queries...)
+		defer resp.Body.Close()
+		require.Equal(t, sdk.ErrWriteOverSize.Status, resp.StatusCode)
 	}
 	{
 		node.OnceGetUser()

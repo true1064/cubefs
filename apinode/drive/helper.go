@@ -60,7 +60,7 @@ func parseRange(header string, size int64) (ranges, error) {
 		start = size - end
 		end = size - 1
 	} else if endErr != nil {
-		if start > size {
+		if start >= size {
 			return ranges{Start: start}, errOverSize
 		}
 		end = size - 1

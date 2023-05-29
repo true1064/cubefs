@@ -62,6 +62,14 @@ func newMockNode(tb testing.TB) mockNode {
 			return r, nil
 		}).AnyTimes()
 	cryptor.EXPECT().GenKey().Return(nil, nil).AnyTimes()
+	cryptor.EXPECT().FileEncryptor(A, A).DoAndReturn(
+		func(_ []byte, r io.Reader) (io.Reader, error) {
+			return r, nil
+		}).AnyTimes()
+	cryptor.EXPECT().FileDecryptor(A, A).DoAndReturn(
+		func(_ []byte, r io.Reader) (io.Reader, error) {
+			return r, nil
+		}).AnyTimes()
 	inode := uint64(1)
 	return mockNode{
 		DriveNode: &DriveNode{
