@@ -459,7 +459,8 @@ func testMultiPartOp(ctx context.Context, vol sdk.IVolume) {
 		span.Fatalf("abort multipart failed, file %s, id %s, err %s", tmpFile, uploadId, err.Error())
 	}
 
-	uploadId, err = vol.InitMultiPart(ctx, tmpFile, 0, nil)
+	ext := map[string]string{"k1": "v1", "k2": "v2"}
+	uploadId, err = vol.InitMultiPart(ctx, tmpFile, 0, ext)
 	if err != nil {
 		span.Fatalf("init multiPart failed, file %s, err %s", tmpFile, err.Error())
 	}
@@ -487,9 +488,19 @@ func testMultiPartOp(ctx context.Context, vol sdk.IVolume) {
 			MD5: part.MD5,
 		})
 	}
-	_, err = vol.CompleteMultiPart(ctx, tmpFile, uploadId, 0, newPartArr)
+	finalIno := &sdk.InodeInfo{}
+	finalIno, err = vol.CompleteMultiPart(ctx, tmpFile, uploadId, 0, newPartArr)
 	if err != nil {
 		span.Fatalf("complete multipart failed, file %s, err %s", tmpFile, err.Error())
+	}
+
+	newMap, err := vol.GetXAttrMap(ctx, finalIno.Inode)
+	if err != nil {
+		span.Fatalf("get xAttr map failed, ino %d, err %s", finalIno.Inode, err.Error())
+	}
+
+	if len(newMap) != len(ext) {
+		span.Fatalf("get xAttr result not right, want %v, got %v", ext, newMap)
 	}
 
 	err = vol.Delete(ctx, proto.RootIno, strings.TrimPrefix(tmpFile, "/"), false)

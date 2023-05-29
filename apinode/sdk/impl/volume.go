@@ -871,6 +871,19 @@ func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId strin
 		}
 	}
 
+	extend := info.Extend
+	attrs := make(map[string]string)
+	if len(extend) > 0 {
+		for key, value := range extend {
+			attrs[key] = value
+		}
+
+		if err = v.mw.BatchSetXAttr_ll(cIno, attrs); err != nil {
+			span.Errorf("batch setXAttr failed, ino %d", cIno, err.Error())
+			return nil, err
+		}
+	}
+
 	err = v.mw.DentryCreateEx_ll(parIno, name, cIno, oldIno, defaultFileMode)
 	if err != nil {
 		span.Errorf("final create dentry failed, parIno %d, name %s, childIno %d, err %s",
