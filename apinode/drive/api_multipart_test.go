@@ -22,6 +22,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/cubefs/cubefs/apinode/crypto"
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
 )
@@ -73,18 +74,51 @@ func TestHandleMultipartUploads(t *testing.T) {
 	}
 	{
 		node.OnceGetUser()
+		body := &mockBody{buff: []byte("[]")}
+		node.Volume.EXPECT().ListMultiPart(A, A, A, A, A).Return(nil, uint64(0), false, &sdk.Error{Status: 524})
+		require.Equal(t, 524, doRequest(body, nil, "path", "/mpfile", "uploadId", uploadID).StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		var listp []*sdk.Part
+		for idx := range [10]struct{}{} {
+			listp = append(listp, &sdk.Part{ID: uint16(idx + 1), Size: crypto.BlockSize, MD5: fmt.Sprint(idx)})
+		}
+		body := &mockBody{buff: []byte("[]")}
+		listp[0].Size = crypto.BlockSize - 1
+		node.Volume.EXPECT().ListMultiPart(A, A, A, A, A).Return(listp, uint64(0), false, nil)
+		require.Equal(t, 400, doRequest(body, nil, "path", "/mpfile", "uploadId", uploadID).StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		var listp []*sdk.Part
+		for idx := range [10]struct{}{} {
+			listp = append(listp, &sdk.Part{ID: uint16(idx + 1), Size: crypto.BlockSize, MD5: fmt.Sprint(idx)})
+		}
+		body := &mockBody{buff: []byte("[]")}
+		listp[9].Size = crypto.BlockSize - 1
+		node.Volume.EXPECT().ListMultiPart(A, A, A, A, A).Return(listp, uint64(1), true, nil)
+		require.Equal(t, 400, doRequest(body, nil, "path", "/mpfile", "uploadId", uploadID).StatusCode())
+	}
+	{
+		node.OnceGetUser()
 		var parts []MPPart
-		for range [10]struct{}{} {
-			parts = append(parts, MPPart{})
+		var listp []*sdk.Part
+		for idx := range [10]struct{}{} {
+			parts = append(parts, MPPart{PartNumber: uint16(idx + 1), Size: crypto.BlockSize, MD5: fmt.Sprint(idx)})
+			listp = append(listp, &sdk.Part{ID: uint16(idx + 1), Size: crypto.BlockSize, MD5: fmt.Sprint(idx)})
 		}
 		buff, _ := json.Marshal(parts)
 		body := &mockBody{buff: buff}
-		node.Volume.EXPECT().CompleteMultiPart(A, A, A, A, A).Return(nil, &sdk.Error{Status: 522})
-		require.Equal(t, 522, doRequest(body, nil, "path", "/mpfile", "uploadId", uploadID).StatusCode())
+		listp[5].MD5 = "xxx"
+		node.Volume.EXPECT().ListMultiPart(A, A, A, A, A).Return(listp, uint64(0), false, nil)
+		require.Equal(t, 400, doRequest(body, nil, "path", "/mpfile", "uploadId", uploadID).StatusCode())
 	}
 	{
 		node.OnceGetUser()
 		body := &mockBody{buff: []byte("[]")}
+		node.Volume.EXPECT().ListMultiPart(A, A, A, A, A).Return(nil, uint64(100), false, nil)
+		node.Volume.EXPECT().ListMultiPart(A, A, A, A, A).Return(nil, uint64(0), false, nil)
 		node.Volume.EXPECT().CompleteMultiPart(A, A, A, A, A).Return(&sdk.InodeInfo{Inode: node.GenInode()}, nil)
 		node.Volume.EXPECT().GetXAttrMap(A, A).Return(nil, &sdk.Error{Status: 523})
 		require.Equal(t, 523, doRequest(body, nil, "path", "/mpfile", "uploadId", uploadID).StatusCode())
@@ -92,6 +126,20 @@ func TestHandleMultipartUploads(t *testing.T) {
 	{
 		node.OnceGetUser()
 		body := &mockBody{buff: []byte("[]")}
+		node.Volume.EXPECT().ListMultiPart(A, A, A, A, A).Return(nil, uint64(100), false, nil)
+		node.Volume.EXPECT().ListMultiPart(A, A, A, A, A).Return(nil, uint64(0), false, nil)
+		node.Volume.EXPECT().CompleteMultiPart(A, A, A, A, A).Return(nil, &sdk.Error{Status: 525})
+		require.Equal(t, 525, doRequest(body, nil, "path", "/mpfile", "uploadId", uploadID).StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		var listp []*sdk.Part
+		for idx := range [10]struct{}{} {
+			listp = append(listp, &sdk.Part{ID: uint16(idx + 1), Size: crypto.BlockSize, MD5: fmt.Sprint(idx)})
+		}
+		body := &mockBody{buff: []byte("[]")}
+		listp[9].Size = crypto.BlockSize - 1
+		node.Volume.EXPECT().ListMultiPart(A, A, A, A, A).Return(nil, uint64(0), false, nil)
 		node.Volume.EXPECT().CompleteMultiPart(A, A, A, A, A).Return(&sdk.InodeInfo{Inode: node.GenInode()}, nil)
 		node.Volume.EXPECT().GetXAttrMap(A, A).Return(nil, nil)
 		require.NoError(t, doRequest(body, nil, "path", "mpfile", "uploadId", uploadID))

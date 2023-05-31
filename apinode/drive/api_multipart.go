@@ -19,6 +19,7 @@ import (
 	"io"
 	"path"
 
+	"github.com/cubefs/cubefs/apinode/crypto"
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
 	"github.com/cubefs/cubefs/blobstore/util/bytespool"
@@ -112,15 +113,48 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 		return
 	}
 
+	reqParts := make(map[uint16]string, len(parts))
 	sParts := make([]sdk.Part, 0, len(parts))
 	for _, part := range parts {
 		sParts = append(sParts, sdk.Part{
 			ID:  part.PartNumber,
 			MD5: part.MD5,
 		})
+		reqParts[part.PartNumber] = part.MD5
 	}
 
 	fullPath := multipartFullPath(d.userID(c), args.Path)
+	marker := uint64(0)
+	for {
+		sParts, next, _, perr := vol.ListMultiPart(ctx, fullPath, args.UploadID, 400, marker)
+		if perr != nil {
+			span.Error("multipart complete list", args, perr)
+			c.RespondError(perr)
+			return
+		}
+
+		for idx, part := range sParts {
+			// not the last part
+			if !(next == 0 && idx == len(sParts)-1) && part.Size%crypto.BlockSize != 0 {
+				span.Warn("multipart complete size not supported", part.ID, part.Size)
+				c.RespondError(sdk.ErrBadRequest.Extend("size not supported", part.ID, part.Size))
+				return
+			}
+			if md5, ok := reqParts[part.ID]; ok {
+				if md5 != part.MD5 {
+					span.Warn("multipart complete part md5 mismatch", part.ID, md5)
+					c.RespondError(sdk.ErrBadRequest.Extend("md5 mismatch", part.ID, md5))
+					return
+				}
+			}
+		}
+
+		if next == 0 {
+			break
+		}
+		marker = next
+	}
+
 	inode, err := vol.CompleteMultiPart(ctx, fullPath, args.UploadID, uint64(args.FileID), sParts)
 	if err != nil {
 		span.Error("multipart complete", args, parts, err)
