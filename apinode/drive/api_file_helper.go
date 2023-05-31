@@ -70,21 +70,27 @@ func (d *DriveNode) makeBlockedReader(ctx context.Context, vol sdk.IVolume, ino,
 func (d *DriveNode) blockReaderFirst(ctx context.Context, vol sdk.IVolume, inode *sdk.InodeInfo, off uint64,
 	cipherKey []byte) (io.Reader, uint64, error) {
 	remain := off % crypto.BlockSize
+	fixedSize := remain
+	if inode.Size <= off {
+		fixedSize = inode.Size % crypto.BlockSize // last block
+	}
+
 	off = off - remain
 	if inode.Size <= off || remain == 0 {
-		return io.LimitReader(nil, 0), 0, nil
+		return newFixedReader(nil, 0), 0, nil
 	}
+
 	r, err := d.cryptor.FileDecryptor(cipherKey, makeFileReader(ctx, vol, inode.Inode, off))
 	if err != nil {
 		return nil, 0, err
 	}
-	return io.LimitReader(r, int64(remain)), remain, nil
+	return newFixedReader(r, int64(fixedSize)), fixedSize, nil
 }
 
 func (d *DriveNode) blockReaderLast(ctx context.Context, vol sdk.IVolume, inode *sdk.InodeInfo, off uint64,
 	cipherKey []byte) (io.Reader, uint64, error) {
 	if inode.Size <= off {
-		return io.LimitReader(nil, 0), 0, nil
+		return newFixedReader(nil, 0), 0, nil
 	}
 	remain := off % crypto.BlockSize
 	off = off - remain
@@ -98,6 +104,9 @@ func (d *DriveNode) blockReaderLast(ctx context.Context, vol sdk.IVolume, inode 
 		}
 	}
 
-	limited := (inode.Size % crypto.BlockSize) - remain
-	return io.LimitReader(r, int64(limited)), limited, nil
+	fixedSize := crypto.BlockSize - remain
+	if off+crypto.BlockSize > inode.Size {
+		fixedSize = (inode.Size % crypto.BlockSize) - remain // last block
+	}
+	return newFixedReader(r, int64(fixedSize)), fixedSize, nil
 }

@@ -123,3 +123,24 @@ func TestHelperCrc32Reader(t *testing.T) {
 		require.Equal(t, 2, count)
 	}
 }
+
+func TestHelperFixedReader(t *testing.T) {
+	for _, size := range []int64{-100, -1, 0} {
+		r := newFixedReader(nil, size)
+		buff, err := io.ReadAll(r)
+		require.NoError(t, err)
+		require.Equal(t, 0, len(buff))
+	}
+	data := make([]byte, 1024)
+	for _, size := range []int64{0, 1, 10, 1023, 1024} {
+		r := newFixedReader(bytes.NewReader(data), size)
+		buff, err := io.ReadAll(r)
+		require.NoError(t, err)
+		require.Equal(t, int(size), len(buff))
+	}
+	for _, size := range []int64{1025, 10000, 1 << 20} {
+		r := newFixedReader(bytes.NewReader(data), size)
+		_, err := io.ReadAll(r)
+		require.ErrorIs(t, io.ErrUnexpectedEOF, err)
+	}
+}

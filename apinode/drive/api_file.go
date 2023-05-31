@@ -175,6 +175,7 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 		return
 	}
 	size := uint64(l)
+	reader = newFixedReader(reader, int64(size))
 
 	first, firstN, err := d.blockReaderFirst(ctx, vol, inode, uint64(ranged.Start), ur.CipherKey)
 	if err != nil {

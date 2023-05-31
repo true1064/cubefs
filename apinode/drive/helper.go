@@ -120,3 +120,28 @@ func (r *crc32Reader) Read(p []byte) (n int, err error) {
 	}
 	return
 }
+
+// A fixedReader reads fixed amount of data from R.
+// Read returns EOF only N == 0.
+// Return io.ErrUnexpectedEOF when the underlying R returns EOF and N > 0.
+type fixedReader struct {
+	R io.Reader // underlying reader
+	N int64     // fixed bytes remaining
+}
+
+func (r *fixedReader) Read(p []byte) (n int, err error) {
+	if r.N <= 0 {
+		return 0, io.EOF
+	}
+	if int64(len(p)) > r.N {
+		p = p[0:r.N]
+	}
+	n, err = r.R.Read(p)
+	r.N -= int64(n)
+	if err == io.EOF && r.N > 0 {
+		err = io.ErrUnexpectedEOF
+	}
+	return
+}
+
+func newFixedReader(r io.Reader, n int64) io.Reader { return &fixedReader{R: r, N: n} }
