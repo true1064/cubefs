@@ -170,7 +170,7 @@ func TestHandleFileWrite(t *testing.T) {
 	{
 		node.OnceGetUser()
 		node.Volume.EXPECT().GetInode(A, A).Return(&sdk.InodeInfo{Size: 1024}, nil)
-		resp := doRequest(newMockBody(64), "bytes=1024-", queries...)
+		resp := doRequest(newMockBody(64), "bytes=1025-", queries...)
 		defer resp.Body.Close()
 		require.Equal(t, sdk.ErrWriteOverSize.Status, resp.StatusCode)
 	}
@@ -195,20 +195,21 @@ func TestHandleFileWrite(t *testing.T) {
 	{
 		node.OnceGetUser()
 		node.Volume.EXPECT().GetInode(A, A).Return(&sdk.InodeInfo{Size: 1024}, nil)
-		body := newMockBody(128)
+		body := newMockBody(1024)
 		origin := body.buff[:]
 		file = &mockBody{buff: origin}
-		// node.Volume.EXPECT().WriteFile(A, A, A, A, A).DoAndReturn(
-		// 	func(_ context.Context, _, _, size uint64, r io.Reader) error {
-		// 		buff := make([]byte, size)
-		// 		io.ReadFull(r, buff)
-		// 		require.Equal(t, origin[:128], buff)
-		// 		return nil
-		// 	})
+		node.Volume.EXPECT().WriteFile(A, A, A, A, A).DoAndReturn(
+			func(_ context.Context, _, _, size uint64, r io.Reader) error {
+				buff := make([]byte, size)
+				io.ReadFull(r, buff)
+				expect := origin[:100]
+				expect = append(expect, origin[:]...)
+				require.Equal(t, expect, buff)
+				return nil
+			})
 		resp := doRequest(body, "bytes=100-", queries...)
 		defer resp.Body.Close()
-		// require.Equal(t, 200, resp.StatusCode) // TODO
-		require.Equal(t, 500, resp.StatusCode)
+		require.Equal(t, 200, resp.StatusCode)
 	}
 }
 

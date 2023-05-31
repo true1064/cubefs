@@ -137,7 +137,7 @@ func (cryptor) TransDecryptor(material string, ciphertexter io.Reader) (io.Reade
 }
 
 func (cryptor) GenKey() ([]byte, error) {
-	_, key, err := cryptoKit.NewEngineFileCipherStream(nil, uint64(BlockSize), engine.ENCRYPT_MODE, nil)
+	_, key, err := cryptoKit.NewEngineFileCipherStream(nil, uint64(BlockSize), engine.ENCRYPT_MODE, io.MultiReader())
 	if err != errno.OK {
 		return nil, fileError(err)
 	}
@@ -153,7 +153,8 @@ func (cryptor) FileEncryptor(key []byte, plaintexter io.Reader) (io.Reader, erro
 		return nil, fileError(err)
 	}
 	return &fileCryptor{
-		remain:  pool.Get().([]byte)[:0],
+		offset:  -1,
+		block:   pool.Get().([]byte)[:BlockSize],
 		reader:  plaintexter,
 		cryptor: cipher.EncryptBlock,
 	}, nil
@@ -168,7 +169,8 @@ func (cryptor) FileDecryptor(key []byte, ciphertexter io.Reader) (io.Reader, err
 		return nil, fileError(err)
 	}
 	return &fileCryptor{
-		remain:  pool.Get().([]byte)[:0],
+		offset:  -1,
+		block:   pool.Get().([]byte)[:BlockSize],
 		reader:  ciphertexter,
 		cryptor: cipher.DecryptBlock,
 	}, nil
@@ -176,7 +178,8 @@ func (cryptor) FileDecryptor(key []byte, ciphertexter io.Reader) (io.Reader, err
 
 type fileCryptor struct {
 	once    sync.Once
-	remain  []byte
+	offset  int
+	block   []byte
 	reader  io.Reader
 	err     error
 	cryptor func([]byte, []byte, uint64) *errno.Errno
@@ -184,9 +187,9 @@ type fileCryptor struct {
 
 func (r *fileCryptor) free() {
 	r.once.Do(func() {
-		if r.remain != nil {
-			block := r.remain
-			r.remain = nil
+		if r.block != nil {
+			block := r.block
+			r.block = nil
 			pool.Put(block) // nolint: staticcheck
 		}
 	})
@@ -199,7 +202,7 @@ func (r *fileCryptor) Read(p []byte) (n int, err error) {
 	}
 
 	for len(p) > 0 {
-		if len(r.remain) == 0 {
+		if r.offset < 0 || r.offset == len(r.block) {
 			if r.err = r.nextBlock(); r.err != nil {
 				if n > 0 {
 					return n, nil
@@ -209,8 +212,8 @@ func (r *fileCryptor) Read(p []byte) (n int, err error) {
 			}
 		}
 
-		read := copy(p, r.remain)
-		r.remain = r.remain[read:]
+		read := copy(p, r.block[r.offset:])
+		r.offset += read
 
 		p = p[read:]
 		n += read
@@ -219,15 +222,13 @@ func (r *fileCryptor) Read(p []byte) (n int, err error) {
 }
 
 func (r *fileCryptor) nextBlock() error {
-	block := r.remain[0:BlockSize]
-	n, err := readFullOrToEnd(r.reader, block)
+	n, err := readFullOrToEnd(r.reader, r.block)
+	r.offset = 0
+	r.block = r.block[:n]
 	if n > 0 {
-		block = block[:n]
-		eno := r.cryptor(block, block, 0)
-		if eno != errno.OK {
+		if eno := r.cryptor(r.block, r.block, 0); eno != errno.OK {
 			return fileError(eno)
 		}
-		r.remain = block
 	}
 	return err
 }

@@ -143,12 +143,13 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 	}
 
 	ranged, err := parseRange(c.Request.Header.Get(headerRange), int64(inode.Size))
-	if err != nil {
-		if err == errOverSize {
+	if err == errOverSize {
+		if ranged.Start != int64(inode.Size) {
 			span.Error(err)
 			c.RespondError(sdk.ErrWriteOverSize)
 			return
 		}
+	} else if err != nil {
 		span.Warn(err)
 		c.RespondError(sdk.ErrBadRequest.Extend(err))
 		return
@@ -175,18 +176,19 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 	}
 	size := uint64(l)
 
-	first, err := d.blockReaderFirst(ctx, vol, inode, uint64(ranged.Start), ur.CipherKey)
+	first, firstN, err := d.blockReaderFirst(ctx, vol, inode, uint64(ranged.Start), ur.CipherKey)
 	if err != nil {
 		span.Warn(err)
 		c.RespondError(err)
 		return
 	}
-	last, err := d.blockReaderLast(ctx, vol, inode, uint64(ranged.End), ur.CipherKey)
+	last, lastN, err := d.blockReaderLast(ctx, vol, inode, uint64(ranged.Start)+size, ur.CipherKey)
 	if err != nil {
 		span.Warn(err)
 		c.RespondError(err)
 		return
 	}
+	span.Infof("to write first(%d) size(%d) last(%d) with range[%d-]", firstN, size, lastN, ranged.Start)
 
 	reader, err = d.cryptor.FileEncryptor(ur.CipherKey, io.MultiReader(first, reader, last))
 	if err != nil {
@@ -194,8 +196,11 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 		c.RespondError(err)
 		return
 	}
-	span.Infof("write file: %d offset:%d size:%d", args.FileID, ranged.Start, size)
-	if err = vol.WriteFile(ctx, uint64(args.FileID), uint64(ranged.Start), size, reader); err != nil {
+
+	wOffset, wSize := uint64(ranged.Start)-firstN, firstN+size+lastN
+	span.Infof("write file:%d range-start:%d body-size:%d rewrite-offset:%d rewrite-size:%d",
+		args.FileID, ranged.Start, size, wOffset, wSize)
+	if err = vol.WriteFile(ctx, args.FileID.Uint64(), wOffset, wSize, reader); err != nil {
 		span.Error(err)
 		c.RespondError(err)
 		return

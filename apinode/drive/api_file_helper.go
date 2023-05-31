@@ -67,42 +67,37 @@ func (d *DriveNode) makeBlockedReader(ctx context.Context, vol sdk.IVolume, ino,
 	return r, nil
 }
 
-func (d *DriveNode) blockReader(ctx context.Context, vol sdk.IVolume, inode *sdk.InodeInfo, off uint64,
-	cipherKey []byte) (io.Reader, error) {
+func (d *DriveNode) blockReaderFirst(ctx context.Context, vol sdk.IVolume, inode *sdk.InodeInfo, off uint64,
+	cipherKey []byte) (io.Reader, uint64, error) {
 	remain := off % crypto.BlockSize
 	off = off - remain
-	if inode.Size <= off {
-		return io.LimitReader(nil, 0), nil
+	if inode.Size <= off || remain == 0 {
+		return io.LimitReader(nil, 0), 0, nil
 	}
-
 	r, err := d.cryptor.FileDecryptor(cipherKey, makeFileReader(ctx, vol, inode.Inode, off))
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	return io.LimitReader(r, crypto.BlockSize), nil
-}
-
-func (d *DriveNode) blockReaderFirst(ctx context.Context, vol sdk.IVolume, inode *sdk.InodeInfo, off uint64,
-	cipherKey []byte) (io.Reader, error) {
-	remain := off % crypto.BlockSize
-	r, err := d.blockReader(ctx, vol, inode, off, cipherKey)
-	if err != nil {
-		return nil, err
-	}
-	return io.LimitReader(r, int64(remain)), nil
+	return io.LimitReader(r, int64(remain)), remain, nil
 }
 
 func (d *DriveNode) blockReaderLast(ctx context.Context, vol sdk.IVolume, inode *sdk.InodeInfo, off uint64,
-	cipherKey []byte) (io.Reader, error) {
+	cipherKey []byte) (io.Reader, uint64, error) {
+	if inode.Size <= off {
+		return io.LimitReader(nil, 0), 0, nil
+	}
 	remain := off % crypto.BlockSize
-	r, err := d.blockReader(ctx, vol, inode, off, cipherKey)
+	off = off - remain
+	r, err := d.cryptor.FileDecryptor(cipherKey, makeFileReader(ctx, vol, inode.Inode, off))
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	if remain > 0 {
 		if _, err := io.CopyN(io.Discard, r, int64(remain)); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 	}
-	return io.LimitReader(r, crypto.BlockSize-int64(remain)), nil
+
+	limited := (inode.Size % crypto.BlockSize) - remain
+	return io.LimitReader(r, int64(limited)), limited, nil
 }

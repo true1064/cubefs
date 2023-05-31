@@ -127,10 +127,17 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 		c.RespondError(err)
 		return
 	}
+	extend, err := vol.GetXAttrMap(ctx, inode.Inode)
+	if err != nil {
+		span.Error("multipart complete, get properties", inode.Inode, err)
+		c.RespondError(err)
+		return
+	}
+
 	d.out.Publish(ctx, makeOpLog(OpUploadFile, d.userID(c), args.Path.String(), "size", inode.Size))
 	span.Info("multipart complete", args, parts)
 	_, filename := args.Path.Split()
-	c.RespondJSON(inode2file(inode, filename, nil))
+	c.RespondJSON(inode2file(inode, filename, extend))
 }
 
 // ArgsMPUpload multipart upload part argument.

@@ -86,12 +86,14 @@ func TestHandleMultipartUploads(t *testing.T) {
 		node.OnceGetUser()
 		body := &mockBody{buff: []byte("[]")}
 		node.Volume.EXPECT().CompleteMultiPart(A, A, A, A, A).Return(&sdk.InodeInfo{Inode: node.GenInode()}, nil)
-		require.NoError(t, doRequest(body, nil, "path", "/mpfile", "uploadId", uploadID))
+		node.Volume.EXPECT().GetXAttrMap(A, A).Return(nil, &sdk.Error{Status: 523})
+		require.Equal(t, 523, doRequest(body, nil, "path", "/mpfile", "uploadId", uploadID).StatusCode())
 	}
 	{
 		node.OnceGetUser()
 		body := &mockBody{buff: []byte("[]")}
 		node.Volume.EXPECT().CompleteMultiPart(A, A, A, A, A).Return(&sdk.InodeInfo{Inode: node.GenInode()}, nil)
+		node.Volume.EXPECT().GetXAttrMap(A, A).Return(nil, nil)
 		require.NoError(t, doRequest(body, nil, "path", "mpfile", "uploadId", uploadID))
 	}
 }
