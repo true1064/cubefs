@@ -191,19 +191,20 @@ func (e *EngineFileCipherStream) EncryptBlock(ciphertext, plaintext []byte, sect
 		if end <= plaintextLen {
 			e.cipher.Encrypt(ciphertext[start:end], plaintext[start:end], sectorNum)
 		} else {
-			lastBlockLen := plaintextLen - start
-			reserveLen := e.blockSize - uint64(lastBlockLen)
-			lastPlaintext := plaintext[start:plaintextLen]
-			lastBlockPlaintext := append(lastPlaintext, ciphertext[uint64(start)-reserveLen:start]...)
+			// 最后一个分组不足一个块
+			lastPlaintextLen := plaintextLen - start
+			lastPlaintextNeedLen := e.blockSize - uint64(lastPlaintextLen)
 
 			// 加密最后一个分组
-			lastBlockCiphertext := make([]byte, e.blockSize)
-			e.cipher.Encrypt(lastBlockCiphertext, lastBlockPlaintext, sectorNum)
+			lastPlaintextBlock := append(plaintext[start:plaintextLen], ciphertext[uint64(start)-lastPlaintextNeedLen:start]...)
+			lastCiphertextBlock := make([]byte, e.blockSize)
+			e.cipher.Encrypt(lastCiphertextBlock, lastPlaintextBlock, sectorNum)
 
-			// 倒数第2个密文分组的部分数据移动到密文的尾部
-			copy(ciphertext[start:], ciphertext[start-int(e.blockSize):lastBlockLen])
-			// 倒数第1密文分组移动到倒数第2个分组
-			copy(ciphertext[start-int(e.blockSize):start], lastBlockCiphertext)
+			// 密文调整1：倒数第2个密文分组的部分数据为整个密文的尾部
+			from := start - int(e.blockSize)
+			copy(ciphertext[start:], ciphertext[from:(from+lastPlaintextLen)])
+			// 密文调整2：倒数第1密文分组移动到倒数第2个分组
+			copy(ciphertext[from:start], lastCiphertextBlock)
 		}
 
 		start += int(e.blockSize)
@@ -255,22 +256,25 @@ func (e *EngineFileCipherStream) DecryptBlock(plaintext, ciphertext []byte, sect
 		if end <= ciphertextLen {
 			e.cipher.Decrypt(plaintext[start:end], ciphertext[start:end], sectorNum)
 		} else {
+			// 最后一个分组不足一个块
+			lastCiphertextLen := ciphertextLen - start
+			lastCiphertextNeedLen := e.blockSize - uint64(lastCiphertextLen)
+
+			// 倒数第2个分组的起始序号
+			from := start - int(e.blockSize)
+
 			// 重新解密倒数第2个块，其sector num需要调整下
-			e.cipher.Decrypt(plaintext[start-int(e.blockSize):start], ciphertext[start-int(e.blockSize):start], sectorNum)
+			e.cipher.Decrypt(plaintext[from:start], ciphertext[from:start], sectorNum)
 
-			lastBlockLen := ciphertextLen - start
-			reserveLen := e.blockSize - uint64(lastBlockLen)
-			lastCiphertext := ciphertext[start:ciphertextLen]
-			lastBlockCiphertext := append(lastCiphertext, plaintext[uint64(start)-reserveLen:start]...)
+			// 解密最后一个分组
+			lastCiphertextBlock := append(ciphertext[start:ciphertextLen], plaintext[uint64(start)-lastCiphertextNeedLen:start]...)
+			lastPlaintextBlock := make([]byte, e.blockSize)
+			e.cipher.Decrypt(lastPlaintextBlock, lastCiphertextBlock, sectorNum-1)
 
-			// 加密最后一个分组
-			lastBlockPlaintext := make([]byte, e.blockSize)
-			e.cipher.Decrypt(lastBlockPlaintext, lastBlockCiphertext, sectorNum-1)
-
-			// 倒数第2个密文分组的部分数据移动到密文的尾部
-			copy(plaintext[start:], plaintext[start-int(e.blockSize):lastBlockLen])
-			// 倒数第1密文分组移动到倒数第2个分组
-			copy(plaintext[start-int(e.blockSize):start], lastBlockPlaintext)
+			// 明文调整1：倒数第2个明文分组的部分数据为整个明文的尾部
+			copy(plaintext[start:], plaintext[from:(from+lastCiphertextLen)])
+			// 明文调整2：倒数第1明文分组移动到倒数第2个分组
+			copy(plaintext[from:start], lastPlaintextBlock)
 		}
 
 		start += int(e.blockSize)

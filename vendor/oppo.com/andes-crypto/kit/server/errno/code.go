@@ -89,7 +89,7 @@ var (
 	FileCipherNewXtsCipherError = &Errno{code: 40003, message: "file cipher new aes-xts error."}
 
 	// FileCipherBlockModePlaintextLengthError 随机加密数据长度与设置的分组长度不一致错误。
-	FileCipherBlockModePlaintextLengthError = &Errno{code: 40004, message: "file cipher block mode plaintext length must be equal to block size error."}
+	FileCipherBlockModePlaintextLengthError = &Errno{code: 40004, message: "file cipher block mode plaintext length is little than ciphertext error."}
 
 	// FileCipherFileModePlaintextLengthError 文件加密明文长度大于设置的分组长度错误。
 	FileCipherFileModePlaintextLengthError = &Errno{code: 40005, message: "file cipher file mode plaintext length cannot be greater than block size error."}

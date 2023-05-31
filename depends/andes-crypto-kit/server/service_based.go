@@ -267,6 +267,9 @@ func (s *ServiceBased) NewEngineTransCipher(cipherMaterial *string) (*engine.Eng
 //  @return *engine.EngineTransCipherStream 流式传输加密引擎对象。
 //  @return *errno.Errno 如果失败，返回错误原因以及错误码。
 func (s *ServiceBased) NewEngineTransCipherStream(cipherMode engine.CipherMode, reader io.Reader) (*engine.EngineTransCipherStream, *errno.Errno) {
+	if reader == nil {
+		return nil, errno.TransCipherMaterialNilError
+	}
 	// 读取加密材料，长度固定为344字节：RSA-256加密后密文长度为256byte，base64编码后长度固定为344字节。
 	cipherMaterialBytes := make([]byte, 256)
 	_, err := io.ReadFull(reader, cipherMaterialBytes)

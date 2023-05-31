@@ -32,6 +32,9 @@ const (
 
 // EngineTransCipherStream 流式传输加（解）密引擎。
 type EngineTransCipherStream struct {
+	key []byte
+
+	iv []byte
 
 	// reader 数据输入流。
 	reader io.Reader
@@ -72,6 +75,8 @@ func NewEngineTransCipherStream(key, iv []byte, needHmac bool, cipherMode Cipher
 
 	if block, err := aes.NewCipher(key); err == nil {
 		return &EngineTransCipherStream{
+			key:        key,
+			iv:         iv,
 			stream:     cipher.NewCTR(block, iv),
 			needHmac:   needHmac,
 			hashMac:    hmac.New(sha256.New, []byte(key)),
@@ -147,6 +152,49 @@ func (e *EngineTransCipherStream) Verify(hashmac []byte) (bool, *errno.Errno) {
 	}
 
 	return hmac.Equal(hashmac, e.hashMac.Sum(nil)), errno.OK
+}
+
+// EncryptGCM 加密一段数据，加密算法为AES-256-GCM。
+//  @receiver e
+//  @param plaintext 待加密的明文数据。
+//  @return []byte 加密成功的密文数据。
+//  @return *errno.Errno 如果出错，返回错误码以及详细信息。
+func (e *EngineTransCipherStream) EncryptGCM(plaintext []byte) ([]byte, *errno.Errno) {
+	block, err := aes.NewCipher(e.key)
+	if err != nil {
+		return nil, errno.TransCipherInternalError.Append(err.Error())
+	}
+
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, errno.TransCipherInternalError.Append(err.Error())
+	}
+
+	return gcm.Seal(nil, e.iv[:gcm.NonceSize()], plaintext, nil), errno.OK
+}
+
+// DecryptGCM 解密一段数据，解密算法为AES-256-GCM。
+//  @receiver e
+//  @param ciphertext 待解密的密文数据。
+//  @return []byte 解密成功的明文数据。
+//  @return *errno.Errno 如果出错，返回错误码以及详细信息。
+func (e *EngineTransCipherStream) DecryptGCM(ciphertext []byte) ([]byte, *errno.Errno) {
+	block, err := aes.NewCipher(e.key)
+	if err != nil {
+		return nil, errno.TransCipherInternalError.Append(err.Error())
+	}
+
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, errno.TransCipherInternalError.Append(err.Error())
+	}
+
+	out, err := gcm.Open(nil, e.iv[:gcm.NonceSize()], ciphertext, nil)
+	if err != nil {
+		return nil, errno.TransCipherInternalError.Append(err.Error())
+	}
+
+	return out, errno.OK
 }
 
 // encrypt 将一段明文数据plaintext加密成密文，同时将密文存储至ciphertext。
