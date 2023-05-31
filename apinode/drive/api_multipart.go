@@ -36,24 +36,28 @@ type MPPart struct {
 type ArgsMPUploads struct {
 	Path     FilePath `json:"path"`
 	UploadID string   `json:"uploadId,omitempty"`
-	FileID   FileID   `json:"fileId,omitempty"`
+	XFileID  string   `json:"fileId,omitempty"`
+	FileID   FileID   `json:"-"`
 }
 
 func (d *DriveNode) handleMultipartUploads(c *rpc.Context) {
 	args := new(ArgsMPUploads)
-	if err := c.ParseArgs(args); err != nil {
-		c.RespondError(err)
+	if d.checkError(c, nil, c.ParseArgs(args)) {
 		return
 	}
-	if err := args.Path.Clean(); err != nil {
-		c.RespondError(err)
+
+	t := d.encrypTransmitter(c)
+	if d.checkFunc(c, nil,
+		func() error { return decodeFileID(&args.FileID, args.XFileID, t) },
+		func() error { return decodeHex(&args.UploadID, args.UploadID, t) },
+		func() error { return args.Path.Clean(t) }) {
 		return
 	}
 
 	if args.UploadID == "" {
-		d.multipartUploads(c, args)
+		d.multipartUploads(c, args, t)
 	} else {
-		d.multipartComplete(c, args)
+		d.multipartComplete(c, args, t)
 	}
 }
 
@@ -62,43 +66,52 @@ type RespMPuploads struct {
 	UploadID string `json:"uploadId"`
 }
 
-func (d *DriveNode) multipartUploads(c *rpc.Context, args *ArgsMPUploads) {
+func (d *DriveNode) multipartUploads(c *rpc.Context, args *ArgsMPUploads, t crypto.Transmitter) {
 	ctx, span := d.ctxSpan(c)
 	_, vol, err := d.getRootInoAndVolume(ctx, d.userID(c))
-	if err != nil {
-		c.RespondError(err)
+	if d.checkError(c, func(err error) { span.Info(err) }, err) {
 		return
 	}
 
-	extend := d.getProperties(c)
+	extend, err := d.getProperties(c)
+	if d.checkError(c, func(err error) { span.Info(err) }, err) {
+		return
+	}
+
 	fullPath := multipartFullPath(d.userID(c), args.Path)
 	uploadID, err := vol.InitMultiPart(ctx, fullPath, uint64(args.FileID), extend)
-	if err != nil {
-		span.Error("multipart uploads", args, err)
-		c.RespondError(err)
+	if d.checkError(c, func(err error) { span.Error("multipart uploads", args, err) }, err) {
 		return
 	}
 	span.Info("multipart init", args, uploadID, extend)
-	c.RespondJSON(RespMPuploads{UploadID: uploadID})
+	d.respData(c, RespMPuploads{UploadID: uploadID})
 }
 
-func requestParts(c *rpc.Context) (parts []MPPart, err error) {
+func (d *DriveNode) requestParts(c *rpc.Context) (parts []MPPart, err error) {
 	var size int
 	size, err = c.RequestLength()
 	if err != nil {
 		return
 	}
 
-	buf := bytespool.Alloc(size)
-	defer bytespool.Free(buf)
-	if _, err = io.ReadFull(c.Request.Body, buf); err != nil {
+	t, fail := d.decryptTransmitter(c)
+	if fail {
+		err = sdk.ErrBadRequest
 		return
 	}
+	reader := t.Transmit(c.Request.Body)
+
+	buf := bytespool.Alloc(size)
+	defer bytespool.Free(buf)
+	if _, err = io.ReadFull(reader, buf); err != nil {
+		return
+	}
+
 	err = json.Unmarshal(buf, &parts)
 	return
 }
 
-func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
+func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads, t crypto.Transmitter) {
 	ctx, span := d.ctxSpan(c)
 	_, vol, err := d.getRootInoAndVolume(ctx, d.userID(c))
 	if err != nil {
@@ -106,10 +119,10 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 		return
 	}
 
-	parts, err := requestParts(c)
+	parts, err := d.requestParts(c)
 	if err != nil {
 		span.Warn("multipart complete", args, err)
-		c.RespondError(sdk.ErrBadRequest.Extend(err))
+		d.respError(c, sdk.ErrBadRequest.Extend(err))
 		return
 	}
 
@@ -127,9 +140,7 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 	marker := uint64(0)
 	for {
 		sParts, next, _, perr := vol.ListMultiPart(ctx, fullPath, args.UploadID, 400, marker)
-		if perr != nil {
-			span.Error("multipart complete list", args, perr)
-			c.RespondError(perr)
+		if d.checkError(c, func(err error) { span.Error("multipart complete list", args, err) }, perr) {
 			return
 		}
 
@@ -137,13 +148,13 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 			// not the last part
 			if !(next == 0 && idx == len(sParts)-1) && part.Size%crypto.BlockSize != 0 {
 				span.Warn("multipart complete size not supported", part.ID, part.Size)
-				c.RespondError(sdk.ErrBadRequest.Extend("size not supported", part.ID, part.Size))
+				d.respError(c, sdk.ErrBadRequest.Extend("size not supported", part.ID, part.Size))
 				return
 			}
 			if md5, ok := reqParts[part.ID]; ok {
 				if md5 != part.MD5 {
 					span.Warn("multipart complete part md5 mismatch", part.ID, md5)
-					c.RespondError(sdk.ErrBadRequest.Extend("md5 mismatch", part.ID, md5))
+					d.respError(c, sdk.ErrBadRequest.Extend("md5 mismatch", part.ID, md5))
 					return
 				}
 			}
@@ -156,85 +167,70 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 	}
 
 	inode, err := vol.CompleteMultiPart(ctx, fullPath, args.UploadID, uint64(args.FileID), sParts)
-	if err != nil {
-		span.Error("multipart complete", args, parts, err)
-		c.RespondError(err)
+	if d.checkError(c, func(err error) { span.Error("multipart complete", args, parts, err) }, err) {
 		return
 	}
 	extend, err := vol.GetXAttrMap(ctx, inode.Inode)
-	if err != nil {
-		span.Error("multipart complete, get properties", inode.Inode, err)
-		c.RespondError(err)
+	if d.checkError(c, func(err error) { span.Error("multipart complete, get properties", inode.Inode, err) }, err) {
 		return
 	}
 
 	d.out.Publish(ctx, makeOpLog(OpUploadFile, d.userID(c), args.Path.String(), "size", inode.Size))
 	span.Info("multipart complete", args, parts)
 	_, filename := args.Path.Split()
-	c.RespondJSON(inode2file(inode, filename, extend))
+	d.respData(c, inode2file(inode, filename, extend))
 }
 
 // ArgsMPUpload multipart upload part argument.
 type ArgsMPUpload struct {
-	Path       FilePath `json:"path"`
-	UploadID   string   `json:"uploadId"`
-	PartNumber uint16   `json:"partNumber"`
+	Path        FilePath `json:"path"`
+	UploadID    string   `json:"uploadId"`
+	XPartNumber string   `json:"partNumber"`
+	PartNumber  uint16   `json:"-"`
 }
 
 func (d *DriveNode) handleMultipartPart(c *rpc.Context) {
 	args := new(ArgsMPUpload)
-	if err := c.ParseArgs(args); err != nil {
-		c.RespondError(err)
-		return
-	}
-	if args.PartNumber == 0 {
-		c.RespondError(sdk.ErrBadRequest.Extend("partNumber is 0"))
-		return
-	}
-	if err := args.Path.Clean(); err != nil {
-		c.RespondError(err)
+	if d.checkError(c, nil, c.ParseArgs(args)) {
 		return
 	}
 	ctx, span := d.ctxSpan(c)
-	_, vol, err := d.getRootInoAndVolume(ctx, d.userID(c))
-	if err != nil {
-		c.RespondError(err)
+
+	t, fail := d.decryptTransmitter(c)
+	if fail {
 		return
 	}
-	ur, err := d.GetUserRouteInfo(ctx, d.userID(c))
-	if err != nil {
-		c.RespondError(err)
+	if d.checkFunc(c, func(err error) { span.Info(err) },
+		func() error { return decodeHex(&args.UploadID, args.UploadID, t) },
+		func() error { return decodeHex(&args.PartNumber, args.XPartNumber, t) },
+		func() error { return args.Path.Clean(t) }) {
+		return
+	}
+	if args.PartNumber == 0 {
+		d.respError(c, sdk.ErrBadRequest.Extend("partNumber is 0"))
 		return
 	}
 
-	reader, err := d.cryptor.TransDecryptor(c.Request.Header.Get(headerCipherMaterial), c.Request.Body)
-	if err != nil {
-		span.Warn(err)
-		c.RespondError(err)
+	_, vol, err := d.getRootInoAndVolume(ctx, d.userID(c))
+	ur, err1 := d.GetUserRouteInfo(ctx, d.userID(c))
+	if d.checkError(c, func(err error) { span.Warn(err) }, err, err1) {
 		return
 	}
-	reader, err = newCrc32Reader(c.Request.Header, reader, span.Warnf)
-	if err != nil {
-		span.Warn(err)
-		c.RespondError(err)
-		return
-	}
-	reader, err = d.cryptor.FileEncryptor(ur.CipherKey, reader)
-	if err != nil {
-		span.Warn(err)
-		c.RespondError(err)
+
+	reader := t.Transmit(c.Request.Body)
+	if d.checkFunc(c, func(err error) { span.Warn(err) },
+		func() error { reader, err = newCrc32Reader(c.Request.Header, reader, span.Warnf); return err },
+		func() error { reader, err = d.cryptor.FileEncryptor(ur.CipherKey, reader); return err }) {
 		return
 	}
 
 	fullPath := multipartFullPath(d.userID(c), args.Path)
 	part, err := vol.UploadMultiPart(ctx, fullPath, args.UploadID, args.PartNumber, reader)
-	if err != nil {
-		span.Error("multipart upload", args, err)
-		c.RespondError(err)
+	if d.checkError(c, func(err error) { span.Error("multipart upload", args, err) }, err) {
 		return
 	}
 	span.Info("multipart upload", args)
-	c.RespondJSON(MPPart{
+	d.respData(c, MPPart{
 		PartNumber: args.PartNumber,
 		MD5:        part.MD5,
 	})
@@ -244,8 +240,10 @@ func (d *DriveNode) handleMultipartPart(c *rpc.Context) {
 type ArgsMPList struct {
 	Path     FilePath `json:"path"`
 	UploadID string   `json:"uploadId"`
-	Marker   FileID   `json:"marker"`
-	Count    int      `json:"count,omitempty"`
+	XMarker  string   `json:"marker"`
+	Marker   FileID   `json:"-"`
+	XCount   string   `json:"count,omitempty"`
+	Count    int      `json:"-"`
 }
 
 // RespMPList response of list parts.
@@ -256,30 +254,31 @@ type RespMPList struct {
 
 func (d *DriveNode) handleMultipartList(c *rpc.Context) {
 	args := new(ArgsMPList)
-	if err := c.ParseArgs(args); err != nil {
-		c.RespondError(err)
-		return
-	}
-	if err := args.Path.Clean(); err != nil {
-		c.RespondError(err)
+	if d.checkError(c, nil, c.ParseArgs(args)) {
 		return
 	}
 	ctx, span := d.ctxSpan(c)
-	_, vol, err := d.getRootInoAndVolume(ctx, d.userID(c))
-	if err != nil {
-		c.RespondError(err)
+
+	t := d.encrypTransmitter(c)
+	if d.checkFunc(c, func(err error) { span.Info(err) },
+		func() error { return decodeHex(&args.UploadID, args.UploadID, t) },
+		func() error { return decodeFileID(&args.Marker, args.XMarker, t) },
+		func() error { return decodeHex(&args.Count, args.XCount, t) },
+		func() error { return args.Path.Clean(t) }) {
 		return
 	}
-
 	if args.Count <= 0 {
 		args.Count = 400
 	}
 
+	_, vol, err := d.getRootInoAndVolume(ctx, d.userID(c))
+	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
+		return
+	}
+
 	fullPath := multipartFullPath(d.userID(c), args.Path)
 	sParts, next, _, err := vol.ListMultiPart(ctx, fullPath, args.UploadID, uint64(args.Count), args.Marker.Uint64())
-	if err != nil {
-		span.Error("multipart list", args, err)
-		c.RespondError(err)
+	if d.checkError(c, func(err error) { span.Error("multipart list", args, err) }, err) {
 		return
 	}
 
@@ -292,7 +291,7 @@ func (d *DriveNode) handleMultipartList(c *rpc.Context) {
 		})
 	}
 	span.Info("multipart list", args, next, parts)
-	c.RespondJSON(RespMPList{Parts: parts, Next: FileID(next)})
+	d.respData(c, RespMPList{Parts: parts, Next: FileID(next)})
 }
 
 // ArgsMPAbort multipart abort argument.
@@ -303,28 +302,30 @@ type ArgsMPAbort struct {
 
 func (d *DriveNode) handleMultipartAbort(c *rpc.Context) {
 	args := new(ArgsMPAbort)
-	if err := c.ParseArgs(args); err != nil {
-		c.RespondError(err)
-		return
-	}
-	if err := args.Path.Clean(); err != nil {
-		c.RespondError(err)
+	if d.checkError(c, nil, c.ParseArgs(args)) {
 		return
 	}
 	ctx, span := d.ctxSpan(c)
+
+	t := d.encrypTransmitter(c)
+	if d.checkFunc(c, func(err error) { span.Info(err) },
+		func() error { return decodeHex(&args.UploadID, args.UploadID, t) },
+		func() error { return args.Path.Clean(t) }) {
+		return
+	}
+
 	_, vol, err := d.getRootInoAndVolume(ctx, d.userID(c))
-	if err != nil {
-		c.RespondError(err)
+	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
 
 	fullPath := multipartFullPath(d.userID(c), args.Path)
-	if err = vol.AbortMultiPart(ctx, fullPath, args.UploadID); err != nil {
-		span.Error("multipart abort", args, err)
-	} else {
-		span.Warn("multipart abort", args)
+	if d.checkFunc(c, func(err error) { span.Error("multipart abort", args, err) },
+		func() error { return vol.AbortMultiPart(ctx, fullPath, args.UploadID) }) {
+		return
 	}
-	c.RespondError(err)
+	span.Warn("multipart abort", args)
+	c.Respond()
 }
 
 func multipartFullPath(uid UserID, p FilePath) string {

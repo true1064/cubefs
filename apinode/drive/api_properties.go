@@ -15,8 +15,6 @@
 package drive
 
 import (
-	"net/http"
-
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
 )
 
@@ -36,33 +34,36 @@ func (d *DriveNode) handleSetProperties(c *rpc.Context) {
 	uid := d.userID(c)
 
 	args := new(ArgsSetProperties)
-	if err := c.ParseArgs(args); err != nil {
-		span.Errorf("parse args error: %v", err)
-		c.RespondStatus(http.StatusBadRequest)
+	if d.checkError(c, nil, c.ParseArgs(args)) {
 		return
 	}
-	xattrs := d.getProperties(c)
 
+	t := d.encrypTransmitter(c)
+	if d.checkFunc(c, func(err error) { span.Info(err) },
+		func() error { return decodeHex(&args.Path, args.Path, t) }) {
+		return
+	}
+
+	xattrs, err := d.getProperties(c)
+	if d.checkError(c, func(err error) { span.Info(err) }, err) {
+		return
+	}
 	if len(xattrs) == 0 {
+		c.Respond()
 		return
 	}
 
 	rootIno, vol, err := d.getRootInoAndVolume(ctx, uid)
-	if err != nil {
-		span.Errorf("get user router error: %v, uid=%s", err, uid)
-		c.RespondError(err)
+	if d.checkError(c, func(err error) { span.Errorf("get user router error: %v, uid=%s", err, uid) }, err) {
 		return
 	}
 
 	dirInfo, err := d.lookup(ctx, vol, rootIno, args.Path)
-	if err != nil {
-		span.Errorf("lookup path=%s error: %v", args.Path, err)
-		c.RespondError(err)
+	if d.checkError(c, func(err error) { span.Errorf("lookup path=%s error: %v", args.Path, err) }, err) {
 		return
 	}
-	if err = vol.BatchSetXAttr(ctx, dirInfo.Inode, xattrs); err != nil {
-		span.Errorf("batch set xattr path=%s error: %v", args.Path, err)
-		c.RespondError(err)
+	if d.checkFunc(c, func(err error) { span.Errorf("batch set xattr path=%s error: %v", args.Path, err) },
+		func() error { return vol.BatchSetXAttr(ctx, dirInfo.Inode, xattrs) }) {
 		return
 	}
 	c.Respond()
@@ -73,35 +74,31 @@ func (d *DriveNode) handleGetProperties(c *rpc.Context) {
 	uid := d.userID(c)
 
 	args := new(ArgsGetProperties)
-	if err := c.ParseArgs(args); err != nil {
-		span.Errorf("parse args error: %v", err)
-		c.RespondStatus(http.StatusBadRequest)
+	if d.checkError(c, nil, c.ParseArgs(args)) {
+		return
+	}
+
+	t := d.encrypTransmitter(c)
+	if d.checkFunc(c, func(err error) { span.Info(err) },
+		func() error { return decodeHex(&args.Path, args.Path, t) }) {
 		return
 	}
 
 	rootIno, vol, err := d.getRootInoAndVolume(ctx, uid)
-	if err != nil {
-		span.Errorf("get user router error: %v, uid=%s", err, uid)
-		c.RespondError(err)
+	if d.checkError(c, func(err error) { span.Errorf("get user router error: %v, uid=%s", err, uid) }, err) {
 		return
 	}
 
 	dirInfo, err := d.lookup(ctx, vol, rootIno, args.Path)
-	if err != nil {
-		span.Errorf("lookup path=%s error: %v", args.Path, err)
-		c.RespondError(err)
+	if d.checkError(c, func(err error) { span.Errorf("lookup path=%s error: %v", args.Path, err) }, err) {
 		return
 	}
 	xattrs, err := vol.GetXAttrMap(ctx, dirInfo.Inode)
-	if err != nil {
-		span.Errorf("get xattr path=%s error: %v", args.Path, err)
-		c.RespondError(err)
+	if d.checkError(c, func(err error) { span.Errorf("get xattr path=%s error: %v", args.Path, err) }, err) {
 		return
 	}
 	inoInfo, err := vol.GetInode(ctx, dirInfo.Inode)
-	if err != nil {
-		span.Errorf("get inode path=%s error: %v", args.Path, err)
-		c.RespondError(err)
+	if d.checkError(c, func(err error) { span.Errorf("get inode path=%s error: %v", args.Path, err) }, err) {
 		return
 	}
 	res := GetPropertiesResult{
@@ -117,5 +114,5 @@ func (d *DriveNode) handleGetProperties(c *rpc.Context) {
 	if dirInfo.IsDir() {
 		res.Type = "folder"
 	}
-	c.RespondJSON(res)
+	d.respData(c, res)
 }

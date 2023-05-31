@@ -25,120 +25,101 @@ import (
 
 // ArgsFileUpload file upload argument.
 type ArgsFileUpload struct {
-	Path   FilePath `json:"path"`
-	FileID FileID   `json:"fileId,omitempty"`
-	Owner  UserID   `json:"owner,omitempty"`
+	Path    FilePath `json:"path"`
+	XFileID string   `json:"fileId,omitempty"`
+	FileID  FileID   `json:"-"`
 }
 
 func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 	args := new(ArgsFileUpload)
-	if err := c.ParseArgs(args); err != nil {
-		c.RespondError(err)
+	if d.checkError(c, nil, c.ParseArgs(args)) {
 		return
 	}
 	ctx, span := d.ctxSpan(c)
 
-	originPath := string(args.Path)
-	if args.Path.Clean(); !args.Path.IsFile() {
-		span.Warnf("not a file path: %s -> %s", originPath, args.Path)
-		c.RespondError(sdk.ErrInvalidPath.Extend(originPath))
+	t, fail := d.decryptTransmitter(c)
+	if fail {
+		return
+	}
+	if d.checkFunc(c, func(err error) { span.Info("upload parse args", err) },
+		func() error { return decodeFileID(&args.FileID, args.XFileID, t) },
+		func() error { return args.Path.Clean(t) }) {
 		return
 	}
 
-	uid := args.Owner
-	if !uid.Valid() {
-		uid = d.userID(c)
-	}
-
+	uid := d.userID(c)
 	root, vol, err := d.getRootInoAndVolume(ctx, uid)
-	if err != nil {
-		c.RespondError(err)
-		return
-	}
-	ur, err := d.GetUserRouteInfo(ctx, uid)
-	if err != nil {
-		c.RespondError(err)
+	ur, err1 := d.GetUserRouteInfo(ctx, uid)
+	if d.checkError(c, func(err error) { span.Warn(err) }, err, err1) {
 		return
 	}
 
 	dir, filename := args.Path.Split()
 	info, err := d.createDir(ctx, vol, root, dir.String(), true)
-	if err != nil {
-		c.RespondError(err)
+	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
 
-	reader, err := d.cryptor.TransDecryptor(c.Request.Header.Get(headerCipherMaterial), c.Request.Body)
-	if err != nil {
-		span.Warn(err)
-		c.RespondError(err)
-		return
-	}
-	reader, err = newCrc32Reader(c.Request.Header, reader, span.Warnf)
-	if err != nil {
-		span.Warn(err)
-		c.RespondError(err)
-		return
-	}
-	reader, err = d.cryptor.FileEncryptor(ur.CipherKey, reader)
-	if err != nil {
-		span.Warn(err)
-		c.RespondError(err)
+	reader := t.Transmit(c.Request.Body)
+	if d.checkFunc(c, func(err error) { span.Warn(err) },
+		func() error { reader, err = newCrc32Reader(c.Request.Header, reader, span.Warnf); return err },
+		func() error { reader, err = d.cryptor.FileEncryptor(ur.CipherKey, reader); return err }) {
 		return
 	}
 
-	extend := d.getProperties(c)
+	extend, err := d.getProperties(c)
+	if d.checkError(c, nil, err) {
+		return
+	}
+	span.Info("to upload file", args, extend)
 	inode, err := vol.UploadFile(ctx, &sdk.UploadFileReq{
 		ParIno: info.Inode,
 		Name:   filename,
-		OldIno: uint64(args.FileID),
+		OldIno: args.FileID.Uint64(),
 		Extend: extend,
 		Body:   reader,
 	})
-	if err != nil {
-		span.Error(err)
-		c.RespondError(err)
+	if d.checkError(c, func(err error) { span.Error("upload file", err) }, err) {
 		return
 	}
 
 	d.out.Publish(ctx, makeOpLog(OpUploadFile, uid, string(args.Path), "size", inode.Size))
-	c.RespondJSON(inode2file(inode, filename, extend))
+	d.respData(c, inode2file(inode, filename, extend))
 }
 
 // ArgsFileWrite file write.
 type ArgsFileWrite struct {
-	Path   FilePath `json:"path"`
-	FileID FileID   `json:"fileId"`
+	Path    FilePath `json:"path"`
+	XFileID string   `json:"fileId,omitempty"`
+	FileID  FileID   `json:"-"`
 }
 
 func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 	args := new(ArgsFileWrite)
-	if err := c.ParseArgs(args); err != nil {
-		c.RespondError(err)
+	if d.checkError(c, nil, c.ParseArgs(args)) {
 		return
 	}
 	ctx, span := d.ctxSpan(c)
 
-	if err := args.Path.Clean(); err != nil {
-		c.RespondError(sdk.ErrInvalidPath.Extend(args.Path))
+	t, fail := d.decryptTransmitter(c)
+	if fail {
+		return
+	}
+	if d.checkFunc(c, func(err error) { span.Info(err) },
+		func() error { return decodeFileID(&args.FileID, args.XFileID, t) },
+		func() error { return args.Path.Clean(t) }) {
 		return
 	}
 
 	uid := d.userID(c)
 	_, vol, err := d.getRootInoAndVolume(ctx, uid)
-	if err != nil {
-		c.RespondError(err)
-		return
-	}
-	ur, err := d.GetUserRouteInfo(ctx, uid)
-	if err != nil {
-		c.RespondError(err)
+	ur, err1 := d.GetUserRouteInfo(ctx, uid)
+	if d.checkError(c, func(err error) { span.Warn(err) }, err, err1) {
 		return
 	}
 
-	inode, err := vol.GetInode(ctx, uint64(args.FileID))
-	if err != nil {
-		c.RespondError(err)
+	inode, err := vol.GetInode(ctx, args.FileID.Uint64())
+	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
 
@@ -146,115 +127,84 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 	if err == errOverSize {
 		if ranged.Start != int64(inode.Size) {
 			span.Error(err)
-			c.RespondError(sdk.ErrWriteOverSize)
+			d.respError(c, sdk.ErrWriteOverSize)
 			return
 		}
 	} else if err != nil {
 		span.Warn(err)
-		c.RespondError(sdk.ErrBadRequest.Extend(err))
+		d.respError(c, sdk.ErrBadRequest.Extend(err))
 		return
 	}
 
-	reader, err := d.cryptor.TransDecryptor(c.Request.Header.Get(headerCipherMaterial), c.Request.Body)
-	if err != nil {
-		span.Warn(err)
-		c.RespondError(err)
-		return
-	}
-	reader, err = newCrc32Reader(c.Request.Header, reader, span.Warnf)
-	if err != nil {
-		span.Warn(err)
-		c.RespondError(err)
+	reader := t.Transmit(c.Request.Body)
+	if d.checkFunc(c, func(err error) { span.Warn(err) },
+		func() error { reader, err = newCrc32Reader(c.Request.Header, reader, span.Warnf); return err }) {
 		return
 	}
 
 	l, err := c.RequestLength()
 	if err != nil {
 		span.Warn(err)
-		c.RespondError(sdk.ErrBadRequest.Extend(err))
+		d.respError(c, sdk.ErrBadRequest.Extend(err))
 		return
 	}
 	size := uint64(l)
 	reader = newFixedReader(reader, int64(size))
 
 	first, firstN, err := d.blockReaderFirst(ctx, vol, inode, uint64(ranged.Start), ur.CipherKey)
-	if err != nil {
-		span.Warn(err)
-		c.RespondError(err)
-		return
-	}
-	last, lastN, err := d.blockReaderLast(ctx, vol, inode, uint64(ranged.Start)+size, ur.CipherKey)
-	if err != nil {
-		span.Warn(err)
-		c.RespondError(err)
+	last, lastN, err1 := d.blockReaderLast(ctx, vol, inode, uint64(ranged.Start)+size, ur.CipherKey)
+	if d.checkError(c, func(err error) { span.Warn(err) }, err, err1) {
 		return
 	}
 	span.Infof("to write first(%d) size(%d) last(%d) with range[%d-]", firstN, size, lastN, ranged.Start)
 
 	reader, err = d.cryptor.FileEncryptor(ur.CipherKey, io.MultiReader(first, reader, last))
-	if err != nil {
-		span.Warn(err)
-		c.RespondError(err)
+	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
 
 	wOffset, wSize := uint64(ranged.Start)-firstN, firstN+size+lastN
 	span.Infof("write file:%d range-start:%d body-size:%d rewrite-offset:%d rewrite-size:%d",
 		args.FileID, ranged.Start, size, wOffset, wSize)
-	if err = vol.WriteFile(ctx, args.FileID.Uint64(), wOffset, wSize, reader); err != nil {
-		span.Error(err)
-		c.RespondError(err)
+	if d.checkError(c, func(err error) { span.Warn(err) },
+		vol.WriteFile(ctx, args.FileID.Uint64(), wOffset, wSize, reader)) {
 		return
 	}
-	// d.out.Publish(ctx, makeOpLog(OpUpdateFile, uid, string(args.Path), "size", inode.Size))
+	d.out.Publish(ctx, makeOpLog(OpUpdateFile, uid, string(args.Path), "size", inode.Size))
 	c.Respond()
 }
 
 // ArgsFileDownload file download argument.
 type ArgsFileDownload struct {
-	Path  FilePath `json:"path"`
-	Owner UserID   `json:"owner,omitempty"`
+	Path FilePath `json:"path"`
 }
 
 func (d *DriveNode) handleFileDownload(c *rpc.Context) {
 	args := new(ArgsFileDownload)
-	if err := c.ParseArgs(args); err != nil {
-		c.RespondError(err)
+	if d.checkError(c, nil, c.ParseArgs(args)) {
 		return
 	}
 	ctx, span := d.ctxSpan(c)
 
-	if args.Path.Clean(); !args.Path.IsFile() {
-		span.Warn("invalid path", args.Path)
-		c.RespondError(sdk.ErrInvalidPath)
+	t := d.encrypTransmitter(c)
+	if d.checkError(c, func(err error) { span.Info(err) }, args.Path.Clean(t)) {
 		return
 	}
 
-	uid := args.Owner
-	if !uid.Valid() {
-		uid = d.userID(c)
-	}
-
+	uid := d.userID(c)
 	root, vol, err := d.getRootInoAndVolume(ctx, uid)
-	if err != nil {
-		c.RespondError(err)
-		return
-	}
-	ur, err := d.GetUserRouteInfo(ctx, uid)
-	if err != nil {
-		c.RespondError(err)
+	ur, err1 := d.GetUserRouteInfo(ctx, uid)
+	if d.checkError(c, func(err error) { span.Warn(err) }, err, err1) {
 		return
 	}
 
 	file, err := d.lookup(ctx, vol, root, args.Path.String())
-	if err != nil {
-		c.RespondError(err)
+	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
 
 	inode, err := vol.GetInode(ctx, file.Inode)
-	if err != nil {
-		c.RespondError(err)
+	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
 	if inode.Size == 0 {
@@ -267,7 +217,7 @@ func (d *DriveNode) handleFileDownload(c *rpc.Context) {
 		ranged, err = parseRange(header, int64(inode.Size))
 		if err != nil {
 			span.Warn(err)
-			c.RespondError(sdk.ErrBadRequest.Extend(err))
+			d.respError(c, sdk.ErrBadRequest.Extend(err))
 			return
 		}
 	}
@@ -282,18 +232,12 @@ func (d *DriveNode) handleFileDownload(c *rpc.Context) {
 	}
 
 	body, err := d.makeBlockedReader(ctx, vol, inode.Inode, uint64(ranged.Start), ur.CipherKey)
-	if err != nil {
-		span.Warn(err)
-		c.RespondError(err)
+	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
-	body, err = d.cryptor.TransEncryptor(c.Request.Header.Get(headerCipherMaterial), body)
-	if err != nil {
-		span.Warn(err)
-		c.RespondError(err)
-		return
-	}
+	body = t.Transmit(body)
 
+	span.Debug("download", args, ranged)
 	c.RespondWithReader(status, size, rpc.MIMEStream, body, headers)
 }
 
@@ -305,24 +249,21 @@ type ArgsFileRename struct {
 
 func (d *DriveNode) handleFileRename(c *rpc.Context) {
 	args := new(ArgsFileRename)
-	if err := c.ParseArgs(args); err != nil {
-		c.RespondError(err)
+	if d.checkError(c, nil, c.ParseArgs(args)) {
 		return
 	}
 	ctx, span := d.ctxSpan(c)
 
-	args.Src.Clean()
-	args.Dst.Clean()
-	if !args.Src.Valid() || !args.Dst.Valid() {
-		span.Warn("invalid rename", args)
-		c.RespondError(sdk.ErrInvalidPath)
+	t := d.encrypTransmitter(c)
+	if d.checkFunc(c, func(err error) { span.Info(err) },
+		func() error { return args.Src.Clean(t) },
+		func() error { return args.Dst.Clean(t) }) {
 		return
 	}
 	span.Info("to rename", args)
 
 	root, vol, err := d.getRootInoAndVolume(ctx, d.userID(c))
-	if err != nil {
-		c.RespondError(err)
+	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
 
@@ -338,15 +279,13 @@ func (d *DriveNode) handleFileRename(c *rpc.Context) {
 	dstParentIno := root
 	if srcName == "" {
 		span.Error("invalid src=", args.Src)
-		c.RespondError(sdk.ErrBadRequest)
+		d.respError(c, sdk.ErrBadRequest)
 		return
 	}
 	if srcDir != "" && srcDir != "/" {
 		var srcParent *sdk.DirInfo
 		srcParent, err = d.lookup(ctx, vol, root, srcDir.String())
-		if err != nil {
-			span.Warn("lookup src", srcDir, err)
-			c.RespondError(err)
+		if d.checkError(c, func(err error) { span.Warn("lookup src", srcDir, err) }, err) {
 			return
 		}
 		srcParentIno = Inode(srcParent.Inode)
@@ -354,87 +293,78 @@ func (d *DriveNode) handleFileRename(c *rpc.Context) {
 	dstDir, dstName := args.Dst.Split()
 	if dstName == "" {
 		span.Error("invalid dst=", args.Dst)
-		c.RespondError(sdk.ErrBadRequest)
+		d.respError(c, sdk.ErrBadRequest)
 		return
 	}
 	if dstDir != "" && dstDir != "/" {
 		var dstParent *sdk.DirInfo
 		dstParent, err = d.lookup(ctx, vol, root, dstDir.String())
-		if err != nil {
-			span.Warn("lookup dst", dstDir, err)
-			c.RespondError(err)
+		if d.checkError(c, func(err error) { span.Warn("lookup dst", srcDir, err) }, err) {
 			return
 		}
 		dstParentIno = Inode(dstParent.Inode)
 	}
 
 	err = vol.Rename(ctx, srcParentIno.Uint64(), dstParentIno.Uint64(), srcName, dstName)
-	if err != nil {
-		span.Error("rename error", args, err)
+	if d.checkError(c, func(err error) { span.Error("rename error", args, err) }, err) {
+		return
 	}
 	d.out.Publish(ctx, makeOpLog(OpUpdateFile, d.userID(c), string(args.Src), "dst", string(args.Dst)))
-	c.RespondError(err)
+	c.Respond()
 }
 
 // ArgsFileCopy rename file or dir.
 type ArgsFileCopy struct {
-	Src  FilePath `json:"src"`
-	Dst  FilePath `json:"dst"`
-	Meta bool     `json:"meta,omitempty"`
+	Src   FilePath `json:"src"`
+	Dst   FilePath `json:"dst"`
+	XMeta string   `json:"meta,omitempty"`
+	Meta  bool     `json:"-"`
 }
 
 func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 	args := new(ArgsFileCopy)
-	if err := c.ParseArgs(args); err != nil {
-		c.RespondError(err)
+	if d.checkError(c, nil, c.ParseArgs(args)) {
 		return
 	}
 	ctx, span := d.ctxSpan(c)
 
-	args.Src.Clean()
-	args.Dst.Clean()
-	if !args.Src.IsFile() || !args.Dst.IsFile() {
-		span.Warn("invalid copy", args)
-		c.RespondError(sdk.ErrInvalidPath)
+	t := d.encrypTransmitter(c)
+	if d.checkFunc(c, func(err error) { span.Warn(err) },
+		func() error { return args.Src.Clean(t) },
+		func() error { return args.Dst.Clean(t) },
+		func() error { return decodeHex(&args.Meta, args.XMeta, t) }) {
 		return
 	}
 	span.Info("to copy", args)
 
 	root, vol, err := d.getRootInoAndVolume(ctx, d.userID(c))
-	if err != nil {
-		c.RespondError(err)
+	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
 
 	file, err := d.lookup(ctx, vol, root, args.Src.String())
-	if err != nil {
-		c.RespondError(err)
+	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
 
 	inode, err := vol.GetInode(ctx, file.Inode)
-	if err != nil {
-		c.RespondError(err)
+	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
-	body := makeFileReader(ctx, vol, inode.Inode, 0)
+	body := newFixedReader(makeFileReader(ctx, vol, inode.Inode, 0), int64(inode.Size))
 
 	// TODO: remove shared meta
 	extend := make(map[string]string)
 	if args.Meta {
 		extend, err = vol.GetXAttrMap(ctx, inode.Inode)
-		if err != nil {
-			span.Warn(err)
-			c.RespondError(err)
+		if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 			return
 		}
 	}
 
 	dir, filename := args.Dst.Split()
 	dstParent, err := d.createDir(ctx, vol, root, dir.String(), true)
-	if err != nil {
-		span.Warn(err)
-		c.RespondError(err)
+	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
 
@@ -445,10 +375,9 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 		Extend: extend,
 		Body:   body,
 	})
-	if err == nil {
-		d.out.Publish(ctx, makeOpLog(OpCopyFile, d.userID(c), string(args.Src), "dst", string(args.Dst)))
-	} else {
-		span.Error(err)
+	if d.checkError(c, func(err error) { span.Error(err) }, err) {
+		return
 	}
-	c.RespondError(err)
+	d.out.Publish(ctx, makeOpLog(OpCopyFile, d.userID(c), string(args.Src), "dst", string(args.Dst)))
+	c.Respond()
 }

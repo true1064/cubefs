@@ -21,6 +21,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -63,6 +64,58 @@ func (i Inode) Uint64() uint64 {
 // FileID file id.
 type FileID = Inode
 
+func decodeFileID(p *FileID, hexStr string, trans crypto.Transmitter) error {
+	var id uint64
+	if err := decodeHex(&id, hexStr, trans); err != nil {
+		return err
+	}
+	*p = FileID(id)
+	return nil
+}
+
+func decodeHex(p interface{}, hexStr string, trans crypto.Transmitter) error {
+	if hexStr == "" {
+		return nil
+	}
+	str, derr := trans.Decrypt(hexStr, true)
+	if derr != nil {
+		return derr
+	}
+
+	var (
+		iv  int64
+		uv  uint64
+		err error
+	)
+	switch v := p.(type) {
+	case (*string):
+		*v = str
+	case (*bool):
+		*v, err = strconv.ParseBool(str)
+	case (*int):
+		iv, err = strconv.ParseInt(str, 10, 0)
+		*v = int(iv)
+
+	case (*uint):
+		uv, err = strconv.ParseUint(str, 10, 0)
+		*v = uint(uv)
+	case (*uint16):
+		uv, err = strconv.ParseUint(str, 10, 16)
+		*v = uint16(uv)
+	case (*uint64):
+		uv, err = strconv.ParseUint(str, 10, 64)
+		*v = uv
+
+	default:
+		panic("unsupported type")
+	}
+
+	if err != nil {
+		return sdk.ErrBadRequest.Extend("HexString", hexStr)
+	}
+	return nil
+}
+
 // FilePath cleaned file path.
 //  It ends with a separator if path is directory.
 type FilePath string
@@ -86,8 +139,12 @@ func (p *FilePath) IsFile() bool {
 }
 
 // Clean replace origin path to cleaned path.
-func (p *FilePath) Clean() error {
-	s := string(*p)
+func (p *FilePath) Clean(trans crypto.Transmitter) error {
+	var s string
+	if err := decodeHex(&s, p.String(), trans); err != nil {
+		return err
+	}
+
 	isDir := len(s) > 0 && s[len(s)-1] == os.PathSeparator
 	path := filepath.Clean(s)
 	if isDir {

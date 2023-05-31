@@ -99,6 +99,7 @@ func TestHandleListDir(t *testing.T) {
 	d := &DriveNode{
 		vol:        mockVol,
 		userRouter: urm,
+		cryptor:    newMockCryptor(t),
 		clusterMgr: mockClusterMgr,
 	}
 	ts := httptest.NewServer(d.RegisterAPIRouters())

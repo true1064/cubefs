@@ -15,40 +15,43 @@
 package drive
 
 import (
+	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
 )
 
+// ArgsMkDir make dir argument.
 type ArgsMkDir struct {
-	Path      FilePath `json:"path"`
-	Recursive bool     `json:"recursive,omitempty"`
+	Path       FilePath `json:"path"`
+	XRecursive string   `json:"recursive,omitempty"`
+	Recursive  bool     `json:"-"`
 }
 
 // POST /v1/files/mkdir?path=/abc&recursive=bool
 func (d *DriveNode) handleMkDir(c *rpc.Context) {
 	ctx, span := d.ctxSpan(c)
 	args := new(ArgsMkDir)
-	if err := c.ParseArgs(args); err != nil {
-		c.RespondError(err)
+	if d.checkError(c, nil, c.ParseArgs(args)) {
 		return
 	}
 
-	if err := args.Path.Clean(); err != nil {
-		span.Warnf("invalid path: %s", args.Path)
-		c.RespondError(err)
+	t := d.encrypTransmitter(c)
+	if d.checkFunc(c, func(err error) { span.Info(err) },
+		func() error { return decodeHex(&args.Recursive, args.XRecursive, t) },
+		func() error { return args.Path.Clean(t) }) {
 		return
 	}
 
 	uid := d.userID(c)
 	rootIno, vol, err := d.getRootInoAndVolume(ctx, uid)
-	if err != nil {
-		c.RespondError(err)
+	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
 
+	span.Info("to makedir", args)
 	_, err = d.createDir(ctx, vol, rootIno, args.Path.String(), args.Recursive)
-	if err != nil {
+	if d.checkError(c, func(err error) {
 		span.Errorf("create dir %s error: %s, uid=%s recursive=%v", args.Path, err.Error(), uid, args.Recursive)
-		c.RespondError(err)
+	}, err) {
 		return
 	}
 	d.out.Publish(ctx, makeOpLog(OpCreateDir, uid, args.Path.String()))
@@ -62,23 +65,23 @@ type ArgsDelete struct {
 
 func (d *DriveNode) handleFilesDelete(c *rpc.Context) {
 	args := new(ArgsDelete)
-	if err := c.ParseArgs(args); err != nil {
-		c.RespondError(err)
+	if d.checkError(c, nil, c.ParseArgs(args)) {
 		return
 	}
 	ctx, span := d.ctxSpan(c)
 
-	if err := args.Path.Clean(); err != nil {
-		c.RespondError(err)
+	t := d.encrypTransmitter(c)
+	if d.checkFunc(c, func(err error) { span.Info(err) },
+		func() error { return args.Path.Clean(t) }) {
 		return
 	}
 	if args.Path.IsDir() {
 		args.Path = args.Path[:len(args.Path)-1]
 	}
+	span.Info("to delete", args)
 
 	root, vol, err := d.getRootInoAndVolume(ctx, d.userID(c))
-	if err != nil {
-		c.RespondError(err)
+	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
 
@@ -88,23 +91,19 @@ func (d *DriveNode) handleFilesDelete(c *rpc.Context) {
 		parent, errx := d.lookup(ctx, vol, root, dir.String())
 		if errx != nil {
 			span.Warn(errx)
-			c.RespondError(errx)
+			d.respError(c, errx)
 			return
 		}
 		parentIno = Inode(parent.Inode)
 	}
-	file, err := d.lookup(ctx, vol, parentIno, name)
-	if err != nil {
-		span.Warn(err)
-		c.RespondError(err)
+
+	var file *sdk.DirInfo
+	if d.checkFunc(c, func(err error) { span.Error(err) },
+		func() error { file, err = d.lookup(ctx, vol, parentIno, name); return err },
+		func() error { return vol.Delete(ctx, parentIno.Uint64(), name, file.IsDir()) }) {
 		return
 	}
-	err = vol.Delete(ctx, parentIno.Uint64(), name, file.IsDir())
-	if err != nil {
-		span.Error(err)
-		c.RespondError(err)
-		return
-	}
+
 	op := OpDeleteFile
 	if file.IsDir() {
 		op = OpDeleteDir

@@ -16,9 +16,11 @@ package drive
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"strings"
 
+	"github.com/cubefs/cubefs/apinode/crypto"
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
 	"github.com/cubefs/cubefs/blobstore/common/trace"
@@ -82,16 +84,24 @@ func (d *DriveNode) RegisterAPIRouters() *rpc.Router {
 	return r
 }
 
-func (*DriveNode) setHeaders(c *rpc.Context) {
+func (d *DriveNode) setHeaders(c *rpc.Context) {
 	rid := c.Request.Header.Get(headerRequestID)
 	c.Set(headerRequestID, rid)
 
 	uid := UserID(c.Request.Header.Get(headerUserID))
 	if !uid.Valid() {
-		c.AbortWithError(sdk.ErrBadRequest)
+		c.AbortWithStatus(sdk.ErrBadRequest.Status)
 		return
 	}
 	c.Set(headerUserID, uid)
+
+	// pre-set encrypt transmitter
+	t, err := d.cryptor.EncryptTransmitter(c.Request.Header.Get(headerCipherMaterial))
+	if err != nil {
+		c.AbortWithStatus(sdk.ErrTransCipher.Status)
+		return
+	}
+	c.Set(headerCipherMaterial, t)
 }
 
 func (*DriveNode) requestID(c *rpc.Context) string {
@@ -104,15 +114,20 @@ func (*DriveNode) userID(c *rpc.Context) UserID {
 	return uid.(UserID)
 }
 
-func (*DriveNode) getProperties(c *rpc.Context) map[string]string {
-	properties := make(map[string]string)
-	for key, values := range c.Request.Header {
-		key = strings.ToLower(key)
-		if len(key) > len(userPropertyPrefix) && strings.HasPrefix(key, userPropertyPrefix) {
-			properties[key[len(userPropertyPrefix):]] = values[0]
-		}
+func (*DriveNode) encrypTransmitter(c *rpc.Context) crypto.Transmitter {
+	t, _ := c.Get(headerCipherMaterial)
+	return t.(crypto.Transmitter)
+}
+
+func (d *DriveNode) decryptTransmitter(c *rpc.Context) (crypto.Transmitter, bool) {
+	t, err := d.cryptor.DecryptTransmitter(c.Request.Header.Get(headerCipherMaterial))
+	if err != nil {
+		_, span := d.ctxSpan(c)
+		span.Warn("make decrypt transmitter", err)
+		c.RespondStatus(sdk.ErrTransCipher.Status)
+		return nil, true
 	}
-	return properties
+	return t, false
 }
 
 // span carry with request id firstly.
@@ -125,4 +140,99 @@ func (d *DriveNode) ctxSpan(c *rpc.Context) (context.Context, trace.Span) {
 		span = trace.SpanFromContextSafe(ctx)
 	}
 	return ctx, span
+}
+
+func (d *DriveNode) getProperties(c *rpc.Context) (map[string]string, error) {
+	t := d.encrypTransmitter(c)
+	properties := make(map[string]string)
+	for key, values := range c.Request.Header {
+		key = strings.ToLower(key)
+		if len(key) > len(userPropertyPrefix) && strings.HasPrefix(key, userPropertyPrefix) {
+			k, err := t.Decrypt(key[len(userPropertyPrefix):], true)
+			if err != nil {
+				return nil, err
+			}
+			v, err := t.Decrypt(values[0], true)
+			if err != nil {
+				return nil, err
+			}
+			properties[k] = v
+		}
+	}
+	return properties, nil
+}
+
+func (d *DriveNode) respData(c *rpc.Context, obj interface{}) {
+	buffer, err := json.Marshal(obj)
+	if err != nil {
+		c.RespondStatus(http.StatusInternalServerError)
+		return
+	}
+	dataStr, err := d.encrypTransmitter(c).Encrypt(string(buffer), false)
+	if err != nil {
+		c.RespondStatus(sdk.ErrTransCipher.Status)
+		return
+	}
+	c.RespondWith(http.StatusOK, rpc.MIMEJSON, []byte(dataStr))
+}
+
+type errorResponse struct {
+	Error   string `json:"error"`
+	Code    string `json:"code,omitempty"`
+	Message string `json:"message,omitempty"`
+}
+
+func (d *DriveNode) respError(c *rpc.Context, err error) {
+	if err == nil {
+		c.Respond()
+		return
+	}
+
+	var message string
+	if e, ok := err.(*sdk.Error); ok {
+		message = e.Message
+	}
+	httpErr := rpc.Error2HTTPError(err)
+	if status := httpErr.StatusCode(); status == sdk.ErrTransCipher.Status {
+		c.RespondStatus(status)
+		return
+	}
+
+	buffer, _ := json.Marshal(errorResponse{
+		Error:   httpErr.Error(),
+		Code:    httpErr.ErrorCode(),
+		Message: message,
+	})
+	dataStr, err := d.encrypTransmitter(c).Encrypt(string(buffer), false)
+	if err != nil {
+		c.RespondStatus(sdk.ErrTransCipher.Status)
+		return
+	}
+	c.RespondWith(httpErr.StatusCode(), rpc.MIMEJSON, []byte(dataStr))
+}
+
+func (d *DriveNode) checkError(c *rpc.Context, logger func(error), errs ...error) bool {
+	for _, err := range errs {
+		if err != nil {
+			if logger != nil {
+				logger(err)
+			}
+			d.respError(c, err)
+			return true
+		}
+	}
+	return false
+}
+
+func (d *DriveNode) checkFunc(c *rpc.Context, logger func(error), funcs ...func() error) bool {
+	for _, f := range funcs {
+		if err := f(); err != nil {
+			if logger != nil {
+				logger(err)
+			}
+			d.respError(c, err)
+			return true
+		}
+	}
+	return false
 }

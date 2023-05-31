@@ -24,13 +24,11 @@ func TestHandleCreateDrive(t *testing.T) {
 	mockCluster := mocks.NewMockICluster(ctrl)
 	mockVol := mocks.NewMockIVolume(ctrl)
 	mockClusterMgr := mocks.NewMockClusterManager(ctrl)
-	mockCryptor := mocks.NewMockCryptor(ctrl)
-	mockCryptor.EXPECT().GenKey().Return(nil, nil).AnyTimes()
 	d := &DriveNode{
 		vol:        mockVol,
 		userRouter: urm,
 		clusterMgr: mockClusterMgr,
-		cryptor:    mockCryptor,
+		cryptor:    newMockCryptor(t),
 		clusters:   []string{"1", "2"},
 	}
 	ts := httptest.NewServer(d.RegisterAPIRouters())
@@ -226,6 +224,7 @@ func TestHandleAddUserConfig(t *testing.T) {
 		vol:        mockVol,
 		userRouter: urm,
 		clusterMgr: mockClusterMgr,
+		cryptor:    newMockCryptor(t),
 		clusters:   []string{"1", "2"},
 	}
 	ts := httptest.NewServer(d.RegisterAPIRouters())
@@ -393,6 +392,7 @@ func TestHandleGetUserConfig(t *testing.T) {
 		vol:        mockVol,
 		userRouter: urm,
 		clusterMgr: mockClusterMgr,
+		cryptor:    newMockCryptor(t),
 		clusters:   []string{"1", "2"},
 	}
 	ts := httptest.NewServer(d.RegisterAPIRouters())

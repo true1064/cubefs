@@ -27,6 +27,7 @@ func TestHandleSetProperties(t *testing.T) {
 	d := &DriveNode{
 		vol:        mockVol,
 		userRouter: urm,
+		cryptor:    newMockCryptor(t),
 		clusterMgr: mockClusterMgr,
 	}
 	ts := httptest.NewServer(d.RegisterAPIRouters())
@@ -184,6 +185,7 @@ func TestHandleGetProperties(t *testing.T) {
 	d := &DriveNode{
 		vol:        mockVol,
 		userRouter: urm,
+		cryptor:    newMockCryptor(t),
 		clusterMgr: mockClusterMgr,
 	}
 	ts := httptest.NewServer(d.RegisterAPIRouters())
