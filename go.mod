@@ -3,13 +3,14 @@ module github.com/cubefs/cubefs
 go 1.17
 
 replace (
+	andescryptokit => ./depends/andescryptokit
 	github.com/jacobsa/daemonize => ./depends/jacobsa/daemonize
 	github.com/jacobsa/fuse => ./depends/jacobsa/fuse
 	github.com/spf13/cobra => ./depends/spf13/cobra
-	oppo.com/andes-crypto/kit => ./depends/andes-crypto-kit
 )
 
 require (
+	andescryptokit v0.0.0-00010101000000-000000000000
 	github.com/Shopify/sarama v1.22.1
 	github.com/afex/hystrix-go v0.0.0-20180502004556-fa1af6a1f4f5
 	github.com/aws/aws-sdk-go v1.33.1
@@ -50,7 +51,6 @@ require (
 	gopkg.in/go-playground/validator.v9 v9.31.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/yaml.v2 v2.4.0
-	oppo.com/andes-crypto/kit v0.0.0-00010101000000-000000000000
 )
 
 require (

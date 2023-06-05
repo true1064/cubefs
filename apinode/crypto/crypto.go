@@ -15,6 +15,9 @@
 package crypto
 
 import (
+	kit "andescryptokit"
+	"andescryptokit/engine"
+	"andescryptokit/errno"
 	"bytes"
 	"encoding/base64"
 	"encoding/hex"
@@ -23,9 +26,6 @@ import (
 	"sync"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
-	kit "oppo.com/andes-crypto/kit/server"
-	"oppo.com/andes-crypto/kit/server/engine"
-	"oppo.com/andes-crypto/kit/server/errno"
 )
 
 const (

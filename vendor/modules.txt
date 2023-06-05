@@ -1,3 +1,25 @@
+# andescryptokit v0.0.0-00010101000000-000000000000 => ./depends/andescryptokit
+## explicit; go 1.17
+andescryptokit
+andescryptokit/engine
+andescryptokit/errno
+andescryptokit/osec/go-kms/kms
+andescryptokit/osec/oppo_authentication_sdk_go/cw
+andescryptokit/osec/oppo_authentication_sdk_go/service/auth_client
+andescryptokit/osec/oppo_authentication_sdk_go/service/auth_client/types
+andescryptokit/osec/oppo_authentication_sdk_go/service/seckit_auth
+andescryptokit/osec/oppo_authentication_sdk_go/service/seckit_auth/cipher
+andescryptokit/osec/oppo_authentication_sdk_go/service/seckit_auth/manager
+andescryptokit/osec/oppo_authentication_sdk_go/service/seckit_auth/types
+andescryptokit/osec/oppo_authentication_sdk_go/util
+andescryptokit/osec/seckit-go/cw
+andescryptokit/osec/seckit-go/log
+andescryptokit/osec/seckit-go/okey
+andescryptokit/osec/seckit-go/okey/error
+andescryptokit/osec/seckit-go/okey/model
+andescryptokit/osec/seckit-go/okey/util
+andescryptokit/osec/seckit-go/okey/util/crypto
+andescryptokit/osec/seckit-go/signer/v2
 # github.com/BurntSushi/toml v1.1.0
 ## explicit; go 1.16
 # github.com/DataDog/zstd v1.3.6-0.20190409195224-796139022798
@@ -493,29 +515,7 @@ gopkg.in/yaml.v2
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
-# oppo.com/andes-crypto/kit v0.0.0-00010101000000-000000000000 => ./depends/andes-crypto-kit
-## explicit; go 1.17
-oppo.com/andes-crypto/kit/osec/go-kms/kms
-oppo.com/andes-crypto/kit/osec/oppo_authentication_sdk_go/cw
-oppo.com/andes-crypto/kit/osec/oppo_authentication_sdk_go/service/auth_client
-oppo.com/andes-crypto/kit/osec/oppo_authentication_sdk_go/service/auth_client/types
-oppo.com/andes-crypto/kit/osec/oppo_authentication_sdk_go/service/seckit_auth
-oppo.com/andes-crypto/kit/osec/oppo_authentication_sdk_go/service/seckit_auth/cipher
-oppo.com/andes-crypto/kit/osec/oppo_authentication_sdk_go/service/seckit_auth/manager
-oppo.com/andes-crypto/kit/osec/oppo_authentication_sdk_go/service/seckit_auth/types
-oppo.com/andes-crypto/kit/osec/oppo_authentication_sdk_go/util
-oppo.com/andes-crypto/kit/osec/seckit-go/cw
-oppo.com/andes-crypto/kit/osec/seckit-go/log
-oppo.com/andes-crypto/kit/osec/seckit-go/okey
-oppo.com/andes-crypto/kit/osec/seckit-go/okey/error
-oppo.com/andes-crypto/kit/osec/seckit-go/okey/model
-oppo.com/andes-crypto/kit/osec/seckit-go/okey/util
-oppo.com/andes-crypto/kit/osec/seckit-go/okey/util/crypto
-oppo.com/andes-crypto/kit/osec/seckit-go/signer/v2
-oppo.com/andes-crypto/kit/server
-oppo.com/andes-crypto/kit/server/engine
-oppo.com/andes-crypto/kit/server/errno
+# andescryptokit => ./depends/andescryptokit
 # github.com/jacobsa/daemonize => ./depends/jacobsa/daemonize
 # github.com/jacobsa/fuse => ./depends/jacobsa/fuse
 # github.com/spf13/cobra => ./depends/spf13/cobra
-# oppo.com/andes-crypto/kit => ./depends/andes-crypto-kit
