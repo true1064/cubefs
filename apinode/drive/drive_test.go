@@ -41,6 +41,7 @@ var (
 )
 
 func randError() *sdk.Error {
+	rand.Seed(time.Now().UnixNano())
 	return &sdk.Error{Status: rand.Intn(80) + 520}
 }
 

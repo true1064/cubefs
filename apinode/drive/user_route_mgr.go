@@ -71,6 +71,7 @@ const (
 	hashMask         = 1024
 	defaultCacheSize = 1 << 17
 	userConfigPath   = "/.usr/config"
+	volumeConfigPath = "/config/apps.cfg"
 )
 
 type userRouteMgr struct {

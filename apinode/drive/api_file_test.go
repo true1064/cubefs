@@ -300,6 +300,54 @@ func TestHandleFileDownload(t *testing.T) {
 	}
 }
 
+func TestHandleFileDownloadConfig(t *testing.T) {
+	node := newMockNode(t)
+	d := node.DriveNode
+	server, client := newTestServer(d)
+	defer server.Close()
+
+	doRequest := func() *http.Response {
+		url := genURL(server.URL, "/v1/files/content", "path", volumeConfigPath)
+		req, _ := http.NewRequest(http.MethodGet, url, nil)
+		req.Header.Add(headerUserID, testUserID)
+		req.Header.Add(headerVolume, "default")
+		resp, err := client.Do(Ctx, req)
+		require.NoError(t, err)
+		return resp
+	}
+	{
+		node.OnceLookup(true)
+		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e1)
+		resp := doRequest()
+		defer resp.Body.Close()
+		require.Equal(t, e1.Status, resp.StatusCode)
+	}
+	{
+		node.OnceLookup(true)
+		node.OnceLookup(false)
+		node.Volume.EXPECT().GetInode(A, A).Return(nil, e2)
+		resp := doRequest()
+		defer resp.Body.Close()
+		require.Equal(t, e2.Status, resp.StatusCode)
+	}
+	{
+		node.OnceLookup(true)
+		node.OnceLookup(false)
+		node.OnceGetInode()
+		body := newMockBody(1024)
+		origin := body.buff[:]
+		node.Volume.EXPECT().ReadFile(A, A, A, A).DoAndReturn(
+			func(_ context.Context, _, _ uint64, p []byte) (int, error) {
+				return body.Read(p)
+			}).AnyTimes()
+		resp := doRequest()
+		defer resp.Body.Close()
+		require.Equal(t, 200, resp.StatusCode)
+		buff, _ := io.ReadAll(resp.Body)
+		require.Equal(t, origin, buff)
+	}
+}
+
 func TestHandleFileRename(t *testing.T) {
 	node := newMockNode(t)
 	d := node.DriveNode

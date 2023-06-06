@@ -179,6 +179,22 @@ type ArgsFileDownload struct {
 	Path FilePath `json:"path"`
 }
 
+func (d *DriveNode) downloadConfig(c *rpc.Context) {
+	ctx, span := d.ctxSpan(c)
+	file, err := d.lookup(ctx, d.vol, volumeRootIno, volumeConfigPath)
+	if d.checkError(c, func(err error) { span.Warn("get config", d.volumeName, err) }, err) {
+		return
+	}
+
+	inode, err := d.vol.GetInode(ctx, file.Inode)
+	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
+		return
+	}
+
+	body := d.encrypTransmitter(c).Transmit(makeFileReader(ctx, d.vol, inode.Inode, 0))
+	c.RespondWithReader(http.StatusOK, int(inode.Size), rpc.MIMEStream, body, nil)
+}
+
 func (d *DriveNode) handleFileDownload(c *rpc.Context) {
 	args := new(ArgsFileDownload)
 	if d.checkError(c, nil, c.ParseArgs(args)) {
@@ -188,6 +204,11 @@ func (d *DriveNode) handleFileDownload(c *rpc.Context) {
 
 	t := d.encrypTransmitter(c)
 	if d.checkError(c, func(err error) { span.Info(err) }, args.Path.Clean(t)) {
+		return
+	}
+
+	if c.Request.Header.Get(headerVolume) == "default" && args.Path.String() == volumeConfigPath {
+		d.downloadConfig(c)
 		return
 	}
 

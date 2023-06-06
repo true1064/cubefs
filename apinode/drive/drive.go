@@ -44,6 +44,7 @@ const (
 
 	headerRequestID = "x-cfa-request-id"
 	headerUserID    = "x-cfa-user-id"
+	headerVolume    = "x-cfa-volume"
 	headerCrc32     = "x-cfa-content-crc32"
 	// headerSign      = "x-cfa-sign"
 	headerCipherMaterial = "x-cfa-cipher-material"
