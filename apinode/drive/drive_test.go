@@ -36,7 +36,13 @@ var (
 	C = gomock.NewController
 
 	Ctx = context.Background()
+
+	e1, e2, e3, e4 = randError(), randError(), randError(), randError()
 )
+
+func randError() *sdk.Error {
+	return &sdk.Error{Status: rand.Intn(80) + 520}
+}
 
 type mockNode struct {
 	DriveNode  *DriveNode

@@ -37,10 +37,46 @@ func (d *DriveNode) handleSetProperties(c *rpc.Context) {
 	if d.checkError(c, nil, c.ParseArgs(args)) {
 		return
 	}
-
 	t := d.encrypTransmitter(c)
-	if d.checkFunc(c, func(err error) { span.Info(err) },
-		func() error { return decodeHex(&args.Path, args.Path, t) }) {
+	if d.checkError(c, func(err error) { span.Info(err) }, args.Path.Clean(t)) {
+		return
+	}
+
+	xattrs, err := d.getProperties(c)
+	if d.checkError(c, func(err error) { span.Info(err) }, err) {
+		return
+	}
+	if len(xattrs) == 0 {
+		c.Respond()
+		return
+	}
+	span.Info("to set xattrs:", xattrs)
+
+	rootIno, vol, err := d.getRootInoAndVolume(ctx, uid)
+	if d.checkError(c, func(err error) { span.Errorf("get user router error: %v, uid=%s", err, uid) }, err) {
+		return
+	}
+	dirInfo, err := d.lookup(ctx, vol, rootIno, args.Path.String())
+	if d.checkError(c, func(err error) { span.Errorf("lookup path=%s error: %v", args.Path, err) }, err) {
+		return
+	}
+	if d.checkFunc(c, func(err error) { span.Errorf("batch set xattr path=%s error: %v", args.Path, err) },
+		func() error { return vol.BatchSetXAttr(ctx, dirInfo.Inode, xattrs) }) {
+		return
+	}
+	c.Respond()
+}
+
+func (d *DriveNode) handleDelProperties(c *rpc.Context) {
+	ctx, span := d.ctxSpan(c)
+	uid := d.userID(c)
+
+	args := new(ArgsDelProperties)
+	if d.checkError(c, nil, c.ParseArgs(args)) {
+		return
+	}
+	t := d.encrypTransmitter(c)
+	if d.checkError(c, func(err error) { span.Info(err) }, args.Path.Clean(t)) {
 		return
 	}
 
@@ -53,17 +89,22 @@ func (d *DriveNode) handleSetProperties(c *rpc.Context) {
 		return
 	}
 
+	keys := make([]string, 0, len(xattrs))
+	for k := range xattrs {
+		keys = append(keys, k)
+	}
+	span.Info("to del xattrs:", keys)
+
 	rootIno, vol, err := d.getRootInoAndVolume(ctx, uid)
 	if d.checkError(c, func(err error) { span.Errorf("get user router error: %v, uid=%s", err, uid) }, err) {
 		return
 	}
-
-	dirInfo, err := d.lookup(ctx, vol, rootIno, args.Path)
+	dirInfo, err := d.lookup(ctx, vol, rootIno, args.Path.String())
 	if d.checkError(c, func(err error) { span.Errorf("lookup path=%s error: %v", args.Path, err) }, err) {
 		return
 	}
-	if d.checkFunc(c, func(err error) { span.Errorf("batch set xattr path=%s error: %v", args.Path, err) },
-		func() error { return vol.BatchSetXAttr(ctx, dirInfo.Inode, xattrs) }) {
+	if d.checkFunc(c, func(err error) { span.Errorf("batch del xattr path=%s error: %v", args.Path, err) },
+		func() error { return vol.BatchDeleteXAttr(ctx, dirInfo.Inode, keys) }) {
 		return
 	}
 	c.Respond()
@@ -77,10 +118,8 @@ func (d *DriveNode) handleGetProperties(c *rpc.Context) {
 	if d.checkError(c, nil, c.ParseArgs(args)) {
 		return
 	}
-
 	t := d.encrypTransmitter(c)
-	if d.checkFunc(c, func(err error) { span.Info(err) },
-		func() error { return decodeHex(&args.Path, args.Path, t) }) {
+	if d.checkError(c, func(err error) { span.Info(err) }, args.Path.Clean(t)) {
 		return
 	}
 
@@ -88,8 +127,7 @@ func (d *DriveNode) handleGetProperties(c *rpc.Context) {
 	if d.checkError(c, func(err error) { span.Errorf("get user router error: %v, uid=%s", err, uid) }, err) {
 		return
 	}
-
-	dirInfo, err := d.lookup(ctx, vol, rootIno, args.Path)
+	dirInfo, err := d.lookup(ctx, vol, rootIno, args.Path.String())
 	if d.checkError(c, func(err error) { span.Errorf("lookup path=%s error: %v", args.Path, err) }, err) {
 		return
 	}

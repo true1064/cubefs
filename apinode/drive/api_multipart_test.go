@@ -57,9 +57,9 @@ func TestHandleMultipartUploads(t *testing.T) {
 	}
 	{
 		node.OnceGetUser(testUserID)
-		node.Volume.EXPECT().InitMultiPart(A, A, A, A).Return("", &sdk.Error{Status: 521})
+		node.Volume.EXPECT().InitMultiPart(A, A, A, A).Return("", e1)
 		var up RespMPuploads
-		require.Equal(t, 521, doRequest(newMockBody(0), &up, "path", "/mpfile").StatusCode())
+		require.Equal(t, e1.Status, doRequest(newMockBody(0), &up, "path", "/mpfile").StatusCode())
 	}
 	{
 		node.OnceGetUser()
@@ -75,8 +75,8 @@ func TestHandleMultipartUploads(t *testing.T) {
 	{
 		node.OnceGetUser()
 		body := &mockBody{buff: []byte("[]")}
-		node.Volume.EXPECT().ListMultiPart(A, A, A, A, A).Return(nil, uint64(0), false, &sdk.Error{Status: 524})
-		require.Equal(t, 524, doRequest(body, nil, "path", "/mpfile", "uploadId", uploadID).StatusCode())
+		node.Volume.EXPECT().ListMultiPart(A, A, A, A, A).Return(nil, uint64(0), false, e2)
+		require.Equal(t, e2.Status, doRequest(body, nil, "path", "/mpfile", "uploadId", uploadID).StatusCode())
 	}
 	{
 		node.OnceGetUser()
@@ -120,16 +120,16 @@ func TestHandleMultipartUploads(t *testing.T) {
 		node.Volume.EXPECT().ListMultiPart(A, A, A, A, A).Return(nil, uint64(100), false, nil)
 		node.Volume.EXPECT().ListMultiPart(A, A, A, A, A).Return(nil, uint64(0), false, nil)
 		node.Volume.EXPECT().CompleteMultiPart(A, A, A, A, A).Return(&sdk.InodeInfo{Inode: node.GenInode()}, nil)
-		node.Volume.EXPECT().GetXAttrMap(A, A).Return(nil, &sdk.Error{Status: 523})
-		require.Equal(t, 523, doRequest(body, nil, "path", "/mpfile", "uploadId", uploadID).StatusCode())
+		node.Volume.EXPECT().GetXAttrMap(A, A).Return(nil, e3)
+		require.Equal(t, e3.Status, doRequest(body, nil, "path", "/mpfile", "uploadId", uploadID).StatusCode())
 	}
 	{
 		node.OnceGetUser()
 		body := &mockBody{buff: []byte("[]")}
 		node.Volume.EXPECT().ListMultiPart(A, A, A, A, A).Return(nil, uint64(100), false, nil)
 		node.Volume.EXPECT().ListMultiPart(A, A, A, A, A).Return(nil, uint64(0), false, nil)
-		node.Volume.EXPECT().CompleteMultiPart(A, A, A, A, A).Return(nil, &sdk.Error{Status: 525})
-		require.Equal(t, 525, doRequest(body, nil, "path", "/mpfile", "uploadId", uploadID).StatusCode())
+		node.Volume.EXPECT().CompleteMultiPart(A, A, A, A, A).Return(nil, e4)
+		require.Equal(t, e4.Status, doRequest(body, nil, "path", "/mpfile", "uploadId", uploadID).StatusCode())
 	}
 	{
 		node.OnceGetUser()
@@ -175,8 +175,8 @@ func TestHandleMultipartParts(t *testing.T) {
 	}
 	{
 		node.OnceGetUser(testUserID)
-		node.Volume.EXPECT().UploadMultiPart(A, A, A, A, A).Return(nil, &sdk.Error{Status: 521})
-		require.Equal(t, 521, doRequest(newMockBody(0), nil, "path", "/a", "uploadId", uploadID, "partNumber", "1").StatusCode())
+		node.Volume.EXPECT().UploadMultiPart(A, A, A, A, A).Return(nil, e1)
+		require.Equal(t, e1.Status, doRequest(newMockBody(0), nil, "path", "/a", "uploadId", uploadID, "partNumber", "1").StatusCode())
 	}
 	{
 		node.OnceGetUser()
@@ -214,8 +214,8 @@ func TestHandleMultipartList(t *testing.T) {
 	}
 	{
 		node.OnceGetUser(testUserID)
-		node.Volume.EXPECT().ListMultiPart(A, A, A, A, A).Return(nil, uint64(0), false, &sdk.Error{Status: 521})
-		require.Equal(t, 521, doRequest(nil, "path", "/a", "uploadId", uploadID, "marker", "10").StatusCode())
+		node.Volume.EXPECT().ListMultiPart(A, A, A, A, A).Return(nil, uint64(0), false, e1)
+		require.Equal(t, e1.Status, doRequest(nil, "path", "/a", "uploadId", uploadID, "marker", "10").StatusCode())
 	}
 	{
 		node.OnceGetUser()
@@ -256,8 +256,8 @@ func TestHandleMultipartAbort(t *testing.T) {
 	}
 	{
 		node.OnceGetUser(testUserID)
-		node.Volume.EXPECT().AbortMultiPart(A, A, A).Return(&sdk.Error{Status: 521})
-		require.Equal(t, 521, doRequest("path", "/a", "uploadId", uploadID).StatusCode())
+		node.Volume.EXPECT().AbortMultiPart(A, A, A).Return(e1)
+		require.Equal(t, e1.Status, doRequest("path", "/a", "uploadId", uploadID).StatusCode())
 	}
 	{
 		node.OnceGetUser()

@@ -31,6 +31,7 @@ func (d *DriveNode) RegisterAPIRouters() *rpc.Router {
 	rpc.RegisterArgsParser(&ArgsListDir{}, "json")
 	rpc.RegisterArgsParser(&ArgsAddUserConfig{}, "json")
 	rpc.RegisterArgsParser(&ArgsSetProperties{}, "json")
+	rpc.RegisterArgsParser(&ArgsDelProperties{}, "json")
 	rpc.RegisterArgsParser(&ArgsGetProperties{}, "json")
 	rpc.RegisterArgsParser(&ArgsMkDir{}, "json")
 
@@ -58,9 +59,6 @@ func (d *DriveNode) RegisterAPIRouters() *rpc.Router {
 	r.Handle(http.MethodDelete, "/v1/user/config", d.handleDelUserConfig, rpc.OptArgsQuery())
 	r.Handle(http.MethodGet, "/v1/user/config", d.handleGetUserConfig)
 
-	r.Handle(http.MethodPost, "/v1/meta", d.handleSetProperties, rpc.OptArgsQuery())
-	r.Handle(http.MethodGet, "/v1/meta", d.handleGetProperties, rpc.OptArgsQuery())
-
 	r.Handle(http.MethodGet, "/v1/files", d.handleListDir, rpc.OptArgsQuery())
 	r.Handle(http.MethodDelete, "/v1/files", d.handleFilesDelete, rpc.OptArgsQuery())
 	r.Handle(http.MethodPost, "/v1/files/mkdir", d.handleMkDir, rpc.OptArgsQuery())
@@ -79,6 +77,7 @@ func (d *DriveNode) RegisterAPIRouters() *rpc.Router {
 	r.Handle(http.MethodDelete, "/v1/files/multipart", d.handleMultipartAbort, rpc.OptArgsQuery())
 
 	r.Handle(http.MethodPut, "/v1/files/properties", d.handleSetProperties, rpc.OptArgsQuery())
+	r.Handle(http.MethodDelete, "/v1/files/properties", d.handleDelProperties, rpc.OptArgsQuery())
 	r.Handle(http.MethodGet, "/v1/files/properties", d.handleGetProperties, rpc.OptArgsQuery())
 
 	return r

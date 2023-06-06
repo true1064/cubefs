@@ -51,8 +51,8 @@ func TestHandleFilesMakedir(t *testing.T) {
 	}
 	{
 		node.OnceGetUser(testUserID)
-		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, &sdk.Error{Status: 521})
-		require.Equal(t, 521, doRequest("path", "/dira/dirb/").StatusCode())
+		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e1)
+		require.Equal(t, e1.Status, doRequest("path", "/dira/dirb/").StatusCode())
 	}
 	{
 		node.OnceGetUser()
@@ -93,21 +93,21 @@ func TestHandleFilesDelete(t *testing.T) {
 	}
 	{
 		node.OnceGetUser(testUserID)
-		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, &sdk.Error{Status: 521})
-		require.Equal(t, 521, doRequest("path", "/dir/a").StatusCode())
+		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e1)
+		require.Equal(t, e1.Status, doRequest("path", "/dir/a").StatusCode())
 	}
 	{
 		node.OnceGetUser()
 		node.OnceLookup(true)
-		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, &sdk.Error{Status: 522})
-		require.Equal(t, 522, doRequest("path", "/dir/a").StatusCode())
+		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e2)
+		require.Equal(t, e2.Status, doRequest("path", "/dir/a").StatusCode())
 	}
 	{
 		node.OnceGetUser()
 		node.OnceLookup(true)
 		node.OnceLookup(false)
-		node.Volume.EXPECT().Delete(A, A, A, A).Return(&sdk.Error{Status: 523})
-		require.Equal(t, 523, doRequest("path", "/dir/a").StatusCode())
+		node.Volume.EXPECT().Delete(A, A, A, A).Return(e3)
+		require.Equal(t, e3.Status, doRequest("path", "/dir/a").StatusCode())
 	}
 	{
 		node.OnceGetUser()

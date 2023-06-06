@@ -228,11 +228,15 @@ type ArgsListDir struct {
 }
 
 type ArgsGetProperties struct {
-	Path string `json:"path"`
+	Path FilePath `json:"path"`
 }
 
 type ArgsSetProperties struct {
-	Path string `json:"path"`
+	Path FilePath `json:"path"`
+}
+
+type ArgsDelProperties struct {
+	Path FilePath `json:"path"`
 }
 
 // DriveNode drive node.

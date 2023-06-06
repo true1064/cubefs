@@ -14,6 +14,7 @@ import (
 
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/apinode/testing/mocks"
+	"github.com/cubefs/cubefs/blobstore/common/rpc"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 )
@@ -173,6 +174,60 @@ func TestHandleSetProperties(t *testing.T) {
 		res.Body.Close()
 		require.Equal(t, res.StatusCode, sdk.ErrConflict.Status)
 		urm.Remove("test")
+	}
+}
+
+func TestHandleDelProperties(t *testing.T) {
+	node := newMockNode(t)
+	d := node.DriveNode
+	server, client := newTestServer(d)
+	defer server.Close()
+
+	doRequest := func(path string, keys ...string) rpc.HTTPError {
+		url := genURL(server.URL, "/v1/files/properties", "path", path)
+		req, _ := http.NewRequest(http.MethodDelete, url, nil)
+		req.Header.Add(headerUserID, testUserID)
+		for _, k := range keys {
+			v := ""
+			if len(k)%2 == 0 {
+				v = "1"
+			}
+			req.Header.Add(userPropertyPrefix+k, v)
+		}
+		resp, err := client.Do(Ctx, req)
+		require.NoError(t, err)
+		defer resp.Body.Close()
+		if err = rpc.ParseData(resp, nil); err != nil {
+			return err.(rpc.HTTPError)
+		}
+		return nil
+	}
+
+	{
+		require.Equal(t, 400, doRequest("").StatusCode())
+		require.Equal(t, 400, doRequest("a/b/../../..").StatusCode())
+	}
+	{
+		require.NoError(t, doRequest("a"))
+		require.NoError(t, doRequest("a"))
+		require.NoError(t, doRequest("a", "", ""))
+	}
+	{
+		node.OnceGetUser(testUserID)
+		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e1)
+		require.Equal(t, e1.Status, doRequest("a", "k1").StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		node.OnceLookup(false)
+		node.Volume.EXPECT().BatchDeleteXAttr(A, A, A).Return(e2)
+		require.Equal(t, e2.Status, doRequest("a", "k1", "k10").StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		node.OnceLookup(false)
+		node.Volume.EXPECT().BatchDeleteXAttr(A, A, A).Return(nil)
+		require.NoError(t, doRequest("a", "k1", "k10", "k-100"))
 	}
 }
 
