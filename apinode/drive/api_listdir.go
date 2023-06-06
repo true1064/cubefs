@@ -163,9 +163,24 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 		return
 	}
 
+	t := d.decryptTransmitter(c)
+	if t == nil {
+		return
+	}
+	var (
+		path   string
+		marker string
+		limit  int
+	)
+	if d.checkFunc(c, func(err error) { span.Info(err) },
+		func() error { return decodeHex(&path, args.Path, t) },
+		func() error { return decodeHex(&marker, args.Marker, t) },
+		func() error { return decodeHex(&limit, args.Limit, t) }) {
+		return
+	}
 	uid := d.userID(c)
 
-	path, marker, limit := filepath.Clean(args.Path), args.Marker, args.Limit
+	path = filepath.Clean(path)
 
 	var (
 		rootIno Inode
@@ -177,7 +192,7 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 	rootIno, vol, err = d.getRootInoAndVolume(ctx, uid)
 	if err != nil {
 		span.Errorf("Failed to get volume: %v", err)
-		c.RespondError(err)
+		d.respError(c, err)
 		return
 	}
 
@@ -190,12 +205,12 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 		dirInodeInfo, err := d.lookup(ctx, vol, rootIno, path)
 		if err != nil {
 			span.Errorf("lookup path=%s error: %v", path, err)
-			c.RespondError(err)
+			d.respError(c, err)
 			return
 		}
 		if !dirInodeInfo.IsDir() {
 			span.Errorf("path=%s is not a directory", path)
-			c.RespondError(sdk.ErrNotDir)
+			d.respError(c, sdk.ErrNotDir)
 			return
 		}
 		pathIno = Inode(dirInodeInfo.Inode)
@@ -205,7 +220,7 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 		bs, err := makeFilterBuilders(args.Filter)
 		if err != nil {
 			span.Errorf("makeFilterBuilders error: %v, path=%s, filter=%s", err, path, args.Filter)
-			c.RespondError(err)
+			d.respError(c, err)
 			return
 		}
 		builders = append(builders, bs...)
@@ -246,7 +261,7 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 			if err != nil {
 				span.Errorf("list dir error: %v, path=%s", err, path)
 				wg.Wait()
-				c.RespondError(err)
+				d.respError(c, err)
 				return
 			}
 
@@ -282,7 +297,7 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 	if len(res.Files) > limit {
 		res.Files = res.Files[:limit]
 	}
-	c.RespondJSON(res)
+	d.respData(c, res)
 }
 
 func (d *DriveNode) listDir(ctx context.Context, ino uint64, vol sdk.IVolume, marker string, limit uint32) (files []FileInfo, err error) {

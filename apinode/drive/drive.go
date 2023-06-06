@@ -223,7 +223,7 @@ const (
 type ArgsListDir struct {
 	Path   string `json:"path"`
 	Marker string `json:"marker,omitempty"`
-	Limit  int    `json:"limit"`
+	Limit  string `json:"limit"`
 	Filter string `json:"filter,omitempty"`
 }
 

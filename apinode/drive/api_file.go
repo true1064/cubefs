@@ -37,8 +37,8 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 	}
 	ctx, span := d.ctxSpan(c)
 
-	t, fail := d.decryptTransmitter(c)
-	if fail {
+	t := d.decryptTransmitter(c)
+	if t == nil {
 		return
 	}
 	if d.checkFunc(c, func(err error) { span.Info("upload parse args", err) },
@@ -101,8 +101,8 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 	}
 	ctx, span := d.ctxSpan(c)
 
-	t, fail := d.decryptTransmitter(c)
-	if fail {
+	t := d.decryptTransmitter(c)
+	if t == nil {
 		return
 	}
 	if d.checkFunc(c, func(err error) { span.Info(err) },

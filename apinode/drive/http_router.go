@@ -119,15 +119,15 @@ func (*DriveNode) encrypTransmitter(c *rpc.Context) crypto.Transmitter {
 	return t.(crypto.Transmitter)
 }
 
-func (d *DriveNode) decryptTransmitter(c *rpc.Context) (crypto.Transmitter, bool) {
+func (d *DriveNode) decryptTransmitter(c *rpc.Context) crypto.Transmitter {
 	t, err := d.cryptor.DecryptTransmitter(c.Request.Header.Get(headerCipherMaterial))
 	if err != nil {
 		_, span := d.ctxSpan(c)
 		span.Warn("make decrypt transmitter", err)
 		c.RespondStatus(sdk.ErrTransCipher.Status)
-		return nil, true
+		return nil
 	}
-	return t, false
+	return t
 }
 
 // span carry with request id firstly.

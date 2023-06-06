@@ -94,8 +94,8 @@ func (d *DriveNode) requestParts(c *rpc.Context) (parts []MPPart, err error) {
 		return
 	}
 
-	t, fail := d.decryptTransmitter(c)
-	if fail {
+	t := d.decryptTransmitter(c)
+	if t == nil {
 		err = sdk.ErrBadRequest
 		return
 	}
@@ -196,8 +196,8 @@ func (d *DriveNode) handleMultipartPart(c *rpc.Context) {
 	}
 	ctx, span := d.ctxSpan(c)
 
-	t, fail := d.decryptTransmitter(c)
-	if fail {
+	t := d.decryptTransmitter(c)
+	if t == nil {
 		return
 	}
 	if d.checkFunc(c, func(err error) { span.Info(err) },
