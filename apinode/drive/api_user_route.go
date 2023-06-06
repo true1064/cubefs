@@ -21,7 +21,7 @@ import (
 )
 
 type ArgsAddUserConfig struct {
-	Path string `json:"path"`
+	Path FilePath `json:"path"`
 }
 
 type CreateDriveResult struct {
@@ -48,10 +48,10 @@ func (d *DriveNode) handleCreateDrive(c *rpc.Context) {
 	driveid, err := d.CreateUserRoute(ctx, uid)
 	if err != nil {
 		span.Errorf("crate user route error: %v, uid=%s", err, string(uid))
-		c.RespondError(err)
+		d.respError(c, err)
 		return
 	}
-	c.RespondJSON(CreateDriveResult{driveid})
+	d.respData(c, CreateDriveResult{driveid})
 }
 
 func (d *DriveNode) handleGetDrive(c *rpc.Context) {
@@ -60,24 +60,27 @@ func (d *DriveNode) handleGetDrive(c *rpc.Context) {
 	ur, err := d.GetUserRouteInfo(ctx, uid)
 	if err != nil {
 		span.Errorf("get user route error: %v, uid=%s", err, string(uid))
-		c.RespondError(err)
+		d.respError(c, err)
 		return
 	}
-	c.RespondJSON(ur)
+	d.respData(c, ur)
 }
 
 func (d *DriveNode) handleAddUserConfig(c *rpc.Context) {
 	ctx, span := d.ctxSpan(c)
 	args := new(ArgsAddUserConfig)
-	if err := c.ParseArgs(args); err != nil {
-		c.RespondError(err)
+	if d.checkError(c, nil, c.ParseArgs(args)) {
 		return
 	}
+	t := d.encrypTransmitter(c)
+	if d.checkError(c, func(err error) { span.Info(err) }, args.Path.Clean(t)) {
+		return
+	}
+
 	uid := d.userID(c)
-	err := d.addUserConfig(ctx, uid, args.Path)
-	if err != nil {
+	if err := d.addUserConfig(ctx, uid, args.Path.String()); err != nil {
 		span.Errorf("add user config error: %v, uid=%s", err, string(uid))
-		c.RespondError(err)
+		d.respError(c, err)
 		return
 	}
 	c.Respond()
@@ -86,15 +89,19 @@ func (d *DriveNode) handleAddUserConfig(c *rpc.Context) {
 func (d *DriveNode) handleDelUserConfig(c *rpc.Context) {
 	ctx, span := d.ctxSpan(c)
 	args := new(ArgsAddUserConfig)
-	if err := c.ParseArgs(args); err != nil {
-		c.RespondError(err)
+	if d.checkError(c, nil, c.ParseArgs(args)) {
 		return
 	}
+	t := d.encrypTransmitter(c)
+	if d.checkError(c, func(err error) { span.Info(err) }, args.Path.Clean(t)) {
+		return
+	}
+
 	uid := d.userID(c)
-	err := d.delUserConfig(ctx, uid, args.Path)
+	err := d.delUserConfig(ctx, uid, args.Path.String())
 	if err != nil {
 		span.Errorf("add user config error: %v, uid=%s", err, string(uid))
-		c.RespondError(err)
+		d.respError(c, err)
 		return
 	}
 	c.Respond()
@@ -106,13 +113,13 @@ func (d *DriveNode) handleGetUserConfig(c *rpc.Context) {
 	ur, err := d.GetUserRouteInfo(ctx, uid)
 	if err != nil {
 		span.Errorf("get user route error: %v, uid=%s", err, string(uid))
-		c.RespondError(err)
+		d.respError(c, err)
 		return
 	}
 	xattrs, err := d.getUserConfigFromFile(ctx, uid, ur.ClusterID, ur.VolumeID, uint64(ur.RootFileID))
 	if err != nil {
 		span.Errorf("get user config error: %v, uid=%s", err, string(uid))
-		c.RespondError(err)
+		d.respError(c, err)
 		return
 	}
 	res := &GetUserConfigResult{
@@ -131,5 +138,5 @@ func (d *DriveNode) handleGetUserConfig(c *rpc.Context) {
 			MTime:  ent.Time,
 		})
 	}
-	c.RespondJSON(res)
+	d.respData(c, res)
 }

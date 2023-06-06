@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"net/http"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -158,20 +157,16 @@ func (builder *filterBuilder) matchFileInfo(f *FileInfo) bool {
 func (d *DriveNode) handleListDir(c *rpc.Context) {
 	ctx, span := d.ctxSpan(c)
 	args := new(ArgsListDir)
-	if err := c.ParseArgs(args); err != nil {
-		c.RespondStatus(http.StatusBadRequest)
+	if d.checkError(c, nil, c.ParseArgs(args)) {
 		return
 	}
 
-	t := d.decryptTransmitter(c)
-	if t == nil {
-		return
-	}
 	var (
 		path   string
 		marker string
 		limit  int
 	)
+	t := d.encrypTransmitter(c)
 	if d.checkFunc(c, func(err error) { span.Info(err) },
 		func() error { return decodeHex(&path, args.Path, t) },
 		func() error { return decodeHex(&marker, args.Marker, t) },

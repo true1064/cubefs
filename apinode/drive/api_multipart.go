@@ -114,8 +114,7 @@ func (d *DriveNode) requestParts(c *rpc.Context) (parts []MPPart, err error) {
 func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads, t crypto.Transmitter) {
 	ctx, span := d.ctxSpan(c)
 	_, vol, err := d.getRootInoAndVolume(ctx, d.userID(c))
-	if err != nil {
-		c.RespondError(err)
+	if d.checkError(c, func(err error) { span.Info(err) }, err) {
 		return
 	}
 
