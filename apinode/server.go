@@ -164,7 +164,7 @@ func (s *apiNode) startRouters(cfg *config.Config) error {
 			s.defers = append(s.defers, func() { logf.Close() })
 		}
 
-		hs := []rpc.ProgressHandler{lh}
+		hs := []rpc.ProgressHandler{newCryptor(), lh}
 		// register only once
 		if profileHandler := profile.NewProfileHandler(s.listen); profileHandler != nil {
 			hs = append(hs, profileHandler)

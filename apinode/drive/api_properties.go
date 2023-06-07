@@ -37,8 +37,7 @@ func (d *DriveNode) handleSetProperties(c *rpc.Context) {
 	if d.checkError(c, nil, c.ParseArgs(args)) {
 		return
 	}
-	t := d.encrypTransmitter(c)
-	if d.checkError(c, func(err error) { span.Info(err) }, args.Path.Clean(t)) {
+	if d.checkError(c, func(err error) { span.Info(err) }, args.Path.Clean()) {
 		return
 	}
 
@@ -75,8 +74,7 @@ func (d *DriveNode) handleDelProperties(c *rpc.Context) {
 	if d.checkError(c, nil, c.ParseArgs(args)) {
 		return
 	}
-	t := d.encrypTransmitter(c)
-	if d.checkError(c, func(err error) { span.Info(err) }, args.Path.Clean(t)) {
+	if d.checkError(c, func(err error) { span.Info(err) }, args.Path.Clean()) {
 		return
 	}
 
@@ -118,8 +116,7 @@ func (d *DriveNode) handleGetProperties(c *rpc.Context) {
 	if d.checkError(c, nil, c.ParseArgs(args)) {
 		return
 	}
-	t := d.encrypTransmitter(c)
-	if d.checkError(c, func(err error) { span.Info(err) }, args.Path.Clean(t)) {
+	if d.checkError(c, func(err error) { span.Info(err) }, args.Path.Clean()) {
 		return
 	}
 

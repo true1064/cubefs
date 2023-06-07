@@ -93,14 +93,6 @@ func (d *DriveNode) setHeaders(c *rpc.Context) {
 		return
 	}
 	c.Set(headerUserID, uid)
-
-	// pre-set encrypt transmitter
-	t, err := d.cryptor.EncryptTransmitter(c.Request.Header.Get(headerCipherMaterial))
-	if err != nil {
-		c.AbortWithError(err)
-		return
-	}
-	c.Set(headerCipherMaterial, t)
 }
 
 func (*DriveNode) requestID(c *rpc.Context) string {
@@ -113,16 +105,11 @@ func (*DriveNode) userID(c *rpc.Context) UserID {
 	return uid.(UserID)
 }
 
-func (*DriveNode) encrypTransmitter(c *rpc.Context) crypto.Transmitter {
-	t, _ := c.Get(headerCipherMaterial)
-	return t.(crypto.Transmitter)
-}
-
-func (d *DriveNode) decryptTransmitter(c *rpc.Context) crypto.Transmitter {
-	t, err := d.cryptor.DecryptTransmitter(c.Request.Header.Get(headerCipherMaterial))
+func (d *DriveNode) encrypTransmitter(c *rpc.Context) crypto.Transmitter {
+	t, err := d.cryptor.EncryptTransmitter(c.Request.Header.Get(headerCipherMaterial))
 	if err != nil {
 		_, span := d.ctxSpan(c)
-		span.Warn("make decrypt transmitter", err)
+		span.Warn("make encrypt transmitter", err)
 		c.RespondError(sdk.ErrTransCipher)
 		return nil
 	}
@@ -142,19 +129,12 @@ func (d *DriveNode) ctxSpan(c *rpc.Context) (context.Context, trace.Span) {
 }
 
 func (d *DriveNode) getProperties(c *rpc.Context) (map[string]string, error) {
-	t := d.encrypTransmitter(c)
 	properties := make(map[string]string)
-	for key, values := range c.Request.Header {
+	for key := range c.Request.Header {
 		key = strings.ToLower(key)
 		if len(key) > len(userPropertyPrefix) && strings.HasPrefix(key, userPropertyPrefix) {
-			k, err := t.Decrypt(key[len(userPropertyPrefix):], true)
-			if err != nil {
-				return nil, err
-			}
-			v, err := t.Decrypt(values[0], true)
-			if err != nil {
-				return nil, err
-			}
+			k := key[len(userPropertyPrefix):]
+			v := c.Request.Header.Get(key)
 			if len(k) > 1024 || len(v) > 1024 {
 				return nil, sdk.ErrBadRequest.Extend("meta key or value was too long")
 			}
@@ -173,7 +153,11 @@ func (d *DriveNode) respData(c *rpc.Context, obj interface{}) {
 		c.RespondError(sdk.ErrInternalServerError)
 		return
 	}
-	dataStr, err := d.encrypTransmitter(c).Encrypt(string(buffer), false)
+	t := d.encrypTransmitter(c)
+	if t == nil {
+		return
+	}
+	dataStr, err := t.Encrypt(string(buffer), false)
 	if err != nil {
 		c.RespondError(err)
 		return

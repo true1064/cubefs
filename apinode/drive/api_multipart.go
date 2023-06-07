@@ -36,8 +36,7 @@ type MPPart struct {
 type ArgsMPUploads struct {
 	Path     FilePath `json:"path"`
 	UploadID string   `json:"uploadId,omitempty"`
-	XFileID  string   `json:"fileId,omitempty"`
-	FileID   FileID   `json:"-"`
+	FileID   FileID   `json:"fileId,omitempty"`
 }
 
 func (d *DriveNode) handleMultipartUploads(c *rpc.Context) {
@@ -45,19 +44,14 @@ func (d *DriveNode) handleMultipartUploads(c *rpc.Context) {
 	if d.checkError(c, nil, c.ParseArgs(args)) {
 		return
 	}
-
-	t := d.encrypTransmitter(c)
-	if d.checkFunc(c, nil,
-		func() error { return decodeFileID(&args.FileID, args.XFileID, t) },
-		func() error { return decodeHex(&args.UploadID, args.UploadID, t) },
-		func() error { return args.Path.Clean(t) }) {
+	if d.checkError(c, nil, args.Path.Clean()) {
 		return
 	}
 
 	if args.UploadID == "" {
-		d.multipartUploads(c, args, t)
+		d.multipartUploads(c, args)
 	} else {
-		d.multipartComplete(c, args, t)
+		d.multipartComplete(c, args)
 	}
 }
 
@@ -66,7 +60,7 @@ type RespMPuploads struct {
 	UploadID string `json:"uploadId"`
 }
 
-func (d *DriveNode) multipartUploads(c *rpc.Context, args *ArgsMPUploads, t crypto.Transmitter) {
+func (d *DriveNode) multipartUploads(c *rpc.Context, args *ArgsMPUploads) {
 	ctx, span := d.ctxSpan(c)
 	_, vol, err := d.getRootInoAndVolume(ctx, d.userID(c))
 	if d.checkError(c, func(err error) { span.Info(err) }, err) {
@@ -94,16 +88,9 @@ func (d *DriveNode) requestParts(c *rpc.Context) (parts []MPPart, err error) {
 		return
 	}
 
-	t := d.decryptTransmitter(c)
-	if t == nil {
-		err = sdk.ErrBadRequest
-		return
-	}
-	reader := t.Transmit(c.Request.Body)
-
 	buf := bytespool.Alloc(size)
 	defer bytespool.Free(buf)
-	if _, err = io.ReadFull(reader, buf); err != nil {
+	if _, err = io.ReadFull(c.Request.Body, buf); err != nil {
 		return
 	}
 
@@ -111,7 +98,7 @@ func (d *DriveNode) requestParts(c *rpc.Context) (parts []MPPart, err error) {
 	return
 }
 
-func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads, t crypto.Transmitter) {
+func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 	ctx, span := d.ctxSpan(c)
 	_, vol, err := d.getRootInoAndVolume(ctx, d.userID(c))
 	if d.checkError(c, func(err error) { span.Info(err) }, err) {
@@ -186,10 +173,9 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads, t cry
 
 // ArgsMPUpload multipart upload part argument.
 type ArgsMPUpload struct {
-	Path        FilePath `json:"path"`
-	UploadID    string   `json:"uploadId"`
-	XPartNumber string   `json:"partNumber"`
-	PartNumber  uint16   `json:"-"`
+	Path       FilePath `json:"path"`
+	UploadID   string   `json:"uploadId"`
+	PartNumber uint16   `json:"partNumber"`
 }
 
 func (d *DriveNode) handleMultipartPart(c *rpc.Context) {
@@ -198,15 +184,7 @@ func (d *DriveNode) handleMultipartPart(c *rpc.Context) {
 		return
 	}
 	ctx, span := d.ctxSpan(c)
-
-	t := d.decryptTransmitter(c)
-	if t == nil {
-		return
-	}
-	if d.checkFunc(c, func(err error) { span.Info(err) },
-		func() error { return decodeHex(&args.UploadID, args.UploadID, t) },
-		func() error { return decodeHex(&args.PartNumber, args.XPartNumber, t) },
-		func() error { return args.Path.Clean(t) }) {
+	if d.checkError(c, func(err error) { span.Info(err) }, args.Path.Clean()) {
 		return
 	}
 	if args.PartNumber == 0 {
@@ -220,7 +198,7 @@ func (d *DriveNode) handleMultipartPart(c *rpc.Context) {
 		return
 	}
 
-	reader := t.Transmit(c.Request.Body)
+	var reader io.Reader = c.Request.Body
 	if d.checkFunc(c, func(err error) { span.Warn(err) },
 		func() error { reader, err = newCrc32Reader(c.Request.Header, reader, span.Warnf); return err },
 		func() error { reader, err = d.cryptor.FileEncryptor(ur.CipherKey, reader); return err }) {
@@ -243,10 +221,8 @@ func (d *DriveNode) handleMultipartPart(c *rpc.Context) {
 type ArgsMPList struct {
 	Path     FilePath `json:"path"`
 	UploadID string   `json:"uploadId"`
-	XMarker  string   `json:"marker"`
-	Marker   FileID   `json:"-"`
-	XCount   string   `json:"count,omitempty"`
-	Count    int      `json:"-"`
+	Marker   FileID   `json:"marker"`
+	Count    int      `json:"count,omitempty"`
 }
 
 // RespMPList response of list parts.
@@ -261,13 +237,7 @@ func (d *DriveNode) handleMultipartList(c *rpc.Context) {
 		return
 	}
 	ctx, span := d.ctxSpan(c)
-
-	t := d.encrypTransmitter(c)
-	if d.checkFunc(c, func(err error) { span.Info(err) },
-		func() error { return decodeHex(&args.UploadID, args.UploadID, t) },
-		func() error { return decodeFileID(&args.Marker, args.XMarker, t) },
-		func() error { return decodeHex(&args.Count, args.XCount, t) },
-		func() error { return args.Path.Clean(t) }) {
+	if d.checkError(c, func(err error) { span.Info(err) }, args.Path.Clean()) {
 		return
 	}
 	if args.Count <= 0 {
@@ -309,11 +279,7 @@ func (d *DriveNode) handleMultipartAbort(c *rpc.Context) {
 		return
 	}
 	ctx, span := d.ctxSpan(c)
-
-	t := d.encrypTransmitter(c)
-	if d.checkFunc(c, func(err error) { span.Info(err) },
-		func() error { return decodeHex(&args.UploadID, args.UploadID, t) },
-		func() error { return args.Path.Clean(t) }) {
+	if d.checkError(c, func(err error) { span.Info(err) }, args.Path.Clean()) {
 		return
 	}
 

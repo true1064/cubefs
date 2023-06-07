@@ -25,9 +25,8 @@ import (
 
 // ArgsFileUpload file upload argument.
 type ArgsFileUpload struct {
-	Path    FilePath `json:"path"`
-	XFileID string   `json:"fileId,omitempty"`
-	FileID  FileID   `json:"-"`
+	Path   FilePath `json:"path"`
+	FileID FileID   `json:"fileId,omitempty"`
 }
 
 func (d *DriveNode) handleFileUpload(c *rpc.Context) {
@@ -36,14 +35,7 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 		return
 	}
 	ctx, span := d.ctxSpan(c)
-
-	t := d.decryptTransmitter(c)
-	if t == nil {
-		return
-	}
-	if d.checkFunc(c, func(err error) { span.Info("upload parse args", err) },
-		func() error { return decodeFileID(&args.FileID, args.XFileID, t) },
-		func() error { return args.Path.Clean(t) }) {
+	if d.checkError(c, func(err error) { span.Info("upload parse args", err) }, args.Path.Clean()) {
 		return
 	}
 
@@ -60,7 +52,7 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 		return
 	}
 
-	reader := t.Transmit(c.Request.Body)
+	var reader io.Reader = c.Request.Body
 	if d.checkFunc(c, func(err error) { span.Warn(err) },
 		func() error { reader, err = newCrc32Reader(c.Request.Header, reader, span.Warnf); return err },
 		func() error { reader, err = d.cryptor.FileEncryptor(ur.CipherKey, reader); return err }) {
@@ -89,9 +81,8 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 
 // ArgsFileWrite file write.
 type ArgsFileWrite struct {
-	Path    FilePath `json:"path"`
-	XFileID string   `json:"fileId,omitempty"`
-	FileID  FileID   `json:"-"`
+	Path   FilePath `json:"path"`
+	FileID FileID   `json:"fileId,omitempty"`
 }
 
 func (d *DriveNode) handleFileWrite(c *rpc.Context) {
@@ -100,14 +91,7 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 		return
 	}
 	ctx, span := d.ctxSpan(c)
-
-	t := d.decryptTransmitter(c)
-	if t == nil {
-		return
-	}
-	if d.checkFunc(c, func(err error) { span.Info(err) },
-		func() error { return decodeFileID(&args.FileID, args.XFileID, t) },
-		func() error { return args.Path.Clean(t) }) {
+	if d.checkError(c, func(err error) { span.Info(err) }, args.Path.Clean()) {
 		return
 	}
 
@@ -136,7 +120,7 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 		return
 	}
 
-	reader := t.Transmit(c.Request.Body)
+	var reader io.Reader = c.Request.Body
 	if d.checkFunc(c, func(err error) { span.Warn(err) },
 		func() error { reader, err = newCrc32Reader(c.Request.Header, reader, span.Warnf); return err }) {
 		return
@@ -191,7 +175,11 @@ func (d *DriveNode) downloadConfig(c *rpc.Context) {
 		return
 	}
 
-	body := d.encrypTransmitter(c).Transmit(makeFileReader(ctx, d.vol, inode.Inode, 0))
+	t := d.encrypTransmitter(c)
+	if t == nil {
+		return
+	}
+	body := t.Transmit(makeFileReader(ctx, d.vol, inode.Inode, 0))
 	c.RespondWithReader(http.StatusOK, int(inode.Size), rpc.MIMEStream, body, nil)
 }
 
@@ -201,9 +189,7 @@ func (d *DriveNode) handleFileDownload(c *rpc.Context) {
 		return
 	}
 	ctx, span := d.ctxSpan(c)
-
-	t := d.encrypTransmitter(c)
-	if d.checkError(c, func(err error) { span.Info(err) }, args.Path.Clean(t)) {
+	if d.checkError(c, func(err error) { span.Info(err) }, args.Path.Clean()) {
 		return
 	}
 
@@ -256,6 +242,10 @@ func (d *DriveNode) handleFileDownload(c *rpc.Context) {
 	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
+	t := d.encrypTransmitter(c)
+	if t == nil {
+		return
+	}
 	body = t.Transmit(body)
 
 	span.Debug("download", args, ranged)
@@ -274,11 +264,7 @@ func (d *DriveNode) handleFileRename(c *rpc.Context) {
 		return
 	}
 	ctx, span := d.ctxSpan(c)
-
-	t := d.encrypTransmitter(c)
-	if d.checkFunc(c, func(err error) { span.Info(err) },
-		func() error { return args.Src.Clean(t) },
-		func() error { return args.Dst.Clean(t) }) {
+	if d.checkError(c, func(err error) { span.Info(err) }, args.Src.Clean(), args.Dst.Clean()) {
 		return
 	}
 	span.Info("to rename", args)
@@ -331,10 +317,9 @@ func (d *DriveNode) handleFileRename(c *rpc.Context) {
 
 // ArgsFileCopy rename file or dir.
 type ArgsFileCopy struct {
-	Src   FilePath `json:"src"`
-	Dst   FilePath `json:"dst"`
-	XMeta string   `json:"meta,omitempty"`
-	Meta  bool     `json:"-"`
+	Src  FilePath `json:"src"`
+	Dst  FilePath `json:"dst"`
+	Meta bool     `json:"meta,omitempty"`
 }
 
 func (d *DriveNode) handleFileCopy(c *rpc.Context) {
@@ -343,12 +328,7 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 		return
 	}
 	ctx, span := d.ctxSpan(c)
-
-	t := d.encrypTransmitter(c)
-	if d.checkFunc(c, func(err error) { span.Warn(err) },
-		func() error { return args.Src.Clean(t) },
-		func() error { return args.Dst.Clean(t) },
-		func() error { return decodeHex(&args.Meta, args.XMeta, t) }) {
+	if d.checkError(c, func(err error) { span.Warn(err) }, args.Src.Clean(), args.Dst.Clean()) {
 		return
 	}
 	span.Info("to copy", args)

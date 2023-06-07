@@ -21,9 +21,8 @@ import (
 
 // ArgsMkDir make dir argument.
 type ArgsMkDir struct {
-	Path       FilePath `json:"path"`
-	XRecursive string   `json:"recursive,omitempty"`
-	Recursive  bool     `json:"-"`
+	Path      FilePath `json:"path"`
+	Recursive bool     `json:"recursive,omitempty"`
 }
 
 // POST /v1/files/mkdir?path=/abc&recursive=bool
@@ -33,11 +32,7 @@ func (d *DriveNode) handleMkDir(c *rpc.Context) {
 	if d.checkError(c, nil, c.ParseArgs(args)) {
 		return
 	}
-
-	t := d.encrypTransmitter(c)
-	if d.checkFunc(c, func(err error) { span.Info(err) },
-		func() error { return decodeHex(&args.Recursive, args.XRecursive, t) },
-		func() error { return args.Path.Clean(t) }) {
+	if d.checkError(c, func(err error) { span.Info(err) }, args.Path.Clean()) {
 		return
 	}
 
@@ -69,10 +64,7 @@ func (d *DriveNode) handleFilesDelete(c *rpc.Context) {
 		return
 	}
 	ctx, span := d.ctxSpan(c)
-
-	t := d.encrypTransmitter(c)
-	if d.checkFunc(c, func(err error) { span.Info(err) },
-		func() error { return args.Path.Clean(t) }) {
+	if d.checkError(c, func(err error) { span.Info(err) }, args.Path.Clean()) {
 		return
 	}
 	if args.Path.IsDir() {

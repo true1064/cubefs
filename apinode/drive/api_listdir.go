@@ -161,22 +161,10 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 		return
 	}
 
-	var (
-		path   string
-		marker string
-		limit  int
-	)
-	t := d.encrypTransmitter(c)
-	if d.checkFunc(c, func(err error) { span.Info(err) },
-		func() error { return decodeHex(&path, args.Path, t) },
-		func() error { return decodeHex(&marker, args.Marker, t) },
-		func() error { return decodeHex(&limit, args.Limit, t) }) {
-		return
-	}
-	uid := d.userID(c)
-
+	path, marker, limit := args.Path, args.Marker, args.Limit
 	path = filepath.Clean(path)
 
+	uid := d.userID(c)
 	var (
 		rootIno Inode
 		pathIno Inode
