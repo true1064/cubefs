@@ -352,14 +352,17 @@ type DiscardDataPartitionInfos struct {
 	DiscardDps []DataPartitionInfo
 }
 
-type VolVersionInfo struct {
-	Ver     uint64 // unixMicro of createTime used as version
+type VersionInfo struct {
+	Ver     uint64
+	Ctime   int64
 	DelTime int64
 	Status  uint8 // building,normal,deleted,abnormal
 }
+const VersionSimpleSize int = 33
+
 
 type VolVersionInfoList struct {
-	VerList  []*VolVersionInfo
+	VerList  []*VersionInfo
 	Strategy VolumeVerStrategy
 	sync.RWMutex
 }

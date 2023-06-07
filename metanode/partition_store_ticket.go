@@ -41,7 +41,7 @@ type storeMsg struct {
 	uidRebuild     bool
 	uniqId         uint64
 	uniqChecker    *uniqChecker
-	multiVerList   []*proto.VolVersionInfo
+	multiVerList []*proto.VersionInfo
 }
 
 func (mp *metaPartition) startSchedule(curIndex uint64) {

@@ -487,6 +487,7 @@ type TxDeleteDentryResponse struct {
 	Inode uint64 `json:"ino"`
 }
 
+
 // DeleteDentryRequest define the request tp delete a dentry.
 type DeleteDentryRequest struct {
 	VolName         string `json:"vol"`

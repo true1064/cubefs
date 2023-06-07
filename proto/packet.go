@@ -304,17 +304,17 @@ type Packet struct {
 	Size               uint32
 	ArgLen             uint32
 	KernelOffset       uint64
-	PartitionID        uint64
-	ExtentID           uint64
-	ExtentOffset       int64
-	ReqID              int64
-	Arg                []byte // for create or append ops, the data contains the address
-	Data               []byte
-	StartT             int64
-	mesg               string
-	HasPrepare         bool
-	VerSeq             uint64 // only used in mod request to datanode
-	VerList            []*VolVersionInfo
+	PartitionID  uint64
+	ExtentID     uint64
+	ExtentOffset int64
+	ReqID        int64
+	Arg          []byte // for create or append ops, the data contains the address
+	Data         []byte
+	StartT       int64
+	mesg         string
+	HasPrepare   bool
+	VerSeq       uint64 // only used in mod request to datanode
+	DirVerList   []*VersionInfo
 }
 
 func IsTinyExtentType(extentType uint8) bool {
@@ -1111,6 +1111,11 @@ func (p *Packet) setPacketPrefix() {
 		p.ReqID, p.PartitionID, p.ExtentID, p.ExtentOffset,
 		p.KernelOffset, p.Size, p.GetOpMsg(), p.CRC)
 
+}
+
+// IsForwardPkt returns if the packet is the forward packet (a packet that will be forwarded to the followers).
+func (p *Packet) IsDirSnapshotOperate() bool {
+	return true
 }
 
 // IsForwardPkt returns if the packet is the forward packet (a packet that will be forwarded to the followers).

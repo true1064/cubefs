@@ -546,6 +546,52 @@ func (c *Cluster) checkDataPartitions() {
 	}
 }
 
+func (c *Cluster) scanS3Expiration() {
+	defer func() {
+		if r := recover(); r != nil {
+			log.LogWarnf("scanS3Expiration occurred panic,err[%v]", r)
+			WarnBySpecialKey(fmt.Sprintf("%v_%v_scheduling_job_panic", c.Name, ModuleName),
+				"scanS3Expiration occurred panic")
+		}
+	}()
+
+	c.lcMgr.rescheduleScanRoutine()
+
+}
+
+func (c *Cluster) getDeletingSnapshotVer() {
+	if c.partition != nil && c.partition.IsRaftLeader() {
+		vols := c.allVols()
+		for volName, vol := range vols {
+			volVerInfoList := vol.VersionMgr.getVersionList()
+			for _, volVerInfo := range volVerInfoList.VerList {
+				if volVerInfo.Status == proto.VersionDeleting {
+					verInfo := &LcVerInfo{
+						VerInfo: proto.VerInfo{
+							VolName: volName,
+							VerSeq:  volVerInfo.Ver,
+						},
+						dTime: time.Unix(volVerInfo.DelTime,0),
+					}
+					c.lcMgr.snapshotMgr.volVerInfos.AddVerInfo(verInfo)
+				}
+			}
+		}
+	} else {
+		log.LogWarnf("getDeletingSnapshotVer: master is not leader")
+	}
+}
+
+func (c *Cluster) checkSnapshotStrategy() {
+	vols := c.allVols()
+	for _, vol := range vols {
+		if !proto.IsHot(vol.VolType) {
+			continue
+		}
+		vol.VersionMgr.checkSnapshotStrategy()
+	}
+}
+
 func (c *Cluster) doLoadDataPartitions() {
 	defer func() {
 		if r := recover(); r != nil {

@@ -763,14 +763,14 @@ func (mp *metaPartition) loadMultiVer(rootDir string) (err error) {
 	log.LogInfof("loadMultiVer: load complete: partitionID(%v) volume(%v) applyID(%v) filename(%v) data(%v) versionlist %v",
 		mp.config.PartitionId, mp.config.VolName, mp.applyID, filename, verData, mp.multiVersionList)
 
-	var verList []proto.VolVersionInfo
+	var verList []proto.VersionInfo
 	if err = json.Unmarshal([]byte(verData), &verList); err != nil {
 		err = errors.NewErrorf("[loadMultiVer] ReadVerList: %s", err.Error())
 		return
 	}
 
 	for _, info := range verList {
-		mp.multiVersionList.VerList = append(mp.multiVersionList.VerList, &proto.VolVersionInfo{
+		mp.multiVersionList.VerList = append(mp.multiVersionList.VerList, &proto.VersionInfo{
 			Ver:     info.Ver,
 			DelTime: info.DelTime,
 			Status:  info.Status,

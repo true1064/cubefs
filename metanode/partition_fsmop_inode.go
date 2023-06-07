@@ -134,6 +134,7 @@ func (mp *metaPartition) fsmCreateLinkInode(ino *Inode, uniqID uint64) (resp *In
 		return
 	}
 
+	i.IncNLink(ino.getVer())
 	resp.Msg = i
 	if !mp.uniqChecker.legalIn(uniqID) {
 		log.LogWarnf("fsmCreateLinkInode repeated, ino %v uniqID %v nlink %v", ino.Inode, uniqID, ino.GetNLink())
@@ -280,12 +281,23 @@ func (mp *metaPartition) fsmTxUnlinkInode(txIno *TxInode) (resp *InodeResponse) 
 	return
 }
 
+func (mp *metaPartition) fsmUnlinkInodeByDirVer(inoDirVer *InodeDirVer) (resp *InodeResponse) {
+	return mp.fsmUnlinkInodeDoWork(inoDirVer.Ino, inoDirVer.DirVerList)
+}
+
 // normal unlink seq is 0
 // snapshot unlink seq is snapshotVersion
 // fsmUnlinkInode delete the specified inode from inode tree.
 
-func (mp *metaPartition) fsmUnlinkInode(ino *Inode, uniqID uint64) (resp *InodeResponse) {
-	log.LogDebugf("action[fsmUnlinkInode] ino %v", ino)
+func (mp *metaPartition) fsmUnlinkInode(ino *Inode) (resp *InodeResponse) {
+	return mp.fsmUnlinkInodeDoWork(ino, mp.getVerList())
+}
+
+// normal unlink seq is 0
+// snapshot unlink seq is snapshotVersion
+// fsmUnlinkInode delete the specified inode from inode tree.
+func (mp *metaPartition) fsmUnlinkInodeDoWork(ino *Inode, verList []*proto.VersionInfo) (resp *InodeResponse) {
+	log.LogDebugf("action[fsmUnlinkInode]  ino %v", ino)
 	var (
 		ext2Del []proto.ExtentKey
 	)
@@ -322,7 +334,7 @@ func (mp *metaPartition) fsmUnlinkInode(ino *Inode, uniqID uint64) (resp *InodeR
 	)
 
 	if ino.getVer() == 0 {
-		ext2Del, doMore, status = inode.unlinkTopLayer(mp.config.PartitionId, ino, mp.verSeq, mp.multiVersionList)
+		ext2Del, doMore, status = inode.unlinkTopLayer(mp.config.PartitionId, ino, mp.verSeq, verList)
 	} else { // means drop snapshot
 		log.LogDebugf("action[fsmUnlinkInode] req drop assigned snapshot reqseq %v inode seq %v", ino.getVer(), inode.getVer())
 		if ino.getVer() > inode.getVer() && !isInitSnapVer(ino.getVer()) {
@@ -330,7 +342,7 @@ func (mp *metaPartition) fsmUnlinkInode(ino *Inode, uniqID uint64) (resp *InodeR
 				ino.Inode, ino.getVer(), inode.getVer())
 			return
 		} else {
-			ext2Del, doMore, status = inode.unlinkVerInList(mp.config.PartitionId, ino, mp.verSeq, mp.multiVersionList)
+			ext2Del, doMore, status = inode.unlinkVerInList(mp.config.PartitionId, ino, mp.verSeq, verList)
 		}
 	}
 	if !doMore {

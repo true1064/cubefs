@@ -72,6 +72,7 @@ func newMetaPartition(PartitionId uint64, manager *metadataManager) (mp *metaPar
 
 	mp.txProcessor = NewTransactionProcessor(mp)
 	mp.uidManager = NewUidMgr(mp.config.VolName, mp.config.PartitionId)
+	mp.multiVersionList = &proto.VolVersionInfoList{}
 	return mp
 }
 

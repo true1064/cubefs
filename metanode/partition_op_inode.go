@@ -25,7 +25,12 @@ import (
 	"github.com/cubefs/cubefs/util/log"
 )
 
-func replyInfoNoCheck(info *proto.InodeInfo, ino *Inode) bool {
+type  fsmUnlinkSt struct {
+	inode *Inode
+	VerList []uint64
+}
+
+func replyInfoNoCheck(info *proto.InodeInfo, ino *Inode, quotaIds []uint32) bool {
 	ino.RLock()
 	defer ino.RUnlock()
 
@@ -115,7 +120,12 @@ func (mp *metaPartition) CreateInode(req *CreateInoReq, p *Packet) (err error) {
 	ino := NewInode(inoID, req.Mode)
 	ino.Uid = req.Uid
 	ino.Gid = req.Gid
-	ino.setVer(mp.verSeq)
+
+	verSeq := mp.verSeq
+	if p.IsDirSnapshotOperate() {
+		verSeq = p.VerSeq
+	}
+	ino.setVolVer(verSeq)
 	ino.LinkTarget = req.Target
 
 	val, err := ino.Marshal()
@@ -316,7 +326,10 @@ func (mp *metaPartition) UnlinkInode(req *UnlinkInoReq, p *Packet) (err error) {
 		p.PacketErrorWithBody(status, reply)
 	}
 	ino := NewInode(req.Inode, 0)
-	if item := mp.inodeTree.Get(ino); item == nil {
+	ino.setVolVer(req.VerSeq)
+	log.LogDebugf("action[UnlinkInode] verseq %v ino %v", ino.getVer(), ino)
+	item := mp.inodeTree.Get(ino)
+	if item == nil {
 		err = fmt.Errorf("inode %v reqeust cann't found", ino)
 		log.LogErrorf("action[UnlinkInode] %v", err)
 		p.PacketErrorWithBody(proto.OpNotExistErr, []byte(err.Error()))
@@ -403,7 +416,7 @@ func (mp *metaPartition) UnlinkInodeBatch(req *BatchUnlinkInoReq, p *Packet) (er
 // InodeGet executes the inodeGet command from the client.
 func (mp *metaPartition) InodeGetSplitEk(req *InodeGetSplitReq, p *Packet) (err error) {
 	ino := NewInode(req.Inode, 0)
-	ino.setVer(req.VerSeq)
+	ino.setVolVer(req.VerSeq)
 
 	getAllVerInfo := req.VerAll
 	retMsg := mp.getInode(ino, getAllVerInfo)
@@ -458,7 +471,7 @@ func (mp *metaPartition) InodeGetSplitEk(req *InodeGetSplitReq, p *Packet) (err 
 func (mp *metaPartition) InodeGet(req *InodeGetReq, p *Packet) (err error) {
 
 	ino := NewInode(req.Inode, 0)
-	ino.setVer(req.VerSeq)
+	ino.setVolVer(req.VerSeq)
 	getAllVerInfo := req.VerAll
 	retMsg := mp.getInode(ino, getAllVerInfo)
 
@@ -522,7 +535,7 @@ func (mp *metaPartition) InodeGetBatch(req *InodeGetReqBatch, p *Packet) (err er
 	for _, inoId := range req.Inodes {
 		var quotaInfos map[uint32]*proto.MetaQuotaInfo
 		ino.Inode = inoId
-		ino.setVer(req.VerSeq)
+		ino.setVolVer(req.VerSeq)
 		retMsg := mp.getInode(ino, false)
 		if mp.mqMgr.EnableQuota() {
 			quotaInfos, err = mp.getInodeQuotaInfos(inoId)

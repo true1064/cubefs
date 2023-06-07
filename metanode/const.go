@@ -185,6 +185,12 @@ const (
 
 	opFSMSentToChanV1 = 71
 	opFSMStoreTickV1  = 72
+
+	// dir snapshot
+	opFSMDDentryByDirVer = 73
+	opFSMUnlinkByDirVer = 74
+	opFSMDDentryBatchByDirVer = 75
+	opFSMUnlinkBatchByDirVer = 76
 )
 
 const (
