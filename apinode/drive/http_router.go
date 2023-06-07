@@ -181,12 +181,6 @@ func (d *DriveNode) respData(c *rpc.Context, obj interface{}) {
 	c.RespondWith(http.StatusOK, rpc.MIMEJSON, []byte(dataStr))
 }
 
-type errorResponse struct {
-	Error   string `json:"error"`
-	Code    string `json:"code,omitempty"`
-	Message string `json:"message,omitempty"`
-}
-
 func (d *DriveNode) respError(c *rpc.Context, err error) {
 	c.RespondError(err)
 }

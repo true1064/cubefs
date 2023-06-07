@@ -16,6 +16,7 @@ package auditlog
 
 import (
 	"bufio"
+	"encoding/json"
 	"net"
 	"net/http"
 	"strconv"
@@ -95,7 +96,7 @@ func (w *responseWriter) Flush() {
 func (w *responseWriter) getBody() []byte {
 	header := w.ResponseWriter.Header()
 	length, _ := strconv.ParseInt(header.Get(rpc.HeaderContentLength), 10, 64)
-	if length > int64(w.n) {
+	if length > int64(w.n) || !json.Valid(w.body[:w.n]) {
 		return nil
 	}
 	return w.body[:w.n]
