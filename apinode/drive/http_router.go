@@ -89,7 +89,7 @@ func (d *DriveNode) setHeaders(c *rpc.Context) {
 
 	uid := UserID(c.Request.Header.Get(headerUserID))
 	if !uid.Valid() {
-		c.AbortWithStatus(sdk.ErrBadRequest.Status)
+		c.AbortWithError(sdk.ErrBadRequest)
 		return
 	}
 	c.Set(headerUserID, uid)
@@ -97,7 +97,7 @@ func (d *DriveNode) setHeaders(c *rpc.Context) {
 	// pre-set encrypt transmitter
 	t, err := d.cryptor.EncryptTransmitter(c.Request.Header.Get(headerCipherMaterial))
 	if err != nil {
-		c.AbortWithStatus(sdk.ErrTransCipher.Status)
+		c.AbortWithError(err)
 		return
 	}
 	c.Set(headerCipherMaterial, t)
@@ -123,7 +123,7 @@ func (d *DriveNode) decryptTransmitter(c *rpc.Context) crypto.Transmitter {
 	if err != nil {
 		_, span := d.ctxSpan(c)
 		span.Warn("make decrypt transmitter", err)
-		c.RespondStatus(sdk.ErrTransCipher.Status)
+		c.RespondError(sdk.ErrTransCipher)
 		return nil
 	}
 	return t
@@ -170,12 +170,12 @@ func (d *DriveNode) getProperties(c *rpc.Context) (map[string]string, error) {
 func (d *DriveNode) respData(c *rpc.Context, obj interface{}) {
 	buffer, err := json.Marshal(obj)
 	if err != nil {
-		c.RespondStatus(http.StatusInternalServerError)
+		c.RespondError(sdk.ErrInternalServerError)
 		return
 	}
 	dataStr, err := d.encrypTransmitter(c).Encrypt(string(buffer), false)
 	if err != nil {
-		c.RespondStatus(sdk.ErrTransCipher.Status)
+		c.RespondError(err)
 		return
 	}
 	c.RespondWith(http.StatusOK, rpc.MIMEJSON, []byte(dataStr))
@@ -188,32 +188,7 @@ type errorResponse struct {
 }
 
 func (d *DriveNode) respError(c *rpc.Context, err error) {
-	if err == nil {
-		c.Respond()
-		return
-	}
-
-	var message string
-	if e, ok := err.(*sdk.Error); ok {
-		message = e.Message
-	}
-	httpErr := rpc.Error2HTTPError(err)
-	if status := httpErr.StatusCode(); status == sdk.ErrTransCipher.Status {
-		c.RespondStatus(status)
-		return
-	}
-
-	buffer, _ := json.Marshal(errorResponse{
-		Error:   httpErr.Error(),
-		Code:    httpErr.ErrorCode(),
-		Message: message,
-	})
-	dataStr, err := d.encrypTransmitter(c).Encrypt(string(buffer), false)
-	if err != nil {
-		c.RespondStatus(sdk.ErrTransCipher.Status)
-		return
-	}
-	c.RespondWith(httpErr.StatusCode(), rpc.MIMEJSON, []byte(dataStr))
+	c.RespondError(err)
 }
 
 func (d *DriveNode) checkError(c *rpc.Context, logger func(error), errs ...error) bool {
