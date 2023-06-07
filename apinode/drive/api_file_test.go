@@ -58,7 +58,12 @@ func TestHandleFileUpload(t *testing.T) {
 		require.Equal(t, 400, resp.StatusCode)
 	}
 	{
-		node.OnceGetUser(testUserID)
+		node.TestGetUser(t, func() rpc.HTTPError {
+			resp := doRequest(newMockBody(64), "path", "f")
+			defer resp.Body.Close()
+			return resp2Error(resp)
+		}, testUserID)
+		node.OnceGetUser()
 		// create dir error
 		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e1)
 		resp := doRequest(newMockBody(64), "path", "/dir/a/../filename")
@@ -147,7 +152,12 @@ func TestHandleFileWrite(t *testing.T) {
 	}
 	queries := []string{"path", "/a", "fileId", "1111"}
 	{
-		node.OnceGetUser(testUserID)
+		node.TestGetUser(t, func() rpc.HTTPError {
+			resp := doRequest(newMockBody(64), "", queries...)
+			defer resp.Body.Close()
+			return resp2Error(resp)
+		}, testUserID)
+		node.OnceGetUser()
 		node.Volume.EXPECT().GetInode(A, A).Return(nil, e1)
 		resp := doRequest(newMockBody(64), "", queries...)
 		defer resp.Body.Close()
@@ -242,7 +252,12 @@ func TestHandleFileDownload(t *testing.T) {
 		require.Equal(t, 400, resp.StatusCode)
 	}
 	{
-		node.OnceGetUser(testUserID)
+		node.TestGetUser(t, func() rpc.HTTPError {
+			resp := doRequest(newMockBody(64), "", "path", "/download")
+			defer resp.Body.Close()
+			return resp2Error(resp)
+		}, testUserID)
+		node.OnceGetUser()
 		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e1)
 		resp := doRequest(newMockBody(64), "", "path", "/download")
 		defer resp.Body.Close()
@@ -263,6 +278,16 @@ func TestHandleFileDownload(t *testing.T) {
 		resp := doRequest(newMockBody(64), "bytes=i-j", "path", "/download")
 		defer resp.Body.Close()
 		require.Equal(t, 400, resp.StatusCode)
+	}
+	{
+		node.OnceGetUser()
+		node.OnceLookup(false)
+		node.Volume.EXPECT().GetInode(A, A).Return(&sdk.InodeInfo{Size: 0}, nil)
+		resp := doRequest(nil, "", "path", "/download")
+		defer resp.Body.Close()
+		require.Equal(t, 200, resp.StatusCode)
+		buff, _ := io.ReadAll(resp.Body)
+		require.Equal(t, 0, len(buff))
 	}
 	{
 		size := 128
@@ -360,12 +385,7 @@ func TestHandleFileRename(t *testing.T) {
 		req.Header.Add(headerUserID, testUserID)
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
-		err = rpc.ParseData(resp, nil)
-		if err != nil {
-			return err.(rpc.HTTPError)
-		}
-		return nil
+		return resp2Error(resp)
 	}
 
 	{
@@ -373,7 +393,12 @@ func TestHandleFileRename(t *testing.T) {
 		require.Equal(t, 400, doRequest("src", "/a", "dst", "a/b/../../..").StatusCode())
 	}
 	{
-		node.OnceGetUser(testUserID)
+		node.TestGetUser(t, func() rpc.HTTPError {
+			return doRequest("src", "/dir/a", "dst", "/dir/b")
+		}, testUserID)
+		node.OnceGetUser()
+		require.Equal(t, 400, doRequest("src", "/dir/a", "dst", "/").StatusCode())
+		node.OnceGetUser()
 		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e1)
 		require.Equal(t, e1.Status, doRequest("src", "/dir/a", "dst", "/dir/b").StatusCode())
 	}
@@ -422,12 +447,15 @@ func TestHandleFileCopy(t *testing.T) {
 		req.Header.Add(headerUserID, testUserID)
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
-		err = rpc.ParseData(resp, nil)
-		if err != nil {
-			return err.(rpc.HTTPError)
+		return resp2Error(resp)
+	}
+
+	funcs := make([]func(), 0, 8)
+	add := func(fs ...func()) {
+		funcs = append(funcs, fs...)
+		for _, f := range funcs {
+			f()
 		}
-		return nil
 	}
 
 	{
@@ -435,46 +463,45 @@ func TestHandleFileCopy(t *testing.T) {
 		require.Equal(t, 400, doRequest("src", "/a", "dst", "a/b/../../..").StatusCode())
 	}
 	{
-		node.OnceGetUser(testUserID)
+		node.TestGetUser(t, func() rpc.HTTPError {
+			return doRequest("src", "/dir/a", "dst", "/dir/b")
+		}, testUserID)
+		add(func() { node.OnceGetUser() })
 		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e1)
 		require.Equal(t, e1.Status, doRequest("src", "/dir/a", "dst", "/dir/b").StatusCode())
 	}
 	{
-		node.OnceGetUser()
-		node.LookupN(2)
+		add(func() { node.LookupN(2) })
 		node.Volume.EXPECT().GetInode(A, A).Return(nil, e2)
 		require.Equal(t, e2.Status, doRequest("src", "/dir/a", "dst", "/dir/b").StatusCode())
 	}
 	{
-		node.OnceGetUser()
-		node.LookupN(2)
-		node.OnceGetInode()
+		add(func() { node.OnceGetInode() })
 		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e3)
 		require.Equal(t, e3.Status, doRequest("src", "/dir/a", "dst", "/dir/b").StatusCode())
 	}
 	{
-		node.OnceGetUser()
-		node.LookupN(2)
-		node.OnceGetInode()
-		node.OnceLookup(true)
+		add()
+		node.Volume.EXPECT().GetXAttrMap(A, A).Return(nil, e1)
+		require.Equal(t, e1.Status, doRequest("src", "/dir/a", "dst", "/dir/b", "meta", "1").StatusCode())
+	}
+	{
+		add(func() { node.OnceLookup(true) })
 		node.Volume.EXPECT().GetInode(A, A).Return(nil, e4)
 		require.Equal(t, e4.Status, doRequest("src", "/dir/a", "dst", "/dir/b").StatusCode())
 	}
 	{
-		node.OnceGetUser()
-		node.LookupN(2)
-		node.OnceGetInode()
-		node.OnceLookup(true)
-		node.OnceGetInode()
+		add(func() { node.OnceGetInode() })
 		node.Volume.EXPECT().UploadFile(A, A).Return(nil, nil)
 		require.NoError(t, doRequest("src", "/dir/a", "dst", "/dir/b"))
 	}
 	{
-		node.OnceGetUser()
-		node.LookupN(2)
-		node.OnceGetInode()
-		node.OnceLookup(true)
-		node.OnceGetInode()
+		add()
+		node.Volume.EXPECT().UploadFile(A, A).Return(nil, e2)
+		require.Equal(t, e2.Status, doRequest("src", "/dir/a", "dst", "/dir/b").StatusCode())
+	}
+	{
+		add()
 		node.Volume.EXPECT().GetXAttrMap(A, A).Return(nil, nil)
 		node.Volume.EXPECT().UploadFile(A, A).Return(nil, nil)
 		require.NoError(t, doRequest("src", "/dir/a", "dst", "/dir/b", "meta", "1"))

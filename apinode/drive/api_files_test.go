@@ -37,12 +37,7 @@ func TestHandleFilesMakedir(t *testing.T) {
 		req.Header.Add(headerUserID, testUserID)
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
-		err = rpc.ParseData(resp, nil)
-		if err != nil {
-			return err.(rpc.HTTPError)
-		}
-		return nil
+		return resp2Error(resp)
 	}
 
 	{
@@ -50,7 +45,8 @@ func TestHandleFilesMakedir(t *testing.T) {
 		require.Equal(t, 400, doRequest("path", "a/b/../../..").StatusCode())
 	}
 	{
-		node.OnceGetUser(testUserID)
+		node.TestGetUser(t, func() rpc.HTTPError { return doRequest("path", "/dira") }, testUserID)
+		node.OnceGetUser()
 		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e1)
 		require.Equal(t, e1.Status, doRequest("path", "/dira/dirb/").StatusCode())
 	}
@@ -79,12 +75,7 @@ func TestHandleFilesDelete(t *testing.T) {
 		req.Header.Add(headerUserID, testUserID)
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
-		err = rpc.ParseData(resp, nil)
-		if err != nil {
-			return err.(rpc.HTTPError)
-		}
-		return nil
+		return resp2Error(resp)
 	}
 
 	{
@@ -92,7 +83,8 @@ func TestHandleFilesDelete(t *testing.T) {
 		require.Equal(t, 400, doRequest("path", "a/b/../../..").StatusCode())
 	}
 	{
-		node.OnceGetUser(testUserID)
+		node.TestGetUser(t, func() rpc.HTTPError { return doRequest("path", "/dir/a") }, testUserID)
+		node.OnceGetUser()
 		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e1)
 		require.Equal(t, e1.Status, doRequest("path", "/dir/a").StatusCode())
 	}

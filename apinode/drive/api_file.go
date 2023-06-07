@@ -296,13 +296,13 @@ func (d *DriveNode) handleFileRename(c *rpc.Context) {
 	}
 
 	srcDir, srcName := args.Src.Split()
-	srcParentIno := root
-	dstParentIno := root
-	if srcName == "" {
-		span.Error("invalid src=", args.Src)
+	dstDir, dstName := args.Dst.Split()
+	if srcName == "" || dstName == "" {
+		span.Errorf("invalid src=%s dst=%s", args.Src, args.Dst)
 		d.respError(c, sdk.ErrBadRequest)
 		return
 	}
+	srcParentIno := root
 	if srcDir != "" && srcDir != "/" {
 		var srcParent *sdk.DirInfo
 		srcParent, err = d.lookup(ctx, vol, root, srcDir.String())
@@ -311,12 +311,7 @@ func (d *DriveNode) handleFileRename(c *rpc.Context) {
 		}
 		srcParentIno = Inode(srcParent.Inode)
 	}
-	dstDir, dstName := args.Dst.Split()
-	if dstName == "" {
-		span.Error("invalid dst=", args.Dst)
-		d.respError(c, sdk.ErrBadRequest)
-		return
-	}
+	dstParentIno := root
 	if dstDir != "" && dstDir != "/" {
 		var dstParent *sdk.DirInfo
 		dstParent, err = d.lookup(ctx, vol, root, dstDir.String())

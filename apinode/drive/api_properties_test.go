@@ -196,16 +196,22 @@ func TestHandleDelProperties(t *testing.T) {
 		}
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
-		if err = rpc.ParseData(resp, nil); err != nil {
-			return err.(rpc.HTTPError)
-		}
-		return nil
+		return resp2Error(resp)
 	}
 
 	{
 		require.Equal(t, 400, doRequest("").StatusCode())
 		require.Equal(t, 400, doRequest("a/b/../../..").StatusCode())
+		longKey := make([]byte, 1025)
+		for i := range longKey {
+			longKey[i] = 'x'
+		}
+		require.Equal(t, 400, doRequest("a", string(longKey)).StatusCode())
+		keys := make([]string, 17)
+		for i := range keys {
+			keys[i] = fmt.Sprint("keys-", i)
+		}
+		require.Equal(t, 400, doRequest("a", keys...).StatusCode())
 	}
 	{
 		require.NoError(t, doRequest("a"))
@@ -213,7 +219,8 @@ func TestHandleDelProperties(t *testing.T) {
 		require.NoError(t, doRequest("a", "", ""))
 	}
 	{
-		node.OnceGetUser(testUserID)
+		node.TestGetUser(t, func() rpc.HTTPError { return doRequest("a", "k1") }, testUserID)
+		node.OnceGetUser()
 		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e1)
 		require.Equal(t, e1.Status, doRequest("a", "k1").StatusCode())
 	}

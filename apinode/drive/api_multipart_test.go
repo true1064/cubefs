@@ -44,11 +44,7 @@ func TestHandleMultipartUploads(t *testing.T) {
 		req.Header.Add(userPropertyPrefix+"multipart", "MultiPart")
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
-		if err = rpc.ParseData(resp, r); err != nil {
-			return err.(rpc.HTTPError)
-		}
-		return nil
+		return resp2Data(resp, r)
 	}
 
 	{
@@ -56,7 +52,13 @@ func TestHandleMultipartUploads(t *testing.T) {
 		require.Equal(t, 400, doRequest(newMockBody(0), nil, "path", "a/../../b").StatusCode())
 	}
 	{
-		node.OnceGetUser(testUserID)
+		node.TestGetUser(t, func() rpc.HTTPError {
+			return doRequest(newMockBody(0), nil, "path", "/mpfile")
+		}, testUserID)
+		node.TestGetUser(t, func() rpc.HTTPError {
+			return doRequest(newMockBody(0), nil, "path", "/mpfile", "uploadId", uploadID)
+		}, testUserID)
+		node.OnceGetUser()
 		node.Volume.EXPECT().InitMultiPart(A, A, A, A).Return("", e1)
 		var up RespMPuploads
 		require.Equal(t, e1.Status, doRequest(newMockBody(0), &up, "path", "/mpfile").StatusCode())
@@ -87,6 +89,7 @@ func TestHandleMultipartUploads(t *testing.T) {
 		body := &mockBody{buff: []byte("[]")}
 		listp[0].Size = crypto.BlockSize - 1
 		node.Volume.EXPECT().ListMultiPart(A, A, A, A, A).Return(listp, uint64(0), false, nil)
+		node.Volume.EXPECT().AbortMultiPart(A, A, A).Return(nil)
 		require.Equal(t, 400, doRequest(body, nil, "path", "/mpfile", "uploadId", uploadID).StatusCode())
 	}
 	{
@@ -98,6 +101,7 @@ func TestHandleMultipartUploads(t *testing.T) {
 		body := &mockBody{buff: []byte("[]")}
 		listp[9].Size = crypto.BlockSize - 1
 		node.Volume.EXPECT().ListMultiPart(A, A, A, A, A).Return(listp, uint64(1), true, nil)
+		node.Volume.EXPECT().AbortMultiPart(A, A, A).Return(e4)
 		require.Equal(t, 400, doRequest(body, nil, "path", "/mpfile", "uploadId", uploadID).StatusCode())
 	}
 	{
@@ -160,11 +164,7 @@ func TestHandleMultipartParts(t *testing.T) {
 		req.Header.Add(headerCrc32, fmt.Sprint(body.Sum32()))
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
-		if err = rpc.ParseData(resp, r); err != nil {
-			return err.(rpc.HTTPError)
-		}
-		return nil
+		return resp2Data(resp, r)
 	}
 
 	{
@@ -174,7 +174,10 @@ func TestHandleMultipartParts(t *testing.T) {
 		require.Equal(t, 400, doRequest(newMockBody(0), nil, "path", "/a", "uploadId", uploadID, "partNumber", "0").StatusCode())
 	}
 	{
-		node.OnceGetUser(testUserID)
+		node.TestGetUser(t, func() rpc.HTTPError {
+			return doRequest(newMockBody(0), nil, "path", "/a", "uploadId", uploadID, "partNumber", "1")
+		}, testUserID)
+		node.OnceGetUser()
 		node.Volume.EXPECT().UploadMultiPart(A, A, A, A, A).Return(nil, e1)
 		require.Equal(t, e1.Status, doRequest(newMockBody(0), nil, "path", "/a", "uploadId", uploadID, "partNumber", "1").StatusCode())
 	}
@@ -199,11 +202,7 @@ func TestHandleMultipartList(t *testing.T) {
 		req.Header.Add(headerUserID, testUserID)
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
-		if err = rpc.ParseData(resp, r); err != nil {
-			return err.(rpc.HTTPError)
-		}
-		return nil
+		return resp2Data(resp, r)
 	}
 
 	{
@@ -213,7 +212,10 @@ func TestHandleMultipartList(t *testing.T) {
 		require.Equal(t, 400, doRequest(nil, "path", "a/../..", "uploadId", uploadID, "marker", "10").StatusCode())
 	}
 	{
-		node.OnceGetUser(testUserID)
+		node.TestGetUser(t, func() rpc.HTTPError {
+			return doRequest(nil, "path", "/a", "uploadId", uploadID, "marker", "10")
+		}, testUserID)
+		node.OnceGetUser()
 		node.Volume.EXPECT().ListMultiPart(A, A, A, A, A).Return(nil, uint64(0), false, e1)
 		require.Equal(t, e1.Status, doRequest(nil, "path", "/a", "uploadId", uploadID, "marker", "10").StatusCode())
 	}
@@ -243,11 +245,7 @@ func TestHandleMultipartAbort(t *testing.T) {
 		req.Header.Add(headerUserID, testUserID)
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
-		if err = rpc.ParseData(resp, nil); err != nil {
-			return err.(rpc.HTTPError)
-		}
-		return nil
+		return resp2Error(resp)
 	}
 
 	{
@@ -255,7 +253,10 @@ func TestHandleMultipartAbort(t *testing.T) {
 		require.Equal(t, 400, doRequest("path", "/a", "uploadIdx", uploadID).StatusCode())
 	}
 	{
-		node.OnceGetUser(testUserID)
+		node.TestGetUser(t, func() rpc.HTTPError {
+			return doRequest("path", "/a", "uploadId", uploadID)
+		}, testUserID)
+		node.OnceGetUser()
 		node.Volume.EXPECT().AbortMultiPart(A, A, A).Return(e1)
 		require.Equal(t, e1.Status, doRequest("path", "/a", "uploadId", uploadID).StatusCode())
 	}

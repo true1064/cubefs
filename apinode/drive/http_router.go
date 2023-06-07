@@ -155,7 +155,13 @@ func (d *DriveNode) getProperties(c *rpc.Context) (map[string]string, error) {
 			if err != nil {
 				return nil, err
 			}
+			if len(k) > 1024 || len(v) > 1024 {
+				return nil, sdk.ErrBadRequest.Extend("meta key or value was too long")
+			}
 			properties[k] = v
+			if len(properties) > 16 {
+				return nil, sdk.ErrBadRequest.Extend("meta length was more than rated size")
+			}
 		}
 	}
 	return properties, nil

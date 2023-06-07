@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/fs"
 	"math/rand"
+	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
@@ -95,7 +96,7 @@ func newMockNode(tb testing.TB) mockNode {
 	}
 }
 
-func (node *mockNode) OnceGetUser(uids ...string) {
+func (node *mockNode) AddUserRoute(uids ...string) {
 	for _, uid := range uids {
 		if _, ok := node.cachedUser[uid]; ok {
 			continue
@@ -128,8 +129,18 @@ func (node *mockNode) OnceGetUser(uids ...string) {
 				return string(val), nil
 			})
 	}
+}
+
+func (node *mockNode) OnceGetUser(uids ...string) {
+	node.AddUserRoute(uids...)
 	node.ClusterMgr.EXPECT().GetCluster(A).Return(node.Cluster)
 	node.Cluster.EXPECT().GetVol(A).Return(node.Volume)
+}
+
+func (node *mockNode) TestGetUser(tb testing.TB, request func() rpc.HTTPError, uids ...string) {
+	node.AddUserRoute(uids...)
+	node.ClusterMgr.EXPECT().GetCluster(A).Return(nil)
+	require.Equal(tb, sdk.ErrNoCluster.Status, request().StatusCode())
 }
 
 func (node *mockNode) OnceLookup(isDir bool) {
@@ -161,6 +172,17 @@ func (node *mockNode) OnceGetInode() {
 				Inode: ino,
 			}, nil
 		})
+}
+
+func resp2Data(resp *http.Response, data interface{}) rpc.HTTPError {
+	if err := rpc.ParseData(resp, data); err != nil {
+		return err.(rpc.HTTPError)
+	}
+	return nil
+}
+
+func resp2Error(resp *http.Response) rpc.HTTPError {
+	return resp2Data(resp, nil)
 }
 
 // httptest server need close by you.

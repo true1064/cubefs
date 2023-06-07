@@ -146,6 +146,10 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads, t cry
 		for idx, part := range sParts {
 			// not the last part
 			if !(next == 0 && idx == len(sParts)-1) && part.Size%crypto.BlockSize != 0 {
+				if err = vol.AbortMultiPart(ctx, fullPath, args.UploadID); err != nil {
+					span.Error("multipart comlete server abort", args.UploadID, err)
+				}
+
 				span.Warn("multipart complete size not supported", part.ID, part.Size)
 				d.respError(c, sdk.ErrBadRequest.Extend("size not supported", part.ID, part.Size))
 				return
