@@ -21,16 +21,13 @@ import (
 	"strings"
 
 	"github.com/cubefs/cubefs/apinode/crypto"
+	"github.com/cubefs/cubefs/apinode/drive"
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
 	"github.com/cubefs/cubefs/blobstore/common/trace"
 )
 
-const (
-	headerRequestID      = "x-cfa-request-id"
-	headerCipherMaterial = "x-cfa-cipher-material"
-	userPropertyPrefix   = "x-cfa-meta-"
-)
+const metaHeaderLen = len(drive.UserPropertyPrefix)
 
 var (
 	errNew    = []byte(`{"code":"TransCipher","error":"trans new cipher"}`)
@@ -53,7 +50,7 @@ func newCryptor() rpc.ProgressHandler {
 
 // only decode query string and meta headers.
 func (c cryptor) Handler(w http.ResponseWriter, req *http.Request, f func(http.ResponseWriter, *http.Request)) {
-	material := req.Header.Get(headerCipherMaterial)
+	material := req.Header.Get(drive.HeaderCipherMaterial)
 	if material == "" {
 		f(w, req)
 		return
@@ -67,7 +64,7 @@ func (c cryptor) Handler(w http.ResponseWriter, req *http.Request, f func(http.R
 		}
 
 		var span trace.Span
-		if rid := req.Header.Get(headerRequestID); rid != "" {
+		if rid := req.Header.Get(drive.HeaderRequestID); rid != "" {
 			span, _ = trace.StartSpanFromContextWithTraceID(req.Context(), "", rid)
 		} else {
 			span = trace.SpanFromContextSafe(req.Context())
@@ -106,23 +103,28 @@ func (c cryptor) Handler(w http.ResponseWriter, req *http.Request, f func(http.R
 	}
 	req.URL.RawQuery = querys.Encode()
 
+	metas := make([]string, 0, 4)
 	for key := range req.Header {
 		key = strings.ToLower(key)
-		if len(key) > len(userPropertyPrefix) && strings.HasPrefix(key, userPropertyPrefix) {
-			var k, v string
-			if k, err = t.Decrypt(key[len(userPropertyPrefix):], true); err != nil {
-				err = fmt.Errorf("decode header key %s: %s", key, err.Error())
-				errBuff = errHeader[:]
-				return
-			}
-			if v, err = t.Decrypt(req.Header.Get(key), true); err != nil {
-				err = fmt.Errorf("decode header val %s %s: %s", k, req.Header.Get(key), err.Error())
-				errBuff = errHeader[:]
-				return
-			}
-			req.Header.Set(userPropertyPrefix+k, v)
-			req.Header.Del(key)
+		if len(key) > metaHeaderLen && strings.HasPrefix(key, drive.UserPropertyPrefix) {
+			metas = append(metas, key)
 		}
+	}
+
+	for _, key := range metas {
+		var k, v string
+		if k, err = t.Decrypt(key[metaHeaderLen:], true); err != nil {
+			err = fmt.Errorf("decode header key %s: %s", key, err.Error())
+			errBuff = errHeader[:]
+			return
+		}
+		if v, err = t.Decrypt(req.Header.Get(key), true); err != nil {
+			err = fmt.Errorf("decode header val %s %s: %s", k, req.Header.Get(key), err.Error())
+			errBuff = errHeader[:]
+			return
+		}
+		req.Header.Set(drive.UserPropertyPrefix+k, v)
+		req.Header.Del(key)
 	}
 
 	f(w, req)

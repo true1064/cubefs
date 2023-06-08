@@ -84,29 +84,29 @@ func (d *DriveNode) RegisterAPIRouters() *rpc.Router {
 }
 
 func (d *DriveNode) setHeaders(c *rpc.Context) {
-	rid := c.Request.Header.Get(headerRequestID)
-	c.Set(headerRequestID, rid)
+	rid := c.Request.Header.Get(HeaderRequestID)
+	c.Set(HeaderRequestID, rid)
 
-	uid := UserID(c.Request.Header.Get(headerUserID))
+	uid := UserID(c.Request.Header.Get(HeaderUserID))
 	if !uid.Valid() {
 		c.AbortWithError(sdk.ErrBadRequest)
 		return
 	}
-	c.Set(headerUserID, uid)
+	c.Set(HeaderUserID, uid)
 }
 
 func (*DriveNode) requestID(c *rpc.Context) string {
-	rid, _ := c.Get(headerRequestID)
+	rid, _ := c.Get(HeaderRequestID)
 	return rid.(string)
 }
 
 func (*DriveNode) userID(c *rpc.Context) UserID {
-	uid, _ := c.Get(headerUserID)
+	uid, _ := c.Get(HeaderUserID)
 	return uid.(UserID)
 }
 
 func (d *DriveNode) encrypTransmitter(c *rpc.Context) crypto.Transmitter {
-	t, err := d.cryptor.EncryptTransmitter(c.Request.Header.Get(headerCipherMaterial))
+	t, err := d.cryptor.EncryptTransmitter(c.Request.Header.Get(HeaderCipherMaterial))
 	if err != nil {
 		_, span := d.ctxSpan(c)
 		span.Warn("make encrypt transmitter", err)
@@ -132,8 +132,8 @@ func (d *DriveNode) getProperties(c *rpc.Context) (map[string]string, error) {
 	properties := make(map[string]string)
 	for key := range c.Request.Header {
 		key = strings.ToLower(key)
-		if len(key) > len(userPropertyPrefix) && strings.HasPrefix(key, userPropertyPrefix) {
-			k := key[len(userPropertyPrefix):]
+		if len(key) > len(UserPropertyPrefix) && strings.HasPrefix(key, UserPropertyPrefix) {
+			k := key[len(UserPropertyPrefix):]
 			v := c.Request.Header.Get(key)
 			if len(k) > 1024 || len(v) > 1024 {
 				return nil, sdk.ErrBadRequest.Extend("meta key or value was too long")

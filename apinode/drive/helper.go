@@ -88,7 +88,7 @@ type (
 )
 
 func newCrc32Reader(header http.Header, reader io.Reader, logger logFunc) (io.Reader, error) {
-	val := header.Get(headerCrc32)
+	val := header.Get(HeaderCrc32)
 	if val == "" {
 		return reader, nil
 	}

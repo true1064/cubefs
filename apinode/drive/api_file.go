@@ -193,7 +193,7 @@ func (d *DriveNode) handleFileDownload(c *rpc.Context) {
 		return
 	}
 
-	if c.Request.Header.Get(headerVolume) == "default" && args.Path.String() == volumeConfigPath {
+	if c.Request.Header.Get(HeaderVolume) == "default" && args.Path.String() == volumeConfigPath {
 		d.downloadConfig(c)
 		return
 	}

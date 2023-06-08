@@ -33,8 +33,8 @@ func TestHandleFilesMakedir(t *testing.T) {
 	doRequest := func(queries ...string) rpc.HTTPError {
 		url := genURL(server.URL, "/v1/files/mkdir", queries...)
 		req, _ := http.NewRequest(http.MethodPost, url, nil)
-		req.Header.Add(headerRequestID, "user_request_id")
-		req.Header.Add(headerUserID, testUserID)
+		req.Header.Add(HeaderRequestID, "user_request_id")
+		req.Header.Add(HeaderUserID, testUserID)
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
 		return resp2Error(resp)
@@ -72,7 +72,7 @@ func TestHandleFilesDelete(t *testing.T) {
 	doRequest := func(queries ...string) rpc.HTTPError {
 		url := genURL(server.URL, "/v1/files", queries...)
 		req, _ := http.NewRequest(http.MethodDelete, url, nil)
-		req.Header.Add(headerUserID, testUserID)
+		req.Header.Add(HeaderUserID, testUserID)
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
 		return resp2Error(resp)

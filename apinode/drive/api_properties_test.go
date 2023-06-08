@@ -38,7 +38,7 @@ func TestHandleSetProperties(t *testing.T) {
 	{
 		tgt := fmt.Sprintf("%s/v1/files/properties?path=%s", ts.URL, url.QueryEscape("/test"))
 		req, err := http.NewRequest(http.MethodPut, tgt, nil)
-		req.Header.Set(headerUserID, "test")
+		req.Header.Set(HeaderUserID, "test")
 		require.Nil(t, err)
 		res, err := client.Do(req)
 		require.Nil(t, err)
@@ -72,7 +72,7 @@ func TestHandleSetProperties(t *testing.T) {
 
 		tgt := fmt.Sprintf("%s/v1/files/properties?path=%s", ts.URL, url.QueryEscape("/test"))
 		req, err := http.NewRequest(http.MethodPut, tgt, nil)
-		req.Header.Set(headerUserID, "test")
+		req.Header.Set(HeaderUserID, "test")
 		req.Header.Set("x-cfa-meta-mykey", "12345")
 		require.Nil(t, err)
 		res, err := client.Do(req)
@@ -85,7 +85,7 @@ func TestHandleSetProperties(t *testing.T) {
 	{
 		tgt := fmt.Sprintf("%s/v1/files/properties", ts.URL)
 		req, err := http.NewRequest(http.MethodPut, tgt, nil)
-		req.Header.Set(headerUserID, "test")
+		req.Header.Set(HeaderUserID, "test")
 		req.Header.Set("x-cfa-meta-mykey", "12345")
 		require.Nil(t, err)
 		res, err := client.Do(req)
@@ -106,7 +106,7 @@ func TestHandleSetProperties(t *testing.T) {
 		mockClusterMgr.EXPECT().GetCluster(gomock.Any()).Return(nil)
 		tgt := fmt.Sprintf("%s/v1/files/properties?path=%s", ts.URL, url.QueryEscape("/test"))
 		req, err := http.NewRequest(http.MethodPut, tgt, nil)
-		req.Header.Set(headerUserID, "test")
+		req.Header.Set(HeaderUserID, "test")
 		req.Header.Set("x-cfa-meta-mykey", "12345")
 		require.Nil(t, err)
 		res, err := client.Do(req)
@@ -131,7 +131,7 @@ func TestHandleSetProperties(t *testing.T) {
 
 		tgt := fmt.Sprintf("%s/v1/files/properties?path=%s", ts.URL, url.QueryEscape("/test"))
 		req, err := http.NewRequest(http.MethodPut, tgt, nil)
-		req.Header.Set(headerUserID, "test")
+		req.Header.Set(HeaderUserID, "test")
 		req.Header.Set("x-cfa-meta-mykey", "12345")
 		require.Nil(t, err)
 		res, err := client.Do(req)
@@ -166,7 +166,7 @@ func TestHandleSetProperties(t *testing.T) {
 		mockVol.EXPECT().BatchSetXAttr(gomock.Any(), gomock.Any(), gomock.Any()).Return(sdk.ErrConflict)
 		tgt := fmt.Sprintf("%s/v1/files/properties?path=%s", ts.URL, url.QueryEscape("/test"))
 		req, err := http.NewRequest(http.MethodPut, tgt, nil)
-		req.Header.Set(headerUserID, "test")
+		req.Header.Set(HeaderUserID, "test")
 		req.Header.Set("x-cfa-meta-mykey", "12345")
 		require.Nil(t, err)
 		res, err := client.Do(req)
@@ -186,13 +186,13 @@ func TestHandleDelProperties(t *testing.T) {
 	doRequest := func(path string, keys ...string) rpc.HTTPError {
 		url := genURL(server.URL, "/v1/files/properties", "path", path)
 		req, _ := http.NewRequest(http.MethodDelete, url, nil)
-		req.Header.Add(headerUserID, testUserID)
+		req.Header.Add(HeaderUserID, testUserID)
 		for _, k := range keys {
 			v := ""
 			if len(k)%2 == 0 {
 				v = "1"
 			}
-			req.Header.Add(userPropertyPrefix+k, v)
+			req.Header.Add(UserPropertyPrefix+k, v)
 		}
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
@@ -291,7 +291,7 @@ func TestHandleGetProperties(t *testing.T) {
 
 		tgt := fmt.Sprintf("%s/v1/files/properties?path=%s", ts.URL, url.QueryEscape("/test"))
 		req, err := http.NewRequest(http.MethodGet, tgt, nil)
-		req.Header.Set(headerUserID, "test")
+		req.Header.Set(HeaderUserID, "test")
 		require.Nil(t, err)
 		res, err := client.Do(req)
 		require.Nil(t, err)
@@ -308,7 +308,7 @@ func TestHandleGetProperties(t *testing.T) {
 	{
 		tgt := fmt.Sprintf("%s/v1/files/properties", ts.URL)
 		req, err := http.NewRequest(http.MethodGet, tgt, nil)
-		req.Header.Set(headerUserID, "test")
+		req.Header.Set(HeaderUserID, "test")
 		require.Nil(t, err)
 		res, err := client.Do(req)
 		res.Body.Close()
@@ -328,7 +328,7 @@ func TestHandleGetProperties(t *testing.T) {
 		mockClusterMgr.EXPECT().GetCluster(gomock.Any()).Return(nil)
 		tgt := fmt.Sprintf("%s/v1/files/properties?path=%s", ts.URL, url.QueryEscape("/test"))
 		req, err := http.NewRequest(http.MethodGet, tgt, nil)
-		req.Header.Set(headerUserID, "test")
+		req.Header.Set(HeaderUserID, "test")
 		require.Nil(t, err)
 		res, err := client.Do(req)
 		res.Body.Close()
@@ -355,7 +355,7 @@ func TestHandleGetProperties(t *testing.T) {
 
 		tgt := fmt.Sprintf("%s/v1/files/properties?path=%s", ts.URL, url.QueryEscape("/test"))
 		req, err := http.NewRequest(http.MethodGet, tgt, nil)
-		req.Header.Set(headerUserID, "test")
+		req.Header.Set(HeaderUserID, "test")
 		require.Nil(t, err)
 		res, err := client.Do(req)
 		res.Body.Close()
@@ -390,7 +390,7 @@ func TestHandleGetProperties(t *testing.T) {
 
 		tgt := fmt.Sprintf("%s/v1/files/properties?path=%s", ts.URL, url.QueryEscape("/test"))
 		req, err := http.NewRequest(http.MethodGet, tgt, nil)
-		req.Header.Set(headerUserID, "test")
+		req.Header.Set(HeaderUserID, "test")
 		require.Nil(t, err)
 		res, err := client.Do(req)
 		res.Body.Close()
@@ -426,7 +426,7 @@ func TestHandleGetProperties(t *testing.T) {
 
 		tgt := fmt.Sprintf("%s/v1/files/properties?path=%s", ts.URL, url.QueryEscape("/test"))
 		req, err := http.NewRequest(http.MethodGet, tgt, nil)
-		req.Header.Set(headerUserID, "test")
+		req.Header.Set(HeaderUserID, "test")
 		require.Nil(t, err)
 		res, err := client.Do(req)
 		res.Body.Close()

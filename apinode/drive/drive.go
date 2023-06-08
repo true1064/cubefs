@@ -38,17 +38,18 @@ import (
 	"golang.org/x/sync/singleflight"
 )
 
+// const vaules.
 const (
 	headerRange = "Range"
 
-	headerRequestID = "x-cfa-request-id"
-	headerUserID    = "x-cfa-user-id"
-	headerVolume    = "x-cfa-volume"
-	headerCrc32     = "x-cfa-content-crc32"
+	HeaderRequestID = "x-cfa-request-id"
+	HeaderUserID    = "x-cfa-user-id"
+	HeaderVolume    = "x-cfa-volume"
+	HeaderCrc32     = "x-cfa-content-crc32"
 	// headerSign      = "x-cfa-sign"
-	headerCipherMaterial = "x-cfa-cipher-material"
+	HeaderCipherMaterial = "x-cfa-cipher-material"
 
-	userPropertyPrefix = "x-cfa-meta-"
+	UserPropertyPrefix = "x-cfa-meta-"
 )
 
 // TODO: defines inode in sdk.
