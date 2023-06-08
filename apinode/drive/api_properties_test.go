@@ -73,7 +73,7 @@ func TestHandleSetProperties(t *testing.T) {
 		tgt := fmt.Sprintf("%s/v1/files/properties?path=%s", ts.URL, url.QueryEscape("/test"))
 		req, err := http.NewRequest(http.MethodPut, tgt, nil)
 		req.Header.Set(HeaderUserID, "test")
-		req.Header.Set("x-cfa-meta-mykey", "12345")
+		req.Header.Set(EncodeMetaHeader("mykey"), EncodeMeta("12345"))
 		require.Nil(t, err)
 		res, err := client.Do(req)
 		require.Nil(t, err)
@@ -86,7 +86,7 @@ func TestHandleSetProperties(t *testing.T) {
 		tgt := fmt.Sprintf("%s/v1/files/properties", ts.URL)
 		req, err := http.NewRequest(http.MethodPut, tgt, nil)
 		req.Header.Set(HeaderUserID, "test")
-		req.Header.Set("x-cfa-meta-mykey", "12345")
+		req.Header.Set(EncodeMetaHeader("mykey"), EncodeMeta("12345"))
 		require.Nil(t, err)
 		res, err := client.Do(req)
 		require.Nil(t, err)
@@ -107,7 +107,7 @@ func TestHandleSetProperties(t *testing.T) {
 		tgt := fmt.Sprintf("%s/v1/files/properties?path=%s", ts.URL, url.QueryEscape("/test"))
 		req, err := http.NewRequest(http.MethodPut, tgt, nil)
 		req.Header.Set(HeaderUserID, "test")
-		req.Header.Set("x-cfa-meta-mykey", "12345")
+		req.Header.Set(EncodeMetaHeader("mykey"), EncodeMeta("12345"))
 		require.Nil(t, err)
 		res, err := client.Do(req)
 		require.Nil(t, err)
@@ -132,7 +132,7 @@ func TestHandleSetProperties(t *testing.T) {
 		tgt := fmt.Sprintf("%s/v1/files/properties?path=%s", ts.URL, url.QueryEscape("/test"))
 		req, err := http.NewRequest(http.MethodPut, tgt, nil)
 		req.Header.Set(HeaderUserID, "test")
-		req.Header.Set("x-cfa-meta-mykey", "12345")
+		req.Header.Set(EncodeMetaHeader("mykey"), EncodeMeta("12345"))
 		require.Nil(t, err)
 		res, err := client.Do(req)
 		require.Nil(t, err)
@@ -167,7 +167,7 @@ func TestHandleSetProperties(t *testing.T) {
 		tgt := fmt.Sprintf("%s/v1/files/properties?path=%s", ts.URL, url.QueryEscape("/test"))
 		req, err := http.NewRequest(http.MethodPut, tgt, nil)
 		req.Header.Set(HeaderUserID, "test")
-		req.Header.Set("x-cfa-meta-mykey", "12345")
+		req.Header.Set(EncodeMetaHeader("mykey"), EncodeMeta("12345"))
 		require.Nil(t, err)
 		res, err := client.Do(req)
 		require.Nil(t, err)
@@ -192,13 +192,31 @@ func TestHandleDelProperties(t *testing.T) {
 			if len(k)%2 == 0 {
 				v = "1"
 			}
-			req.Header.Add(UserPropertyPrefix+k, v)
+			req.Header.Add(EncodeMetaHeader(k), EncodeMeta(v))
 		}
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
 		return resp2Error(resp)
 	}
 
+	{
+		url := genURL(server.URL, "/v1/files/properties", "path", "a")
+		req, _ := http.NewRequest(http.MethodDelete, url, nil)
+		req.Header.Add(HeaderUserID, testUserID)
+		req.Header.Add(UserPropertyPrefix+"not-hex-key", "value")
+		resp, err := client.Do(Ctx, req)
+		require.NoError(t, err)
+		require.Equal(t, 400, resp2Error(resp).StatusCode())
+	}
+	{
+		url := genURL(server.URL, "/v1/files/properties", "path", "a")
+		req, _ := http.NewRequest(http.MethodDelete, url, nil)
+		req.Header.Add(HeaderUserID, testUserID)
+		req.Header.Add(EncodeMetaHeader("hex-key"), "not-hex-value")
+		resp, err := client.Do(Ctx, req)
+		require.NoError(t, err)
+		require.Equal(t, 400, resp2Error(resp).StatusCode())
+	}
 	{
 		require.Equal(t, 400, doRequest("").StatusCode())
 		require.Equal(t, 400, doRequest("a/b/../../..").StatusCode())

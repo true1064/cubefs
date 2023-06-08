@@ -123,7 +123,7 @@ func (c cryptor) Handler(w http.ResponseWriter, req *http.Request, f func(http.R
 			errBuff = errHeader[:]
 			return
 		}
-		req.Header.Set(drive.UserPropertyPrefix+k, v)
+		req.Header.Set(drive.EncodeMetaHeader(k), drive.EncodeMeta(v))
 		req.Header.Del(key)
 	}
 

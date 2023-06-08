@@ -39,7 +39,7 @@ func TestHandleFileUpload(t *testing.T) {
 		req, _ := http.NewRequest(http.MethodPut, url, body)
 		req.Header.Add(HeaderUserID, testUserID)
 		req.Header.Add(HeaderCrc32, fmt.Sprint(body.Sum32()))
-		req.Header.Add(UserPropertyPrefix+"upload", "Uploaded-")
+		req.Header.Add(EncodeMetaHeader("upload"), EncodeMeta("Uploaded-"))
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
 		return resp

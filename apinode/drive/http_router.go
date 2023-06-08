@@ -15,7 +15,9 @@
 package drive
 
 import (
+	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -136,8 +138,17 @@ func (d *DriveNode) getProperties(c *rpc.Context) (map[string]string, error) {
 	for key := range c.Request.Header {
 		key = strings.ToLower(key)
 		if len(key) > len(UserPropertyPrefix) && strings.HasPrefix(key, UserPropertyPrefix) {
-			k := key[len(UserPropertyPrefix):]
-			v := c.Request.Header.Get(key)
+			keyBytes, err := hex.DecodeString(key[len(UserPropertyPrefix):])
+			if err != nil {
+				return nil, sdk.ErrBadRequest.Extend("meta key was not invalid hex")
+			}
+			k := string(keyBytes)
+
+			valBytes, err := hex.DecodeString(c.Request.Header.Get(key))
+			if err != nil {
+				return nil, sdk.ErrBadRequest.Extend("meta value was not invalid hex")
+			}
+			v := string(valBytes)
 			if len(k) > 1024 || len(v) > 1024 {
 				return nil, sdk.ErrBadRequest.Extend("meta key or value was too long")
 			}
@@ -160,12 +171,8 @@ func (d *DriveNode) respData(c *rpc.Context, obj interface{}) {
 	if t == nil {
 		return
 	}
-	dataStr, err := t.Encrypt(string(buffer), false)
-	if err != nil {
-		c.RespondError(err)
-		return
-	}
-	c.RespondWith(http.StatusOK, rpc.MIMEJSON, []byte(dataStr))
+	body := t.Transmit(bytes.NewReader(buffer))
+	c.RespondWithReader(http.StatusOK, len(buffer), rpc.MIMEJSON, body, nil)
 }
 
 func (d *DriveNode) respError(c *rpc.Context, err error) {
@@ -196,4 +203,14 @@ func (d *DriveNode) checkFunc(c *rpc.Context, logger func(error), funcs ...func(
 		}
 	}
 	return false
+}
+
+// EncodeMeta encode value with hex.
+func EncodeMeta(val string) string {
+	return hex.EncodeToString([]byte(val))
+}
+
+// EncodeMetaHeader encode key with hex with const prefix.
+func EncodeMetaHeader(key string) string {
+	return UserPropertyPrefix + hex.EncodeToString([]byte(key))
 }

@@ -41,7 +41,7 @@ func TestHandleMultipartUploads(t *testing.T) {
 		req.ContentLength = int64(len(body.buff))
 		req.Header.Add(HeaderUserID, testUserID)
 		req.Header.Add(HeaderCrc32, fmt.Sprint(body.Sum32()))
-		req.Header.Add(UserPropertyPrefix+"multipart", "MultiPart")
+		req.Header.Add(EncodeMetaHeader("multipart"), EncodeMeta("MultiPart"))
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
 		return resp2Data(resp, r)
