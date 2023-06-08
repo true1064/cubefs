@@ -15,6 +15,7 @@
 package cli
 
 import (
+	"encoding/hex"
 	"io"
 	"os"
 	"path"
@@ -22,6 +23,7 @@ import (
 	"github.com/desertbit/grumble"
 	"github.com/fatih/color"
 
+	"github.com/cubefs/cubefs/apinode/crypto"
 	"github.com/cubefs/cubefs/blobstore/cli/common/fmt"
 	"github.com/cubefs/cubefs/blobstore/util/log"
 )
@@ -64,13 +66,41 @@ func init() {
 var (
 	host string = "http://localhost:9999"
 	user string = "test"
+	pass string = ""
+
+	material string = "U/ebtje8bQgC9a2PjCwnoq1EpP67EadmyF1I+v8a" +
+		"kP5Gx6LTaoIPEY4DQi9+sDsKrWz2ufWRxAgM4anA" +
+		"qBUM04TPJnFFHTxJp3NUFV0u35Oh7mtHBPCQ2OJ6" +
+		"hjXM7U8ubzyYnZ++t4Kz+234fVZnbAYhyfsKu7y7" +
+		"ZlU8grL9/Uvec9mjGMQ2q9dCZdNXqaKnqOEJzDIk" +
+		"HBHO4uKV2PxMs8qj9AD+IO6tLVK6n1MN/hr9lNAQ" +
+		"+GkAylTyGwbv8n9UAgGXT1HA8D6Yz9ELUv5//YDr" +
+		"b4IKkgXznzqBSs7B0iIwIMkwPKSPbLQkkUBX/6AZ" +
+		"j/ujkpzETbrcR7EDJOY+5g=="
+
+	cryptor = crypto.NoneCryptor()
+	encoder = newTransmitter(true)
+	decoder = newTransmitter(false)
 )
+
+func newTransmitter(encode bool) (t crypto.Transmitter) {
+	var err error
+	if encode {
+		t, err = cryptor.EncryptTransmitter(pass)
+	} else {
+		t, err = cryptor.DecryptTransmitter(pass)
+	}
+	if err != nil {
+		panic(err)
+	}
+	return
+}
 
 func registerUser(app *grumble.App) {
 	userCommand := &grumble.Command{
 		Name:     "var",
 		Help:     "set var",
-		LongHelp: "local vars: [user, host]",
+		LongHelp: "local vars: [user, host, pass]",
 		Args: func(a *grumble.Args) {
 			a.String("key", "key", grumble.Default(""))
 			a.String("val", "value", grumble.Default(""))
@@ -82,6 +112,7 @@ func registerUser(app *grumble.App) {
 			if key == "" && val == "" {
 				fmt.Println("host :", host)
 				fmt.Println("user :", user)
+				fmt.Println("pass :", pass != "")
 				return nil
 			}
 
@@ -90,9 +121,47 @@ func registerUser(app *grumble.App) {
 				host = val
 			case "user":
 				user = val
+			case "pass":
+				if val != "" {
+					if len(val) > 16 {
+						pass = val
+					} else {
+						pass = material
+					}
+					cryptor = crypto.NewCryptor()
+				} else {
+					pass = ""
+					cryptor = crypto.NoneCryptor()
+				}
+				encoder = newTransmitter(true)
+				decoder = newTransmitter(false)
 			}
 			return nil
 		},
 	}
+	hexCommand := &grumble.Command{
+		Name: "hex",
+		Help: "encode/decode hex",
+		Args: func(a *grumble.Args) {
+			a.String("str", "string")
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Bool("e", "encode", false, "encode")
+		},
+		Run: func(c *grumble.Context) error {
+			str := c.Args.String("str")
+			if c.Flags.Bool("encode") {
+				fmt.Println(hex.EncodeToString([]byte(str)))
+				return nil
+			}
+			b, err := hex.DecodeString(str)
+			if err != nil {
+				return err
+			}
+			fmt.Println(string(b))
+			return nil
+		},
+	}
 	app.AddCommand(userCommand)
+	app.AddCommand(hexCommand)
 }

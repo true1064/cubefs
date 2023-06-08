@@ -177,6 +177,11 @@ func (t *transmitter) Transmit(in io.Reader) io.Reader {
 	return t.engine
 }
 
+// NoneCryptor new Cryptor without init.
+func NoneCryptor() Cryptor {
+	return cryptor{}
+}
+
 // NewCryptor returns the encryption and decryption object.
 func NewCryptor() Cryptor {
 	if err := initOnce(); err != nil {

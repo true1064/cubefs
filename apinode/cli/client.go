@@ -32,10 +32,33 @@ const (
 	del  = http.MethodDelete
 )
 
+type readCloser struct {
+	io.Reader
+	io.Closer
+}
+
 var cli = &client{Client: rpc.NewClient(&rpc.Config{})}
 
 type client struct {
 	rpc.Client
+}
+
+func setHeaders(req *http.Request, meta []string) error {
+	req.Header.Set("x-cfa-service", "drive")
+	req.Header.Set(drive.HeaderUserID, user)
+	req.Header.Set(drive.HeaderCipherMaterial, pass)
+	for i := 0; i < len(meta); i += 2 {
+		k, err := encoder.Encrypt(meta[i], false)
+		if err != nil {
+			return err
+		}
+		v, err := encoder.Encrypt(meta[i+1], true)
+		if err != nil {
+			return err
+		}
+		req.Header.Set(drive.EncodeMetaHeader(k), v)
+	}
+	return nil
 }
 
 func (c *client) request(method string, uri string, body io.Reader, meta ...string) error {
@@ -43,14 +66,15 @@ func (c *client) request(method string, uri string, body io.Reader, meta ...stri
 }
 
 func (c *client) requestWith(method string, uri string, body io.Reader, ret interface{}, meta ...string) error {
+	if body != nil {
+		body = encoder.Transmit(body)
+	}
 	req, err := http.NewRequest(method, host+uri, body)
 	if err != nil {
 		return err
 	}
-	req.Header.Set("x-cfa-service", "drive")
-	req.Header.Set("x-cfa-user-id", user)
-	for i := 0; i < len(meta); i += 2 {
-		req.Header.Set("x-cfa-meta-"+meta[i], meta[i+1])
+	if err = setHeaders(req, meta); err != nil {
+		return err
 	}
 
 	resp, err := c.Do(context.Background(), req)
@@ -58,19 +82,23 @@ func (c *client) requestWith(method string, uri string, body io.Reader, ret inte
 		return err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode/100 == 2 {
+		resp.Body = readCloser{Reader: decoder.Transmit(resp.Body), Closer: resp.Body}
+	}
 	return rpc.ParseData(resp, ret)
 }
 
 func (c *client) requestWithHeader(method string, uri string, body io.Reader, headers map[string]string,
 	ret interface{}, meta ...string) error {
+	if body != nil {
+		body = encoder.Transmit(body)
+	}
 	req, err := http.NewRequest(method, host+uri, body)
 	if err != nil {
 		return err
 	}
-	req.Header.Set("x-cfa-service", "drive")
-	req.Header.Set("x-cfa-user-id", user)
-	for i := 0; i < len(meta); i += 2 {
-		req.Header.Set("x-cfa-meta-"+meta[i], meta[i+1])
+	if err = setHeaders(req, meta); err != nil {
+		return err
 	}
 	for k, v := range headers {
 		req.Header.Set(k, v)
@@ -81,6 +109,9 @@ func (c *client) requestWithHeader(method string, uri string, body io.Reader, he
 		return err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode/100 == 2 {
+		resp.Body = readCloser{Reader: decoder.Transmit(resp.Body), Closer: resp.Body}
+	}
 	return rpc.ParseData(resp, ret)
 }
 
@@ -108,11 +139,19 @@ func (c *client) ConfigDel(path string) error {
 }
 
 func (c *client) MetaSet(path string, meta ...string) error {
-	return c.request(post, genURI("/v1/meta", "path", path), nil, meta...)
+	return c.request(post, genURI("/v1/files/properties", "path", path), nil, meta...)
+}
+
+func (c *client) MetaDel(path string, keys ...string) error {
+	meta := make([]string, 0, 2*len(keys))
+	for _, key := range keys {
+		meta = append(meta, key, "1")
+	}
+	return c.request(del, genURI("/v1/files/properties", "path", path), nil, meta...)
 }
 
 func (c *client) MetaGet(path string) (r drive.GetPropertiesResult, err error) {
-	err = c.requestWith(get, genURI("/v1/meta", "path", path), nil, &r)
+	err = c.requestWith(get, genURI("/v1/files/properties", "path", path), nil, &r)
 	return
 }
 
@@ -141,8 +180,7 @@ func (c *client) FileDownload(path string, from, to int) (r io.ReadCloser, err e
 	if err != nil {
 		return
 	}
-	req.Header.Set("x-cfa-service", "drive")
-	req.Header.Set("x-cfa-user-id", user)
+	setHeaders(req, nil)
 	if from >= 0 || to >= 0 {
 		req.Header.Set("Range", getRange(from, to))
 	}
@@ -152,7 +190,7 @@ func (c *client) FileDownload(path string, from, to int) (r io.ReadCloser, err e
 		return
 	}
 	if resp.StatusCode == 200 || resp.StatusCode == 206 {
-		r = resp.Body
+		r = readCloser{Reader: decoder.Transmit(resp.Body), Closer: resp.Body}
 		return
 	}
 	err = rpc.ParseData(resp, nil)
@@ -177,7 +215,15 @@ func genURI(uri string, queries ...interface{}) string {
 	}
 	q := make(url.Values)
 	for i := 0; i < len(queries); i += 2 {
-		q.Set(fmt.Sprint(queries[i]), fmt.Sprint(queries[i+1]))
+		v := fmt.Sprint(queries[i+1])
+		if len(v) > 0 {
+			x, err := encoder.Encrypt(v, true)
+			if err != nil {
+				panic(err)
+			}
+			v = x
+		}
+		q.Set(fmt.Sprint(queries[i]), v)
 	}
 	if len(q) > 0 {
 		return uri + "?" + q.Encode()

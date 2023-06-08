@@ -103,6 +103,17 @@ func addCmdMeta(cmd *grumble.Command) {
 		},
 	})
 	metaCommand.AddCommand(&grumble.Command{
+		Name: "del",
+		Help: "delete meta",
+		Args: func(a *grumble.Args) {
+			a.String("path", "path name")
+			a.StringList("meta", "meta with key1 key2 ...")
+		},
+		Run: func(c *grumble.Context) error {
+			return cli.MetaDel(c.Args.String("path"), c.Args.StringList("meta")...)
+		},
+	})
+	metaCommand.AddCommand(&grumble.Command{
 		Name: "get",
 		Help: "get meta",
 		Args: func(a *grumble.Args) {
