@@ -87,9 +87,12 @@ func (d *DriveNode) setHeaders(c *rpc.Context) {
 	rid := c.Request.Header.Get(HeaderRequestID)
 	c.Set(HeaderRequestID, rid)
 
+	_, span := d.ctxSpan(c)
 	uid := UserID(c.Request.Header.Get(HeaderUserID))
+	span.Debug("user id:", uid)
 	if !uid.Valid() {
-		c.AbortWithError(sdk.ErrBadRequest)
+		span.Warn("abort invalid user", uid)
+		c.AbortWithError(sdk.ErrBadRequest.Extend("invalid user id"))
 		return
 	}
 	c.Set(HeaderUserID, uid)

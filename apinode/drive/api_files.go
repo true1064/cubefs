@@ -32,7 +32,7 @@ func (d *DriveNode) handleMkDir(c *rpc.Context) {
 	if d.checkError(c, nil, c.ParseArgs(args)) {
 		return
 	}
-	if d.checkError(c, func(err error) { span.Info(err) }, args.Path.Clean()) {
+	if d.checkError(c, func(err error) { span.Info(args.Path, err) }, args.Path.Clean()) {
 		return
 	}
 
@@ -64,7 +64,7 @@ func (d *DriveNode) handleFilesDelete(c *rpc.Context) {
 		return
 	}
 	ctx, span := d.ctxSpan(c)
-	if d.checkError(c, func(err error) { span.Info(err) }, args.Path.Clean()) {
+	if d.checkError(c, func(err error) { span.Info(args.Path, err) }, args.Path.Clean()) {
 		return
 	}
 	if args.Path.IsDir() {

@@ -35,7 +35,7 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 		return
 	}
 	ctx, span := d.ctxSpan(c)
-	if d.checkError(c, func(err error) { span.Info("upload parse args", err) }, args.Path.Clean()) {
+	if d.checkError(c, func(err error) { span.Info(args.Path, err) }, args.Path.Clean()) {
 		return
 	}
 
@@ -48,7 +48,7 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 
 	dir, filename := args.Path.Split()
 	info, err := d.createDir(ctx, vol, root, dir.String(), true)
-	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
+	if d.checkError(c, func(err error) { span.Warn(root, dir, err) }, err) {
 		return
 	}
 
@@ -91,7 +91,7 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 		return
 	}
 	ctx, span := d.ctxSpan(c)
-	if d.checkError(c, func(err error) { span.Info(err) }, args.Path.Clean()) {
+	if d.checkError(c, func(err error) { span.Info(args.Path, err) }, args.Path.Clean()) {
 		return
 	}
 
@@ -103,7 +103,7 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 	}
 
 	inode, err := vol.GetInode(ctx, args.FileID.Uint64())
-	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
+	if d.checkError(c, func(err error) { span.Warn(args.FileID, err) }, err) {
 		return
 	}
 
@@ -206,12 +206,12 @@ func (d *DriveNode) handleFileDownload(c *rpc.Context) {
 	}
 
 	file, err := d.lookup(ctx, vol, root, args.Path.String())
-	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
+	if d.checkError(c, func(err error) { span.Warn(args.Path, err) }, err) {
 		return
 	}
 
 	inode, err := vol.GetInode(ctx, file.Inode)
-	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
+	if d.checkError(c, func(err error) { span.Warn(file.Inode, err) }, err) {
 		return
 	}
 	if inode.Size == 0 {
@@ -264,7 +264,7 @@ func (d *DriveNode) handleFileRename(c *rpc.Context) {
 		return
 	}
 	ctx, span := d.ctxSpan(c)
-	if d.checkError(c, func(err error) { span.Info(err) }, args.Src.Clean(), args.Dst.Clean()) {
+	if d.checkError(c, func(err error) { span.Info(args, err) }, args.Src.Clean(), args.Dst.Clean()) {
 		return
 	}
 	span.Info("to rename", args)
@@ -285,7 +285,7 @@ func (d *DriveNode) handleFileRename(c *rpc.Context) {
 	dstDir, dstName := args.Dst.Split()
 	if srcName == "" || dstName == "" {
 		span.Errorf("invalid src=%s dst=%s", args.Src, args.Dst)
-		d.respError(c, sdk.ErrBadRequest)
+		d.respError(c, sdk.ErrBadRequest.Extend("invalid path"))
 		return
 	}
 	srcParentIno := root
@@ -328,7 +328,7 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 		return
 	}
 	ctx, span := d.ctxSpan(c)
-	if d.checkError(c, func(err error) { span.Warn(err) }, args.Src.Clean(), args.Dst.Clean()) {
+	if d.checkError(c, func(err error) { span.Warn(args, err) }, args.Src.Clean(), args.Dst.Clean()) {
 		return
 	}
 	span.Info("to copy", args)
@@ -344,7 +344,7 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 	}
 
 	inode, err := vol.GetInode(ctx, file.Inode)
-	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
+	if d.checkError(c, func(err error) { span.Warn(file.Inode, err) }, err) {
 		return
 	}
 	body := newFixedReader(makeFileReader(ctx, vol, inode.Inode, 0), int64(inode.Size))
@@ -360,7 +360,7 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 
 	dir, filename := args.Dst.Split()
 	dstParent, err := d.createDir(ctx, vol, root, dir.String(), true)
-	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
+	if d.checkError(c, func(err error) { span.Warn(root, dir, err) }, err) {
 		return
 	}
 

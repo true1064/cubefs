@@ -184,7 +184,7 @@ func (d *DriveNode) handleMultipartPart(c *rpc.Context) {
 		return
 	}
 	ctx, span := d.ctxSpan(c)
-	if d.checkError(c, func(err error) { span.Info(err) }, args.Path.Clean()) {
+	if d.checkError(c, func(err error) { span.Info(args.Path, err) }, args.Path.Clean()) {
 		return
 	}
 	if args.PartNumber == 0 {
@@ -237,7 +237,7 @@ func (d *DriveNode) handleMultipartList(c *rpc.Context) {
 		return
 	}
 	ctx, span := d.ctxSpan(c)
-	if d.checkError(c, func(err error) { span.Info(err) }, args.Path.Clean()) {
+	if d.checkError(c, func(err error) { span.Info(args.Path, err) }, args.Path.Clean()) {
 		return
 	}
 	if args.Count <= 0 {
@@ -279,7 +279,7 @@ func (d *DriveNode) handleMultipartAbort(c *rpc.Context) {
 		return
 	}
 	ctx, span := d.ctxSpan(c)
-	if d.checkError(c, func(err error) { span.Info(err) }, args.Path.Clean()) {
+	if d.checkError(c, func(err error) { span.Info(args.Path, err) }, args.Path.Clean()) {
 		return
 	}
 

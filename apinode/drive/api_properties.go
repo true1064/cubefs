@@ -37,7 +37,7 @@ func (d *DriveNode) handleSetProperties(c *rpc.Context) {
 	if d.checkError(c, nil, c.ParseArgs(args)) {
 		return
 	}
-	if d.checkError(c, func(err error) { span.Info(err) }, args.Path.Clean()) {
+	if d.checkError(c, func(err error) { span.Info(args.Path, err) }, args.Path.Clean()) {
 		return
 	}
 
@@ -52,7 +52,7 @@ func (d *DriveNode) handleSetProperties(c *rpc.Context) {
 	span.Info("to set xattrs:", xattrs)
 
 	rootIno, vol, err := d.getRootInoAndVolume(ctx, uid)
-	if d.checkError(c, func(err error) { span.Errorf("get user router error: %v, uid=%s", err, uid) }, err) {
+	if d.checkError(c, func(err error) { span.Errorf("get user router uid=%s error: %v", uid, err) }, err) {
 		return
 	}
 	dirInfo, err := d.lookup(ctx, vol, rootIno, args.Path.String())
@@ -74,7 +74,7 @@ func (d *DriveNode) handleDelProperties(c *rpc.Context) {
 	if d.checkError(c, nil, c.ParseArgs(args)) {
 		return
 	}
-	if d.checkError(c, func(err error) { span.Info(err) }, args.Path.Clean()) {
+	if d.checkError(c, func(err error) { span.Info(args.Path, err) }, args.Path.Clean()) {
 		return
 	}
 
@@ -94,7 +94,7 @@ func (d *DriveNode) handleDelProperties(c *rpc.Context) {
 	span.Info("to del xattrs:", keys)
 
 	rootIno, vol, err := d.getRootInoAndVolume(ctx, uid)
-	if d.checkError(c, func(err error) { span.Errorf("get user router error: %v, uid=%s", err, uid) }, err) {
+	if d.checkError(c, func(err error) { span.Errorf("get user router uid=%s error: %v", uid, err) }, err) {
 		return
 	}
 	dirInfo, err := d.lookup(ctx, vol, rootIno, args.Path.String())
@@ -116,12 +116,12 @@ func (d *DriveNode) handleGetProperties(c *rpc.Context) {
 	if d.checkError(c, nil, c.ParseArgs(args)) {
 		return
 	}
-	if d.checkError(c, func(err error) { span.Info(err) }, args.Path.Clean()) {
+	if d.checkError(c, func(err error) { span.Info(args.Path, err) }, args.Path.Clean()) {
 		return
 	}
 
 	rootIno, vol, err := d.getRootInoAndVolume(ctx, uid)
-	if d.checkError(c, func(err error) { span.Errorf("get user router error: %v, uid=%s", err, uid) }, err) {
+	if d.checkError(c, func(err error) { span.Errorf("get user router uid=%s error: %v", uid, err) }, err) {
 		return
 	}
 	dirInfo, err := d.lookup(ctx, vol, rootIno, args.Path.String())

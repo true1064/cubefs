@@ -39,20 +39,22 @@ type ranges struct {
 //   Range: bytes=-1023
 //   Range: bytes=1-
 func parseRange(header string, size int64) (ranges, error) {
+	err := fmt.Errorf("invalid range header %s", header)
+
 	index := strings.Index(header, "=")
 	if index == -1 {
-		return ranges{}, fmt.Errorf("invalid range header %s", header)
+		return ranges{}, err
 	}
 
 	arr := strings.Split(strings.TrimSpace(header[index+1:]), "-")
 	if len(arr) != 2 {
-		return ranges{}, fmt.Errorf("invalid range header %s", header)
+		return ranges{}, err
 	}
 
 	start, startErr := strconv.ParseInt(arr[0], 10, 64)
 	end, endErr := strconv.ParseInt(arr[1], 10, 64)
 	if startErr != nil && endErr != nil {
-		return ranges{}, fmt.Errorf("invalid range header %s", header)
+		return ranges{}, err
 	}
 
 	// -nnn or nnn-
@@ -71,7 +73,7 @@ func parseRange(header string, size int64) (ranges, error) {
 	}
 
 	if start > end || start < 0 {
-		return ranges{}, fmt.Errorf("invalid range header %s", header)
+		return ranges{}, err
 	}
 
 	return ranges{Start: start, End: end}, nil
@@ -112,7 +114,6 @@ func (r *crc32Reader) Read(p []byte) (n int, err error) {
 	}
 	if err == io.EOF {
 		if actual := r.hasher.Sum32(); actual != r.crc32 {
-
 			r.logger("mismatch checksum wont=%d actual=%d", r.crc32, actual)
 			err = sdk.ErrMismatchChecksum.Extend(r.crc32)
 			return
