@@ -66,26 +66,7 @@ func (c *client) request(method string, uri string, body io.Reader, meta ...stri
 }
 
 func (c *client) requestWith(method string, uri string, body io.Reader, ret interface{}, meta ...string) error {
-	if body != nil {
-		body = encoder.Transmit(body)
-	}
-	req, err := http.NewRequest(method, host+uri, body)
-	if err != nil {
-		return err
-	}
-	if err = setHeaders(req, meta); err != nil {
-		return err
-	}
-
-	resp, err := c.Do(context.Background(), req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode/100 == 2 {
-		resp.Body = readCloser{Reader: decoder.Transmit(resp.Body), Closer: resp.Body}
-	}
-	return rpc.ParseData(resp, ret)
+	return c.requestWithHeader(method, uri, body, nil, ret, meta...)
 }
 
 func (c *client) requestWithHeader(method string, uri string, body io.Reader, headers map[string]string,
@@ -170,12 +151,12 @@ func (c *client) FileUpload(path string, fileID uint64, body io.Reader, meta ...
 	return
 }
 
-func (c *client) FileWrite(path string, fileID uint64, from, to int, body io.Reader) error {
+func (c *client) FileWrite(path string, fileID uint64, from, to int, body io.Reader, size int) error {
 	return c.requestWithHeader(put, genURI("/v1/files/content", "path", path, "fileId", fileID), body,
-		map[string]string{"Range": getRange(from, to)}, nil)
+		map[string]string{"Range": getRange(from, to), rpc.HeaderContentLength: fmt.Sprint(size)}, nil)
 }
 
-func (c *client) FileDownload(path string, from, to int) (r io.ReadCloser, err error) {
+func (c *client) FileDownload(path string, from, to int, w io.Writer) (err error) {
 	req, err := http.NewRequest(get, host+genURI("/v1/files/content", "path", path), nil)
 	if err != nil {
 		return
@@ -189,8 +170,11 @@ func (c *client) FileDownload(path string, from, to int) (r io.ReadCloser, err e
 	if err != nil {
 		return
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode == 200 || resp.StatusCode == 206 {
-		r = readCloser{Reader: decoder.Transmit(resp.Body), Closer: resp.Body}
+		if _, err = io.Copy(w, decoder.Transmit(resp.Body)); err == io.EOF {
+			err = nil
+		}
 		return
 	}
 	err = rpc.ParseData(resp, nil)

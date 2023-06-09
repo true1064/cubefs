@@ -17,6 +17,7 @@ package sdk
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
 )
@@ -50,7 +51,7 @@ func (e *Error) Extend(a ...interface{}) *Error {
 	return &Error{
 		Status:  e.Status,
 		Code:    e.Code,
-		Message: fmt.Sprintf("%s : %s", e.Error(), fmt.Sprint(a...)),
+		Message: fmt.Sprintf("%s : %s", e.Error(), strings.TrimLeft(fmt.Sprintln(a...), "\n")),
 	}
 }
 

@@ -240,9 +240,17 @@ func addCmdFile(cmd *grumble.Command) {
 		},
 		Run: func(c *grumble.Context) error {
 			var body io.Reader
+			var size int
 			if raw := c.Flags.String("raw"); len(raw) > 0 {
 				body = bytes.NewReader([]byte(raw))
+				size = len(raw)
 			} else {
+				st, err := os.Stat(c.Flags.String("localpath"))
+				if err != nil {
+					return err
+				}
+				size = int(st.Size())
+
 				f, err := os.OpenFile(c.Flags.String("localpath"), os.O_RDONLY, 0o666)
 				if err != nil {
 					return err
@@ -255,7 +263,7 @@ func addCmdFile(cmd *grumble.Command) {
 			if from < 0 && to < 0 {
 				return fmt.Errorf("to set from(%d) or to(%d)", from, to)
 			}
-			return cli.FileWrite(c.Flags.String("path"), c.Flags.Uint64("fileid"), from, to, body)
+			return cli.FileWrite(c.Flags.String("path"), c.Flags.Uint64("fileid"), from, to, body, size)
 		},
 	})
 	fileCommand.AddCommand(&grumble.Command{
@@ -268,12 +276,8 @@ func addCmdFile(cmd *grumble.Command) {
 			f.StringL("localpath", "", "localpath")
 		},
 		Run: func(c *grumble.Context) error {
-			r, err := cli.FileDownload(c.Flags.String("path"), c.Flags.Int("from"), c.Flags.Int("to"))
-			if err != nil {
-				return err
-			}
-			defer r.Close()
-
+			var w io.Writer
+			printSting := func() {}
 			localpath := c.Flags.String("localpath")
 			if localpath != "" {
 				f, err := os.OpenFile(localpath, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o666)
@@ -281,15 +285,16 @@ func addCmdFile(cmd *grumble.Command) {
 					return err
 				}
 				defer f.Close()
-				io.Copy(f, r)
+				w = f
 			} else {
-				buff, err := io.ReadAll(r)
-				if err != nil {
-					return err
-				}
-				fmt.Println(string(buff))
+				b := bytes.NewBuffer(nil)
+				printSting = func() { fmt.Println(b.String()) }
+				w = b
 			}
-			return nil
+
+			err := cli.FileDownload(c.Flags.String("path"), c.Flags.Int("from"), c.Flags.Int("to"), w)
+			printSting()
+			return err
 		},
 	})
 }

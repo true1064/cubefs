@@ -162,6 +162,34 @@ func registerUser(app *grumble.App) {
 			return nil
 		},
 	}
+	gcmCommand := &grumble.Command{
+		Name: "gcm",
+		Help: "encode/decode trans gcm",
+		Args: func(a *grumble.Args) {
+			a.String("str", "string")
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Bool("e", "encode", false, "encode")
+		},
+		Run: func(c *grumble.Context) error {
+			str := c.Args.String("str")
+			if c.Flags.Bool("encode") {
+				eVal, err := encoder.Encrypt(str, true)
+				if err != nil {
+					return err
+				}
+				fmt.Println(eVal)
+				return nil
+			}
+			dVal, err := encoder.Decrypt(str, true)
+			if err != nil {
+				return err
+			}
+			fmt.Println(dVal)
+			return nil
+		},
+	}
 	app.AddCommand(userCommand)
 	app.AddCommand(hexCommand)
+	app.AddCommand(gcmCommand)
 }
