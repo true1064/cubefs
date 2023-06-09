@@ -16,11 +16,13 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"os"
 
 	"github.com/desertbit/grumble"
 
+	"github.com/cubefs/cubefs/apinode/drive"
 	"github.com/cubefs/cubefs/blobstore/cli/common"
 	"github.com/cubefs/cubefs/blobstore/cli/common/fmt"
 )
@@ -299,6 +301,155 @@ func addCmdFile(cmd *grumble.Command) {
 	})
 }
 
+func addCmdMultipart(cmd *grumble.Command) {
+	mpCommand := &grumble.Command{
+		Name: "mp",
+		Help: "multi part",
+		Flags: func(f *grumble.Flags) {
+			f.StringL("path", "", "path")
+			f.StringL("fileid", "", "fileid")
+			f.StringL("localpath", "", "localpath")
+			f.IntL("partsize", 1<<20, "partsize")
+		},
+		Args: func(a *grumble.Args) {
+			a.StringList("meta", "meta with key1 value1 key2 value2")
+		},
+		Run: func(c *grumble.Context) error {
+			path := c.Flags.String("path")
+			fd, err := os.OpenFile(c.Flags.String("localpath"), os.O_RDONLY, 0o666)
+			if err != nil {
+				return err
+			}
+			defer fd.Close()
+			fmt.Println("to multipart:", path)
+
+			mp, err := cli.MPInit(path, c.Flags.String("fileid"), c.Args.StringList("meta")...)
+			if err != nil {
+				return err
+			}
+			uploadID := mp.UploadID
+			fmt.Println("   upload id:", uploadID)
+
+			var abort bool
+			defer func() {
+				if abort {
+					cli.MPAbort(path, uploadID)
+				}
+			}()
+
+			parts := make([]drive.MPPart, 0)
+			buffer := make([]byte, c.Flags.Int("partsize"))
+			var partNumber, n int
+			for {
+				partNumber++
+				n, err = io.ReadFull(fd, buffer)
+				if n > 0 {
+					var part drive.MPPart
+					part, err = cli.MPPart(path, uploadID, fmt.Sprint(partNumber), bytes.NewReader(buffer[:n]))
+					if err != nil {
+						abort = true
+						return err
+					}
+					fmt.Println(" upload part:", partNumber, part)
+					parts = append(parts, part)
+				}
+
+				if err != nil {
+					if err == io.EOF || err == io.ErrUnexpectedEOF {
+						break
+					}
+					abort = true
+					return err
+				}
+			}
+
+			b, _ := json.Marshal(parts)
+			r, err := cli.MPComplete(path, uploadID, bytes.NewReader(b))
+			if err != nil {
+				abort = true
+				return err
+			}
+			return show(r, nil)
+		},
+	}
+	cmd.AddCommand(mpCommand)
+
+	mpCommand.AddCommand(&grumble.Command{
+		Name: "init",
+		Help: "multipart init",
+		Flags: func(f *grumble.Flags) {
+			flagsStrings(f, "path", "fileid")
+		},
+		Args: func(a *grumble.Args) {
+			a.StringList("meta", "meta with key1 value1 key2 value2")
+		},
+		Run: func(c *grumble.Context) error {
+			f := c.Flags.String
+			return show(cli.MPInit(f("path"), f("fileid"), c.Args.StringList("meta")...))
+		},
+	})
+	mpCommand.AddCommand(&grumble.Command{
+		Name: "complete",
+		Help: "multipart complete",
+		Flags: func(f *grumble.Flags) {
+			flagsStrings(f, "path", "uploadid", "localpath")
+		},
+		Run: func(c *grumble.Context) error {
+			f := c.Flags.String
+			fd, err := os.OpenFile(f("localpath"), os.O_RDONLY, 0o666)
+			if err != nil {
+				return err
+			}
+			defer fd.Close()
+			return show(cli.MPComplete(f("path"), f("uploadid"), fd))
+		},
+	})
+	mpCommand.AddCommand(&grumble.Command{
+		Name: "part",
+		Help: "multipart upload part",
+		Flags: func(f *grumble.Flags) {
+			flagsStrings(f, "path", "uploadid", "partnumber", "localpath")
+		},
+		Run: func(c *grumble.Context) error {
+			f := c.Flags.String
+			fd, err := os.OpenFile(f("localpath"), os.O_RDONLY, 0o666)
+			if err != nil {
+				return err
+			}
+			defer fd.Close()
+			return show(cli.MPPart(f("path"), f("uploadid"), f("partnumber"), fd))
+		},
+	})
+	mpCommand.AddCommand(&grumble.Command{
+		Name: "list",
+		Help: "multipart list parts",
+		Flags: func(f *grumble.Flags) {
+			flagsStrings(f, "path", "uploadid", "marker", "count")
+		},
+		Run: func(c *grumble.Context) error {
+			f := c.Flags.String
+			return show(cli.MPList(f("path"), f("uploadid"), f("marker"), f("count")))
+		},
+	})
+	mpCommand.AddCommand(&grumble.Command{
+		Name: "abort",
+		Help: "multipart abort",
+		Flags: func(f *grumble.Flags) {
+			flagsStrings(f, "path", "uploadid")
+		},
+		Run: func(c *grumble.Context) error {
+			f := c.Flags.String
+			return cli.MPAbort(f("path"), f("uploadid"))
+		},
+	})
+}
+
+func flagsStrings(f *grumble.Flags, keys ...string) {
+	for _, k := range keys {
+		f.StringL(k, "", k)
+	}
+}
+
 func show(r interface{}, err error) error {
 	if err != nil {
 		return err
@@ -319,4 +470,5 @@ func registerDrive(app *grumble.App) {
 	addCmdMeta(driveCommand)
 	addCmdDir(driveCommand)
 	addCmdFile(driveCommand)
+	addCmdMultipart(driveCommand)
 }

@@ -30,6 +30,8 @@ const (
 	put  = http.MethodPut
 	get  = http.MethodGet
 	del  = http.MethodDelete
+
+	_pmp = "/v1/files/multipart"
 )
 
 type readCloser struct {
@@ -52,11 +54,11 @@ func setHeaders(req *http.Request, meta []string) error {
 		if err != nil {
 			return err
 		}
-		v, err := encoder.Encrypt(meta[i+1], true)
+		v, err := encoder.Encrypt(meta[i+1], false)
 		if err != nil {
 			return err
 		}
-		req.Header.Set(drive.EncodeMetaHeader(k), v)
+		req.Header.Set(drive.EncodeMetaHeader(k), drive.EncodeMeta(v))
 	}
 	return nil
 }
@@ -191,6 +193,30 @@ func (c *client) FileRename(src, dst string) error {
 
 func (c *client) FileDelete(path string) error {
 	return c.request(del, genURI("/v1/files", "path", path), nil)
+}
+
+func (c *client) MPInit(path, fileID string, meta ...string) (r drive.RespMPuploads, err error) {
+	err = c.requestWith(post, genURI(_pmp, "path", path, "fileId", fileID), nil, &r, meta...)
+	return
+}
+
+func (c *client) MPComplete(path, uploadID string, body io.Reader) (r drive.FileInfo, err error) {
+	err = c.requestWith(post, genURI(_pmp, "path", path, "uploadId", uploadID), body, &r)
+	return
+}
+
+func (c *client) MPPart(path, uploadID, partNumber string, body io.Reader) (r drive.MPPart, err error) {
+	err = c.requestWith(put, genURI(_pmp, "path", path, "uploadId", uploadID, "partNumber", partNumber), body, &r)
+	return
+}
+
+func (c *client) MPList(path, uploadID, marker, count string) (r drive.RespMPList, err error) {
+	err = c.requestWith(get, genURI(_pmp, "path", path, "uploadId", uploadID, "marker", marker, "count", count), nil, &r)
+	return
+}
+
+func (c *client) MPAbort(path, uploadID string) error {
+	return c.request(del, genURI(_pmp, "path", path, "uploadId", uploadID), nil)
 }
 
 func genURI(uri string, queries ...interface{}) string {

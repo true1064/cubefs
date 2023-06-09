@@ -271,7 +271,6 @@ func Test_volume_CompleteMultiPart(t *testing.T) {
 		},
 	}
 	mockMeta.EXPECT().GetMultipart_ll(filePath, uploadId).Return(resultPart, nil).AnyTimes()
-	any := gomock.Any()
 	{
 		// inode create failed
 		mockMeta.EXPECT().InodeCreate_ll(any, any, any, any, any).Return(nil, syscall.EAGAIN)
