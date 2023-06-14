@@ -48,7 +48,11 @@ type client struct {
 func setHeaders(req *http.Request, meta []string) error {
 	req.Header.Set("x-cfa-service", "drive")
 	req.Header.Set(drive.HeaderUserID, user)
-	req.Header.Set(drive.HeaderCipherMaterial, pass)
+	if len(pass) > 0 {
+		req.Header.Set(drive.HeaderCipherMaterial, pass)
+		req.Header.Set(drive.HeaderCipherMaterialRequest, bodyMaterial)
+		req.Header.Set(drive.HeaderCipherMaterialResponse, bodyMaterial)
+	}
 	for i := 0; i < len(meta); i += 2 {
 		k, err := encoder.Encrypt(meta[i], false)
 		if err != nil {
@@ -74,7 +78,7 @@ func (c *client) requestWith(method string, uri string, body io.Reader, ret inte
 func (c *client) requestWithHeader(method string, uri string, body io.Reader, headers map[string]string,
 	ret interface{}, meta ...string) error {
 	if body != nil {
-		body = encoder.Transmit(body)
+		body = requester(body)
 	}
 	req, err := http.NewRequest(method, host+uri, body)
 	if err != nil {
@@ -93,7 +97,7 @@ func (c *client) requestWithHeader(method string, uri string, body io.Reader, he
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode/100 == 2 {
-		resp.Body = readCloser{Reader: decoder.Transmit(resp.Body), Closer: resp.Body}
+		resp.Body = readCloser{Reader: responser(resp.Body), Closer: resp.Body}
 	}
 	return rpc.ParseData(resp, ret)
 }
@@ -174,7 +178,7 @@ func (c *client) FileDownload(path string, from, to int, w io.Writer) (err error
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == 200 || resp.StatusCode == 206 {
-		if _, err = io.Copy(w, decoder.Transmit(resp.Body)); err == io.EOF {
+		if _, err = io.Copy(w, responser(resp.Body)); err == io.EOF {
 			err = nil
 		}
 		return

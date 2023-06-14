@@ -68,32 +68,51 @@ var (
 	user string = "test"
 	pass string = ""
 
-	material string = "U/ebtje8bQgC9a2PjCwnoq1EpP67EadmyF1I+v8a" +
-		"kP5Gx6LTaoIPEY4DQi9+sDsKrWz2ufWRxAgM4anA" +
-		"qBUM04TPJnFFHTxJp3NUFV0u35Oh7mtHBPCQ2OJ6" +
-		"hjXM7U8ubzyYnZ++t4Kz+234fVZnbAYhyfsKu7y7" +
-		"ZlU8grL9/Uvec9mjGMQ2q9dCZdNXqaKnqOEJzDIk" +
-		"HBHO4uKV2PxMs8qj9AD+IO6tLVK6n1MN/hr9lNAQ" +
-		"+GkAylTyGwbv8n9UAgGXT1HA8D6Yz9ELUv5//YDr" +
-		"b4IKkgXznzqBSs7B0iIwIMkwPKSPbLQkkUBX/6AZ" +
-		"j/ujkpzETbrcR7EDJOY+5g=="
+	material string = "" +
+		"CtgCWjk3Rk1zUEJQdlZEeTdFQnlkZDJ1V2NWdVp0enFNOVFTRU5mYmgxb2E5QU5tbHNXeDRnSGxVQVVo" +
+		"VU5qbmRZdFRJOTYyUU1oMkx3N1QxRi91dU9pbjZXR1M5V05KaSs2SEdLd0t4STFEaUFPZXVMdml4UUph" +
+		"b2hkUkVKNDNHMFhHbU9VN0ZKL0R5MFI2VkwvUnpjWFBjMVEwbGxTRUZMT2NnRU5JQnR4bnl4QzY4L1h3" +
+		"MWkvMWFiYWtXNkh1dzdwbzBVSFdGRXZDMHh5VDVycUZ4RW91OGYzbHpBcWx6ZjlGTGxXb24xZVJOUlpj" +
+		"QWZpUFFBNHJ1a0NGSVR2WXBua3RKd0pTSUVJVDFhWk9NUlVsTDNQQ0VWanVuTlBGZ0pvRUJ1S2F3dEVu" +
+		"MWY1OUZBRnNaMkJNc2ljdG1wUFVSVXMvQUtuRXBUdjZwQU1lM3lhL0hlbFR3PT0="
+	bodyMaterial string = "" +
+		"CtgCajlDWm1JNDJXN3FPWmpOdElvKzhJUHpFQXlDQ0l2Y3FYSjNyQ3BSN3M4d1hRQnlKTTR1UkVLeS9l" +
+		"QmNIVkFiSG0ydXl1dHVibytiMkdNZlJaSDA3MW9najZnM3BwOFpCWU5RbHNQc0pPY0NTY3ExdUV2SXpV" +
+		"L3JOenhoTzBlVnFBNG91TW40bEZXWFc4ZHB1Z1loQzV3UVBmNUNRYjZZc1hNbzVhYlUycVh2bzZIR0pa" +
+		"cEdSMXNLdWpKSDB6Qk1oOFNSTGRjdUY2MUQ3N3VKSTUrSVc3b2U1Q3lYMmpmUUtJVzdIZEozU0dnS1JM" +
+		"dkl5UW1BRG9KTDB2SVZhenFJZDdrRXJDNDVPanl5T0N0SlVHR2NFa1hZRzFTdDJtVXg1VWZ4QXlYeHZY" +
+		"bFU3YlF5YlZRS1BISFJoNm1UZTlaSStkY2phWjRHQTBPYW1tWWtFQ0lwTHRBPT0SGHZ2ZEFNMUlLMWgx" +
+		"Wk4wSjhLY3J2Y1E9PQ=="
 
-	cryptor = crypto.NoneCryptor()
-	encoder = newTransmitter(true)
-	decoder = newTransmitter(false)
+	cryptor   = crypto.NoneCryptor()
+	encoder   = newTransmitter()
+	requester = newTransFunc(true)
+	responser = newTransFunc(false)
 )
 
-func newTransmitter(encode bool) (t crypto.Transmitter) {
+func newTransmitter() (t crypto.Transmitter) {
 	var err error
-	if encode {
-		t, err = cryptor.EncryptTransmitter(pass)
-	} else {
-		t, err = cryptor.DecryptTransmitter(pass)
-	}
-	if err != nil {
+	if t, err = cryptor.Transmitter(pass); err != nil {
 		panic(err)
 	}
 	return
+}
+
+func newTransFunc(encode bool) func(io.Reader) io.Reader {
+	f := cryptor.TransDecryptor
+	if encode {
+		f = cryptor.TransEncryptor
+	}
+	return func(r io.Reader) io.Reader {
+		if pass == "" {
+			return r
+		}
+		rr, err := f(bodyMaterial, r)
+		if err != nil {
+			panic(err)
+		}
+		return rr
+	}
 }
 
 func registerUser(app *grumble.App) {
@@ -133,8 +152,9 @@ func registerUser(app *grumble.App) {
 					pass = ""
 					cryptor = crypto.NoneCryptor()
 				}
-				encoder = newTransmitter(true)
-				decoder = newTransmitter(false)
+				encoder = newTransmitter()
+				requester = newTransFunc(true)
+				responser = newTransFunc(false)
 			}
 			return nil
 		},
