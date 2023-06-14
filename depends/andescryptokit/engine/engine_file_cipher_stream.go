@@ -17,6 +17,12 @@ import (
 	"golang.org/x/crypto/xts"
 )
 
+const (
+	AES_128_BIT = 16
+	AES_256_BIT = 32
+	AES_512_BIT = 64
+)
+
 // EngineFileCipher 文件加密引擎，加密模式为AES-256-XTS，明文与密文长度比例为1:1。注意，一个对象只负责单一场景，即
 // 创建对象后，要么只加密，要么只解密，不能用同一个对象即加密又解密。并且待加密的数据长度必须大于等于一个分组长度。
 type EngineFileCipherStream struct {
@@ -92,11 +98,11 @@ func NewEngineFileCipherStream(plainKey, cipherKey []byte, blockSize uint64, cip
 	}, cipherKey, errno.OK
 }
 
-// Read 从输入流中读取一部分数据，长度不得小于一个分组长度。
+// Read 读取一部分明（密）文数据。
 //  @receiver e
-//  @param p 读取的数据。
-//  @return int 成功读取的数据的长度。
-//  @return error 返回错误信息或在文件结束标示EOF。
+//  @param p 存储读取的明（密）文数据，长度不得小于一个分组长度。
+//  @return int 成功读取的明（密）文数据的长度。
+//  @return error 返回错误信息或文件结束标示EOF。
 func (e *EngineFileCipherStream) Read(p []byte) (int, error) {
 	if len(p) < int(e.blockSize) {
 		return 0, fmt.Errorf("data length[%d] is smaller than block size[%d].", len(p), e.blockSize)

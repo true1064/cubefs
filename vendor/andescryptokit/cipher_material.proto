@@ -4,15 +4,20 @@ package andescryptokit;
 
 option go_package ="./";
 
-// 加密材料。
+// 端云加密材料，Golang执行命令：
 message CipherMaterial {
-
-    // 加密密钥
-    bytes Key = 1;
-
-    // 加密初始化向量
-    bytes IV  = 2;
-
-    // 是否计算HMAC
-    bool Hmac = 3;
+  // Data Encrypt Key，数据加密密钥，由公钥加密后的密文，base64编码
+  string PublickKeyCipherDEK = 1;
+  
+  // Initial Vetor，初始化向量，明文，base64编码
+  string IV = 2;
+  
+  // 传输加密是否开启HMAC完整性校验，1bytes
+  bool Hmac = 3;
+  
+  // 由安全芯片内部密钥加密后的DEK，base64编码
+  string  SEKekCipherDEK = 4;
+  
+  // 由TEE内部密钥加密后的DEK，base64编码
+  string  TEEKekCipherDEK = 5;
 }

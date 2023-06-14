@@ -224,40 +224,6 @@ func (s *ServiceBased) Init(kmsParam KmsParam, env EnvironmentType) *errno.Errno
 	return errno.OK
 }
 
-// NewEngineTransCipher 创建传输加密引擎。
-//
-//	@param cipherKey 传输加密密钥的密文，它在终端侧创建后由AndesCryptoKit的公钥加密再经过base64编码，通过HTTP请求的头部字段"Transfer-Key"传输到云端。
-//	@param cipherIv 传输加密IV的密文，它在终端侧创建后由base64编码，通过HTTP请求的头部字段"Transfer-IV"传输到云端。
-//	@return *engine.EngineTransCipher
-//	@return error 分配引擎出错则返回错误原因，否则返回空。
-func (s *ServiceBased) NewEngineTransCipher(cipherMaterial *string) (*engine.EngineTransCipher, *errno.Errno) {
-	// 加密材料不能为空
-	if cipherMaterial == nil {
-		return nil, errno.TransCipherMaterialNilError
-	}
-
-	// 加密材料base64解码
-	cipherMaterialDecode, err := base64.StdEncoding.DecodeString(*cipherMaterial)
-	if err != nil {
-		return nil, errno.TransCipherIVBase64DecodeError.Append(err.Error())
-	}
-
-	// 加密材料RSA解密
-	materialData, err := s.rsaDecrypt(cipherMaterialDecode)
-	if err != nil {
-		return nil, errno.TransCipherKeyRsaDecryptError.Append(err.Error())
-	}
-
-	// 加密材料protobuf反序列化
-	material := CipherMaterial{}
-	err = proto.Unmarshal(materialData, &material)
-	if err != nil {
-		return nil, errno.TransCipherMaterialUnmarshalError.Append(err.Error())
-	}
-
-	return engine.NewEngineTransCipher(material.GetKey(), material.GetIV(), material.GetHmac())
-}
-
 // NewEngineTransCipherStream 创建流式传输加密引擎。
 //  @receiver s
 //  @param cipherType 加密类型：加密模式和解密模式。
@@ -270,46 +236,35 @@ func (s *ServiceBased) NewEngineTransCipherStream(cipherMode engine.CipherMode, 
 	}
 
 	// 读取加密材料，长度固定为344字节：RSA-256加密后密文长度为256byte，base64编码后长度固定为344字节。
-	cipherMaterialBytes := make([]byte, 256)
+	cipherMaterialBytes := make([]byte, 373)
 	_, err := io.ReadFull(reader, cipherMaterialBytes)
 	if err != nil {
 		return nil, errno.TransCipherMaterialUnexpectedEOfError.Append(err.Error())
 	}
 
-	// 加密材料base64解码
-	// cipherMaterialDecode, err := base64.StdEncoding.DecodeString(string(cipherMaterialBytes))
-	// if err != nil {
-	// 	return nil, errno.TransCipherMaterialBase64DecodeError.Append(err.Error())
-	// }
-
-	// 加密材料RSA解密
-	materialData, err := s.rsaDecrypt(cipherMaterialBytes)
-	if err != nil {
-		return nil, errno.TransCipherMaterialRSADecryptError.Append(err.Error())
-	}
-
 	// 加密材料protobuf反序列化
 	material := CipherMaterial{}
-	err = proto.Unmarshal(materialData, &material)
+	err = proto.Unmarshal(cipherMaterialBytes, &material)
 	if err != nil {
 		return nil, errno.TransCipherMaterialUnmarshalError.Append(err.Error())
 	}
 
-	return engine.NewEngineTransCipherStream(material.GetKey(), material.GetIV(), material.GetHmac(), cipherMode, reader)
-}
-
-// NewEngineFileCipher 创建文件加密引擎。
-//
-//	@param cipherKey 文件加密密钥的密文。如果加密文件时需要重新分配一个加密密钥，则应当传nil。如果需要使用同一个密钥，则传入保存的加密密钥。
-//	@return *engine.EngineFileCipher
-//	@return error 分配引擎出错则返回错误原因，否则返回空。
-func (s *ServiceBased) NewEngineFileCipher(cipherKey []byte, blockSize uint64) (*engine.EngineFileCipher, []byte, *errno.Errno) {
-	plainKey, cipherKey, err := s.prepareKey(cipherKey)
-	if plainKey == nil {
-		return nil, nil, errno.ServiceBasedDataEncryptKeyError.Append(err.Error())
+	// 加密材料RSA解密
+	DEK, err := base64.StdEncoding.DecodeString(material.GetPublickKeyCipherDEK())
+	if err != nil {
+		return nil, errno.TransCipherMaterialBase64DecodeError.Append(err.Error())
+	}
+	plainDek, err := s.rsaDecrypt(DEK)
+	if err != nil {
+		return nil, errno.TransCipherMaterialRSADecryptError.Append(err.Error())
 	}
 
-	return engine.NewEngineFileCipher(plainKey, cipherKey, blockSize)
+	IV, err := base64.StdEncoding.DecodeString(material.GetIV())
+	if err != nil {
+		return nil, errno.TransCipherMaterialBase64DecodeError.Append(err.Error())
+	}
+
+	return engine.NewEngineTransCipherStream(plainDek, IV, material.GetHmac(), cipherMode, reader)
 }
 
 // NewEngineFileCipherStream 创建流式文件加密引擎。
@@ -326,4 +281,31 @@ func (s *ServiceBased) NewEngineFileCipherStream(cipherKey []byte, blockSize uin
 	}
 
 	return engine.NewEngineFileCipherStream(plainKey, cipherKey, blockSize, cipherMode, reader)
+}
+
+// NewEngineAesGCM NewEngineAesGCMCipher 创建AES-256-GCM加密引擎。
+//  @receiver s
+//  @param cipherMaterial 加密材料，由端侧生成并传输至云端。
+//  @return *engine.EngineAesGCM ES-256-GCM加密引擎对象。
+//  @return *errno.Errno 如果失败，返回错误原因以及错误码。
+func (s *ServiceBased) NewEngineAesGCMCipher(cipherMaterial []byte) (*engine.EngineAesGCMCipher, *errno.Errno) {
+	// 加密材料protobuf反序列化
+	material := CipherMaterial{}
+	err := proto.Unmarshal(cipherMaterial, &material)
+	if err != nil {
+		return nil, errno.TransCipherMaterialUnmarshalError.Append(err.Error())
+	}
+
+	DEK, err := base64.StdEncoding.DecodeString(material.GetPublickKeyCipherDEK())
+	if err != nil {
+		return nil, errno.TransCipherMaterialBase64DecodeError.Append(err.Error())
+	}
+
+	// 加密材料RSA解密
+	plainDek, err := s.rsaDecrypt(DEK)
+	if err != nil {
+		return nil, errno.TransCipherMaterialRSADecryptError.Append(err.Error())
+	}
+
+	return engine.NewEngineAesGCMCipher(plainDek)
 }

@@ -65,7 +65,7 @@ func NewEngineTransCipherStream(key, iv []byte, needHmac bool, cipherMode Cipher
 	}
 
 	if len(iv) != AES_128_BIT {
-		return nil, errno.TransCipherIVLengthError
+		return nil, errno.TransCipherIVLengthError.Append(fmt.Sprintf("iv len %d.", len(iv)))
 	}
 
 	if reader == nil {
@@ -87,11 +87,11 @@ func NewEngineTransCipherStream(key, iv []byte, needHmac bool, cipherMode Cipher
 	return nil, errno.TransCipherInternalError
 }
 
-// Read 从输入流中读取一部分数据。
+// Read 读取一部分明（密）文数据。
 //  @receiver e
-//  @param p 读取的数据写入处。
-//  @return int 真正读取的数据的长度。
-//  @return error 如果出错，返回错误原因。
+//  @param p 存储读取的明（密）文数据。
+//  @return int 成功读取到明（密）文数据的长度。
+//  @return error 返回错误信息或文件结束标示EOF。
 func (e *EngineTransCipherStream) Read(p []byte) (int, error) {
 	if e.reader == nil {
 		return 0, fmt.Errorf("data reader is nil.")
@@ -120,11 +120,24 @@ func (e *EngineTransCipherStream) Read(p []byte) (int, error) {
 	return n, err
 }
 
-// SetDataReader 设置数据读取流，加解密将从该流中读取数据。
+// SetDataReader 设置数据读取流，加解密将从该流中读取数据，此时会更新加密引擎，但加密材料不变，整个密文与之前的密文无任何联系。
 //  @receiver e
 //  @param reader 待加解密的数据流。
-func (e *EngineTransCipherStream) SetDataReader(reader io.Reader) {
+//  @return *errno.Errno 如果出错，返回错误码以及详细信息。
+func (e *EngineTransCipherStream) SetDataReader(reader io.Reader) *errno.Errno {
+	if reader == nil {
+		return errno.TransCipherStreamModeSetNilDataReaderError
+	}
+
+	block, err := aes.NewCipher(e.key)
+	if err != nil {
+		return errno.TransCipherStreamModeSetDataReaderError.Append(err.Error())
+	}
+
+	e.stream = cipher.NewCTR(block, e.iv)
 	e.reader = reader
+
+	return errno.OK
 }
 
 // GetHashMac 获取加解密的密文校验值，它应当在数据加解密完成后调用。
@@ -151,49 +164,6 @@ func (e *EngineTransCipherStream) Verify(hashmac []byte) (bool, *errno.Errno) {
 	}
 
 	return hmac.Equal(hashmac, e.hashMac.Sum(nil)), errno.OK
-}
-
-// EncryptGCM 加密一段数据，加密算法为AES-256-GCM。
-//  @receiver e
-//  @param plaintext 待加密的明文数据。
-//  @return []byte 加密成功的密文数据。
-//  @return *errno.Errno 如果出错，返回错误码以及详细信息。
-func (e *EngineTransCipherStream) EncryptGCM(plaintext []byte) ([]byte, *errno.Errno) {
-	block, err := aes.NewCipher(e.key)
-	if err != nil {
-		return nil, errno.TransCipherInternalError.Append(err.Error())
-	}
-
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, errno.TransCipherInternalError.Append(err.Error())
-	}
-
-	return gcm.Seal(nil, e.iv[:gcm.NonceSize()], plaintext, nil), errno.OK
-}
-
-// DecryptGCM 解密一段数据，解密算法为AES-256-GCM。
-//  @receiver e
-//  @param ciphertext 待解密的密文数据。
-//  @return []byte 解密成功的明文数据。
-//  @return *errno.Errno 如果出错，返回错误码以及详细信息。
-func (e *EngineTransCipherStream) DecryptGCM(ciphertext []byte) ([]byte, *errno.Errno) {
-	block, err := aes.NewCipher(e.key)
-	if err != nil {
-		return nil, errno.TransCipherInternalError.Append(err.Error())
-	}
-
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, errno.TransCipherInternalError.Append(err.Error())
-	}
-
-	out, err := gcm.Open(nil, e.iv[:gcm.NonceSize()], ciphertext, nil)
-	if err != nil {
-		return nil, errno.TransCipherInternalError.Append(err.Error())
-	}
-
-	return out, errno.OK
 }
 
 // encrypt 将一段明文数据plaintext加密成密文，同时将密文存储至ciphertext。

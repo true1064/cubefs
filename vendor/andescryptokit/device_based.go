@@ -21,29 +21,14 @@ func (d *DeviceBased) Init(kmsParam KmsParam, env EnvironmentType) *errno.Errno 
 	return nil
 }
 
-// NewEngineTransCipher 创建传输加密引擎。
-//
-//	@param cipherKey 传输加密密钥的密文，它在终端侧创建后由AndesCryptoKit的公钥加密再经过base64编码，通过HTTP请求的头部字段"Transfer-Key"传输到云端。
-//	@param cipherIv 传输加密IV的密文，它在终端侧创建后由AndesCryptoKit的公钥加密再经过base64编码，通过HTTP请求的头部字段"Transfer-IV"传输到云端。
-//	@return *engine.EngineTransCipher
-//	@return error 分配引擎出错则返回错误原因，否则返回空。
-func (d *DeviceBased) NewEngineTransCipher(cipherMaterial *string) (*engine.EngineTransCipher, *errno.Errno) {
-	return engine.NewEngineTransCipher(nil, nil, true)
-}
-
 func (d *DeviceBased) NewEngineTransCipherStream(cipherMode engine.CipherMode, reader io.Reader) (*engine.EngineTransCipherStream, *errno.Errno) {
 	return engine.NewEngineTransCipherStream(nil, nil, true, engine.ENCRYPT_MODE, reader)
 }
 
-// NewEngineFileCipher 创建文件加密引擎。
-//
-//	@param cipherKey 文件加密密钥的密文。如果加密文件时需要重新分配一个加密密钥，则应当传nil。如果需要使用同一个密钥，则传入保存的加密密钥。
-//	@return *engine.EngineFileCipher
-//	@return error 分配引擎出错则返回错误原因，否则返回空。
-func (d *DeviceBased) NewEngineFileCipher(cipherKey []byte, blockSize uint64) (*engine.EngineFileCipher, []byte, *errno.Errno) {
-	return engine.NewEngineFileCipher(nil, nil, blockSize)
-}
-
 func (s *DeviceBased) NewEngineFileCipherStream(cipherKey []byte, blockSize uint64, cipherMode engine.CipherMode, reader io.Reader) (*engine.EngineFileCipherStream, []byte, *errno.Errno) {
 	return engine.NewEngineFileCipherStream(nil, cipherKey, blockSize, cipherMode, reader)
+}
+
+func (s *DeviceBased) NewEngineAesGCMCipher(cipherMaterial []byte) (*engine.EngineAesGCMCipher, *errno.Errno) {
+	return engine.NewEngineAesGCMCipher(nil)
 }

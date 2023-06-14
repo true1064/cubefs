@@ -78,6 +78,12 @@ var (
 	// TransCipherStreamModeNilStreamError 传输加密传入空流错误。
 	TransCipherStreamModeNilStreamError = &Errno{code: 40010, message: "trans cipher stream mode nil stream error."}
 
+	// TransCipherStreamModeSetDataReaderError 传输加密设置新数据流为空错误
+	TransCipherStreamModeSetNilDataReaderError = &Errno{code: 40011, message: "trans cipher stream mode set nil data reader error."}
+
+	// TransCipherStreamModeSetDataReaderError 传输加密设置新数据流错误
+	TransCipherStreamModeSetDataReaderError = &Errno{code: 40011, message: "trans cipher stream mode set data reader error."}
+
 	/*  文件存储错误，前缀为 400 */
 	// FileCipherKeyLengthError 文件加密密钥长度错误，必须为32字节或者64字节。
 	FileCipherKeyLengthError = &Errno{code: 40001, message: "file cipher param key length(must 32 or 64 bytes) error."}
@@ -111,4 +117,7 @@ var (
 
 	/*  文件存储错误，前缀为 500 */
 	ServiceBasedDataEncryptKeyError = &Errno{code: 50001, message: "service based scheme data encrypt key(DEK) get error."}
+
+	/*  引擎AES-256-GCM错误，前缀为 600 */
+	EngineAes256GcmKeySizeError = &Errno{code: 60001, message: "engine aes-256-gcm key length error."}
 )
