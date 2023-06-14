@@ -189,7 +189,7 @@ func TestHandleFileWrite(t *testing.T) {
 		node.OnceGetUser()
 		node.Volume.EXPECT().GetInode(A, A).Return(&sdk.InodeInfo{Size: 1024}, nil)
 		node.Volume.EXPECT().WriteFile(A, A, A, A, A).Return(e2)
-		resp := doRequest(newMockBody(64), "bytes=100-", queries...)
+		resp := doRequest(newMockBody(64), "bytes=1024-", queries...)
 		defer resp.Body.Close()
 		require.Equal(t, e2.Status, resp.StatusCode)
 	}
@@ -305,6 +305,16 @@ func TestHandleFileDownload(t *testing.T) {
 		require.Equal(t, 200, resp.StatusCode)
 		buff, _ := io.ReadAll(resp.Body)
 		require.Equal(t, body.buff[:size], buff)
+	}
+	{
+		node.OnceGetUser()
+		node.OnceLookup(false)
+		node.OnceGetInode()
+		resp := doRequest(nil, "bytes=1024-10000", "path", "/download")
+		defer resp.Body.Close()
+		require.Equal(t, 200, resp.StatusCode)
+		buff, _ := io.ReadAll(resp.Body)
+		require.Equal(t, 0, len(buff))
 	}
 	{
 		size := 1024

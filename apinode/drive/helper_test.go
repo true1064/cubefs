@@ -40,7 +40,9 @@ func TestHelperParseRange(t *testing.T) {
 		{"bytes=x-x", 0, true, ranges{}},
 		{"bytes=111-10", 1024, true, ranges{}},
 		{"bytes=-1025", 1024, true, ranges{}},
-		{"bytes=1025-10000", 1024, true, ranges{}},
+		{"bytes=1025-10000", 1024, true, ranges{1025, 0}},
+		{"bytes=1025-", 1024, true, ranges{1025, 0}},
+		{"bytes=1025-10000", 1025, true, ranges{1025, 0}},
 
 		{"bytes=0-", 1024, false, ranges{0, 1023}},
 		{"bytes=1000-", 1024, false, ranges{1000, 1023}},
@@ -54,9 +56,8 @@ func TestHelperParseRange(t *testing.T) {
 		r, err := parseRange(cs.header, cs.size)
 		if cs.err {
 			require.Error(t, err, cs.header)
-		} else {
-			require.Equal(t, cs.ranges, r, cs.header)
 		}
+		require.Equal(t, cs.ranges, r, cs.header)
 	}
 
 	{

@@ -27,7 +27,10 @@ import (
 	"github.com/cubefs/cubefs/apinode/sdk"
 )
 
-var errOverSize = errors.New("start out of size")
+var (
+	errOverSize  = errors.New("start out of size")
+	errEndOfFile = errors.New("start end of file")
+)
 
 // returns bytes contains the End byte.
 type ranges struct {
@@ -38,6 +41,9 @@ type ranges struct {
 //   Range: bytes=1-1023
 //   Range: bytes=-1023
 //   Range: bytes=1-
+//
+//   return errEndOfFile if start is equal size of file.
+//   return errOverSize if start is great than size of file.
 func parseRange(header string, size int64) (ranges, error) {
 	err := fmt.Errorf("invalid range header %s", header)
 
@@ -57,14 +63,17 @@ func parseRange(header string, size int64) (ranges, error) {
 		return ranges{}, err
 	}
 
+	if start == size {
+		return ranges{Start: start}, errEndOfFile
+	} else if start > size {
+		return ranges{Start: start}, errOverSize
+	}
+
 	// -nnn or nnn-
 	if startErr != nil {
 		start = size - end
 		end = size - 1
 	} else if endErr != nil {
-		if start >= size {
-			return ranges{Start: start}, errOverSize
-		}
 		end = size - 1
 	}
 

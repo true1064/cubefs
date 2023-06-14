@@ -109,12 +109,10 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 
 	ranged, err := parseRange(c.Request.Header.Get(headerRange), int64(inode.Size))
 	if err == errOverSize {
-		if ranged.Start != int64(inode.Size) {
-			span.Error(err)
-			d.respError(c, sdk.ErrWriteOverSize)
-			return
-		}
-	} else if err != nil {
+		span.Warn(err)
+		d.respError(c, sdk.ErrWriteOverSize)
+		return
+	} else if err != nil && err != errEndOfFile {
 		span.Warn(err)
 		d.respError(c, sdk.ErrBadRequest.Extend(err))
 		return
@@ -223,6 +221,10 @@ func (d *DriveNode) handleFileDownload(c *rpc.Context) {
 	if header := c.Request.Header.Get(headerRange); header != "" {
 		ranged, err = parseRange(header, int64(inode.Size))
 		if err != nil {
+			if err == errEndOfFile {
+				c.Respond()
+				return
+			}
 			span.Warn(err)
 			d.respError(c, sdk.ErrBadRequest.Extend(err))
 			return
