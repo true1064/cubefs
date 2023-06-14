@@ -96,8 +96,7 @@ func Init() error {
 
 // Cryptor for transmitting and file content.
 type Cryptor interface {
-	EncryptTransmitter(material string) (trans Transmitter, err error)
-	DecryptTransmitter(material string) (trans Transmitter, err error)
+	Transmitter(material string) (trans Transmitter, err error)
 	// Trans encrypt and decrypt every byte.
 	TransEncryptor(material string, plaintexter io.Reader) (ciphertexter io.Reader, err error)
 	TransDecryptor(material string, ciphertexter io.Reader) (plaintexter io.Reader, err error)
@@ -113,14 +112,11 @@ type Transmitter interface {
 	// Encrypt and Decrypt is thread-safe.
 	Encrypt(plaintext string, encode bool) (ciphertext string, err error)
 	Decrypt(ciphertext string, decode bool) (plaintext string, err error)
-
-	// Transmit with reader is not thread-safe.
-	Transmit(in io.Reader) (out io.Reader)
 }
 
 type transmitter struct {
 	material string
-	engine   *engine.EngineTransCipherStream
+	engine   *engine.EngineAesGCMCipher
 }
 
 var _ Transmitter = (*transmitter)(nil)
@@ -130,7 +126,7 @@ func (t *transmitter) Encrypt(plaintext string, encode bool) (string, error) {
 		return plaintext, nil
 	}
 
-	data, en := t.engine.EncryptGCM([]byte(plaintext))
+	data, en := t.engine.Encrypt([]byte(plaintext))
 	if en != errno.OK {
 		return "", transError(en)
 	}
@@ -162,19 +158,11 @@ func (t *transmitter) Decrypt(ciphertext string, decode bool) (string, error) {
 		buff = []byte(ciphertext)
 	}
 
-	data, en := t.engine.DecryptGCM(buff)
+	data, en := t.engine.Decrypt(buff)
 	if en != errno.OK {
 		return "", transError(en)
 	}
 	return string(data), nil
-}
-
-func (t *transmitter) Transmit(in io.Reader) io.Reader {
-	if t.material == "" {
-		return in
-	}
-	t.engine.SetDataReader(in)
-	return t.engine
 }
 
 // NoneCryptor new Cryptor without init.
@@ -194,9 +182,6 @@ func newTransReader(mode engine.CipherMode, material string, r io.Reader) (*engi
 	key, derr := base64.StdEncoding.DecodeString(material)
 	if derr != nil {
 		return nil, errno.TransCipherIVBase64DecodeError.Append(derr.Error())
-	}
-	if len(key) != 256 {
-		return nil, errno.TransCipherIVBase64DecodeError
 	}
 	return cryptoKit.NewEngineTransCipherStream(mode, io.MultiReader(bytes.NewReader(key), r))
 }
@@ -219,22 +204,14 @@ func (cryptor) TransDecryptor(material string, ciphertexter io.Reader) (io.Reade
 	return r, transError(err)
 }
 
-func (cryptor) EncryptTransmitter(material string) (Transmitter, error) {
+func (cryptor) Transmitter(material string) (Transmitter, error) {
 	trans := &transmitter{material: material}
 	if material != "" {
-		eng, err := newTransReader(EncryptMode, material, io.MultiReader())
-		if err != errno.OK {
-			return trans, transError(err)
+		key, derr := base64.StdEncoding.DecodeString(material)
+		if derr != nil {
+			return nil, transError(errno.TransCipherIVBase64DecodeError.Append(derr.Error()))
 		}
-		trans.engine = eng
-	}
-	return trans, nil
-}
-
-func (cryptor) DecryptTransmitter(material string) (Transmitter, error) {
-	trans := &transmitter{material: material}
-	if material != "" {
-		eng, err := newTransReader(DecryptMode, material, io.MultiReader())
+		eng, err := cryptoKit.NewEngineAesGCMCipher(key)
 		if err != errno.OK {
 			return trans, transError(err)
 		}

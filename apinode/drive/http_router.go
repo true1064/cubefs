@@ -19,10 +19,10 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"io"
 	"net/http"
 	"strings"
 
-	"github.com/cubefs/cubefs/apinode/crypto"
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
 	"github.com/cubefs/cubefs/blobstore/common/trace"
@@ -110,15 +110,14 @@ func (*DriveNode) userID(c *rpc.Context) UserID {
 	return uid.(UserID)
 }
 
-func (d *DriveNode) encrypTransmitter(c *rpc.Context) crypto.Transmitter {
-	t, err := d.cryptor.EncryptTransmitter(c.Request.Header.Get(HeaderCipherMaterial))
+func (d *DriveNode) encryptResponse(c *rpc.Context, body io.Reader) (io.Reader, error) {
+	r, err := d.cryptor.TransEncryptor(c.Request.Header.Get(HeaderCipherMaterialResponse), body)
 	if err != nil {
 		_, span := d.ctxSpan(c)
 		span.Warn("make encrypt transmitter", err)
-		c.RespondError(sdk.ErrTransCipher)
-		return nil
+		return nil, sdk.ErrTransCipher
 	}
-	return t
+	return r, err
 }
 
 // span carry with request id firstly.
@@ -167,11 +166,11 @@ func (d *DriveNode) respData(c *rpc.Context, obj interface{}) {
 		c.RespondError(sdk.ErrInternalServerError)
 		return
 	}
-	t := d.encrypTransmitter(c)
-	if t == nil {
+	body, err := d.encryptResponse(c, bytes.NewReader(buffer))
+	if err != nil {
+		c.RespondError(err)
 		return
 	}
-	body := t.Transmit(bytes.NewReader(buffer))
 	c.RespondWithReader(http.StatusOK, len(buffer), rpc.MIMEJSON, body, nil)
 }
 

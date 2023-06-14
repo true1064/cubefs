@@ -47,7 +47,9 @@ const (
 	HeaderVolume    = "x-cfa-volume"
 	HeaderCrc32     = "x-cfa-content-crc32"
 	// headerSign      = "x-cfa-sign"
-	HeaderCipherMaterial = "x-cfa-cipher-material"
+	HeaderCipherMaterial         = "x-cfa-cipher-material"
+	HeaderCipherMaterialRequest  = "x-cfa-cipher-material-request"
+	HeaderCipherMaterialResponse = "x-cfa-cipher-material-response"
 
 	UserPropertyPrefix = "x-cfa-meta-"
 )

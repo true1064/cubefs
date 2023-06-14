@@ -60,7 +60,6 @@ func newMockCryptor(tb testing.TB) *mocks.MockCryptor {
 	transmitter := mocks.NewMockTransmitter(C(tb))
 	transmitter.EXPECT().Encrypt(A, A).DoAndReturn(func(text string, _ bool) (string, error) { return text, nil }).AnyTimes()
 	transmitter.EXPECT().Decrypt(A, A).DoAndReturn(func(text string, _ bool) (string, error) { return text, nil }).AnyTimes()
-	transmitter.EXPECT().Transmit(A).DoAndReturn(func(r io.Reader) io.Reader { return r }).AnyTimes()
 
 	cryptor := mocks.NewMockCryptor(C(tb))
 	cryptor.EXPECT().TransEncryptor(A, A).DoAndReturn(func(_ string, r io.Reader) (io.Reader, error) { return r, nil }).AnyTimes()
@@ -68,8 +67,7 @@ func newMockCryptor(tb testing.TB) *mocks.MockCryptor {
 	cryptor.EXPECT().GenKey().Return(nil, nil).AnyTimes()
 	cryptor.EXPECT().FileEncryptor(A, A).DoAndReturn(func(_ []byte, r io.Reader) (io.Reader, error) { return r, nil }).AnyTimes()
 	cryptor.EXPECT().FileDecryptor(A, A).DoAndReturn(func(_ []byte, r io.Reader) (io.Reader, error) { return r, nil }).AnyTimes()
-	cryptor.EXPECT().EncryptTransmitter(A).Return(transmitter, nil).AnyTimes()
-	cryptor.EXPECT().DecryptTransmitter(A).Return(transmitter, nil).AnyTimes()
+	cryptor.EXPECT().Transmitter(A).Return(transmitter, nil).AnyTimes()
 	return cryptor
 }
 

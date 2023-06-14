@@ -173,11 +173,10 @@ func (d *DriveNode) downloadConfig(c *rpc.Context) {
 		return
 	}
 
-	t := d.encrypTransmitter(c)
-	if t == nil {
+	body, err := d.encryptResponse(c, makeFileReader(ctx, d.vol, inode.Inode, 0))
+	if d.checkError(c, nil, err) {
 		return
 	}
-	body := t.Transmit(makeFileReader(ctx, d.vol, inode.Inode, 0))
 	c.RespondWithReader(http.StatusOK, int(inode.Size), rpc.MIMEStream, body, nil)
 }
 
@@ -244,11 +243,10 @@ func (d *DriveNode) handleFileDownload(c *rpc.Context) {
 	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
-	t := d.encrypTransmitter(c)
-	if t == nil {
+	body, err = d.encryptResponse(c, body)
+	if d.checkError(c, nil, err) {
 		return
 	}
-	body = t.Transmit(body)
 
 	span.Debug("download", args, ranged)
 	c.RespondWithReader(status, size, rpc.MIMEStream, body, headers)

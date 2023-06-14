@@ -51,7 +51,8 @@ func newCryptor() rpc.ProgressHandler {
 // only decode query string and meta headers.
 func (c cryptor) Handler(w http.ResponseWriter, req *http.Request, f func(http.ResponseWriter, *http.Request)) {
 	material := req.Header.Get(drive.HeaderCipherMaterial)
-	if material == "" {
+	rMaterial := req.Header.Get(drive.HeaderCipherMaterialRequest)
+	if material == "" && rMaterial == "" {
 		f(w, req)
 		return
 	}
@@ -79,16 +80,29 @@ func (c cryptor) Handler(w http.ResponseWriter, req *http.Request, f func(http.R
 		w.Write(errBuff)
 	}()
 
-	var t crypto.Transmitter
-	if t, err = c.cryptor.DecryptTransmitter(material); err != nil {
-		err = fmt.Errorf("new trans: %s", err.Error())
-		errBuff = errNew[:]
+	if rMaterial != "" {
+		var decryptBody io.Reader
+		if decryptBody, err = c.cryptor.TransDecryptor(rMaterial, req.Body); err != nil {
+			err = fmt.Errorf("new request trans: %s", err.Error())
+			errBuff = errNew[:]
+			return
+		}
+		req.Body = requestBody{
+			Reader: decryptBody,
+			Closer: req.Body,
+		}
+	}
+
+	if material == "" {
+		f(w, req)
 		return
 	}
 
-	req.Body = requestBody{
-		Reader: t.Transmit(req.Body),
-		Closer: req.Body,
+	var t crypto.Transmitter
+	if t, err = c.cryptor.Transmitter(material); err != nil {
+		err = fmt.Errorf("new trans: %s", err.Error())
+		errBuff = errNew[:]
+		return
 	}
 
 	querys := req.URL.Query()

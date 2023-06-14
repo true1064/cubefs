@@ -35,36 +35,6 @@ func (m *MockCryptor) EXPECT() *MockCryptorMockRecorder {
 	return m.recorder
 }
 
-// DecryptTransmitter mocks base method.
-func (m *MockCryptor) DecryptTransmitter(arg0 string) (crypto.Transmitter, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DecryptTransmitter", arg0)
-	ret0, _ := ret[0].(crypto.Transmitter)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// DecryptTransmitter indicates an expected call of DecryptTransmitter.
-func (mr *MockCryptorMockRecorder) DecryptTransmitter(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DecryptTransmitter", reflect.TypeOf((*MockCryptor)(nil).DecryptTransmitter), arg0)
-}
-
-// EncryptTransmitter mocks base method.
-func (m *MockCryptor) EncryptTransmitter(arg0 string) (crypto.Transmitter, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EncryptTransmitter", arg0)
-	ret0, _ := ret[0].(crypto.Transmitter)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// EncryptTransmitter indicates an expected call of EncryptTransmitter.
-func (mr *MockCryptorMockRecorder) EncryptTransmitter(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EncryptTransmitter", reflect.TypeOf((*MockCryptor)(nil).EncryptTransmitter), arg0)
-}
-
 // FileDecryptor mocks base method.
 func (m *MockCryptor) FileDecryptor(arg0 []byte, arg1 io.Reader) (io.Reader, error) {
 	m.ctrl.T.Helper()
@@ -140,6 +110,21 @@ func (mr *MockCryptorMockRecorder) TransEncryptor(arg0, arg1 interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TransEncryptor", reflect.TypeOf((*MockCryptor)(nil).TransEncryptor), arg0, arg1)
 }
 
+// Transmitter mocks base method.
+func (m *MockCryptor) Transmitter(arg0 string) (crypto.Transmitter, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Transmitter", arg0)
+	ret0, _ := ret[0].(crypto.Transmitter)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Transmitter indicates an expected call of Transmitter.
+func (mr *MockCryptorMockRecorder) Transmitter(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Transmitter", reflect.TypeOf((*MockCryptor)(nil).Transmitter), arg0)
+}
+
 // MockTransmitter is a mock of Transmitter interface.
 type MockTransmitter struct {
 	ctrl     *gomock.Controller
@@ -191,18 +176,4 @@ func (m *MockTransmitter) Encrypt(arg0 string, arg1 bool) (string, error) {
 func (mr *MockTransmitterMockRecorder) Encrypt(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Encrypt", reflect.TypeOf((*MockTransmitter)(nil).Encrypt), arg0, arg1)
-}
-
-// Transmit mocks base method.
-func (m *MockTransmitter) Transmit(arg0 io.Reader) io.Reader {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Transmit", arg0)
-	ret0, _ := ret[0].(io.Reader)
-	return ret0
-}
-
-// Transmit indicates an expected call of Transmit.
-func (mr *MockTransmitterMockRecorder) Transmit(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Transmit", reflect.TypeOf((*MockTransmitter)(nil).Transmit), arg0)
 }
