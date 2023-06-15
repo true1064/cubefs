@@ -229,13 +229,9 @@ func genURI(uri string, queries ...interface{}) string {
 	}
 	q := make(url.Values)
 	for i := 0; i < len(queries); i += 2 {
-		v := fmt.Sprint(queries[i+1])
-		if len(v) > 0 {
-			x, err := encoder.Encrypt(v, true)
-			if err != nil {
-				panic(err)
-			}
-			v = x
+		v, err := encoder.Encrypt(fmt.Sprint(queries[i+1]), true)
+		if err != nil {
+			panic(err)
 		}
 		q.Set(fmt.Sprint(queries[i]), v)
 	}

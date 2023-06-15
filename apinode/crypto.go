@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"runtime/debug"
 	"strings"
 
 	"github.com/cubefs/cubefs/apinode/crypto"
@@ -25,6 +26,7 @@ import (
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
 	"github.com/cubefs/cubefs/blobstore/common/trace"
+	"github.com/cubefs/cubefs/blobstore/util/log"
 )
 
 const metaHeaderLen = len(drive.UserPropertyPrefix)
@@ -60,6 +62,13 @@ func (c cryptor) Handler(w http.ResponseWriter, req *http.Request, f func(http.R
 	var err error
 	var errBuff []byte
 	defer func() {
+		p := recover()
+		if p != nil {
+			log.Printf("WARN: panic fired in %v.panic - %v\n", f, p)
+			log.Println(string(debug.Stack()))
+			w.WriteHeader(597)
+		}
+
 		if err == nil {
 			return
 		}
@@ -107,9 +116,14 @@ func (c cryptor) Handler(w http.ResponseWriter, req *http.Request, f func(http.R
 
 	querys := req.URL.Query()
 	for key := range querys {
+		value := querys.Get(key)
+		if len(value) == 0 {
+			continue
+		}
+
 		var val string
-		if val, err = t.Decrypt(querys.Get(key), true); err != nil {
-			err = fmt.Errorf("decode query %s %s: %s", key, querys.Get(key), err.Error())
+		if val, err = t.Decrypt(value, true); err != nil {
+			err = fmt.Errorf("decode query %s %s: %s", key, value, err.Error())
 			errBuff = errQuery[:]
 			return
 		}
