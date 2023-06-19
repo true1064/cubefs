@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
@@ -63,6 +64,7 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 	if d.checkError(c, nil, err) {
 		return
 	}
+	st := time.Now()
 	span.Info("to upload file", args, extend)
 	inode, err := vol.UploadFile(ctx, &sdk.UploadFileReq{
 		ParIno: info.Inode,
@@ -71,6 +73,7 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 		Extend: extend,
 		Body:   reader,
 	})
+	span.AppendTrackLog("cfuu", st, err)
 	if d.checkError(c, func(err error) { span.Error("upload file", err) }, err) {
 		return
 	}
@@ -102,7 +105,9 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 		return
 	}
 
+	st := time.Now()
 	inode, err := vol.GetInode(ctx, args.FileID.Uint64())
+	span.AppendTrackLog("cfwi", st, err)
 	if d.checkError(c, func(err error) { span.Warn(args.FileID, err) }, err) {
 		return
 	}
@@ -133,8 +138,10 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 	size := uint64(l)
 	reader = newFixedReader(reader, int64(size))
 
+	st = time.Now()
 	first, firstN, err := d.blockReaderFirst(ctx, vol, inode, uint64(ranged.Start), ur.CipherKey)
 	last, lastN, err1 := d.blockReaderLast(ctx, vol, inode, uint64(ranged.Start)+size, ur.CipherKey)
+	span.AppendTrackLog("cfwr", st, err)
 	if d.checkError(c, func(err error) { span.Warn(err) }, err, err1) {
 		return
 	}
@@ -148,6 +155,8 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 	wOffset, wSize := uint64(ranged.Start)-firstN, firstN+size+lastN
 	span.Infof("write file:%d range-start:%d body-size:%d rewrite-offset:%d rewrite-size:%d",
 		args.FileID, ranged.Start, size, wOffset, wSize)
+	st = time.Now()
+	defer func() { span.AppendTrackLog("cfww", st, nil) }()
 	if d.checkError(c, func(err error) { span.Warn(err) },
 		vol.WriteFile(ctx, args.FileID.Uint64(), wOffset, wSize, reader)) {
 		return
@@ -207,7 +216,9 @@ func (d *DriveNode) handleFileDownload(c *rpc.Context) {
 		return
 	}
 
+	st := time.Now()
 	inode, err := vol.GetInode(ctx, file.Inode)
+	span.AppendTrackLog("cfdi", st, err)
 	if d.checkError(c, func(err error) { span.Warn(file.Inode, err) }, err) {
 		return
 	}
@@ -248,6 +259,8 @@ func (d *DriveNode) handleFileDownload(c *rpc.Context) {
 		return
 	}
 
+	st = time.Now()
+	defer func() { span.AppendTrackLog("cfdw", st, nil) }()
 	span.Debug("download", args, ranged)
 	c.RespondWithReader(status, size, rpc.MIMEStream, body, headers)
 }
@@ -343,13 +356,16 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 		return
 	}
 
+	st := time.Now()
 	inode, err := vol.GetInode(ctx, file.Inode)
+	span.AppendTrackLog("cfci", st, err)
 	if d.checkError(c, func(err error) { span.Warn(file.Inode, err) }, err) {
 		return
 	}
 	body := newFixedReader(makeFileReader(ctx, vol, inode.Inode, 0), int64(inode.Size))
 
 	// TODO: remove shared meta
+	st = time.Now()
 	extend := make(map[string]string)
 	if args.Meta {
 		extend, err = vol.GetXAttrMap(ctx, inode.Inode)
@@ -371,6 +387,7 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 		Extend: extend,
 		Body:   body,
 	})
+	span.AppendTrackLog("cfcc", st, err)
 	if d.checkError(c, func(err error) { span.Error(err) }, err) {
 		return
 	}

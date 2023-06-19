@@ -280,6 +280,9 @@ func (d *DriveNode) GetUserRouteInfo(ctx context.Context, uid UserID) (*UserRout
 // get full path and volume by uid
 // filePath is an absolute of client
 func (d *DriveNode) getRootInoAndVolume(ctx context.Context, uid UserID) (Inode, sdk.IVolume, error) {
+	span := trace.SpanFromContextSafe(ctx)
+	st := time.Now()
+	defer func() { span.AppendTrackLog("civ", st, nil) }()
 	userRouter, err := d.GetUserRouteInfo(ctx, uid)
 	if err != nil {
 		return 0, nil, err
@@ -297,6 +300,9 @@ func (d *DriveNode) getRootInoAndVolume(ctx context.Context, uid UserID) (Inode,
 
 func (d *DriveNode) lookup(ctx context.Context, vol sdk.IVolume, parentIno Inode, path string) (info *sdk.DirInfo, err error) {
 	err = sdk.ErrBadRequest
+	span := trace.SpanFromContextSafe(ctx)
+	st := time.Now()
+	defer func() { span.AppendTrackLog("clu", st, err) }()
 	names := strings.Split(path, "/")
 	for _, name := range names {
 		if name == "" {
@@ -312,6 +318,9 @@ func (d *DriveNode) lookup(ctx context.Context, vol sdk.IVolume, parentIno Inode
 }
 
 func (d *DriveNode) createDir(ctx context.Context, vol sdk.IVolume, parentIno Inode, path string, recursive bool) (info *sdk.InodeInfo, err error) {
+	span := trace.SpanFromContextSafe(ctx)
+	st := time.Now()
+	defer func() { span.AppendTrackLog("ccd", st, err) }()
 	if path == "" || path == "/" {
 		return vol.GetInode(ctx, parentIno.Uint64())
 	}

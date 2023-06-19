@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"io"
 	"path"
+	"time"
 
 	"github.com/cubefs/cubefs/apinode/crypto"
 	"github.com/cubefs/cubefs/apinode/sdk"
@@ -122,6 +123,7 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 		reqParts[part.PartNumber] = part.MD5
 	}
 
+	st := time.Now()
 	fullPath := multipartFullPath(d.userID(c), args.Path)
 	marker := uint64(0)
 	for {
@@ -155,6 +157,7 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 		}
 		marker = next
 	}
+	span.AppendTrackLog("cmcl", st, nil)
 
 	inode, err := vol.CompleteMultiPart(ctx, fullPath, args.UploadID, uint64(args.FileID), sParts)
 	if d.checkError(c, func(err error) { span.Error("multipart complete", args, parts, err) }, err) {

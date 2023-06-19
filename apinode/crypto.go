@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"runtime/debug"
 	"strings"
+	"time"
 
 	"github.com/cubefs/cubefs/apinode/crypto"
 	"github.com/cubefs/cubefs/apinode/drive"
@@ -59,6 +60,13 @@ func (c cryptor) Handler(w http.ResponseWriter, req *http.Request, f func(http.R
 		return
 	}
 
+	var span trace.Span
+	if rid := req.Header.Get(drive.HeaderRequestID); rid != "" {
+		span, _ = trace.StartSpanFromContextWithTraceID(req.Context(), "", rid)
+	} else {
+		span = trace.SpanFromContextSafe(req.Context())
+	}
+
 	var err error
 	var errBuff []byte
 	defer func() {
@@ -73,12 +81,6 @@ func (c cryptor) Handler(w http.ResponseWriter, req *http.Request, f func(http.R
 			return
 		}
 
-		var span trace.Span
-		if rid := req.Header.Get(drive.HeaderRequestID); rid != "" {
-			span, _ = trace.StartSpanFromContextWithTraceID(req.Context(), "", rid)
-		} else {
-			span = trace.SpanFromContextSafe(req.Context())
-		}
 		span.Warn(err)
 
 		w.Header().Set(trace.GetTraceIDKey(), span.TraceID())
@@ -89,6 +91,7 @@ func (c cryptor) Handler(w http.ResponseWriter, req *http.Request, f func(http.R
 		w.Write(errBuff)
 	}()
 
+	st := time.Now()
 	if rMaterial != "" {
 		var decryptBody io.Reader
 		if decryptBody, err = c.cryptor.TransDecryptor(rMaterial, req.Body); err != nil {
@@ -96,6 +99,8 @@ func (c cryptor) Handler(w http.ResponseWriter, req *http.Request, f func(http.R
 			errBuff = errNew[:]
 			return
 		}
+		span.AppendTrackLog("tnb", st, nil)
+
 		req.Body = requestBody{
 			Reader: decryptBody,
 			Closer: req.Body,
@@ -107,13 +112,16 @@ func (c cryptor) Handler(w http.ResponseWriter, req *http.Request, f func(http.R
 		return
 	}
 
+	st = time.Now()
 	var t crypto.Transmitter
 	if t, err = c.cryptor.Transmitter(material); err != nil {
 		err = fmt.Errorf("new trans: %s", err.Error())
 		errBuff = errNew[:]
 		return
 	}
+	span.AppendTrackLog("tnq", st, nil)
 
+	st = time.Now()
 	querys := req.URL.Query()
 	for key := range querys {
 		value := querys.Get(key)
@@ -154,6 +162,9 @@ func (c cryptor) Handler(w http.ResponseWriter, req *http.Request, f func(http.R
 		req.Header.Set(drive.EncodeMetaHeader(k), drive.EncodeMeta(v))
 		req.Header.Del(key)
 	}
+	span.AppendTrackLog("tdq", st, nil)
 
+	st = time.Now()
 	f(w, req)
+	span.AppendTrackLog("c", st, nil)
 }

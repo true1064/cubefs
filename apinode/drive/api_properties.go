@@ -15,6 +15,8 @@
 package drive
 
 import (
+	"time"
+
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
 )
 
@@ -128,11 +130,15 @@ func (d *DriveNode) handleGetProperties(c *rpc.Context) {
 	if d.checkError(c, func(err error) { span.Errorf("lookup path=%s error: %v", args.Path, err) }, err) {
 		return
 	}
+	st := time.Now()
 	xattrs, err := vol.GetXAttrMap(ctx, dirInfo.Inode)
+	span.AppendTrackLog("cpga", st, err)
 	if d.checkError(c, func(err error) { span.Errorf("get xattr path=%s error: %v", args.Path, err) }, err) {
 		return
 	}
+	st = time.Now()
 	inoInfo, err := vol.GetInode(ctx, dirInfo.Inode)
+	span.AppendTrackLog("cpgi", st, err)
 	if d.checkError(c, func(err error) { span.Errorf("get inode path=%s error: %v", args.Path, err) }, err) {
 		return
 	}
