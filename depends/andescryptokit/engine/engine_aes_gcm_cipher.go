@@ -11,6 +11,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"fmt"
 	"io"
 )
 
@@ -76,6 +77,10 @@ func (e *EngineAesGCMCipher) Decrypt(ciphertext []byte) ([]byte, *errno.Errno) {
 	gcm, err := cipher.NewGCM(block)
 	if err != nil {
 		return nil, errno.TransCipherInternalError.Append(err.Error())
+	}
+
+	if len(ciphertext) < gcm.NonceSize() {
+		return nil, errno.TransCipherInternalError.Append(fmt.Sprintf("ciphertext len error:%d", len(ciphertext)))
 	}
 
 	nonce := ciphertext[:gcm.NonceSize()]
