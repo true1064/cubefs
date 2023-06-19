@@ -39,11 +39,11 @@ type ranges struct {
 
 // parseRange parse request range header.
 //   Range: bytes=1-1023
-//   Range: bytes=-1023
 //   Range: bytes=1-
+//   Range: bytes=-1023 // hide this
 //
 //   return errEndOfFile if start is equal size of file.
-//   return errOverSize if start is great than size of file.
+//   return errOverSize if start is greater than size of file.
 func parseRange(header string, size int64) (ranges, error) {
 	err := fmt.Errorf("invalid range header %s", header)
 
@@ -59,7 +59,7 @@ func parseRange(header string, size int64) (ranges, error) {
 
 	start, startErr := strconv.ParseInt(arr[0], 10, 64)
 	end, endErr := strconv.ParseInt(arr[1], 10, 64)
-	if startErr != nil && endErr != nil {
+	if startErr != nil {
 		return ranges{}, err
 	}
 
@@ -69,11 +69,8 @@ func parseRange(header string, size int64) (ranges, error) {
 		return ranges{Start: start}, errOverSize
 	}
 
-	// -nnn or nnn-
-	if startErr != nil {
-		start = size - end
-		end = size - 1
-	} else if endErr != nil {
+	// nnn-
+	if endErr != nil {
 		end = size - 1
 	}
 

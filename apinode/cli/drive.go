@@ -262,7 +262,7 @@ func addCmdFile(cmd *grumble.Command) {
 			}
 			from := c.Flags.Int("from")
 			to := c.Flags.Int("to")
-			if from < 0 && to < 0 {
+			if from < 0 {
 				return fmt.Errorf("to set from(%d) or to(%d)", from, to)
 			}
 			return cli.FileWrite(c.Flags.String("path"), c.Flags.Uint64("fileid"), from, to, body, size)
@@ -294,7 +294,11 @@ func addCmdFile(cmd *grumble.Command) {
 				w = b
 			}
 
-			err := cli.FileDownload(c.Flags.String("path"), c.Flags.Int("from"), c.Flags.Int("to"), w)
+			from := c.Flags.Int("from")
+			if from < 0 {
+				return fmt.Errorf("to set from(%d)", from)
+			}
+			err := cli.FileDownload(c.Flags.String("path"), from, c.Flags.Int("to"), w)
 			printSting()
 			return err
 		},

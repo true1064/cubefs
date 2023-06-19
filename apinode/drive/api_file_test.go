@@ -327,7 +327,7 @@ func TestHandleFileDownload(t *testing.T) {
 			func(_ context.Context, _, _ uint64, p []byte) (int, error) {
 				return body.Read(p)
 			}).Times(2)
-		resp := doRequest(nil, "bytes=-28", "path", "/download")
+		resp := doRequest(nil, "bytes=996-", "path", "/download")
 		defer resp.Body.Close()
 		require.Equal(t, 206, resp.StatusCode)
 		buff, _ := io.ReadAll(resp.Body)

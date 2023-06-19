@@ -44,10 +44,11 @@ func TestHelperParseRange(t *testing.T) {
 		{"bytes=1025-", 1024, true, ranges{1025, 0}},
 		{"bytes=1025-10000", 1025, true, ranges{1025, 0}},
 
+		{"bytes=-1024", 1024, true, ranges{}},
+		{"bytes=-100", 1024, true, ranges{}},
+
 		{"bytes=0-", 1024, false, ranges{0, 1023}},
 		{"bytes=1000-", 1024, false, ranges{1000, 1023}},
-		{"bytes=-1024", 1024, false, ranges{0, 1023}},
-		{"bytes=-100", 1024, false, ranges{924, 1023}},
 		{"bytes=1-100", 1024, false, ranges{1, 100}},
 		{"bytes=0-102400", 1024, false, ranges{0, 1023}},
 	}
