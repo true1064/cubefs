@@ -54,6 +54,8 @@ const (
 	UserPropertyPrefix = "x-cfa-meta-"
 )
 
+var noneTransmitter, _ = crypto.NoneCryptor().Transmitter("")
+
 // TODO: defines inode in sdk.
 
 // Inode type of inode.

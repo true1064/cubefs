@@ -123,6 +123,9 @@ var _ Transmitter = (*transmitter)(nil)
 
 func (t *transmitter) Encrypt(plaintext string, encode bool) (string, error) {
 	if t.material == "" {
+		if encode {
+			return hex.EncodeToString([]byte(plaintext)), nil
+		}
 		return plaintext, nil
 	}
 
@@ -137,10 +140,6 @@ func (t *transmitter) Encrypt(plaintext string, encode bool) (string, error) {
 }
 
 func (t *transmitter) Decrypt(ciphertext string, decode bool) (string, error) {
-	if t.material == "" {
-		return ciphertext, nil
-	}
-
 	var (
 		buff []byte
 		err  error
@@ -148,14 +147,14 @@ func (t *transmitter) Decrypt(ciphertext string, decode bool) (string, error) {
 	if decode {
 		buff, err = hex.DecodeString(ciphertext)
 		if err != nil {
-			return "", &sdk.Error{
-				Status:  sdk.ErrTransCipher.Status,
-				Code:    sdk.ErrTransCipher.Code,
-				Message: fmt.Sprintf("30101: decrypt is not hex text, %s", err.Error()),
-			}
+			return "", sdk.ErrBadRequest.Extend("hex:", ciphertext)
 		}
 	} else {
 		buff = []byte(ciphertext)
+	}
+
+	if t.material == "" {
+		return string(buff), nil
 	}
 
 	data, en := t.engine.Decrypt(buff)

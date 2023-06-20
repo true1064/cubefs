@@ -236,7 +236,7 @@ func (s *ServiceBased) NewEngineTransCipherStream(cipherMode engine.CipherMode, 
 	}
 
 	// 读取加密材料，长度固定为344字节：RSA-256加密后密文长度为256byte，base64编码后长度固定为344字节。
-	cipherMaterialBytes := make([]byte, 373)
+	cipherMaterialBytes := make([]byte, 375)
 	_, err := io.ReadFull(reader, cipherMaterialBytes)
 	if err != nil {
 		return nil, errno.TransCipherMaterialUnexpectedEOfError.Append(err.Error())

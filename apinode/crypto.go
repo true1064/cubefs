@@ -53,13 +53,6 @@ func newCryptor() rpc.ProgressHandler {
 
 // only decode query string and meta headers.
 func (c cryptor) Handler(w http.ResponseWriter, req *http.Request, f func(http.ResponseWriter, *http.Request)) {
-	material := req.Header.Get(drive.HeaderCipherMaterial)
-	rMaterial := req.Header.Get(drive.HeaderCipherMaterialRequest)
-	if material == "" && rMaterial == "" {
-		f(w, req)
-		return
-	}
-
 	var span trace.Span
 	if rid := req.Header.Get(drive.HeaderRequestID); rid != "" {
 		span, _ = trace.StartSpanFromContextWithTraceID(req.Context(), "", rid)
@@ -91,6 +84,9 @@ func (c cryptor) Handler(w http.ResponseWriter, req *http.Request, f func(http.R
 		w.Write(errBuff)
 	}()
 
+	material := req.Header.Get(drive.HeaderCipherMaterial)
+	rMaterial := req.Header.Get(drive.HeaderCipherMaterialRequest)
+
 	st := time.Now()
 	if rMaterial != "" {
 		var decryptBody io.Reader
@@ -105,11 +101,6 @@ func (c cryptor) Handler(w http.ResponseWriter, req *http.Request, f func(http.R
 			Reader: decryptBody,
 			Closer: req.Body,
 		}
-	}
-
-	if material == "" {
-		f(w, req)
-		return
 	}
 
 	st = time.Now()
@@ -159,8 +150,8 @@ func (c cryptor) Handler(w http.ResponseWriter, req *http.Request, f func(http.R
 			errBuff = errHeader[:]
 			return
 		}
-		req.Header.Set(drive.EncodeMetaHeader(k), drive.EncodeMeta(v))
 		req.Header.Del(key)
+		req.Header.Set(drive.EncodeMetaHeader(k), drive.EncodeMeta(v))
 	}
 	span.AppendTrackLog("tdq", st, nil)
 
