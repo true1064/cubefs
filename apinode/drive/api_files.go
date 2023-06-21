@@ -17,6 +17,7 @@ package drive
 import (
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
+	"github.com/cubefs/cubefs/blobstore/util/task"
 )
 
 // ArgsMkDir make dir argument.
@@ -55,7 +56,8 @@ func (d *DriveNode) handleMkDir(c *rpc.Context) {
 
 // ArgsDelete file delete argument.
 type ArgsDelete struct {
-	Path FilePath `json:"path"`
+	Path      FilePath `json:"path"`
+	Recursive bool     `json:"recursive,omitempty"`
 }
 
 func (d *DriveNode) handleFilesDelete(c *rpc.Context) {
@@ -71,6 +73,11 @@ func (d *DriveNode) handleFilesDelete(c *rpc.Context) {
 		args.Path = args.Path[:len(args.Path)-1]
 	}
 	span.Info("to delete", args)
+
+	if args.Recursive {
+		d.recursivelyDelete(c, args.Path)
+		return
+	}
 
 	root, vol, err := d.getRootInoAndVolume(ctx, d.userID(c))
 	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
@@ -101,5 +108,103 @@ func (d *DriveNode) handleFilesDelete(c *rpc.Context) {
 		op = OpDeleteDir
 	}
 	d.out.Publish(ctx, makeOpLog(op, d.userID(c), args.Path.String()))
+	c.Respond()
+}
+
+type delDir struct {
+	parent Inode
+	name   string
+}
+
+func (d *DriveNode) recursivelyDelete(c *rpc.Context, path FilePath) {
+	ctx, span := d.ctxSpan(c)
+
+	root, vol, err := d.getRootInoAndVolume(ctx, d.userID(c))
+	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
+		return
+	}
+	parent, err := d.lookup(ctx, vol, root, path.String())
+	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
+		return
+	}
+	if !parent.IsDir() {
+		span.Info("not dir:", path)
+		d.respError(c, sdk.ErrNotDir)
+		return
+	}
+
+	dirName, name := path.Split()
+	ino := root
+	if dirName != "" && dirName != "/" {
+		parent, errx := d.lookup(ctx, vol, root, dirName.String())
+		if d.checkError(c, func(err error) { span.Warn(err) }, errx) {
+			return
+		}
+		ino = Inode(parent.Inode)
+	}
+
+	nextLayer := []delDir{{parent: ino, name: name}}
+	layerDirs := make([][]delDir, 0, 4)
+	layerDirs = append(layerDirs, nextLayer[:])
+
+	for len(nextLayer) > 0 {
+		thisLayer := make([]delDir, 0, 4)
+		for ii := range nextLayer {
+			dir := nextLayer[ii]
+
+			var dirInfo *sdk.DirInfo
+			dirInfo, err = d.lookup(ctx, vol, dir.parent, dir.name)
+			if d.checkError(c, func(err error) { span.Warn(err) }, err) {
+				return
+			}
+			if !dirInfo.IsDir() {
+				span.Info("sub name is file:", dir)
+				d.respError(c, sdk.ErrNotEmpty)
+				return
+			}
+
+			var files []FileInfo
+			files, err = d.listDir(ctx, dirInfo.Inode, vol, "", 10000)
+			if d.checkError(c, func(err error) { span.Warn(err) }, err) {
+				return
+			}
+			if len(files) >= 10000 {
+				span.Error("too many dirs in dir:", dirInfo)
+				d.respError(c, sdk.ErrInternalServerError.Extend("too many dirs"))
+				return
+			}
+
+			for _, file := range files {
+				if !file.IsDir() {
+					span.Info("sub name was not dir:", file)
+					d.respError(c, sdk.ErrNotDir)
+					return
+				}
+
+				dd := delDir{parent: Inode(dirInfo.Inode), name: file.Name}
+				thisLayer = append(thisLayer, dd)
+			}
+		}
+		if len(thisLayer) > 0 {
+			layerDirs = append(layerDirs, thisLayer[:])
+		}
+		nextLayer = thisLayer
+	}
+
+	span.Debug("to delete dirs", layerDirs)
+	for ii := len(layerDirs) - 1; ii >= 0; ii-- {
+		tasks := make([]func() error, 0, len(layerDirs[ii]))
+		for _, dir := range layerDirs[ii] {
+			taskDir := dir
+			tasks = append(tasks, func() error {
+				return vol.Delete(ctx, taskDir.parent.Uint64(), taskDir.name, true)
+			})
+		}
+		if d.checkError(c, func(err error) { span.Error(err) }, task.Run(ctx, tasks...)) {
+			return
+		}
+	}
+
+	d.out.Publish(ctx, makeOpLog(OpDeleteDir, d.userID(c), path.String()))
 	c.Respond()
 }

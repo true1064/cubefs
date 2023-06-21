@@ -38,12 +38,17 @@ var (
 
 	Ctx = context.Background()
 
-	e1, e2, e3, e4 = randError(), randError(), randError(), randError()
+	e1, e2, e3, e4 = randError(1), randError(2), randError(3), randError(4)
 )
 
-func randError() *sdk.Error {
+func randError(num int) *sdk.Error {
 	rand.Seed(time.Now().UnixNano())
-	return &sdk.Error{Status: rand.Intn(80) + 520}
+	st := rand.Intn(80) + 520
+	return &sdk.Error{
+		Status:  st,
+		Code:    fmt.Sprintf("[n:%d code:%d]", num, st),
+		Message: fmt.Sprintf("[n:%d message:%d]", num, st),
+	}
 }
 
 type mockNode struct {
@@ -162,6 +167,12 @@ func (node *mockNode) LookupN(n int) {
 	}
 }
 
+func (node *mockNode) LookupDirN(n int) {
+	for i := 0; i < n; i++ {
+		node.OnceLookup(true)
+	}
+}
+
 func (node *mockNode) OnceGetInode() {
 	node.Volume.EXPECT().GetInode(A, A).DoAndReturn(
 		func(_ context.Context, ino uint64) (*sdk.InodeInfo, error) {
@@ -170,6 +181,31 @@ func (node *mockNode) OnceGetInode() {
 				Inode: ino,
 			}, nil
 		})
+}
+
+func (node *mockNode) ListDir(n, nFile int) {
+	node.Volume.EXPECT().Readdir(A, A, A, A).DoAndReturn(
+		func(context.Context, uint64, string, uint32) ([]sdk.DirInfo, error) {
+			dirs := make([]sdk.DirInfo, n)
+			for i := range dirs {
+				dirs[i].Inode = node.GenInode()
+				dirs[i].Name = fmt.Sprintf("inode_%d", dirs[i].Inode)
+				dirs[i].Type = uint32(fs.ModeDir)
+			}
+			for i := 0; i < nFile; i++ {
+				dirs[i].Type = 0
+			}
+			return dirs, nil
+		})
+	node.Volume.EXPECT().BatchGetInodes(A, A).DoAndReturn(
+		func(_ context.Context, inos []uint64) ([]*sdk.InodeInfo, error) {
+			r := make([]*sdk.InodeInfo, len(inos))
+			for i := range r {
+				r[i] = &sdk.InodeInfo{Inode: inos[i]}
+			}
+			return r, nil
+		})
+	node.Volume.EXPECT().GetXAttrMap(A, A).Return(nil, nil).Times(n)
 }
 
 func resp2Data(resp *http.Response, data interface{}) rpc.HTTPError {

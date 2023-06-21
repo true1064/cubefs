@@ -52,6 +52,9 @@ const (
 	HeaderCipherMaterialResponse = "x-cfa-cipher-material-response"
 
 	UserPropertyPrefix = "x-cfa-meta-"
+
+	typeFile   = "file"
+	typeFolder = "folder"
 )
 
 var noneTransmitter, _ = crypto.NoneCryptor().Transmitter("")
@@ -136,10 +139,14 @@ type FileInfo struct {
 	Properties map[string]string `json:"properties"`
 }
 
+func (fi *FileInfo) IsDir() bool {
+	return fi.Type == typeFolder
+}
+
 func inode2file(ino *sdk.InodeInfo, name string, properties map[string]string) *FileInfo {
-	typ := "file"
+	typ := typeFile
 	if proto.IsDir(ino.Mode) {
-		typ = "dir"
+		typ = typeFolder
 	}
 	return &FileInfo{
 		ID:         ino.Inode,

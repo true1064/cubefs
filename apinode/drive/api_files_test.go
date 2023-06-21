@@ -121,4 +121,81 @@ func TestHandleFilesDelete(t *testing.T) {
 		node.Volume.EXPECT().Delete(A, A, A, A).Return(nil)
 		require.NoError(t, doRequest("path", "a"))
 	}
+
+	// recursively delete
+	doRecuDel := func() rpc.HTTPError { return doRequest("recursive", "1", "path", "/dir/a/") }
+	{
+		node.TestGetUser(t, doRecuDel, testUserID)
+		node.OnceGetUser()
+		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e1)
+		require.Equal(t, e1.Status, doRecuDel().StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		node.OnceLookup(true)  // for /dir
+		node.OnceLookup(false) // for ./a
+		require.Equal(t, sdk.ErrNotDir.Status, doRecuDel().StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		node.LookupDirN(2)
+		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e2)
+		require.Equal(t, e2.Status, doRecuDel().StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		node.LookupDirN(3)
+		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e3)
+		require.Equal(t, e3.Status, doRecuDel().StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		node.LookupDirN(3)
+		node.OnceLookup(false)
+		require.Equal(t, sdk.ErrNotEmpty.Status, doRecuDel().StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		node.LookupDirN(4)
+		node.Volume.EXPECT().Readdir(A, A, A, A).Return(nil, e4)
+		require.Equal(t, e4.Status, doRecuDel().StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		node.LookupDirN(4)
+		node.ListDir(10000, 0)
+		require.Equal(t, sdk.ErrInternalServerError.Status, doRecuDel().StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		node.LookupDirN(4)
+		node.ListDir(100, 1)
+		require.Equal(t, sdk.ErrNotDir.Status, doRecuDel().StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		node.LookupDirN(4)
+		node.ListDir(10, 0)
+		for range [10]struct{}{} {
+			node.OnceLookup(true)
+			node.ListDir(10, 0)
+		}
+		for range [100]struct{}{} {
+			node.OnceLookup(true)
+			node.ListDir(0, 0)
+		}
+		node.Volume.EXPECT().Delete(A, A, A, A).Return(nil).Times(111)
+		require.NoError(t, doRecuDel())
+	}
+	{
+		node.OnceGetUser()
+		node.LookupDirN(4)
+		node.ListDir(100, 0)
+		for range [100]struct{}{} {
+			node.OnceLookup(true)
+			node.ListDir(0, 0)
+		}
+		node.Volume.EXPECT().Delete(A, A, A, A).Return(e1).MinTimes(1)
+		require.Equal(t, e1.Status, doRecuDel().StatusCode())
+	}
 }

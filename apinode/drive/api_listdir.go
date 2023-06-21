@@ -76,7 +76,7 @@ func validFilterBuilder(builder *filterBuilder) error {
 	if !ok {
 		return fmt.Errorf("invalid filter[%s]", builder)
 	}
-	if builder.key == "type" && builder.value != "file" && builder.value != "folder" {
+	if builder.key == "type" && builder.value != typeFile && builder.value != typeFolder {
 		return fmt.Errorf("invalid filter[%s], type value is neither file nor folder", builder)
 	}
 	for _, op := range ops {
@@ -215,7 +215,7 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 	)
 
 	res.ID = pathIno.Uint64()
-	res.Type = "folder"
+	res.Type = typeFolder
 
 	wg.Add(1)
 	// lookup filePath's inode concurrency
@@ -315,9 +315,9 @@ func (d *DriveNode) listDir(ctx context.Context, ino uint64, vol sdk.IVolume, ma
 	defer pool.Close()
 	wg.Add(n)
 	for i := 0; i < n; i++ {
-		typ := "file"
+		typ := typeFile
 		if dirInfos[i].IsDir() {
-			typ = "folder"
+			typ = typeFolder
 		}
 		ino := dirInfos[i].Inode
 

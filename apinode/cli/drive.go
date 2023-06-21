@@ -196,9 +196,10 @@ func addCmdFile(cmd *grumble.Command) {
 		Help: "delete file or empty dir",
 		Flags: func(f *grumble.Flags) {
 			f.StringL("path", "", "path")
+			f.BoolL("recursive", false, "recursive")
 		},
 		Run: func(c *grumble.Context) error {
-			return cli.FileDelete(c.Flags.String("path"))
+			return cli.FileDelete(c.Flags.String("path"), c.Flags.Bool("recursive"))
 		},
 	})
 	fileCommand.AddCommand(&grumble.Command{
