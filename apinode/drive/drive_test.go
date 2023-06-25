@@ -161,6 +161,17 @@ func (node *mockNode) OnceLookup(isDir bool) {
 		})
 }
 
+func (node *mockNode) AnyLookup() {
+	node.Volume.EXPECT().Lookup(A, A, A).DoAndReturn(
+		func(_ context.Context, _ uint64, name string) (*sdk.DirInfo, error) {
+			return &sdk.DirInfo{
+				Name:  name,
+				Inode: node.GenInode(),
+			}, nil
+		},
+	).AnyTimes()
+}
+
 func (node *mockNode) LookupN(n int) {
 	for i := 0; i < n; i++ {
 		node.OnceLookup(false)
@@ -267,38 +278,25 @@ func newMockBody(size int) *mockBody {
 }
 
 func TestGetUserRouteInfo(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	urm, _ := NewUserRouteMgr()
-	mockVol := mocks.NewMockIVolume(ctrl)
-	mockClusterMgr := mocks.NewMockClusterManager(ctrl)
-	d := &DriveNode{
-		vol:        mockVol,
-		userRouter: urm,
-		clusterMgr: mockClusterMgr,
-	}
+	node := newMockNode(t)
+	d := node.DriveNode
 
-	mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("look up error"))
-	_, err := d.GetUserRouteInfo(context.TODO(), "test")
-	require.Equal(t, err.Error(), "look up error")
+	node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e1)
+	_, err := d.GetUserRouteInfo(Ctx, testUserID)
+	require.Equal(t, err.Error(), e1.Message)
 
-	_, h2 := hashUid("test")
-	mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, ino uint64, name string) (*sdk.DirInfo, error) {
-			if name == fmt.Sprintf("%d", h2%hashMask) {
-				return nil, sdk.ErrNotFound
-			}
-			return &sdk.DirInfo{
-				Name:  name,
-				Inode: uint64(rand.Int63()),
-			}, nil
-		}).AnyTimes()
-	_, err = d.GetUserRouteInfo(context.TODO(), "test")
+	node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotFound)
+	_, err = d.GetUserRouteInfo(Ctx, testUserID)
 	require.ErrorIs(t, err, sdk.ErrNotFound)
 
-	// not found xattr
-	mockVol.EXPECT().GetXAttr(gomock.Any(), gomock.Any(), gomock.Any()).Return("", sdk.ErrNotFound)
-	_, err = d.GetUserRouteInfo(context.TODO(), "test1")
+	node.AnyLookup()
+	node.Volume.EXPECT().GetXAttr(A, A, A).Return("", sdk.ErrNotFound)
+	_, err = d.GetUserRouteInfo(Ctx, testUserID)
 	require.ErrorIs(t, err, sdk.ErrNotFound)
+
+	node.Volume.EXPECT().GetXAttr(A, A, A).Return("{", nil)
+	_, err = d.GetUserRouteInfo(Ctx, testUserID)
+	require.Equal(t, err.Error(), "unexpected end of JSON input")
 
 	ur := UserRoute{
 		Uid:         "test1",
@@ -311,31 +309,18 @@ func TestGetUserRouteInfo(t *testing.T) {
 		Ctime:       time.Now().Unix(),
 	}
 	v, _ := json.Marshal(ur)
-	mockVol.EXPECT().GetXAttr(gomock.Any(), gomock.Any(), gomock.Any()).Return(string(v), nil)
-	ur1, err := d.GetUserRouteInfo(context.TODO(), "test1")
+	node.Volume.EXPECT().GetXAttr(A, A, A).Return(string(v), nil)
+	ur1, err := d.GetUserRouteInfo(Ctx, "test1")
 	require.NoError(t, err)
 	require.Equal(t, *ur1, ur)
 }
 
 func TestGetRootInoAndVolume(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	urm, _ := NewUserRouteMgr()
-	mockVol := mocks.NewMockIVolume(ctrl)
-	mockClusterMgr := mocks.NewMockClusterManager(ctrl)
-	d := &DriveNode{
-		vol:        mockVol,
-		userRouter: urm,
-		clusterMgr: mockClusterMgr,
-	}
+	node := newMockNode(t)
+	d := node.DriveNode
 
-	mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, ino uint64, name string) (*sdk.DirInfo, error) {
-			return &sdk.DirInfo{
-				Name:  name,
-				Inode: uint64(rand.Int63()),
-			}, nil
-		}).AnyTimes()
-	mockVol.EXPECT().GetXAttr(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, ino uint64, key string) (string, error) {
+	node.AnyLookup()
+	node.Volume.EXPECT().GetXAttr(A, A, A).DoAndReturn(func(context.Context, uint64, string) (string, error) {
 		ur := UserRoute{
 			Uid:         "test1",
 			ClusterType: 1,
@@ -349,318 +334,208 @@ func TestGetRootInoAndVolume(t *testing.T) {
 		v, _ := json.Marshal(ur)
 		return string(v), nil
 	}).AnyTimes()
-	mockClusterMgr.EXPECT().GetCluster(gomock.Any()).Return(nil)
-	_, _, err := d.getRootInoAndVolume(context.TODO(), "test1")
+
+	node.ClusterMgr.EXPECT().GetCluster(A).Return(nil)
+	_, _, err := d.getRootInoAndVolume(Ctx, "test1")
 	require.ErrorIs(t, err, sdk.ErrNoCluster)
 
-	mockCluster := mocks.NewMockICluster(ctrl)
-	mockClusterMgr.EXPECT().GetCluster(gomock.Any()).Return(mockCluster).AnyTimes()
-	mockCluster.EXPECT().GetVol(gomock.Any()).Return(nil)
-
-	_, _, err = d.getRootInoAndVolume(context.TODO(), "test1")
+	node.ClusterMgr.EXPECT().GetCluster(A).Return(node.Cluster)
+	node.Cluster.EXPECT().GetVol(A).Return(nil)
+	_, _, err = d.getRootInoAndVolume(Ctx, "test1")
 	require.ErrorIs(t, err, sdk.ErrNoVolume)
 
-	mockVol1 := mocks.NewMockIVolume(ctrl)
-	mockCluster.EXPECT().GetVol(gomock.Any()).Return(mockVol1)
-	rootIno, vol, err := d.getRootInoAndVolume(context.TODO(), "test1")
-	require.Nil(t, err)
+	node.ClusterMgr.EXPECT().GetCluster(A).Return(node.Cluster)
+	node.Cluster.EXPECT().GetVol(A).Return(node.Volume)
+	rootIno, vol, err := d.getRootInoAndVolume(Ctx, "test1")
+	require.NoError(t, err)
 	require.Equal(t, rootIno, Inode(10))
-	require.Equal(t, vol, mockVol1)
+	require.Equal(t, vol, node.Volume)
 }
 
 func TestLookup(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	d := &DriveNode{}
-	mockVol := mocks.NewMockIVolume(ctrl)
+	node := newMockNode(t)
+	d := node.DriveNode
 
-	_, err := d.lookup(context.TODO(), mockVol, 1, "/")
+	_, err := d.lookup(Ctx, node.Volume, 1, "/")
 	require.ErrorIs(t, err, sdk.ErrBadRequest)
 
-	mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, sdk.ErrNotFound)
-	_, err = d.lookup(context.TODO(), mockVol, 1, "/a/")
+	node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotFound)
+	_, err = d.lookup(Ctx, node.Volume, 1, "/a/")
 	require.ErrorIs(t, err, sdk.ErrNotFound)
 
-	mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, parentIno uint64, name string) (*sdk.DirInfo, error) {
-		return &sdk.DirInfo{
-			Name:  name,
-			Inode: parentIno + 1,
-		}, nil
-	}).Times(3)
-	dirInfo, err := d.lookup(context.TODO(), mockVol, 1, "/a/b/c")
+	node.LookupN(3)
+	dirInfo, err := d.lookup(Ctx, node.Volume, 1, "/a/b/c")
 	require.ErrorIs(t, err, nil)
 	require.Equal(t, dirInfo.Name, "c")
 	require.Equal(t, dirInfo.Inode, uint64(4))
 }
 
 func TestCreateDir(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	mockVol := mocks.NewMockIVolume(ctrl)
-	d := &DriveNode{}
+	node := newMockNode(t)
+	d := node.DriveNode
+
 	for _, path := range []string{"", "/"} {
-		mockVol.EXPECT().GetInode(A, A).Return(nil, sdk.ErrNotFound)
-		_, err := d.createDir(context.TODO(), mockVol, 1, path, false)
+		node.Volume.EXPECT().GetInode(A, A).Return(nil, sdk.ErrNotFound)
+		_, err := d.createDir(Ctx, node.Volume, 1, path, false)
 		require.ErrorIs(t, err, sdk.ErrNotFound)
 
-		mockVol.EXPECT().GetInode(A, A).Return(nil, nil)
-		_, err = d.createDir(context.TODO(), mockVol, 1, path, false)
+		node.Volume.EXPECT().GetInode(A, A).Return(nil, nil)
+		_, err = d.createDir(Ctx, node.Volume, 1, path, false)
 		require.NoError(t, err)
 	}
 
-	mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, sdk.ErrNotFound).Times(2)
-	_, err := d.createDir(context.TODO(), mockVol, 1, "/a/b", false)
+	node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotFound).Times(2)
+	_, err := d.createDir(Ctx, node.Volume, 1, "/a/b", false)
 	require.ErrorIs(t, err, sdk.ErrNotFound)
-	mockVol.EXPECT().Mkdir(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, sdk.ErrForbidden)
-	_, err = d.createDir(context.TODO(), mockVol, 1, "/a", false)
+	node.Volume.EXPECT().Mkdir(A, A, A).Return(nil, sdk.ErrForbidden)
+	_, err = d.createDir(Ctx, node.Volume, 1, "/a", false)
 	require.ErrorIs(t, err, sdk.ErrForbidden)
 
-	mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, parentIno uint64, name string) (*sdk.DirInfo, error) {
-			return &sdk.DirInfo{
-				Name:  name,
-				Inode: parentIno + 1,
-				Type:  uint32(os.ModeIrregular),
-			}, nil
-		})
-	_, err = d.createDir(context.TODO(), mockVol, 1, "/a/b", false)
+	node.OnceLookup(false)
+	_, err = d.createDir(Ctx, node.Volume, 1, "/a/b", false)
 	require.ErrorIs(t, err, sdk.ErrConflict)
 
-	mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, parentIno uint64, name string) (*sdk.DirInfo, error) {
-			if name == "c" {
-				return nil, sdk.ErrNotFound
-			}
-			return &sdk.DirInfo{
-				Name:  name,
-				Inode: parentIno + 1,
-				Type:  uint32(os.ModeDir),
-			}, nil
-		}).Times(3)
-	mockVol.EXPECT().Mkdir(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+	node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotFound).Times(2)
+	node.Volume.EXPECT().Mkdir(A, A, A).Return(nil, sdk.ErrExist)
+	_, err = d.createDir(Ctx, node.Volume, 1, "/a", true)
+	require.ErrorIs(t, err, sdk.ErrNotFound)
+
+	node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotFound)
+	node.Volume.EXPECT().Mkdir(A, A, A).Return(nil, sdk.ErrExist)
+	node.OnceLookup(false)
+	_, err = d.createDir(Ctx, node.Volume, 1, "/a", true)
+	require.ErrorIs(t, err, sdk.ErrConflict)
+
+	node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotFound)
+	node.Volume.EXPECT().Mkdir(A, A, A).Return(nil, sdk.ErrExist)
+	node.OnceLookup(true)
+	node.Volume.EXPECT().GetInode(A, A).Return(&sdk.InodeInfo{Mode: uint32(os.ModeDir)}, nil)
+	inoInfo, err := d.createDir(Ctx, node.Volume, 1, "/a", true)
+	require.NoError(t, err)
+	require.True(t, os.FileMode(inoInfo.Mode).IsDir())
+
+	node.LookupDirN(2)
+	node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotFound)
+	node.Volume.EXPECT().Mkdir(A, A, A).DoAndReturn(
 		func(ctx context.Context, parentIno uint64, name string) (*sdk.InodeInfo, error) {
 			return &sdk.InodeInfo{
 				Inode:      parentIno + 1,
 				Mode:       uint32(os.ModeDir),
 				Nlink:      1,
 				Size:       4096,
-				Uid:        0,
-				Gid:        0,
 				ModifyTime: time.Now(),
 				CreateTime: time.Now(),
 				AccessTime: time.Now(),
 			}, nil
 		})
-	inoInfo, err := d.createDir(context.TODO(), mockVol, 1, "/a/b/c", false)
-	require.Nil(t, err)
-	require.Equal(t, inoInfo.Inode, uint64(4))
+	inoInfo, err = d.createDir(Ctx, node.Volume, 1, "/a/b/c", false)
+	require.NoError(t, err)
+	require.Equal(t, inoInfo.Size, uint64(4096))
 	require.True(t, os.FileMode(inoInfo.Mode).IsDir())
 
-	mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, sdk.ErrNotFound).Times(3)
-	mockVol.EXPECT().Mkdir(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+	node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotFound).Times(3)
+	node.Volume.EXPECT().Mkdir(A, A, A).DoAndReturn(
 		func(ctx context.Context, parentIno uint64, name string) (*sdk.InodeInfo, error) {
 			return &sdk.InodeInfo{
 				Inode:      parentIno + 1,
 				Mode:       uint32(os.ModeDir),
 				Nlink:      1,
 				Size:       4096,
-				Uid:        0,
-				Gid:        0,
 				ModifyTime: time.Now(),
 				CreateTime: time.Now(),
 				AccessTime: time.Now(),
 			}, nil
 		}).Times(3)
-	inoInfo, err = d.createDir(context.TODO(), mockVol, 1, "/a/b/c", true)
+	inoInfo, err = d.createDir(Ctx, node.Volume, 1, "/a/b/c", true)
 	require.Nil(t, err)
-	require.Equal(t, inoInfo.Inode, uint64(4))
+	require.Equal(t, inoInfo.Size, uint64(4096))
 	require.True(t, os.FileMode(inoInfo.Mode).IsDir())
 
-	mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, parentIno uint64, name string) (*sdk.DirInfo, error) {
-			return &sdk.DirInfo{
-				Name:  name,
-				Inode: parentIno + 1,
-				Type:  uint32(os.ModeDir),
-			}, nil
-		}).Times(3)
-	mockVol.EXPECT().GetInode(gomock.Any(), gomock.Any()).Return(nil, sdk.ErrNotFound)
-	_, err = d.createDir(context.TODO(), mockVol, 1, "/a/b/c", true)
+	node.LookupDirN(3)
+	node.Volume.EXPECT().GetInode(A, A).Return(nil, sdk.ErrNotFound)
+	_, err = d.createDir(Ctx, node.Volume, 1, "/a/b/c", true)
 	require.ErrorIs(t, err, sdk.ErrNotFound)
 
-	mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, parentIno uint64, name string) (*sdk.DirInfo, error) {
-			return &sdk.DirInfo{
-				Name:  name,
-				Inode: parentIno + 1,
-				Type:  uint32(os.ModeDir),
-			}, nil
-		}).Times(3)
-	mockVol.EXPECT().GetInode(gomock.Any(), gomock.Any()).DoAndReturn(
+	node.LookupDirN(3)
+	node.Volume.EXPECT().GetInode(A, A).DoAndReturn(
 		func(ctx context.Context, inode uint64) (*sdk.InodeInfo, error) {
 			return &sdk.InodeInfo{
 				Inode: inode,
 				Mode:  uint32(os.ModeDir),
 			}, nil
 		})
-	inoInfo, err = d.createDir(context.TODO(), mockVol, 1, "/a/b/c", true)
+	inoInfo, err = d.createDir(Ctx, node.Volume, 1, "/a/b/c", true)
 	require.Nil(t, err)
-	require.Equal(t, inoInfo.Inode, uint64(4))
 	require.True(t, os.FileMode(inoInfo.Mode).IsDir())
 }
 
 func TestCreateFile(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	mockVol := mocks.NewMockIVolume(ctrl)
-	d := &DriveNode{}
+	node := newMockNode(t)
+	d := node.DriveNode
 
-	_, err := d.createFile(context.TODO(), mockVol, 1, "/")
+	_, err := d.createFile(Ctx, node.Volume, 1, "/")
 	require.ErrorIs(t, err, sdk.ErrBadRequest)
 
-	mockVol.EXPECT().CreateFile(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, sdk.ErrBadFile)
-	_, err = d.createFile(context.Background(), mockVol, 1, "a")
+	node.Volume.EXPECT().CreateFile(A, A, A).Return(nil, sdk.ErrBadFile)
+	_, err = d.createFile(Ctx, node.Volume, 1, "a")
 	require.ErrorIs(t, err, sdk.ErrBadFile)
 
-	mockVol.EXPECT().CreateFile(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+	node.Volume.EXPECT().CreateFile(A, A, A).DoAndReturn(
 		func(ctx context.Context, parentIno uint64, name string) (*sdk.InodeInfo, error) {
 			return &sdk.InodeInfo{
 				Inode: parentIno + 1,
 				Mode:  uint32(os.ModeIrregular),
-				Size:  0,
 			}, nil
 		})
-	inoInfo, err := d.createFile(context.Background(), mockVol, 1, "a")
+	inoInfo, err := d.createFile(Ctx, node.Volume, 1, "a")
 	require.Nil(t, err)
 	require.Equal(t, inoInfo.Inode, uint64(2))
 
-	mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, parentIno uint64, name string) (*sdk.DirInfo, error) {
-			return &sdk.DirInfo{
-				Name:  name,
-				Inode: parentIno + 1,
-				Type:  uint32(os.ModeDir),
-			}, nil
-		}).Times(2)
-	mockVol.EXPECT().GetInode(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, inode uint64) (*sdk.InodeInfo, error) {
-			return &sdk.InodeInfo{
-				Inode: inode,
-				Mode:  uint32(os.ModeDir),
-			}, nil
-		})
-	mockVol.EXPECT().CreateFile(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+	node.LookupDirN(2)
+	node.OnceGetInode()
+	node.Volume.EXPECT().CreateFile(A, A, A).DoAndReturn(
 		func(ctx context.Context, parentIno uint64, name string) (*sdk.InodeInfo, error) {
 			return &sdk.InodeInfo{
 				Inode: parentIno + 1,
 				Mode:  uint32(os.ModeIrregular),
-				Size:  0,
+				Size:  100,
 			}, nil
 		})
-	inoInfo, err = d.createFile(context.TODO(), mockVol, 1, "/a/b/c")
+	inoInfo, err = d.createFile(Ctx, node.Volume, 1, "/a/b/c")
 	require.Nil(t, err)
-	require.Equal(t, inoInfo.Inode, uint64(4))
+	require.Equal(t, inoInfo.Size, uint64(100))
 
-	mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, parentIno uint64, name string) (*sdk.DirInfo, error) {
-			mode := uint32(os.ModeDir)
-			if name == "c" {
-				mode = uint32(os.ModeIrregular)
-			}
-			return &sdk.DirInfo{
-				Name:  name,
-				Inode: parentIno + 1,
-				Type:  mode,
-			}, nil
-		}).Times(3)
-	mockVol.EXPECT().GetInode(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, inode uint64) (*sdk.InodeInfo, error) {
-			mode := uint32(os.ModeDir)
-			if inode == 4 {
-				mode = uint32(os.ModeIrregular)
-			}
-			return &sdk.InodeInfo{
-				Inode: inode,
-				Mode:  mode,
-			}, nil
-		}).Times(2)
-
-	mockVol.EXPECT().CreateFile(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, parentIno uint64, name string) (*sdk.InodeInfo, error) {
-			return nil, sdk.ErrExist
-		})
-	inoInfo, err = d.createFile(context.TODO(), mockVol, 1, "/a/b/c")
-	require.Nil(t, err)
-	require.Equal(t, inoInfo.Inode, uint64(4))
+	node.LookupDirN(2)
+	node.OnceLookup(false)
+	node.OnceGetInode()
+	node.OnceGetInode()
+	node.Volume.EXPECT().CreateFile(A, A, A).Return(nil, sdk.ErrExist)
+	_, err = d.createFile(Ctx, node.Volume, 1, "/a/b/c")
+	require.NoError(t, err)
 }
 
 func TestInitClusterConfig(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	urm, _ := NewUserRouteMgr()
-	mockVol := mocks.NewMockIVolume(ctrl)
-	mockClusterMgr := mocks.NewMockClusterManager(ctrl)
-	d := &DriveNode{
-		vol:        mockVol,
-		userRouter: urm,
-		clusterMgr: mockClusterMgr,
-	}
+	node := newMockNode(t)
+	d := node.DriveNode
 
-	mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, sdk.ErrNotDir)
-	err := d.initClusterConfig()
-	require.ErrorIs(t, err, sdk.ErrNotDir)
+	node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotDir)
+	require.ErrorIs(t, d.initClusterConfig(), sdk.ErrNotDir)
 
-	mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, parentIno uint64, name string) (*sdk.DirInfo, error) {
-			mode := uint32(os.ModeDir)
-			if name == "clusters.conf" {
-				mode = uint32(os.ModeIrregular)
-			}
-			return &sdk.DirInfo{
-				Name:  name,
-				Inode: parentIno + 1,
-				Type:  mode,
-			}, nil
-		}).Times(2)
-	mockVol.EXPECT().GetInode(gomock.Any(), gomock.Any()).Return(nil, sdk.ErrNotFound)
-	err = d.initClusterConfig()
-	require.ErrorIs(t, err, sdk.ErrNotFound)
+	node.AnyLookup()
+	node.Volume.EXPECT().GetInode(A, A).Return(nil, sdk.ErrNotFound)
+	require.ErrorIs(t, d.initClusterConfig(), sdk.ErrNotFound)
 
-	mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, parentIno uint64, name string) (*sdk.DirInfo, error) {
-			mode := uint32(os.ModeDir)
-			if name == "clusters.conf" {
-				mode = uint32(os.ModeIrregular)
-			}
-			return &sdk.DirInfo{
-				Name:  name,
-				Inode: parentIno + 1,
-				Type:  mode,
-			}, nil
-		}).AnyTimes()
-	mockVol.EXPECT().GetInode(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, inode uint64) (*sdk.InodeInfo, error) {
-			return &sdk.InodeInfo{
-				Inode: inode,
-				Mode:  uint32(os.ModeIrregular),
-				Size:  10,
-			}, nil
-		})
-	mockVol.EXPECT().ReadFile(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(0, sdk.ErrUnauthorized)
-	err = d.initClusterConfig()
-	require.ErrorIs(t, err, sdk.ErrUnauthorized)
+	node.OnceGetInode()
+	node.Volume.EXPECT().ReadFile(A, A, A, A).Return(0, sdk.ErrUnauthorized)
+	require.ErrorIs(t, d.initClusterConfig(), sdk.ErrUnauthorized)
 
-	mockVol.EXPECT().GetInode(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, inode uint64) (*sdk.InodeInfo, error) {
-			return &sdk.InodeInfo{
-				Inode: inode,
-				Mode:  uint32(os.ModeIrregular),
-				Size:  10,
-			}, nil
-		})
-	mockVol.EXPECT().ReadFile(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+	node.OnceGetInode()
+	node.Volume.EXPECT().ReadFile(A, A, A, A).DoAndReturn(
 		func(ctx context.Context, inode uint64, off uint64, data []byte) (n int, err error) {
 			copy(data, []byte("1234567890"))
 			return 10, nil
 		})
-	err = d.initClusterConfig()
-	require.NotNil(t, err)
+	require.Error(t, d.initClusterConfig())
 
 	cfg := ClusterConfig{}
 	for i := 0; i < 5; i++ {
@@ -670,9 +545,8 @@ func TestInitClusterConfig(t *testing.T) {
 			Priority:  10,
 		})
 	}
-
 	data, _ := json.Marshal(&cfg)
-	mockVol.EXPECT().GetInode(gomock.Any(), gomock.Any()).DoAndReturn(
+	node.Volume.EXPECT().GetInode(A, A).DoAndReturn(
 		func(ctx context.Context, inode uint64) (*sdk.InodeInfo, error) {
 			return &sdk.InodeInfo{
 				Inode: inode,
@@ -680,21 +554,20 @@ func TestInitClusterConfig(t *testing.T) {
 				Size:  uint64(len(data)),
 			}, nil
 		})
-	mockVol.EXPECT().ReadFile(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+	node.Volume.EXPECT().ReadFile(A, A, A, A).DoAndReturn(
 		func(ctx context.Context, inode uint64, off uint64, b []byte) (n int, err error) {
 			copy(b, data)
 			return len(data), nil
 		})
 	clusterIDs := []string{}
 	masters := []string{}
-	mockClusterMgr.EXPECT().AddCluster(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+	node.ClusterMgr.EXPECT().AddCluster(A, A, A).DoAndReturn(
 		func(ctx context.Context, clusterid string, master string) error {
 			clusterIDs = append(clusterIDs, clusterid)
 			masters = append(masters, master)
 			return nil
 		}).Times(5)
-	err = d.initClusterConfig()
-	require.Nil(t, err)
+	require.NoError(t, d.initClusterConfig())
 	require.Equal(t, len(clusterIDs), 5)
 	require.Equal(t, len(masters), 5)
 	for i := 0; i < 5; i++ {
