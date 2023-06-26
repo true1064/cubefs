@@ -44,6 +44,7 @@ func TestHandleMultipartUploads(t *testing.T) {
 		req.Header.Add(EncodeMetaHeader("multipart"), EncodeMeta("MultiPart"))
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
+		defer resp.Body.Close()
 		return resp2Data(resp, r)
 	}
 
@@ -164,6 +165,7 @@ func TestHandleMultipartParts(t *testing.T) {
 		req.Header.Add(HeaderCrc32, fmt.Sprint(body.Sum32()))
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
+		defer resp.Body.Close()
 		return resp2Data(resp, r)
 	}
 
@@ -202,6 +204,7 @@ func TestHandleMultipartList(t *testing.T) {
 		req.Header.Add(HeaderUserID, testUserID)
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
+		defer resp.Body.Close()
 		return resp2Data(resp, r)
 	}
 
@@ -245,6 +248,7 @@ func TestHandleMultipartAbort(t *testing.T) {
 		req.Header.Add(HeaderUserID, testUserID)
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
+		defer resp.Body.Close()
 		return resp2Error(resp)
 	}
 

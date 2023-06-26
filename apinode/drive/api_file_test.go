@@ -395,6 +395,7 @@ func TestHandleFileRename(t *testing.T) {
 		req.Header.Add(HeaderUserID, testUserID)
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
+		defer resp.Body.Close()
 		return resp2Error(resp)
 	}
 
@@ -457,6 +458,7 @@ func TestHandleFileCopy(t *testing.T) {
 		req.Header.Add(HeaderUserID, testUserID)
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
+		defer resp.Body.Close()
 		return resp2Error(resp)
 	}
 
@@ -502,7 +504,7 @@ func TestHandleFileCopy(t *testing.T) {
 	}
 	{
 		add(func() { node.OnceGetInode() })
-		node.Volume.EXPECT().UploadFile(A, A).Return(nil, nil)
+		node.Volume.EXPECT().UploadFile(A, A).Return(&sdk.InodeInfo{}, nil)
 		require.NoError(t, doRequest("src", "/dir/a", "dst", "/dir/b"))
 	}
 	{
@@ -513,7 +515,7 @@ func TestHandleFileCopy(t *testing.T) {
 	{
 		add()
 		node.Volume.EXPECT().GetXAttrMap(A, A).Return(nil, nil)
-		node.Volume.EXPECT().UploadFile(A, A).Return(nil, nil)
+		node.Volume.EXPECT().UploadFile(A, A).Return(&sdk.InodeInfo{}, nil)
 		require.NoError(t, doRequest("src", "/dir/a", "dst", "/dir/b", "meta", "1"))
 	}
 }

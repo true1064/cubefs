@@ -52,6 +52,7 @@ func (d *DriveNode) RegisterAPIRouters() *rpc.Router {
 
 	// set request id and user id at interceptors.
 	r.Use(d.setHeaders)
+	r.Use(d.limitRequest)
 
 	r.Handle(http.MethodPut, "/v1/drive", d.handleCreateDrive)
 	r.Handle(http.MethodGet, "/v1/drive", d.handleGetDrive)
@@ -100,7 +101,7 @@ func (d *DriveNode) setHeaders(c *rpc.Context) {
 }
 
 func (d *DriveNode) limitRequest(c *rpc.Context) {
-	if !d.limiter.Allow() {
+	if d.limiter != nil && !d.limiter.Allow() {
 		c.AbortWithStatus(http.StatusTooManyRequests)
 		return
 	}

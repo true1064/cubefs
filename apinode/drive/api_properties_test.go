@@ -24,6 +24,7 @@ func TestHandleSetProperties(t *testing.T) {
 		}
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
+		defer resp.Body.Close()
 		return resp2Error(resp)
 	}
 
@@ -34,6 +35,7 @@ func TestHandleSetProperties(t *testing.T) {
 		req.Header.Add(UserPropertyPrefix+"not-hex-key", "value")
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
+		defer resp.Body.Close()
 		require.Equal(t, 400, resp2Error(resp).StatusCode())
 		require.Equal(t, 400, doRequest("").StatusCode())
 		require.Equal(t, 400, doRequest("../a", "k1", "v1").StatusCode())
@@ -78,6 +80,7 @@ func TestHandleDelProperties(t *testing.T) {
 		}
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
+		defer resp.Body.Close()
 		return resp2Error(resp)
 	}
 
@@ -88,6 +91,7 @@ func TestHandleDelProperties(t *testing.T) {
 		req.Header.Add(UserPropertyPrefix+"not-hex-key", "value")
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
+		defer resp.Body.Close()
 		require.Equal(t, 400, resp2Error(resp).StatusCode())
 	}
 	{
@@ -97,6 +101,7 @@ func TestHandleDelProperties(t *testing.T) {
 		req.Header.Add(EncodeMetaHeader("hex-key"), "not-hex-value")
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
+		defer resp.Body.Close()
 		require.Equal(t, 400, resp2Error(resp).StatusCode())
 	}
 	{
@@ -150,6 +155,7 @@ func TestHandleGetProperties(t *testing.T) {
 		req.Header.Add(HeaderUserID, testUserID)
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
+		defer resp.Body.Close()
 		return resp2Data(resp, data)
 	}
 

@@ -37,6 +37,7 @@ func TestHandleFilesMakedir(t *testing.T) {
 		req.Header.Add(HeaderUserID, testUserID)
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
+		defer resp.Body.Close()
 		return resp2Error(resp)
 	}
 
@@ -75,6 +76,7 @@ func TestHandleFilesDelete(t *testing.T) {
 		req.Header.Add(HeaderUserID, testUserID)
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
+		defer resp.Body.Close()
 		return resp2Error(resp)
 	}
 
