@@ -78,7 +78,7 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 		return
 	}
 
-	d.out.Publish(ctx, makeOpLog(OpUploadFile, uid, string(args.Path), "size", inode.Size))
+	d.out.Publish(ctx, makeOpLog(OpUploadFile, uid, string(args.Path), "size", inode.Size, "fileId", inode.Inode))
 	d.respData(c, inode2file(inode, filename, extend))
 }
 
@@ -161,7 +161,7 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 		vol.WriteFile(ctx, args.FileID.Uint64(), wOffset, wSize, reader)) {
 		return
 	}
-	d.out.Publish(ctx, makeOpLog(OpUpdateFile, uid, string(args.Path), "size", inode.Size))
+	d.out.Publish(ctx, makeOpLog(OpUpdateFile, uid, string(args.Path), "size", inode.Size, "fileId", inode.Inode))
 	c.Respond()
 }
 
@@ -324,7 +324,7 @@ func (d *DriveNode) handleFileRename(c *rpc.Context) {
 	if d.checkError(c, func(err error) { span.Error("rename error", args, err) }, err) {
 		return
 	}
-	d.out.Publish(ctx, makeOpLog(OpUpdateFile, d.userID(c), string(args.Src), "dst", string(args.Dst)))
+	d.out.Publish(ctx, makeOpLog(OpRename, d.userID(c), string(args.Src), "dst", string(args.Dst)))
 	c.Respond()
 }
 
@@ -380,7 +380,7 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 		return
 	}
 
-	_, err = vol.UploadFile(ctx, &sdk.UploadFileReq{
+	inode, err = vol.UploadFile(ctx, &sdk.UploadFileReq{
 		ParIno: dstParent.Inode,
 		Name:   filename,
 		OldIno: 0,
@@ -391,6 +391,6 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 	if d.checkError(c, func(err error) { span.Error(err) }, err) {
 		return
 	}
-	d.out.Publish(ctx, makeOpLog(OpCopyFile, d.userID(c), string(args.Src), "dst", string(args.Dst)))
+	d.out.Publish(ctx, makeOpLog(OpCopyFile, d.userID(c), string(args.Src), "dst", string(args.Dst), "fileId", inode.Inode))
 	c.Respond()
 }

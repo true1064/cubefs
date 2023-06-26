@@ -4,6 +4,8 @@ import (
 	"context"
 	"sync"
 	"time"
+
+	"github.com/cubefs/cubefs/blobstore/common/trace"
 )
 
 type Event struct {
@@ -41,8 +43,14 @@ func (out *Output) Publish(ctx context.Context, event Event) (err error) {
 	out.mu.RLock()
 	sinks := out.sinks[:]
 	out.mu.RUnlock()
+	span := trace.SpanFromContextSafe(ctx)
+	start := time.Now()
+	defer func() {
+		span.AppendTrackLog("oplog", start, err)
+	}()
 	for _, sink := range sinks {
 		if err = sink.Publish(ctx, event); err != nil {
+			span.Errorf("publish event %v error: %v", event, err)
 			break
 		}
 	}

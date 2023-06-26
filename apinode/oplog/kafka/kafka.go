@@ -5,11 +5,9 @@ import (
 	"encoding/json"
 	"os"
 	"strings"
-	"sync"
 
 	"github.com/Shopify/sarama"
 	"github.com/cubefs/cubefs/apinode/oplog"
-	"github.com/cubefs/cubefs/blobstore/util/log"
 )
 
 type config struct {
@@ -18,10 +16,8 @@ type config struct {
 }
 
 type sink struct {
-	producer sarama.AsyncProducer
+	producer sarama.SyncProducer
 	topic    string
-	stopc    chan struct{}
-	wg       sync.WaitGroup
 }
 
 func NewKafkaSink(filename string) (oplog.Sink, error) {
@@ -36,7 +32,9 @@ func NewKafkaSink(filename string) (oplog.Sink, error) {
 	conf := sarama.NewConfig()
 	conf.Version = sarama.V0_10_0_0
 	conf.Producer.RequiredAcks = sarama.WaitForAll
-	producer, err := sarama.NewAsyncProducer(strings.Split(cfg.Addrs, ","), conf)
+	conf.Producer.Return.Errors = true
+	conf.Producer.Return.Successes = true
+	producer, err := sarama.NewSyncProducer(strings.Split(cfg.Addrs, ","), conf)
 	if err != nil {
 		return nil, err
 	}
@@ -44,37 +42,12 @@ func NewKafkaSink(filename string) (oplog.Sink, error) {
 	s := &sink{
 		producer: producer,
 		topic:    cfg.Topic,
-		stopc:    make(chan struct{}),
 	}
-	s.wg.Add(2)
-	go func() {
-		defer s.wg.Done()
-		for {
-			select {
-			case m := <-s.producer.Errors():
-				data, _ := m.Msg.Value.Encode()
-				log.Errorf("Send %s to kafka error: %v", string(data), m.Err)
-			case <-s.stopc:
-				return
-			}
-		}
-	}()
-	go func() {
-		defer s.wg.Done()
-		for {
-			select {
-			case <-s.producer.Successes():
-			case <-s.stopc:
-				return
-			}
-		}
-	}()
 	return s, nil
 }
 
 func (s *sink) Close() error {
-	close(s.stopc)
-	s.wg.Wait()
+	s.producer.Close()
 	return nil
 }
 
@@ -83,12 +56,9 @@ func (s *sink) Publish(ctx context.Context, event oplog.Event) error {
 	if err != nil {
 		return err
 	}
-	select {
-	case s.producer.Input() <- &sarama.ProducerMessage{Topic: s.topic, Key: sarama.StringEncoder(event.Key), Value: sarama.ByteEncoder(data), Timestamp: event.Timestamp}:
-	case <-s.stopc:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
+	m := &sarama.ProducerMessage{Topic: s.topic, Key: sarama.StringEncoder(event.Key), Value: sarama.ByteEncoder(data), Timestamp: event.Timestamp}
+	if _, _, err := s.producer.SendMessage(m); err != nil {
+		return err
 	}
 	return nil
 }

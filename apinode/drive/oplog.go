@@ -10,6 +10,7 @@ type OpCode int
 
 const (
 	OpUploadFile OpCode = iota + 1
+	OpMultiUploadFile
 	OpDeleteFile
 	OpUpdateFile
 	OpCopyFile
