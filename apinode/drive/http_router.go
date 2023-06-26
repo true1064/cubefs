@@ -99,6 +99,13 @@ func (d *DriveNode) setHeaders(c *rpc.Context) {
 	c.Set(HeaderUserID, uid)
 }
 
+func (d *DriveNode) limitRequest(c *rpc.Context) {
+	if !d.limiter.Allow() {
+		c.AbortWithStatus(http.StatusTooManyRequests)
+		return
+	}
+}
+
 func (*DriveNode) requestID(c *rpc.Context) string {
 	rid, _ := c.Get(HeaderRequestID)
 	return rid.(string)

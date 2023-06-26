@@ -63,7 +63,9 @@ type ClusterInfo struct {
 }
 
 type ClusterConfig struct {
-	Clusters []ClusterInfo `json:"clusters"`
+	Clusters     []ClusterInfo `json:"clusters"`
+	RequestLimit int           `json:"requestLimit"` // the number of request per second
+	LimiterBrust int           `json:"limiterBrust"` // the size of token bucket
 }
 
 const (

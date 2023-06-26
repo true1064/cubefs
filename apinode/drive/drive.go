@@ -36,6 +36,7 @@ import (
 	"github.com/cubefs/cubefs/proto"
 	"github.com/cubefs/cubefs/util/config"
 	"golang.org/x/sync/singleflight"
+	"golang.org/x/time/rate"
 )
 
 // const vaules.
@@ -173,7 +174,8 @@ type SharedFileInfo struct {
 }
 
 const (
-	maxTaskPoolSize = 8
+	maxTaskPoolSize     = 8
+	defaultLimiterBurst = 2000
 )
 
 type ArgsListDir struct {
@@ -206,6 +208,7 @@ type DriveNode struct {
 	userRouter  *userRouteMgr
 	clusterMgr  sdk.ClusterManager
 	groupRouter singleflight.Group // for get user route
+	limiter     *rate.Limiter
 
 	out *oplog.Output
 
@@ -227,6 +230,7 @@ func New() *DriveNode {
 	return &DriveNode{
 		userRouter: urm,
 		clusterMgr: cm,
+		limiter:    rate.NewLimiter(rate.Inf, defaultLimiterBurst),
 		out:        oplog.NewOutput(),
 		cryptor:    crypto.NewCryptor(),
 		Closer:     closer.New(),
@@ -431,6 +435,13 @@ func (d *DriveNode) initClusterConfig() error {
 	}
 	if len(cfg.Clusters) == 0 {
 		return fmt.Errorf("cluster config is empty")
+	}
+
+	if cfg.RequestLimit > 0 && cfg.RequestLimit != int(d.limiter.Limit()) {
+		d.limiter.SetLimit(rate.Limit(cfg.RequestLimit))
+	}
+	if cfg.LimiterBrust > 0 && d.limiter.Burst() != cfg.LimiterBrust {
+		d.limiter.SetBurst(cfg.LimiterBrust)
 	}
 
 	var clusters []string
