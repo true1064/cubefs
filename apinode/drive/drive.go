@@ -161,18 +161,6 @@ func inode2file(ino *sdk.InodeInfo, name string, properties map[string]string) *
 	}
 }
 
-type SharedFileInfo struct {
-	ID    uint64 `json:"id"`
-	Path  string `json:"path"`
-	Owner string `json:"owner"`
-	Type  string `json:"type"`
-	Size  int64  `json:"size"`
-	Ctime int64  `json:"ctime"`
-	Mtime int64  `json:"mtime"`
-	Atime int64  `json:"atime"`
-	Perm  string `json:"perm"` // only rd or rw
-}
-
 const (
 	maxTaskPoolSize     = 8
 	defaultLimiterBurst = 2000
