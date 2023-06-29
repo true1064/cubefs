@@ -18,6 +18,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/cubefs/cubefs/proto"
@@ -25,8 +26,8 @@ import (
 	"github.com/cubefs/cubefs/util/log"
 )
 
-type  fsmUnlinkSt struct {
-	inode *Inode
+type fsmUnlinkSt struct {
+	inode   *Inode
 	VerList []uint64
 }
 

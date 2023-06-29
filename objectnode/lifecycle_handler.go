@@ -159,6 +159,7 @@ func (o *ObjectNode) putBucketLifecycleConfigurationHandler(w http.ResponseWrite
 
 	if err = o.mc.AdminAPI().SetBucketLifecycle(&req); err != nil {
 		log.LogErrorf("putBucketLifecycle failed: SetBucketLifecycle err: bucket[%v] err(%v)", param.Bucket(), err)
+		errorCode = InternalErrorCode(err)
 		return
 	}
 
@@ -187,6 +188,7 @@ func (o *ObjectNode) deleteBucketLifecycleConfigurationHandler(w http.ResponseWr
 
 	if err = o.mc.AdminAPI().DelBucketLifecycle(param.Bucket()); err != nil {
 		log.LogErrorf("deleteBucketLifecycle failed: bucket[%v] err(%v)", param.Bucket(), err)
+		errorCode = InternalErrorCode(err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

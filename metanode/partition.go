@@ -161,7 +161,7 @@ type OpExtend interface {
 type OpDentry interface {
 	CreateDentry(req *CreateDentryReq, p *Packet) (err error)
 	DeleteDentry(req *DeleteDentryReq, p *Packet) (err error)
-    DeleteDentryByDirVer(req *DeleteDentryReq, p *Packet) (err error)
+	DeleteDentryByDirVer(req *DeleteDentryReq, p *Packet) (err error)
 	DeleteDentryBatch(req *BatchDeleteDentryReq, p *Packet) (err error)
 	UpdateDentry(req *UpdateDentryReq, p *Packet) (err error)
 	ReadDir(req *ReadDirReq, p *Packet) (err error)
