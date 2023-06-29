@@ -168,7 +168,7 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 		return
 	}
 
-	d.out.Publish(ctx, makeOpLog(OpMultiUploadFile, d.userID(c), args.Path.String(), "size", inode.Size, "fileId", inode.Inode))
+	d.out.Publish(ctx, makeOpLog(OpMultiUploadFile, d.requestID(c), d.userID(c), args.Path.String(), "size", inode.Size))
 	span.Info("multipart complete", args, parts)
 	_, filename := args.Path.Split()
 	d.respData(c, inode2file(inode, filename, extend))

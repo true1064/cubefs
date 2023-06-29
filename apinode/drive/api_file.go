@@ -78,7 +78,7 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 		return
 	}
 
-	d.out.Publish(ctx, makeOpLog(OpUploadFile, uid, string(args.Path), "size", inode.Size, "fileId", inode.Inode))
+	d.out.Publish(ctx, makeOpLog(OpUploadFile, d.requestID(c), uid, string(args.Path), "size", inode.Size))
 	d.respData(c, inode2file(inode, filename, extend))
 }
 
@@ -152,6 +152,10 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 		return
 	}
 
+	if err = d.out.Publish(ctx, makeOpLog(OpUpdateFile, d.requestID(c), uid, string(args.Path), "size", inode.Size)); err != nil {
+		d.respError(c, err)
+		return
+	}
 	wOffset, wSize := uint64(ranged.Start)-firstN, firstN+size+lastN
 	span.Infof("write file:%d range-start:%d body-size:%d rewrite-offset:%d rewrite-size:%d",
 		args.FileID, ranged.Start, size, wOffset, wSize)
@@ -161,7 +165,6 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 		vol.WriteFile(ctx, args.FileID.Uint64(), wOffset, wSize, reader)) {
 		return
 	}
-	d.out.Publish(ctx, makeOpLog(OpUpdateFile, uid, string(args.Path), "size", inode.Size, "fileId", inode.Inode))
 	c.Respond()
 }
 
@@ -324,7 +327,7 @@ func (d *DriveNode) handleFileRename(c *rpc.Context) {
 	if d.checkError(c, func(err error) { span.Error("rename error", args, err) }, err) {
 		return
 	}
-	d.out.Publish(ctx, makeOpLog(OpRename, d.userID(c), string(args.Src), "dst", string(args.Dst)))
+	d.out.Publish(ctx, makeOpLog(OpRename, d.requestID(c), d.userID(c), string(args.Src), "dst", string(args.Dst)))
 	c.Respond()
 }
 
@@ -380,6 +383,10 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 		return
 	}
 
+	if err = d.out.Publish(ctx, makeOpLog(OpCopyFile, d.requestID(c), d.userID(c), string(args.Src), "dst", string(args.Dst))); err != nil {
+		d.respError(c, err)
+		return
+	}
 	inode, err = vol.UploadFile(ctx, &sdk.UploadFileReq{
 		ParIno: dstParent.Inode,
 		Name:   filename,
@@ -391,6 +398,5 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 	if d.checkError(c, func(err error) { span.Error(err) }, err) {
 		return
 	}
-	d.out.Publish(ctx, makeOpLog(OpCopyFile, d.userID(c), string(args.Src), "dst", string(args.Dst), "fileId", inode.Inode))
 	c.Respond()
 }

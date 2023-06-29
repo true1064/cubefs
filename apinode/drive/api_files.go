@@ -50,7 +50,7 @@ func (d *DriveNode) handleMkDir(c *rpc.Context) {
 	}, err) {
 		return
 	}
-	d.out.Publish(ctx, makeOpLog(OpCreateDir, uid, args.Path.String()))
+	d.out.Publish(ctx, makeOpLog(OpCreateDir, d.requestID(c), uid, args.Path.String()))
 	c.Respond()
 }
 
@@ -107,7 +107,7 @@ func (d *DriveNode) handleFilesDelete(c *rpc.Context) {
 	if file.IsDir() {
 		op = OpDeleteDir
 	}
-	d.out.Publish(ctx, makeOpLog(op, d.userID(c), args.Path.String()))
+	d.out.Publish(ctx, makeOpLog(op, d.requestID(c), d.userID(c), args.Path.String()))
 	c.Respond()
 }
 
@@ -205,6 +205,6 @@ func (d *DriveNode) recursivelyDelete(c *rpc.Context, path FilePath) {
 		}
 	}
 
-	d.out.Publish(ctx, makeOpLog(OpDeleteDir, d.userID(c), path.String()))
+	d.out.Publish(ctx, makeOpLog(OpDeleteDir, d.requestID(c), d.userID(c), path.String()))
 	c.Respond()
 }

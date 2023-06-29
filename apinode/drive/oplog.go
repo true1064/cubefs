@@ -19,7 +19,7 @@ const (
 	OpDeleteDir
 )
 
-func makeOpLog(op OpCode, uid UserID, path string, fields ...interface{}) oplog.Event {
+func makeOpLog(op OpCode, reqid string, uid UserID, path string, fields ...interface{}) oplog.Event {
 	event := oplog.Event{
 		Key:       string(uid),
 		Timestamp: time.Now(),
@@ -29,6 +29,7 @@ func makeOpLog(op OpCode, uid UserID, path string, fields ...interface{}) oplog.
 	event.Fields["path"] = path
 	event.Fields["uid"] = string(uid)
 	event.Fields["timestamp"] = event.Timestamp.UnixMilli()
+	event.Fields["reqid"] = reqid
 
 	n := len(fields) / 2 * 2
 	for i := 0; i < n; i += 2 {
