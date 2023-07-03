@@ -28,6 +28,7 @@ import (
 	"github.com/cubefs/cubefs/blobstore/common/profile"
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
 	"github.com/cubefs/cubefs/blobstore/common/rpc/auditlog"
+	"github.com/cubefs/cubefs/blobstore/common/trace"
 	"github.com/cubefs/cubefs/blobstore/util/closer"
 	"github.com/cubefs/cubefs/blobstore/util/log"
 	"github.com/cubefs/cubefs/cmd/common"
@@ -36,6 +37,13 @@ import (
 	"github.com/cubefs/cubefs/util/config"
 	"github.com/cubefs/cubefs/util/exporter"
 )
+
+func init() {
+	trace.RequestIDKey = "x-cfa-trace-id"
+	trace.PrefixBaggage = "x-cfa-baggage-"
+	trace.FieldKeyTraceID = "x-cfa-trace-id"
+	trace.FieldKeySpanID = "x-cfa-span-id"
+}
 
 // Configuration items that act on the api node.
 const (
