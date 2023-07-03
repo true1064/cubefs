@@ -17,7 +17,6 @@ package trace
 import (
 	"context"
 	"net/http"
-	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -47,9 +46,7 @@ func TestExplicitTags(t *testing.T) {
 		"tag2K": "tag2V",
 	}
 
-	slice := tags.ToSlice()
-	sort.Strings(slice)
-	require.Equal(t, []string{"tag1K:tag1V", "tag2K:tag2V"}, slice)
+	require.Equal(t, []string{"tag1K:tag1V", "tag2K:tag2V"}, tags.ToSlice())
 	_, err := tags.Marshal()
 	require.NoError(t, err)
 
