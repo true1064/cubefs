@@ -78,6 +78,12 @@ func TestHandleMultipartUploads(t *testing.T) {
 	{
 		node.OnceGetUser()
 		body := &mockBody{buff: []byte("[]")}
+		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrConflict)
+		require.Equal(t, sdk.ErrConflict.Status, doRequest(body, nil, "path", "/mpfile", "uploadId", uploadID, "fileId", "123").StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		body := &mockBody{buff: []byte("[]")}
 		node.Volume.EXPECT().ListMultiPart(A, A, A, A, A).Return(nil, uint64(0), false, e2)
 		require.Equal(t, e2.Status, doRequest(body, nil, "path", "/mpfile", "uploadId", uploadID).StatusCode())
 	}

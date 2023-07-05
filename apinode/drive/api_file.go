@@ -46,6 +46,10 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 	if d.checkError(c, func(err error) { span.Warn(err) }, err, err1) {
 		return
 	}
+	if d.checkError(c, func(err error) { span.Warn(args.Path, err) },
+		d.lookupID(ctx, vol, root, args.Path, args.FileID)) {
+		return
+	}
 
 	dir, filename := args.Path.Split()
 	info, err := d.createDir(ctx, vol, root, dir.String(), true)
@@ -99,9 +103,13 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 	}
 
 	uid := d.userID(c)
-	_, vol, err := d.getRootInoAndVolume(ctx, uid)
+	root, vol, err := d.getRootInoAndVolume(ctx, uid)
 	ur, err1 := d.GetUserRouteInfo(ctx, uid)
 	if d.checkError(c, func(err error) { span.Warn(err) }, err, err1) {
+		return
+	}
+	if d.checkError(c, func(err error) { span.Warn(args.Path, err) },
+		d.lookupID(ctx, vol, root, args.Path, args.FileID)) {
 		return
 	}
 
@@ -387,7 +395,7 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 		d.respError(c, err)
 		return
 	}
-	inode, err = vol.UploadFile(ctx, &sdk.UploadFileReq{
+	_, err = vol.UploadFile(ctx, &sdk.UploadFileReq{
 		ParIno: dstParent.Inode,
 		Name:   filename,
 		OldIno: 0,

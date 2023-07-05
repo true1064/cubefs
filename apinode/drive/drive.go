@@ -74,7 +74,8 @@ func (i Inode) Uint64() uint64 {
 type FileID = Inode
 
 // FilePath cleaned file path.
-//  It ends with a separator if path is directory.
+//
+//	It ends with a separator if path is directory.
 type FilePath string
 
 // Valid returns valid or not.
@@ -297,6 +298,29 @@ func (d *DriveNode) getRootInoAndVolume(ctx context.Context, uid UserID) (Inode,
 		return 0, nil, sdk.ErrNoVolume
 	}
 	return userRouter.RootFileID, volume, nil
+}
+
+func (d *DriveNode) lookupID(ctx context.Context, vol sdk.IVolume, pIno Inode, path FilePath, id FileID) (err error) {
+	if id == 0 {
+		return nil
+	}
+	span := trace.SpanFromContextSafe(ctx)
+	st := time.Now()
+	defer func() { span.AppendTrackLog("clux", st, err) }()
+
+	var ino *sdk.DirInfo
+	ino, err = d.lookup(ctx, vol, pIno, path.String())
+	if err != nil {
+		if err == sdk.ErrNotFound {
+			err = sdk.ErrConflict
+			return
+		}
+		return err
+	}
+	if ino.Inode != id.Uint64() {
+		return sdk.ErrConflict
+	}
+	return nil
 }
 
 func (d *DriveNode) lookup(ctx context.Context, vol sdk.IVolume, parentIno Inode, path string) (info *sdk.DirInfo, err error) {

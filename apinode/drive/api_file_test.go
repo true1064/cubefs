@@ -72,6 +72,27 @@ func TestHandleFileUpload(t *testing.T) {
 	}
 	{
 		node.OnceGetUser()
+		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotFound)
+		resp := doRequest(newMockBody(64), "path", "/a", "fileId", "1111")
+		defer resp.Body.Close()
+		require.Equal(t, sdk.ErrConflict.Status, resp.StatusCode)
+	}
+	{
+		node.OnceGetUser()
+		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e1)
+		resp := doRequest(newMockBody(64), "path", "/a", "fileId", "1111")
+		defer resp.Body.Close()
+		require.Equal(t, e1.Status, resp.StatusCode)
+	}
+	{
+		node.OnceGetUser()
+		node.Volume.EXPECT().Lookup(A, A, A).Return(&sdk.DirInfo{Inode: 1000}, nil)
+		resp := doRequest(newMockBody(64), "path", "/a", "fileId", "1111")
+		defer resp.Body.Close()
+		require.Equal(t, sdk.ErrConflict.Status, resp.StatusCode)
+	}
+	{
+		node.OnceGetUser()
 		node.OnceLookup(true)
 		node.OnceGetInode()
 		// invalid crc
@@ -157,6 +178,16 @@ func TestHandleFileWrite(t *testing.T) {
 			defer resp.Body.Close()
 			return resp2Error(resp)
 		}, testUserID)
+	}
+	{
+		node.OnceGetUser()
+		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotFound)
+		resp := doRequest(newMockBody(64), "", queries...)
+		defer resp.Body.Close()
+		require.Equal(t, sdk.ErrConflict.Status, resp.StatusCode)
+	}
+	node.Volume.EXPECT().Lookup(A, A, A).Return(&sdk.DirInfo{Inode: 1111}, nil).AnyTimes()
+	{
 		node.OnceGetUser()
 		node.Volume.EXPECT().GetInode(A, A).Return(nil, e1)
 		resp := doRequest(newMockBody(64), "", queries...)

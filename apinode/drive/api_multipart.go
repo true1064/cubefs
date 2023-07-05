@@ -101,8 +101,12 @@ func (d *DriveNode) requestParts(c *rpc.Context) (parts []MPPart, err error) {
 
 func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 	ctx, span := d.ctxSpan(c)
-	_, vol, err := d.getRootInoAndVolume(ctx, d.userID(c))
+	root, vol, err := d.getRootInoAndVolume(ctx, d.userID(c))
 	if d.checkError(c, func(err error) { span.Info(err) }, err) {
+		return
+	}
+	if d.checkError(c, func(err error) { span.Warn(args.Path, err) },
+		d.lookupID(ctx, vol, root, args.Path, args.FileID)) {
 		return
 	}
 
