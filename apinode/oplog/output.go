@@ -14,6 +14,10 @@ type Event struct {
 	Fields    map[string]interface{}
 }
 
+type Handler interface {
+	ConsumerEvent(ctx context.Context, e Event)
+}
+
 type Sink interface {
 	Close() error
 
@@ -22,6 +26,8 @@ type Sink interface {
 
 	// identifies the sink
 	Name() string
+
+	StartConsumer(h Handler)
 }
 
 type Output struct {
@@ -55,6 +61,18 @@ func (out *Output) Publish(ctx context.Context, event Event) (err error) {
 		}
 	}
 	return
+}
+
+func (out *Output) StartConsumer(name string, h Handler) {
+	out.mu.RLock()
+	sinks := out.sinks[:]
+	out.mu.RUnlock()
+	for _, sink := range sinks {
+		if sink.Name() == name {
+			sink.StartConsumer(h)
+			break
+		}
+	}
 }
 
 func (out *Output) Close() {
