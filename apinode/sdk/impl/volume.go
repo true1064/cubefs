@@ -507,6 +507,13 @@ func (v *volume) UploadFile(ctx context.Context, req *sdk.UploadFileReq) (*sdk.I
 		return nil, syscallToErr(err)
 	}
 
+	if cb := req.Callback; cb != nil {
+		if err = cb(); err != nil {
+			span.Errorf("callback, ino %d, err %s", tmpIno, err.Error())
+			return nil, syscallToErr(err)
+		}
+	}
+
 	if len(req.Extend) != 0 {
 		err = v.mw.BatchSetXAttr_ll(tmpIno, req.Extend)
 		if err != nil {

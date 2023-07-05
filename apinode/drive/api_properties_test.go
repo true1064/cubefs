@@ -105,6 +105,9 @@ func TestHandleDelProperties(t *testing.T) {
 		require.Equal(t, 400, resp2Error(resp).StatusCode())
 	}
 	{
+		require.Equal(t, 400, doRequest("a", internalMetaPrefix+"key").StatusCode())
+	}
+	{
 		require.Equal(t, 400, doRequest("").StatusCode())
 		require.Equal(t, 400, doRequest("a/b/../../..").StatusCode())
 		longKey := make([]byte, 1025)

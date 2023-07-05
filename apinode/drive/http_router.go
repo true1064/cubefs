@@ -148,6 +148,9 @@ func (d *DriveNode) getProperties(c *rpc.Context) (map[string]string, error) {
 			if err != nil {
 				return nil, sdk.ErrBadRequest.Extend("meta key was not invalid hex")
 			}
+			if strings.HasPrefix(k, internalMetaPrefix) {
+				return nil, sdk.ErrBadRequest.Extend("meta key was internal prefix")
+			}
 
 			v, err := noneTransmitter.Decrypt(c.Request.Header.Get(key), true)
 			if err != nil {

@@ -15,9 +15,12 @@
 package drive
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
@@ -57,7 +60,8 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 		return
 	}
 
-	var reader io.Reader = c.Request.Body
+	hasher := md5.New()
+	var reader io.Reader = io.TeeReader(c.Request.Body, hasher)
 	if d.checkFunc(c, func(err error) { span.Warn(err) },
 		func() error { reader, err = newCrc32Reader(c.Request.Header, reader, span.Warnf); return err },
 		func() error { reader, err = d.cryptor.FileEncryptor(ur.CipherKey, reader); return err }) {
@@ -69,14 +73,18 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 		return
 	}
 	st := time.Now()
-	span.Info("to upload file", args, extend)
 	inode, err := vol.UploadFile(ctx, &sdk.UploadFileReq{
 		ParIno: info.Inode,
 		Name:   filename,
 		OldIno: args.FileID.Uint64(),
 		Extend: extend,
 		Body:   reader,
+		Callback: func() error {
+			extend[internalMetaMD5] = hex.EncodeToString(hasher.Sum(nil))
+			return nil
+		},
 	})
+	span.Info("to upload file", args, extend)
 	span.AppendTrackLog("cfuu", st, err)
 	if d.checkError(c, func(err error) { span.Error("upload file", err) }, err) {
 		return
@@ -358,7 +366,8 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 	span.Info("to copy", args)
 
 	root, vol, err := d.getRootInoAndVolume(ctx, d.userID(c))
-	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
+	ur, err1 := d.GetUserRouteInfo(ctx, d.userID(c))
+	if d.checkError(c, func(err error) { span.Warn(err) }, err, err1) {
 		return
 	}
 
@@ -373,15 +382,28 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 	if d.checkError(c, func(err error) { span.Warn(file.Inode, err) }, err) {
 		return
 	}
-	body := newFixedReader(makeFileReader(ctx, vol, inode.Inode, 0), int64(inode.Size))
+	hasher := md5.New()
 
-	// TODO: remove shared meta
+	reader, err := d.makeBlockedReader(ctx, vol, inode.Inode, 0, ur.CipherKey)
+	if d.checkError(c, func(err error) { span.Warn(args.Src, file.Inode, err) }, err) {
+		return
+	}
+	reader = newFixedReader(io.TeeReader(reader, hasher), int64(inode.Size))
+	reader, err = d.cryptor.FileEncryptor(ur.CipherKey, reader)
+	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
+		return
+	}
+
 	st = time.Now()
-	extend := make(map[string]string)
-	if args.Meta {
-		extend, err = vol.GetXAttrMap(ctx, inode.Inode)
-		if d.checkError(c, func(err error) { span.Warn(err) }, err) {
-			return
+	extend, err := vol.GetXAttrMap(ctx, inode.Inode)
+	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
+		return
+	}
+	if !args.Meta {
+		for k := range extend {
+			if !strings.HasPrefix(k, internalMetaPrefix) {
+				delete(extend, k)
+			}
 		}
 	}
 
@@ -400,7 +422,18 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 		Name:   filename,
 		OldIno: 0,
 		Extend: extend,
-		Body:   body,
+		Body:   reader,
+		Callback: func() error {
+			newMd5 := hex.EncodeToString(hasher.Sum(nil))
+			if oldMd5, ok := extend[internalMetaMD5]; ok {
+				if oldMd5 != newMd5 {
+					span.Errorf("copy md5 mismatch %s -> %s old:%s new:%s",
+						args.Src.String(), args.Dst.String(), oldMd5, newMd5)
+				}
+			}
+			extend[internalMetaMD5] = newMd5
+			return nil
+		},
 	})
 	span.AppendTrackLog("cfcc", st, err)
 	if d.checkError(c, func(err error) { span.Error(err) }, err) {

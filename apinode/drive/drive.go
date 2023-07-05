@@ -56,6 +56,9 @@ const (
 
 	typeFile   = "file"
 	typeFolder = "folder"
+
+	internalMetaPrefix = "x-cfa-"
+	internalMetaMD5    = internalMetaPrefix + "md5"
 )
 
 var noneTransmitter, _ = crypto.NoneCryptor().Transmitter("")

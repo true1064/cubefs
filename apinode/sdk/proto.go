@@ -28,11 +28,12 @@ type DirInfo = proto.Dentry
 type Part = proto.MultipartPartInfo
 
 type UploadFileReq struct {
-	ParIno uint64
-	Name   string
-	OldIno uint64
-	Extend map[string]string
-	Body   io.Reader
+	ParIno   uint64
+	Name     string
+	OldIno   uint64
+	Extend   map[string]string
+	Body     io.Reader
+	Callback func() error
 }
 
 type SetAttrReq struct {
