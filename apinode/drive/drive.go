@@ -130,7 +130,7 @@ func (u *UserID) Valid() bool {
 }
 
 type FileInfo struct {
-	ID         uint64            `json:"id"`
+	ID         uint64            `json:"fileId"`
 	Name       string            `json:"name"`
 	Type       string            `json:"type"`
 	Size       int64             `json:"size"`

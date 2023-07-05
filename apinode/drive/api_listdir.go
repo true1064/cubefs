@@ -31,7 +31,7 @@ import (
 )
 
 type ListDirResult struct {
-	ID         uint64            `json:"id"`
+	ID         uint64            `json:"fileId"`
 	Type       string            `json:"type"`
 	NextMarker string            `json:"nextMarker"`
 	Properties map[string]string `json:"properties"`

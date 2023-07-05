@@ -20,16 +20,7 @@ import (
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
 )
 
-type GetPropertiesResult struct {
-	ID         uint64            `json:"id"`
-	Name       string            `json:"name"`
-	Type       string            `json:"type"`
-	Size       int64             `json:"size"`
-	Ctime      int64             `json:"ctime"`
-	Mtime      int64             `json:"mtime"`
-	Atime      int64             `json:"atime"`
-	Properties map[string]string `json:"properties"`
-}
+type GetPropertiesResult = FileInfo
 
 func (d *DriveNode) handleSetProperties(c *rpc.Context) {
 	ctx, span := d.ctxSpan(c)

@@ -35,8 +35,8 @@ type AppPathInfo struct {
 }
 
 type GetUserConfigResult struct {
-	ClusterID string        `json:"clusterid"`
-	VolumeID  string        `json:"volumeid"`
+	ClusterID string        `json:"clusterId"`
+	VolumeID  string        `json:"volumeId"`
 	RootPath  string        `json:"rootPath"`
 	AppPaths  []AppPathInfo `json:"appPaths"`
 }
