@@ -29,9 +29,6 @@ import (
 )
 
 const (
-	// BlockSize independent block with crypto.
-	BlockSize = 4096
-
 	// EncryptMode alias of engine mode.
 	EncryptMode = engine.ENCRYPT_MODE
 	// DecryptMode alias of engine mode.
@@ -42,7 +39,9 @@ var (
 	once      sync.Once
 	cryptoKit kit.AndesCryptoKit
 
-	pool = sync.Pool{
+	// BlockSize independent block with crypto.
+	BlockSize uint64 = 4096
+	pool             = sync.Pool{
 		New: func() interface{} {
 			return make([]byte, BlockSize)
 		},

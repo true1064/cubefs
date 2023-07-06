@@ -116,7 +116,7 @@ func TestHandleMultipartUploads(t *testing.T) {
 		var parts []MPPart
 		var listp []*sdk.Part
 		for idx := range [10]struct{}{} {
-			parts = append(parts, MPPart{PartNumber: uint16(idx + 1), Size: crypto.BlockSize, MD5: fmt.Sprint(idx)})
+			parts = append(parts, MPPart{PartNumber: uint16(idx + 1), Size: int(crypto.BlockSize), MD5: fmt.Sprint(idx)})
 			listp = append(listp, &sdk.Part{ID: uint16(idx + 1), Size: crypto.BlockSize, MD5: fmt.Sprint(idx)})
 		}
 		buff, _ := json.Marshal(parts)
