@@ -130,6 +130,14 @@ func (s *apiNode) loadConfig(cfg *config.Config) error {
 		s.audit.LogDir = path.Join(logDir, "audit")
 		s.audit.LogFileSuffix = ".log"
 		s.audit.Backup = 30
+		s.audit.MetricConfig = auditlog.PrometheusConfig{
+			EnableHttpMethod:    true,
+			EnableReqLengthCnt:  true,
+			EnableRespLengthCnt: true,
+			EnableRespDuration:  true,
+			EnableXWarnCnt:      true,
+			MaxApiLevel:         3,
+		}
 	}
 
 	strLevel := cfg.GetString(configLogLevel)
