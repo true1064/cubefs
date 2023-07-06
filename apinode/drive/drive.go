@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -37,6 +38,7 @@ import (
 	"github.com/cubefs/cubefs/util/config"
 	"golang.org/x/sync/singleflight"
 	"golang.org/x/time/rate"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 // const vaules.
@@ -202,7 +204,8 @@ type DriveNode struct {
 	groupRouter singleflight.Group // for get user route
 	limiter     *rate.Limiter
 
-	out *oplog.Output
+	out      *oplog.Output
+	recorder io.Writer
 
 	cryptor crypto.Cryptor
 
@@ -249,11 +252,20 @@ func (d *DriveNode) Start(cfg *config.Config) error {
 
 	oplogCfgFile := cfg.GetString("oplogKafkaCfgFile")
 	if oplogCfgFile != "" {
+		recordFile := cfg.GetString("recordFile")
+		if recordFile == "" {
+			return fmt.Errorf("not configure recordFile")
+		}
+		d.recorder = &lumberjack.Logger{
+			Filename: recordFile,
+			MaxAge:   7,
+		}
 		kafkaSink, err := kafka.NewKafkaSink(oplogCfgFile)
 		if err != nil {
 			return err
 		}
 		d.out.AddSinks(kafkaSink)
+		d.out.StartConsumer(kafkaSink.Name(), d)
 	}
 	if err := d.initClusterConfig(); err != nil {
 		return err
