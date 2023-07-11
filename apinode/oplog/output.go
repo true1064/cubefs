@@ -27,6 +27,7 @@ type Sink interface {
 	// identifies the sink
 	Name() string
 
+	// StartConsumer start consum
 	StartConsumer(h Handler)
 }
 

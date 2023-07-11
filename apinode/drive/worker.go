@@ -43,10 +43,7 @@ func (d *DriveNode) ConsumerEvent(ctx context.Context, e oplog.Event) {
 		ur, err := d.GetUserRouteInfo(sctx, UserID(item.Uid))
 		if err != nil {
 			span.Warnf("get user route info error: %v, %v", err, item)
-			if err == sdk.ErrNotFound {
-				return true
-			}
-			return false
+			return err == sdk.ErrNotFound
 		}
 		cluster := d.clusterMgr.GetCluster(ur.ClusterID)
 		if cluster == nil {
@@ -61,10 +58,7 @@ func (d *DriveNode) ConsumerEvent(ctx context.Context, e oplog.Event) {
 		dInfo, err := d.lookup(sctx, volume, ur.RootFileID, item.Path)
 		if err != nil {
 			span.Warnf("lookup error: %v, %v", err, item)
-			if err == sdk.ErrNotFound {
-				return true
-			}
-			return false
+			return err == sdk.ErrNotFound
 		}
 		if dInfo.IsDir() {
 			span.Warnf("%v is not file", item)
@@ -73,10 +67,7 @@ func (d *DriveNode) ConsumerEvent(ctx context.Context, e oplog.Event) {
 		inode, err := volume.GetInode(sctx, dInfo.Inode)
 		if err != nil {
 			span.Warnf("get inode error: %v, %v", err, item)
-			if err == sdk.ErrNotFound {
-				return true
-			}
-			return false
+			return err == sdk.ErrNotFound
 		}
 
 		r, err := d.makeBlockedReader(sctx, volume, dInfo.Inode, 0, ur.CipherKey)
@@ -87,7 +78,7 @@ func (d *DriveNode) ConsumerEvent(ctx context.Context, e oplog.Event) {
 
 		wr := md5.New()
 		te := io.TeeReader(newFixedReader(r, int64(inode.Size)), wr)
-		if _, err := io.Copy(io.Discard, te); err != nil {
+		if _, err = io.Copy(io.Discard, te); err != nil {
 			span.Warnf("copy error: %v, %v", err, item)
 			return false
 		}

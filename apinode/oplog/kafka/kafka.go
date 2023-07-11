@@ -188,5 +188,4 @@ func (s *sink) ConsumeClaim(sess sarama.ConsumerGroupSession, claim sarama.Consu
 			return nil
 		}
 	}
-	return nil
 }

@@ -14,7 +14,7 @@ import (
 
 func TestNewKafkaSink(t *testing.T) {
 	config := "{\"addrs\": \"127.0.0.1:9050\", \"topic\": \"cfa-unit-test\"}"
-	os.WriteFile("/tmp/kafka.conf", []byte(config), 0600)
+	os.WriteFile("/tmp/kafka.conf", []byte(config), 0o600)
 
 	mockFetchResponse := sarama.NewMockFetchResponse(t, 1)
 	broker := sarama.NewMockBrokerAddr(t, 0, "127.0.0.1:9050")
@@ -35,7 +35,7 @@ func TestNewKafkaSink(t *testing.T) {
 
 func TestPublish(t *testing.T) {
 	config := "{\"addrs\": \"127.0.0.1:9050\", \"topic\": \"cfa-unit-test\"}"
-	os.WriteFile("/tmp/kafka.conf", []byte(config), 0600)
+	os.WriteFile("/tmp/kafka.conf", []byte(config), 0o600)
 
 	mockFetchResponse := sarama.NewMockFetchResponse(t, 1)
 	broker := sarama.NewMockBrokerAddr(t, 0, "127.0.0.1:9050")
@@ -78,12 +78,11 @@ func (h *handler) ConsumerEvent(ctx context.Context, e oplog.Event) {
 	if h.recv == h.tests {
 		close(h.done)
 	}
-	return
 }
 
 func TestConsumer(t *testing.T) {
 	config := "{\"addrs\": \"127.0.0.1:9050\", \"topic\": \"cfa-unit-test\"}"
-	os.WriteFile("/tmp/kafka.conf", []byte(config), 0600)
+	os.WriteFile("/tmp/kafka.conf", []byte(config), 0o600)
 
 	broker := sarama.NewMockBrokerAddr(t, 0, "127.0.0.1:9050")
 	broker.SetHandlerByMap(map[string]sarama.MockResponse{
