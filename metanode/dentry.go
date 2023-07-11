@@ -55,11 +55,6 @@ type DentryMultiSnap struct {
 	SnapshotType  int8
 }
 
-type TxDentry struct {
-	Dentry *Dentry
-	TxInfo *proto.TransactionInfo
-}
-
 type  DirVerDentry struct {
 	Dentry  *Dentry
 	VerList []*proto.VersionInfo
