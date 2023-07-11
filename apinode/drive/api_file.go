@@ -18,8 +18,10 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"hash"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -234,6 +236,8 @@ func (d *DriveNode) handleFileDownload(c *rpc.Context) {
 	if d.checkError(c, func(err error) { span.Warn(args.Path, err) }, err) {
 		return
 	}
+	md5Val, err := vol.GetXAttr(ctx, file.Inode, internalMetaMD5)
+	needMD5 := err == nil && md5Val == ""
 
 	st := time.Now()
 	inode, err := vol.GetInode(ctx, file.Inode)
@@ -261,17 +265,23 @@ func (d *DriveNode) handleFileDownload(c *rpc.Context) {
 	}
 	size := int(ranged.End - ranged.Start + 1)
 
+	var hasher hash.Hash
 	status := http.StatusOK
 	headers := make(map[string]string)
 	if uint64(size) < inode.Size {
 		status = http.StatusPartialContent
 		headers[rpc.HeaderContentRange] = fmt.Sprintf("bytes %d-%d/%d",
 			ranged.Start, ranged.End, inode.Size)
+	} else if needMD5 {
+		hasher = md5.New()
 	}
 
 	body, err := d.makeBlockedReader(ctx, vol, inode.Inode, uint64(ranged.Start), ur.CipherKey)
 	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
+	}
+	if hasher != nil {
+		body = io.TeeReader(body, hasher)
 	}
 	body, err = d.encryptResponse(c, body)
 	if d.checkError(c, nil, err) {
@@ -281,7 +291,19 @@ func (d *DriveNode) handleFileDownload(c *rpc.Context) {
 	st = time.Now()
 	defer func() { span.AppendTrackLog("cfdw", st, nil) }()
 	span.Debug("download", args, ranged)
-	c.RespondWithReader(status, size, rpc.MIMEStream, body, headers)
+
+	c.Writer.Header().Set(rpc.HeaderContentType, rpc.MIMEStream)
+	c.Writer.Header().Set(rpc.HeaderContentLength, strconv.Itoa(size))
+	for key, val := range headers {
+		c.Writer.Header().Set(key, val)
+	}
+	c.RespondStatus(status)
+
+	if _, err = io.CopyN(c.Writer, body, int64(size)); err == nil && hasher != nil {
+		md5sum := hex.EncodeToString(hasher.Sum(nil))
+		err = vol.SetXAttr(ctx, inode.Inode, internalMetaMD5, md5sum)
+		span.Warn("download md5 feedback", args.Path, md5sum, err)
+	}
 }
 
 // ArgsFileRename rename file or dir.

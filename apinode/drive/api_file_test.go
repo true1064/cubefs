@@ -16,6 +16,8 @@ package drive
 
 import (
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -299,6 +301,7 @@ func TestHandleFileDownload(t *testing.T) {
 		defer resp.Body.Close()
 		require.Equal(t, e1.Status, resp.StatusCode)
 	}
+	node.Volume.EXPECT().GetXAttr(A, A, A).Return("", nil).AnyTimes()
 	{
 		node.OnceGetUser()
 		node.OnceLookup(false)
@@ -368,6 +371,32 @@ func TestHandleFileDownload(t *testing.T) {
 		require.Equal(t, 206, resp.StatusCode)
 		buff, _ := io.ReadAll(resp.Body)
 		require.Equal(t, origin, buff)
+	}
+	{
+		size := 1024
+		node.OnceGetUser()
+		node.OnceLookup(false)
+		node.OnceGetInode()
+		body := newMockBody(size)
+		hasher := md5.New()
+		hasher.Write(body.buff[:size])
+		md5sum := hex.EncodeToString(hasher.Sum(nil))
+		fmt.Println(md5sum)
+		node.Volume.EXPECT().ReadFile(A, A, A, A).DoAndReturn(
+			func(_ context.Context, _, _ uint64, p []byte) (int, error) {
+				return body.Read(p)
+			}).Times(2)
+		node.Volume.EXPECT().SetXAttr(A, A, A, A).DoAndReturn(
+			func(_ context.Context, _ uint64, key, val string) error {
+				require.Equal(t, internalMetaMD5, key)
+				require.Equal(t, md5sum, val)
+				return nil
+			})
+		resp := doRequest(nil, "bytes=0-", "path", "/download")
+		defer resp.Body.Close()
+		require.Equal(t, 200, resp.StatusCode)
+		buff, _ := io.ReadAll(resp.Body)
+		require.Equal(t, 1024, len(buff))
 	}
 }
 
