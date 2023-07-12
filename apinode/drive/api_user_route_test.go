@@ -214,6 +214,151 @@ func TestHandleCreateDrive(t *testing.T) {
 	}
 }
 
+func TestHandleGetDrive(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	urm, _ := NewUserRouteMgr()
+	//mockCluster := mocks.NewMockICluster(ctrl)
+	mockVol := mocks.NewMockIVolume(ctrl)
+	mockClusterMgr := mocks.NewMockClusterManager(ctrl)
+	d := &DriveNode{
+		vol:        mockVol,
+		userRouter: urm,
+		clusterMgr: mockClusterMgr,
+		cryptor:    newMockCryptor(t),
+		clusters:   []string{"1", "2"},
+	}
+	ts := httptest.NewServer(d.RegisterAPIRouters())
+	defer ts.Close()
+
+	client := ts.Client()
+
+	{
+		tgt := fmt.Sprintf("%s/v1/drive?uid=test", ts.URL)
+		req, err := http.NewRequest(http.MethodGet, tgt, nil)
+		req.Header.Set(HeaderUserID, "test")
+		require.Nil(t, err)
+		res, err := client.Do(req)
+		require.Nil(t, err)
+		require.Equal(t, res.StatusCode, http.StatusForbidden)
+		res.Body.Close()
+	}
+
+	{
+		d.admin = "test"
+		ur := &UserRoute{
+			Uid:        UserID("test1"),
+			ClusterID:  "1",
+			VolumeID:   "1",
+			RootPath:   getRootPath("/test/myroot"),
+			RootFileID: 4,
+		}
+		urm.Set("test1", ur)
+
+		tgt := fmt.Sprintf("%s/v1/drive?uid=test1", ts.URL)
+		req, err := http.NewRequest(http.MethodGet, tgt, nil)
+		req.Header.Set(HeaderUserID, "test")
+		require.Nil(t, err)
+		res, err := client.Do(req)
+		require.Nil(t, err)
+		require.Equal(t, res.StatusCode, http.StatusOK)
+		data, err := io.ReadAll(res.Body)
+		require.Nil(t, err)
+		res.Body.Close()
+		r := &UserRoute{}
+		json.Unmarshal(data, r)
+		require.Equal(t, *r, *ur)
+	}
+}
+
+func TestHandleUpdateDrive(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	urm, _ := NewUserRouteMgr()
+	//mockCluster := mocks.NewMockICluster(ctrl)
+	mockVol := mocks.NewMockIVolume(ctrl)
+	mockClusterMgr := mocks.NewMockClusterManager(ctrl)
+	d := &DriveNode{
+		vol:        mockVol,
+		userRouter: urm,
+		clusterMgr: mockClusterMgr,
+		cryptor:    newMockCryptor(t),
+		clusters:   []string{"1", "2"},
+	}
+	ts := httptest.NewServer(d.RegisterAPIRouters())
+	defer ts.Close()
+
+	client := ts.Client()
+
+	{
+		tgt := fmt.Sprintf("%s/v1/drive?uid=test", ts.URL)
+		req, err := http.NewRequest(http.MethodPatch, tgt, nil)
+		req.Header.Set(HeaderUserID, "admin")
+		require.Nil(t, err)
+		res, err := client.Do(req)
+		require.Nil(t, err)
+		require.Equal(t, res.StatusCode, http.StatusForbidden)
+		res.Body.Close()
+	}
+
+	{
+		tgt := fmt.Sprintf("%s/v1/drive?uid=test&rootPath=%s", ts.URL, url.QueryEscape("/test/myroot"))
+		req, err := http.NewRequest(http.MethodPatch, tgt, nil)
+		req.Header.Set(HeaderUserID, "admin")
+		require.Nil(t, err)
+		res, err := client.Do(req)
+		require.Nil(t, err)
+		require.Equal(t, res.StatusCode, http.StatusForbidden)
+		res.Body.Close()
+	}
+
+	{
+		d.admin = "admin"
+		mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, sdk.ErrNotFound)
+		tgt := fmt.Sprintf("%s/v1/drive?uid=test&rootPath=%s", ts.URL, url.QueryEscape("/test/myroot"))
+		req, err := http.NewRequest(http.MethodPatch, tgt, nil)
+		req.Header.Set(HeaderUserID, "admin")
+		require.Nil(t, err)
+		res, err := client.Do(req)
+		require.Nil(t, err)
+		require.Equal(t, res.StatusCode, sdk.ErrNoUser.Status)
+		res.Body.Close()
+	}
+
+	{
+		d.admin = "admin"
+		urm.Set("test", &UserRoute{
+			Uid:        UserID("test"),
+			ClusterID:  "1",
+			VolumeID:   "1",
+			RootPath:   getRootPath("/test/myroot"),
+			RootFileID: 4,
+		})
+		ur := d.userRouter.Get("test")
+		require.Equal(t, ur.RootFileID, FileID(4))
+		mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+			func(ctx context.Context, parentIno uint64, name string) (*sdk.DirInfo, error) {
+				inode := parentIno + 1
+				fileType := uint32(os.ModeDir)
+				return &sdk.DirInfo{
+					Name:  name,
+					Inode: inode,
+					Type:  fileType,
+				}, nil
+			}).Times(4)
+		mockVol.EXPECT().SetXAttr(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+		tgt := fmt.Sprintf("%s/v1/drive?uid=test&rootPath=%s", ts.URL, url.QueryEscape("/test/myroot2"))
+		req, err := http.NewRequest(http.MethodPatch, tgt, nil)
+		req.Header.Set(HeaderUserID, "admin")
+		require.Nil(t, err)
+		res, err := client.Do(req)
+		require.Nil(t, err)
+		require.Equal(t, res.StatusCode, http.StatusOK)
+		ur = urm.Get("test")
+		require.Equal(t, ur.RootPath, "/test/myroot2")
+		res.Body.Close()
+		d.userRouter.Remove("test")
+	}
+}
+
 func TestHandleAddUserConfig(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	urm, _ := NewUserRouteMgr()

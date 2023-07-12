@@ -64,6 +64,7 @@ var (
 
 	ErrNotDir   = &Error{Status: 452, Code: "ENOTDIR", Message: "not a directory"}
 	ErrNotEmpty = &Error{Status: 453, Code: "ENOTEMPTY", Message: "directory not empty"}
+	ErrNoUser   = &Error{Status: 454, Code: "NotFoundUser", Message: "not found user"}
 
 	ErrInvalidPath      = &Error{Status: 400, Code: "BadRequest", Message: "invalid path"}
 	ErrMismatchChecksum = &Error{Status: 461, Code: "MismatchChecksum", Message: "mismatch checksum"}

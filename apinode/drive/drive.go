@@ -196,6 +196,7 @@ type DriveNode struct {
 	masterAddr  string      // the master address of the default cluster
 	clusterID   string      // default cluster id
 	volumeName  string      // default volume name
+	admin       string      // admin account
 	vol         sdk.IVolume // default volume
 	clusters    []string    // all cluster id
 	mu          sync.RWMutex
@@ -236,6 +237,7 @@ func (d *DriveNode) Start(cfg *config.Config) error {
 	d.masterAddr = cfg.GetString(proto.MasterAddr)
 	d.clusterID = cfg.GetString("clusterID")
 	d.volumeName = cfg.GetString("volumeName")
+	d.admin = cfg.GetString("admin")
 
 	_, ctx := trace.StartSpanFromContext(context.TODO(), "")
 	if err := d.clusterMgr.AddCluster(ctx, d.clusterID, d.masterAddr); err != nil {

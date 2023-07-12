@@ -287,7 +287,7 @@ func TestGetUserRouteInfo(t *testing.T) {
 
 	node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotFound)
 	_, err = d.GetUserRouteInfo(Ctx, testUserID)
-	require.ErrorIs(t, err, sdk.ErrNotFound)
+	require.ErrorIs(t, err, sdk.ErrNoUser)
 
 	node.AnyLookup()
 	node.Volume.EXPECT().GetXAttr(A, A, A).Return("", sdk.ErrNotFound)
