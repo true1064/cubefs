@@ -3,8 +3,8 @@ package drive
 import (
 	"context"
 	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"io"
 	"time"
 
@@ -28,6 +28,7 @@ func (d *DriveNode) ConsumerEvent(ctx context.Context, e oplog.Event) {
 		return
 	}
 
+	log.Debugf("consumer event: %+v", e)
 	item := logItem{}
 	if err = json.Unmarshal(data, &item); err != nil {
 		return
@@ -83,9 +84,9 @@ func (d *DriveNode) ConsumerEvent(ctx context.Context, e oplog.Event) {
 			return false
 		}
 
-		md5sum := fmt.Sprintf("%x", wr.Sum(nil))
-		if err = volume.SetXAttr(sctx, dInfo.Inode, "x-cfa-md5", md5sum); err != nil {
-			span.Warnf("set x-cfa-md5  error: %v, %v", err, item)
+		md5sum := hex.EncodeToString(wr.Sum(nil))
+		if err = volume.SetXAttr(sctx, dInfo.Inode, internalMetaMD5, md5sum); err != nil {
+			span.Warnf("set %s  error: %v, %v", internalMetaMD5, err, item)
 			return false
 		}
 		return true
