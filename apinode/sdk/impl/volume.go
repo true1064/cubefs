@@ -927,7 +927,7 @@ func (v *volume) mkdirByPath(ctx context.Context, dir string) (ino uint64, err e
 		}
 
 		if err == syscall.ENOENT {
-			info, err = v.mw.Create_ll(parIno, name, defaultFileMode, 0, 0, nil)
+			info, err = v.mw.Create_ll(parIno, name, uint32(defaultDirMod), 0, 0, nil)
 			if err != nil && err == syscall.EEXIST {
 				existIno, mode, e := v.mw.Lookup_ll(parIno, name)
 				if e != nil {
