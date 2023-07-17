@@ -107,8 +107,8 @@ func (c *client) DriveCreate() (r drive.CreateDriveResult, err error) {
 	return
 }
 
-func (c *client) DriveGet() (r drive.UserRoute, err error) {
-	err = c.requestWith(get, "/v1/drive", nil, &r)
+func (c *client) DriveGet(uid string) (r drive.UserRoute, err error) {
+	err = c.requestWith(get, genURI("/v1/drive", "uid", uid), nil, &r)
 	return
 }
 

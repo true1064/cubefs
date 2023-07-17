@@ -44,8 +44,11 @@ func addCmdDrive(cmd *grumble.Command) {
 	driveCommand.AddCommand(&grumble.Command{
 		Name: "get",
 		Help: "get user drive",
+		Args: func(a *grumble.Args) {
+			a.String("uid", "uid")
+		},
 		Run: func(c *grumble.Context) error {
-			return show(cli.DriveGet())
+			return show(cli.DriveGet(c.Args.String("uid")))
 		},
 	})
 }
