@@ -186,6 +186,76 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 	c.Respond()
 }
 
+// ArgsFileVerify verify file content.
+type ArgsFileVerify struct {
+	Path FilePath `json:"path"`
+}
+
+func (d *DriveNode) handleFileVerify(c *rpc.Context) {
+	args := new(ArgsFileVerify)
+	if d.checkError(c, nil, c.ParseArgs(args)) {
+		return
+	}
+	ctx, span := d.ctxSpan(c)
+	if d.checkError(c, func(err error) { span.Info(args.Path, err) }, args.Path.Clean()) {
+		return
+	}
+
+	uid := d.userID(c)
+	root, vol, err := d.getRootInoAndVolume(ctx, uid)
+	ur, err1 := d.GetUserRouteInfo(ctx, uid)
+	if d.checkError(c, func(err error) { span.Warn(err) }, err, err1) {
+		return
+	}
+
+	file, err := d.lookup(ctx, vol, root, args.Path.String())
+	if d.checkError(c, func(err error) { span.Warn(args.Path, err) }, err) {
+		return
+	}
+
+	st := time.Now()
+	inode, err := vol.GetInode(ctx, file.Inode)
+	span.AppendTrackLog("cfvi", st, err)
+	if d.checkError(c, func(err error) { span.Warn(file.Inode, err) }, err) {
+		return
+	}
+
+	var ranged ranges
+	ranged.End = int64(inode.Size) - 1
+	if header := c.Request.Header.Get(headerRange); header != "" {
+		ranged, err = parseRange(header, int64(inode.Size))
+		if err != nil {
+			span.Warn(err)
+			d.respError(c, sdk.ErrBadRequest.Extend(err))
+			return
+		}
+	}
+	size := ranged.End - ranged.Start + 1
+	if size <= 0 {
+		c.Respond()
+		return
+	}
+
+	checksum, err := parseChecksums(c.Request.Header)
+	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
+		return
+	}
+	span.Info("to verify", args.Path, ranged, checksum)
+
+	r, err := d.makeBlockedReader(ctx, vol, inode.Inode, uint64(ranged.Start), ur.CipherKey)
+	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
+		return
+	}
+	r = io.TeeReader(newFixedReader(r, size), checksum.writer())
+	if d.checkFunc(c, func(err error) { span.Error(err) },
+		func() error { _, err = io.Copy(io.Discard, r); return err },
+		func() error { return checksum.verify() }) {
+		return
+	}
+
+	c.Respond()
+}
+
 // ArgsFileDownload file download argument.
 type ArgsFileDownload struct {
 	Path FilePath `json:"path"`

@@ -140,6 +140,87 @@ func TestHandleFileUpload(t *testing.T) {
 	}
 }
 
+func TestHandleFileVerify(t *testing.T) {
+	node := newMockNode(t)
+	d := node.DriveNode
+	server, client := newTestServer(d)
+	defer server.Close()
+
+	doRequest := func(ranged string, md5 string, paths ...string) rpc.HTTPError {
+		p := "verify"
+		if len(paths) > 0 {
+			p = paths[0]
+		}
+		url := genURL(server.URL, "/v1/files/verify", "path", p)
+		req, _ := http.NewRequest(http.MethodGet, url, nil)
+		req.Header.Add(HeaderUserID, testUserID)
+		if ranged != "" {
+			req.Header.Add(headerRange, ranged)
+		}
+		if md5 != "" {
+			req.Header.Set(ChecksumPrefix+"md5", md5)
+		}
+		resp, err := client.Do(Ctx, req)
+		require.NoError(t, err)
+		defer resp.Body.Close()
+		return resp2Error(resp)
+	}
+
+	{
+		require.Equal(t, 400, doRequest("", "", "").StatusCode())
+		require.Equal(t, 400, doRequest("", "", "../a").StatusCode())
+	}
+	{
+		node.TestGetUser(t, func() rpc.HTTPError {
+			return doRequest("", "")
+		}, testUserID)
+		node.OnceGetUser()
+		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e1)
+		require.Equal(t, e1.Status, doRequest("", "").StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		node.OnceLookup(false)
+		node.Volume.EXPECT().GetInode(A, A).Return(nil, e2)
+		require.Equal(t, e2.Status, doRequest("", "", "a").StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		node.OnceLookup(false)
+		node.OnceGetInode()
+		require.Equal(t, 400, doRequest("bytes=10240-", "").StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		node.OnceLookup(false)
+		node.OnceGetInode()
+		body := &mockBody{buff: []byte("checksums")}
+		node.Volume.EXPECT().ReadFile(A, A, A, A).DoAndReturn(
+			func(_ context.Context, _, _ uint64, p []byte) (int, error) {
+				return body.Read(p)
+			})
+		require.Equal(t, sdk.ErrMismatchChecksum.Status,
+			doRequest("bytes=0-8", "42b8d9faf974b929ed89a56df591d9a0").StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		node.OnceLookup(false)
+		node.Volume.EXPECT().GetInode(A, A).Return(&sdk.InodeInfo{Size: 0}, nil)
+		require.NoError(t, doRequest("", ""))
+	}
+	{
+		node.OnceGetUser()
+		node.OnceLookup(false)
+		node.OnceGetInode()
+		body := &mockBody{buff: []byte("checksums")}
+		node.Volume.EXPECT().ReadFile(A, A, A, A).DoAndReturn(
+			func(_ context.Context, _, _ uint64, p []byte) (int, error) {
+				return body.Read(p)
+			})
+		require.NoError(t, doRequest("bytes=0-8", "42b8d9faf974b929ed89a56df591d9a7"))
+	}
+}
+
 func TestHandleFileWrite(t *testing.T) {
 	node := newMockNode(t)
 	d := node.DriveNode
@@ -381,7 +462,6 @@ func TestHandleFileDownload(t *testing.T) {
 		hasher := md5.New()
 		hasher.Write(body.buff[:size])
 		md5sum := hex.EncodeToString(hasher.Sum(nil))
-		fmt.Println(md5sum)
 		node.Volume.EXPECT().ReadFile(A, A, A, A).DoAndReturn(
 			func(_ context.Context, _, _ uint64, p []byte) (int, error) {
 				return body.Read(p)

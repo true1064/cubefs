@@ -40,6 +40,7 @@ func (d *DriveNode) RegisterAPIRouters() *rpc.Router {
 
 	rpc.RegisterArgsParser(&ArgsFileUpload{}, "json")
 	rpc.RegisterArgsParser(&ArgsFileWrite{}, "json")
+	rpc.RegisterArgsParser(&ArgsFileVerify{}, "json")
 	rpc.RegisterArgsParser(&ArgsFileDownload{}, "json")
 	rpc.RegisterArgsParser(&ArgsFileRename{}, "json")
 	rpc.RegisterArgsParser(&ArgsFileCopy{}, "json")
@@ -73,6 +74,7 @@ func (d *DriveNode) RegisterAPIRouters() *rpc.Router {
 	r.Handle(http.MethodPost, "/v1/files/upload", d.handleFileUpload, rpc.OptArgsQuery())
 	r.Handle(http.MethodPut, "/v1/files/content", d.handleFileWrite, rpc.OptArgsQuery())
 	r.Handle(http.MethodGet, "/v1/files/content", d.handleFileDownload, rpc.OptArgsQuery())
+	r.Handle(http.MethodGet, "/v1/files/verify", d.handleFileVerify, rpc.OptArgsQuery())
 	r.Handle(http.MethodPost, "/v1/files/copy", d.handleFileCopy, rpc.OptArgsQuery())
 	r.Handle(http.MethodPost, "/v1/files/rename", d.handleFileRename, rpc.OptArgsQuery())
 	// file multipart

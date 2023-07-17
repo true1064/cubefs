@@ -217,7 +217,6 @@ func TestHandleCreateDrive(t *testing.T) {
 func TestHandleGetDrive(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	urm, _ := NewUserRouteMgr()
-	//mockCluster := mocks.NewMockICluster(ctrl)
 	mockVol := mocks.NewMockIVolume(ctrl)
 	mockClusterMgr := mocks.NewMockClusterManager(ctrl)
 	d := &DriveNode{
@@ -273,7 +272,6 @@ func TestHandleGetDrive(t *testing.T) {
 func TestHandleUpdateDrive(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	urm, _ := NewUserRouteMgr()
-	//mockCluster := mocks.NewMockICluster(ctrl)
 	mockVol := mocks.NewMockIVolume(ctrl)
 	mockClusterMgr := mocks.NewMockClusterManager(ctrl)
 	d := &DriveNode{

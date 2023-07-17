@@ -23,6 +23,8 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/cubefs/cubefs/apinode/sdk"
+	"github.com/cubefs/cubefs/blobstore/common/rpc"
 	"github.com/stretchr/testify/require"
 )
 
@@ -144,5 +146,62 @@ func TestHelperFixedReader(t *testing.T) {
 		r := newFixedReader(bytes.NewReader(data), size)
 		_, err := io.ReadAll(r)
 		require.ErrorIs(t, io.ErrUnexpectedEOF, err)
+	}
+}
+
+func TestHelperChecksums(t *testing.T) {
+	data := []byte("checksums")
+	valCrc32 := 185260686
+	valCrc64 := 2162653388653163224
+	valMD5 := "42b8d9faf974b929ed89a56df591d9a7"
+	valSHA1 := "1da7765e3ca71ed76395bc56dae69d64732beff8"
+	valSHA256 := "d3beb16ca27a9fc332b55f526e1c8da6db0b2f58d50c9d27d59e15e23a4e35a8"
+
+	for _, cs := range []struct {
+		header       []string
+		parseStatus  int
+		verifyStatus int
+	}{
+		{[]string{"sha224", "1"}, sdk.ErrBadRequest.Status, 0},
+		{[]string{"crc32", "invalid"}, sdk.ErrBadRequest.Status, 0},
+		{[]string{"crc64", "-100"}, sdk.ErrBadRequest.Status, 0},
+		{[]string{"sha1", "invalid"}, sdk.ErrBadRequest.Status, 0},
+		{[]string{"sha1", valSHA1 + "x"}, sdk.ErrBadRequest.Status, 0},
+		{[]string{"sha1", valSHA1 + "0a"}, sdk.ErrBadRequest.Status, 0},
+
+		{[]string{"crc32", fmt.Sprint(valCrc32 + 1)}, 0, sdk.ErrMismatchChecksum.Status},
+		{[]string{"crc64", fmt.Sprint(valCrc64 - 100)}, 0, sdk.ErrMismatchChecksum.Status},
+		{[]string{"md5", "42b8d9faf974b929ed89a56df591d9a0"}, 0, sdk.ErrMismatchChecksum.Status},
+
+		{[]string{}, 0, 0},
+		{[]string{"", "1"}, 0, 0},
+		{[]string{"md5", valMD5}, 0, 0},
+		{[]string{"sha1", valSHA1, "sha256", valSHA256}, 0, 0},
+		{[]string{
+			"crc32", fmt.Sprint(valCrc32), "crc64", fmt.Sprint(valCrc64),
+			"md5", valMD5, "sha1", valSHA1, "sha256", valSHA256,
+		}, 0, 0},
+	} {
+		h := make(http.Header)
+		for ii := 0; ii < len(cs.header); ii += 2 {
+			h.Set(ChecksumPrefix+cs.header[ii], cs.header[ii+1])
+		}
+		s, err := parseChecksums(h)
+		if cs.parseStatus > 0 {
+			require.Equal(t, cs.parseStatus, err.(rpc.HTTPError).StatusCode())
+			continue
+		} else {
+			require.NoError(t, err)
+		}
+
+		t.Log(s)
+
+		s.writer().Write(data)
+		err = s.verify()
+		if cs.verifyStatus > 0 {
+			require.Equal(t, cs.verifyStatus, err.(rpc.HTTPError).StatusCode())
+		} else {
+			require.NoError(t, err)
+		}
 	}
 }
