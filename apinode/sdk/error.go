@@ -51,7 +51,7 @@ func (e *Error) Extend(a ...interface{}) *Error {
 	return &Error{
 		Status:  e.Status,
 		Code:    e.Code,
-		Message: fmt.Sprintf("%s : %s", e.Error(), strings.TrimLeft(fmt.Sprintln(a...), "\n")),
+		Message: fmt.Sprintf("%s : %s", e.Error(), strings.TrimRight(fmt.Sprintln(a...), "\n")),
 	}
 }
 

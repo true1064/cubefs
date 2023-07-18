@@ -303,6 +303,7 @@ func TestHandleFileWrite(t *testing.T) {
 		defer resp.Body.Close()
 		require.Equal(t, sdk.ErrWriteOverSize.Status, resp.StatusCode)
 	}
+	node.Volume.EXPECT().DeleteXAttr(A, A, A).Return(sdk.ErrInternalServerError).AnyTimes()
 	{
 		file = newMockBody(1024)
 		node.OnceGetUser()

@@ -99,7 +99,27 @@ func (c *client) requestWithHeader(method string, uri string, body io.Reader, he
 	if resp.StatusCode/100 == 2 {
 		resp.Body = readCloser{Reader: responser(resp.Body), Closer: resp.Body}
 	}
-	return rpc.ParseData(resp, ret)
+	return newStatusError(rpc.ParseData(resp, ret), resp.Header.Get("x-cfa-trace-id"))
+}
+
+type statusError struct {
+	request string
+	err     error
+}
+
+func (se *statusError) Error() string {
+	if e, ok := se.err.(rpc.HTTPError); ok {
+		return fmt.Sprintf("{request:[%s] status:[%d] code:[%s] error:[%s]}",
+			se.request, e.StatusCode(), e.ErrorCode(), e.Error())
+	}
+	return se.err.Error()
+}
+
+func newStatusError(err error, request string) error {
+	if err == nil {
+		return nil
+	}
+	return &statusError{request: request, err: err}
 }
 
 func (c *client) DriveCreate() (r drive.CreateDriveResult, err error) {
@@ -194,7 +214,7 @@ func (c *client) FileDownload(path string, from, to int, w io.Writer) (err error
 		}
 		return
 	}
-	err = rpc.ParseData(resp, nil)
+	err = newStatusError(rpc.ParseData(resp, nil), resp.Header.Get("x-cfa-trace-id"))
 	return
 }
 

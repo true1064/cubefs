@@ -174,6 +174,10 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 		d.respError(c, err)
 		return
 	}
+	if err = vol.DeleteXAttr(ctx, inode.Inode, internalMetaMD5); err != nil {
+		span.Warn("delete old xattr", internalMetaMD5, err.Error())
+	}
+
 	wOffset, wSize := uint64(ranged.Start)-firstN, firstN+size+lastN
 	span.Infof("write file:%d range-start:%d body-size:%d rewrite-offset:%d rewrite-size:%d",
 		args.FileID, ranged.Start, size, wOffset, wSize)
