@@ -206,6 +206,34 @@ func addCmdFile(cmd *grumble.Command) {
 		},
 	})
 	fileCommand.AddCommand(&grumble.Command{
+		Name: "verify",
+		Help: "verify file content checksum",
+		Args: func(a *grumble.Args) {
+			a.StringList("checksum", "checksum key1 value1 key2 value2")
+		},
+		Flags: func(f *grumble.Flags) {
+			f.StringL("path", "", "path")
+			f.IntL("from", -1, "from")
+			f.IntL("to", -1, "to")
+		},
+		Run: func(c *grumble.Context) error {
+			checksum := make(map[string]string)
+			list := c.Args.StringList("checksum")
+			if len(list)%2 == 1 {
+				list = list[:len(list)-1]
+			}
+			for ii := 0; ii < len(list); ii += 2 {
+				checksum[list[ii]] = list[ii+1]
+			}
+			from := c.Flags.Int("from")
+			to := c.Flags.Int("to")
+			if from < 0 && to >= 0 {
+				return fmt.Errorf("to set from(%d)", from)
+			}
+			return cli.FileVerify(c.Flags.String("path"), from, to, checksum)
+		},
+	})
+	fileCommand.AddCommand(&grumble.Command{
 		Name: "upload",
 		Help: "upload file",
 		Flags: func(f *grumble.Flags) {

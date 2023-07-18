@@ -162,6 +162,17 @@ func (c *client) FileWrite(path string, fileID uint64, from, to int, body io.Rea
 		map[string]string{"Range": getRange(from, to), rpc.HeaderContentLength: fmt.Sprint(size)}, nil)
 }
 
+func (c *client) FileVerify(path string, from, to int, checksum map[string]string) (err error) {
+	header := make(map[string]string)
+	if from >= 0 || to >= 0 {
+		header["Range"] = getRange(from, to)
+	}
+	for k, v := range checksum {
+		header[drive.ChecksumPrefix+k] = v
+	}
+	return c.requestWithHeader(get, genURI("/v1/files/verify", "path", path), nil, header, nil)
+}
+
 func (c *client) FileDownload(path string, from, to int, w io.Writer) (err error) {
 	req, err := http.NewRequest(get, host+genURI("/v1/files/content", "path", path), nil)
 	if err != nil {
