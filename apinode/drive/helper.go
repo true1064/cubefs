@@ -15,11 +15,9 @@
 package drive
 
 import (
-	"bytes"
 	"crypto/md5"
 	"crypto/sha1"
 	"crypto/sha256"
-	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -163,7 +161,7 @@ func newFixedReader(r io.Reader, n int64) io.Reader { return &fixedReader{R: r, 
 
 type checksums map[string]struct {
 	hasher   hash.Hash
-	checksum []byte
+	checksum interface{}
 }
 
 func (s checksums) writer() io.Writer {
@@ -175,43 +173,44 @@ func (s checksums) writer() io.Writer {
 }
 
 func (s checksums) verify() error {
-	be := binary.BigEndian
-	he := hex.EncodeToString
 	for key, hasher := range s {
-		actual := hasher.hasher.Sum(nil)
-		expect := hasher.checksum
-		if bytes.Equal(expect, actual) {
-			continue
-		}
 		msg := ""
 		switch key {
 		case "crc32":
-			msg = fmt.Sprintf("%s: expect(%d) actual(%d)", key, be.Uint32(expect), be.Uint32(actual))
+			actual := hasher.hasher.(hash.Hash32).Sum32()
+			expect := hasher.checksum.(uint32)
+			if actual != expect {
+				msg = fmt.Sprintf("%s: expect(%d) actual(%d)", key, expect, actual)
+			}
 		case "crc64":
-			msg = fmt.Sprintf("%s: expect(%d) actual(%d)", key, be.Uint64(expect), be.Uint64(actual))
+			actual := hasher.hasher.(hash.Hash64).Sum64()
+			expect := hasher.checksum.(uint64)
+			if actual != expect {
+				msg = fmt.Sprintf("%s: expect(%d) actual(%d)", key, expect, actual)
+			}
 		default:
-			msg = fmt.Sprintf("%s: expect(%s) actual(%s)", key, he(expect), he(actual))
+			actual := hex.EncodeToString(hasher.hasher.Sum(nil))
+			expect := hasher.checksum.(string)
+			if actual != expect {
+				msg = fmt.Sprintf("%s: expect(%s) actual(%s)", key, expect, actual)
+			}
 		}
-		return sdk.ErrMismatchChecksum.Extend(msg)
+		if msg != "" {
+			return sdk.ErrMismatchChecksum.Extend(msg)
+		}
 	}
 	return nil
 }
 
 func (s checksums) String() string {
 	b := strings.Builder{}
-	be := binary.BigEndian
-	he := hex.EncodeToString
+	has := false
 	for key, hasher := range s {
-		b.WriteString(" ")
-		expect := hasher.checksum
-		switch key {
-		case "crc32":
-			b.WriteString(fmt.Sprintf("[%s -> %d]", key, be.Uint32(expect)))
-		case "crc64":
-			b.WriteString(fmt.Sprintf("[%s -> %d]", key, be.Uint64(expect)))
-		default:
-			b.WriteString(fmt.Sprintf("[%s -> %s]", key, he(expect)))
+		if has {
+			b.WriteString(" ")
 		}
+		has = true
+		b.WriteString(fmt.Sprintf("[%s -> %v]", key, hasher.checksum))
 	}
 	return b.String()
 }
@@ -227,7 +226,7 @@ func parseChecksums(header http.Header) (checksums, error) {
 		key = key[len(ChecksumPrefix):]
 
 		var hasher hash.Hash
-		var checksum []byte
+		var checksum interface{}
 		switch key {
 		case "crc32", "crc64":
 			crc, err := strconv.Atoi(val)
@@ -237,10 +236,10 @@ func parseChecksums(header http.Header) (checksums, error) {
 
 			if key == "crc32" {
 				hasher = crc32.NewIEEE()
-				checksum = binary.BigEndian.AppendUint32(nil, uint32(crc))[:hasher.Size()]
+				checksum = uint32(crc)
 			} else {
 				hasher = crc64.New(crc64.MakeTable(crc64.ISO))
-				checksum = binary.BigEndian.AppendUint64(nil, uint64(crc))[:hasher.Size()]
+				checksum = uint64(crc)
 			}
 
 		case "md5", "sha1", "sha256":
@@ -261,7 +260,7 @@ func parseChecksums(header http.Header) (checksums, error) {
 			if len(cs) != hasher.Size() {
 				return nil, sdk.ErrBadRequest.Extend(key, val)
 			}
-			checksum = cs[:]
+			checksum = val
 
 		default:
 			return nil, sdk.ErrBadRequest.Extend("not supported", key)
@@ -269,7 +268,7 @@ func parseChecksums(header http.Header) (checksums, error) {
 
 		s[key] = struct {
 			hasher   hash.Hash
-			checksum []byte
+			checksum interface{}
 		}{hasher, checksum}
 	}
 	return s, nil
