@@ -15,7 +15,11 @@
 package drive
 
 import (
+	"bytes"
+	"encoding/json"
+	"io"
 	"net/http"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -199,5 +203,40 @@ func TestHandleFilesDelete(t *testing.T) {
 		}
 		node.Volume.EXPECT().Delete(A, A, A, A).Return(e1).MinTimes(1)
 		require.Equal(t, e1.Status, doRecuDel().StatusCode())
+	}
+}
+
+func TestHandleBatchDelete(t *testing.T) {
+	node := newMockNode(t)
+	d := node.DriveNode
+	server, client := newTestServer(d)
+	defer server.Close()
+
+	doRequest := func(args ArgsBatchDelete) (*BatchDeleteResult, rpc.HTTPError) {
+		url := genURL(server.URL, "/v1/files/batch")
+		data, _ := json.Marshal(args)
+		req, _ := http.NewRequest(http.MethodDelete, url, bytes.NewReader(data))
+		req.Header.Add(HeaderUserID, testUserID)
+		resp, err := client.Do(Ctx, req)
+		require.NoError(t, err)
+
+		res := &BatchDeleteResult{}
+		body, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		json.Unmarshal(body, res)
+
+		return res, resp2Error(resp)
+	}
+
+	{
+		node.OnceGetUser(testUserID)
+		node.Volume.EXPECT().Delete(A, A, A, A).Return(nil)
+		args := ArgsBatchDelete{
+			Paths: []string{"/test/1234"},
+		}
+
+		res, err := doRequest(args)
+		require.NoError(t, err)
+		require.True(t, reflect.DeepEqual(res.Deleted, args.Paths))
 	}
 }

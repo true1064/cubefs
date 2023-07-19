@@ -15,9 +15,13 @@
 package drive
 
 import (
+	"sync"
+
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
 	"github.com/cubefs/cubefs/blobstore/util/task"
+	"github.com/cubefs/cubefs/blobstore/util/taskpool"
+	"github.com/cubefs/cubefs/util"
 )
 
 // ArgsMkDir make dir argument.
@@ -207,4 +211,73 @@ func (d *DriveNode) recursivelyDelete(c *rpc.Context, path FilePath) {
 
 	d.out.Publish(ctx, makeOpLog(OpDeleteDir, d.requestID(c), d.userID(c), path.String()))
 	c.Respond()
+}
+
+type ArgsBatchDelete struct {
+	Paths []string `json:"paths"`
+}
+
+type ErrorEntry struct {
+	Path    string `json:"path"`
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
+
+type BatchDeleteResult struct {
+	Deleted []string     `json:"deleted"`
+	Errors  []ErrorEntry `json:"error"`
+}
+
+func (d *DriveNode) handleBatchDelete(c *rpc.Context) {
+	args := new(ArgsBatchDelete)
+	if d.checkError(c, nil, c.ParseArgs(args)) {
+		return
+	}
+	ctx, span := d.ctxSpan(c)
+	root, vol, err := d.getRootInoAndVolume(ctx, d.userID(c))
+	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
+		return
+	}
+
+	type result struct {
+		path string
+		err  error
+	}
+
+	var wg sync.WaitGroup
+	ch := make(chan result, len(args.Paths))
+	pool := taskpool.New(util.Min(len(args.Paths), maxTaskPoolSize), maxTaskPoolSize)
+	defer pool.Close()
+	wg.Add(len(args.Paths))
+	for _, path := range args.Paths {
+		pool.Run(func() {
+			defer wg.Done()
+			err := vol.Delete(ctx, uint64(root), path, false)
+			if err == sdk.ErrNotFound {
+				err = nil
+			}
+			ch <- result{path, err}
+			if err != nil {
+				span.Errorf("delete %s error: %v, uid=%s", path, err, d.userID(c))
+			}
+		})
+	}
+
+	wg.Wait()
+	close(ch)
+
+	res := &BatchDeleteResult{}
+	for r := range ch {
+		if r.err == nil {
+			res.Deleted = append(res.Deleted, r.path)
+		} else {
+			res.Errors = append(res.Errors, ErrorEntry{
+				Path:    r.path,
+				Code:    rpc.Error2HTTPError(r.err).StatusCode(),
+				Message: r.err.Error(),
+			})
+		}
+	}
+
+	c.RespondJSON(res)
 }
