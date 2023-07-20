@@ -224,8 +224,8 @@ type ErrorEntry struct {
 }
 
 type BatchDeleteResult struct {
-	Deleted []string     `json:"deleted"`
-	Errors  []ErrorEntry `json:"error"`
+	Deleted []string     `json:"deleted,omitempty"`
+	Errors  []ErrorEntry `json:"error,omitempty"`
 }
 
 func (d *DriveNode) handleBatchDelete(c *rpc.Context) {
