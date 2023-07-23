@@ -1595,19 +1595,17 @@ func (i *Inode) SplitExtentWithCheck(param *AppendExtParam) (delExtents []proto.
 }
 
 // try to create version between curVer and seq of multiSnap.multiVersions[0] in verList
-func (i *Inode) CreateLowerVersion(curVer uint64, verlist *proto.VolVersionInfoList) (err error) {
-	verlist.RLock()
-	defer verlist.RUnlock()
+func (i *Inode) CreateLowerVersion(curVer uint64, verlist []*proto.VersionInfo) (err error) {
 
-	log.LogDebugf("CreateLowerVersion inode %v curVer %v", i.Inode, curVer)
-	if len(verlist.VerList) <= 1 {
+	log.LogDebugf("CreateLowerVersion inode %v curVer %v verlist %v", i.Inode, curVer, verlist)
+	if len(verlist) <= 1 {
 		return
 	}
 	if i.isEmptyVerList() {
 		return
 	}
 	var nextVer uint64
-	for _, info := range verlist.VerList {
+	for _, info := range verlist {
 		if info.Ver < curVer {
 			nextVer = info.Ver
 		}

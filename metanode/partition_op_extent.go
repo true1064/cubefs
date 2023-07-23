@@ -86,6 +86,37 @@ func (mp *metaPartition) ExtentAppend(req *proto.AppendExtentKeyRequest, p *Pack
 	return
 }
 
+func (mp *metaPartition) buildAndSubmitInoPacket(ino *Inode, opCode uint32, dirOpCode uint32, p *Packet) (resp interface{}, err error){
+	var val []byte
+	var opFlag uint32
+	if len(p.DirVerList) > 0 {
+		dirInode := &InodeDirVer{
+			Ino: ino,
+			DirVerList: p.DirVerList,
+		}
+		val, err = dirInode.Marshal()
+		if err != nil {
+			p.PacketErrorWithBody(proto.OpErr, []byte(err.Error()))
+			return
+		}
+		opFlag = dirOpCode
+	} else {
+		val, err = ino.Marshal()
+		if err != nil {
+			p.PacketErrorWithBody(proto.OpErr, []byte(err.Error()))
+			return
+		}
+		opFlag = opCode
+	}
+
+	resp, err = mp.submit(opFlag, val)
+	if err != nil {
+		p.PacketErrorWithBody(proto.OpAgain, []byte(err.Error()))
+		return
+	}
+	return
+}
+
 // ExtentAppendWithCheck appends an extent with discard extents check.
 // Format: one valid extent key followed by non or several discard keys.
 func (mp *metaPartition) ExtentAppendWithCheck(req *proto.AppendExtentKeyWithCheckRequest, p *Packet) (err error) {
@@ -129,32 +160,38 @@ func (mp *metaPartition) ExtentAppendWithCheck(req *proto.AppendExtentKeyWithChe
 
 	// extent key verSeq not set value since marshal will not include verseq
 	// use inode verSeq instead
-	inoParm.setVer(mp.verSeq)
-	inoParm.Extents.Append(ext)
-	log.LogDebugf("ExtentAppendWithCheck: ino(%v) mp(%v) verSeq (%v)", req.Inode, req.PartitionID, mp.verSeq)
 
+	if p.IsDirSnapshotOperate() {
+		inoParm.setVolVer(req.VerSeq)
+	} else {
+		inoParm.setVolVer(mp.GetVerSeq())
+	}
+
+	inoParm.Extents.Append(ext)
+	log.LogDebugf("ExtentAppendWithCheck: ino(%v) mp(%v) verSeq (%v) ext(%v)", req.Inode, req.PartitionID, mp.verSeq, ext)
 	// Store discard extents right after the append extent key.
 	if len(req.DiscardExtents) != 0 {
 		inoParm.Extents.eks = append(inoParm.Extents.eks, req.DiscardExtents...)
 	}
-	val, err := inoParm.Marshal()
-	if err != nil {
-		p.PacketErrorWithBody(proto.OpErr, []byte(err.Error()))
-		return
+
+
+	opDirFlag := opFSMExtentsAddWithCheckByDirVer
+	if req.IsSplit {
+		opDirFlag = opFSMExtentSplitByDir
 	}
-	var opFlag uint32 = opFSMExtentsAddWithCheck
+
+	opFlag := opFSMExtentsAddWithCheck
 	if req.IsSplit {
 		opFlag = opFSMExtentSplit
 	}
-	resp, err := mp.submit(opFlag, val)
-	if err != nil {
-		p.PacketErrorWithBody(proto.OpAgain, []byte(err.Error()))
+	var resp interface{}
+	if resp, err = mp.buildAndSubmitInoPacket(inoParm, uint32(opDirFlag), uint32(opFlag), p); err != nil {
 		return
 	}
 
 	log.LogDebugf("ExtentAppendWithCheck: ino(%v) mp(%v) verSeq (%v) req.VerSeq(%v) rspcode(%v)", req.Inode, req.PartitionID, mp.verSeq, req.VerSeq, resp.(uint8))
 
-	if mp.verSeq > req.VerSeq {
+	if !p.IsDirSnapshotOperate() && mp.verSeq > req.VerSeq {
 		//reuse ExtentType to identify flag of version inconsistent between metanode and client
 		//will resp to client and make client update all streamer's extent and it's verSeq
 		p.ExtentType |= proto.MultiVersionFlag
@@ -455,15 +492,14 @@ func (mp *metaPartition) ExtentsTruncate(req *ExtentsTruncateReq, p *Packet) (er
 	}
 
 	ino.Size = req.Size
-	ino.setVolVer(mp.verSeq)
-	val, err := ino.Marshal()
-	if err != nil {
-		p.PacketErrorWithBody(proto.OpErr, []byte(err.Error()))
-		return
+	if p.IsDirSnapshotOperate() {
+		ino.setVolVer(p.VerSeq)
+	} else {
+		ino.setVolVer(mp.GetVerSeq())
 	}
-	resp, err := mp.submit(opFSMExtentTruncate, val)
+
+	resp, err := mp.buildAndSubmitInoPacket(ino, opFSMExtentTruncate, opFSMExtentTruncateByDirVer, p)
 	if err != nil {
-		p.PacketErrorWithBody(proto.OpAgain, []byte(err.Error()))
 		return
 	}
 	msg := resp.(*InodeResponse)

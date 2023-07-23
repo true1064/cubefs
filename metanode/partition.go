@@ -126,7 +126,7 @@ func (c *MetaPartitionConfig) sortPeers() {
 type OpInode interface {
 	CreateInode(req *CreateInoReq, p *Packet) (err error)
 	UnlinkInode(req *UnlinkInoReq, p *Packet) (err error)
-	UnlinkInodeBatch(req *BatchUnlinkInoReq, p *Packet) (err error)
+	UnlinkInodeBatch(req *BatchUnlinkInoReq, p *Packet) (err error) // obsolete
 	InodeGet(req *InodeGetReq, p *Packet) (err error)
 	InodeGetSplitEk(req *InodeGetSplitReq, p *Packet) (err error)
 	InodeGetBatch(req *InodeGetReqBatch, p *Packet) (err error)

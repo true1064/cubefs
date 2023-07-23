@@ -191,6 +191,9 @@ const (
 	opFSMUnlinkByDirVer = 74
 	opFSMDDentryBatchByDirVer = 75
 	opFSMUnlinkBatchByDirVer = 76
+	opFSMExtentsAddWithCheckByDirVer = 77
+	opFSMExtentSplitByDir = 78
+	opFSMExtentTruncateByDirVer = 79
 )
 
 const (

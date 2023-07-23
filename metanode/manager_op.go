@@ -643,7 +643,7 @@ func (m *metadataManager) opDeleteDentry(conn net.Conn, p *Packet,
 	return
 }
 
-// Handle Op batch Delete Dentry
+// obsolete:Handle Op batch Delete Dentry
 func (m *metadataManager) opBatchDeleteDentry(conn net.Conn, p *Packet,
 	remoteAddr string) (err error) {
 	req := &BatchDeleteDentryReq{}

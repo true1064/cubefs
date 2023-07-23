@@ -152,8 +152,8 @@ const (
 
 	//Operations: MetaNode Leader -> MetaNode Follower
 	OpMetaBatchDeleteInode  uint8 = 0x90
-	OpMetaBatchDeleteDentry uint8 = 0x91
-	OpMetaBatchUnlinkInode  uint8 = 0x92
+	OpMetaBatchDeleteDentry uint8 = 0x91 // obsolete
+	OpMetaBatchUnlinkInode  uint8 = 0x92 // obsolete
 	OpMetaBatchEvictInode   uint8 = 0x93
 
 	//Transaction Operations: Client -> MetaNode.
@@ -1115,7 +1115,10 @@ func (p *Packet) setPacketPrefix() {
 
 // IsForwardPkt returns if the packet is the forward packet (a packet that will be forwarded to the followers).
 func (p *Packet) IsDirSnapshotOperate() bool {
-	return true
+	if p.VerSeq > 0 && len(p.DirVerList) > 0 {
+		return true
+	}
+	return false
 }
 
 // IsForwardPkt returns if the packet is the forward packet (a packet that will be forwarded to the followers).
