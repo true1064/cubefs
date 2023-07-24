@@ -250,15 +250,16 @@ func (d *DriveNode) handleBatchDelete(c *rpc.Context) {
 	defer pool.Close()
 	wg.Add(len(args.Paths))
 	for _, path := range args.Paths {
+		name := path
 		pool.Run(func() {
 			defer wg.Done()
-			err := vol.Delete(ctx, uint64(root), path, false)
+			err := vol.Delete(ctx, uint64(root), name, false)
 			if err == sdk.ErrNotFound {
 				err = nil
 			}
-			ch <- result{path, err}
+			ch <- result{name, err}
 			if err != nil {
-				span.Errorf("delete %s error: %v, uid=%s", path, err, d.userID(c))
+				span.Errorf("delete %s error: %v, uid=%s", name, err, d.userID(c))
 			}
 		})
 	}
