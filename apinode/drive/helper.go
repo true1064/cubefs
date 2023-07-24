@@ -229,8 +229,8 @@ func parseChecksums(header http.Header) (checksums, error) {
 		var checksum interface{}
 		switch key {
 		case "crc32", "crc64":
-			crc, err := strconv.Atoi(val)
-			if err != nil || crc < 0 {
+			crc, err := strconv.ParseUint(val, 10, 64)
+			if err != nil {
 				return nil, sdk.ErrBadRequest.Extend(key, val)
 			}
 
