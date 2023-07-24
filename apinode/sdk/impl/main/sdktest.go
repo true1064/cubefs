@@ -428,7 +428,7 @@ func testXAttrOp(ctx context.Context, vol sdk.IVolume) {
 
 func testMultiPartOp(ctx context.Context, vol sdk.IVolume) {
 	span := trace.SpanFromContextSafe(ctx)
-	tmpFile := "/testMultiPartOp11"
+	tmpFile := "/testMultiPartOp10"
 
 	span.Info("start testMultiPartOp =================")
 	defer span.Info("end testMultiPartOp =================")
@@ -447,11 +447,13 @@ func testMultiPartOp(ctx context.Context, vol sdk.IVolume) {
 		{3, "hello body"},
 	}
 
+	size := 0
 	for _, p := range parts {
 		_, err = vol.UploadMultiPart(ctx, tmpFile, uploadId, p.num, bytes.NewBufferString(p.data))
 		if err != nil {
 			span.Fatalf("upload multipart failed, num %d, err %s", p.num, err.Error())
 		}
+		size += len([]byte(p.data))
 	}
 
 	err = vol.AbortMultiPart(ctx, tmpFile, uploadId)
@@ -488,10 +490,15 @@ func testMultiPartOp(ctx context.Context, vol sdk.IVolume) {
 			MD5: part.MD5,
 		})
 	}
+
 	var finalIno *sdk.InodeInfo
 	finalIno, err = vol.CompleteMultiPart(ctx, tmpFile, uploadId, 0, newPartArr)
 	if err != nil {
 		span.Fatalf("complete multipart failed, file %s, err %s", tmpFile, err.Error())
+	}
+
+	if finalIno.Size != uint64(size) {
+		span.Fatalf("complete multipart failed, want %d, got %d", size, finalIno.Size)
 	}
 
 	newMap, err := vol.GetXAttrMap(ctx, finalIno.Inode)

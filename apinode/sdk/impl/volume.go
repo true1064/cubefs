@@ -898,7 +898,14 @@ func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId strin
 		return nil, syscallToErr(err)
 	}
 
-	return completeInfo, nil
+	var newIfo *proto.InodeInfo
+	newIfo, err = v.mw.InodeGet_ll(completeInfo.Inode)
+	if err != nil {
+		span.Errorf("final get inode ifo failed, ino %d, err %s", completeInfo.Inode, err.Error())
+		return nil, syscallToErr(err)
+	}
+
+	return newIfo, nil
 }
 
 func (v *volume) mkdirByPath(ctx context.Context, dir string) (ino uint64, err error) {
