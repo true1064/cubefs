@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -13,11 +12,6 @@ import (
 	"github.com/cubefs/cubefs/apinode/oplog"
 	"github.com/cubefs/cubefs/blobstore/util/log"
 )
-
-type config struct {
-	Addrs string `json:"addrs"`
-	Topic string `json:"topic"`
-}
 
 var consumerGroup = "cfa-oplog"
 
@@ -32,15 +26,7 @@ type sink struct {
 	stopCancel    context.CancelFunc
 }
 
-func NewKafkaSink(filename string) (oplog.Sink, error) {
-	data, err := os.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-	cfg := config{}
-	if err = json.Unmarshal(data, &cfg); err != nil {
-		return nil, err
-	}
+func NewKafkaSink(addrs string, topic string) (oplog.Sink, error) {
 	conf := sarama.NewConfig()
 	conf.Version = sarama.V2_1_0_0
 	conf.Metadata.RefreshFrequency = 120 * time.Second
@@ -48,8 +34,8 @@ func NewKafkaSink(filename string) (oplog.Sink, error) {
 	conf.Producer.Return.Errors = true
 	conf.Producer.Return.Successes = true
 
-	addrs := strings.Split(cfg.Addrs, ",")
-	producer, err := sarama.NewSyncProducer(addrs, conf)
+	kafkaAddrs := strings.Split(addrs, ",")
+	producer, err := sarama.NewSyncProducer(kafkaAddrs, conf)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +43,7 @@ func NewKafkaSink(filename string) (oplog.Sink, error) {
 	conf.Consumer.Offsets.Initial = sarama.OffsetOldest
 	conf.Consumer.Group.Rebalance.Strategy = sarama.BalanceStrategyRange
 	conf.Consumer.Offsets.CommitInterval = time.Second
-	consumerGroup, err := sarama.NewConsumerGroup(addrs, consumerGroup, conf)
+	consumerGroup, err := sarama.NewConsumerGroup(kafkaAddrs, consumerGroup, conf)
 	if err != nil {
 		producer.Close()
 		return nil, err
@@ -65,7 +51,7 @@ func NewKafkaSink(filename string) (oplog.Sink, error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	s := &sink{
-		topic:         cfg.Topic,
+		topic:         topic,
 		producer:      producer,
 		consumerGroup: consumerGroup,
 		stopCtx:       ctx,

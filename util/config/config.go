@@ -87,6 +87,10 @@ func (c *Config) GetString(key string) string {
 	return ""
 }
 
+func (c *Config) GetValue(key string) interface{} {
+	return c.data[key]
+}
+
 // GetString returns a string for the config key.
 func (c *Config) SetString(key, val string) {
 	c.data[key] = val

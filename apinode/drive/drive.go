@@ -192,6 +192,12 @@ type ArgsDelProperties struct {
 	Path FilePath `json:"path"`
 }
 
+type kafkaConfig struct {
+	Addrs            string `json:"addrs"`
+	Topic            string `json:"topic"`
+	FailedRecordFile string `json:"failedRecordFile"`
+}
+
 // DriveNode drive node.
 type DriveNode struct {
 	masterAddr  string      // the master address of the default cluster
@@ -253,24 +259,11 @@ func (d *DriveNode) Start(cfg *config.Config) error {
 		return fmt.Errorf("not get volume volumeName: %s", d.volumeName)
 	}
 
-	oplogCfgFile := cfg.GetString("oplogKafkaCfgFile")
-	if oplogCfgFile != "" {
-		recordFile := cfg.GetString("recordFile")
-		if recordFile == "" {
-			return fmt.Errorf("not configure recordFile")
-		}
-		d.recorder = &lumberjack.Logger{
-			Filename: recordFile,
-			MaxAge:   7,
-		}
-		kafkaSink, err := kafka.NewKafkaSink(oplogCfgFile)
-		if err != nil {
-			return err
-		}
-		d.out.AddSinks(kafkaSink)
-		d.out.StartConsumer(kafkaSink.Name(), d)
-	}
 	if err := d.initClusterConfig(); err != nil {
+		return err
+	}
+
+	if err := d.initOplog(cfg); err != nil {
 		return err
 	}
 	go d.run()
@@ -440,6 +433,41 @@ func (d *DriveNode) createFile(ctx context.Context, vol sdk.IVolume, parentIno I
 		info, err = vol.GetInode(ctx, dirInfo.Inode)
 	}
 	return
+}
+
+func (d *DriveNode) initOplog(cfg *config.Config) error {
+	oplogMap := cfg.GetValue("oplog")
+	if oplogMap == nil {
+		return nil
+	}
+	kafkaMap := oplogMap.(map[string]interface{})["kafka"]
+	if kafkaMap != nil {
+		data, err := json.Marshal(kafkaMap)
+		if err != nil {
+			return err
+		}
+
+		cfg := kafkaConfig{}
+		if err = json.Unmarshal(data, &cfg); err != nil {
+			return err
+		}
+
+		if cfg.FailedRecordFile == "" {
+			return fmt.Errorf("not configure failedRecordFile in kafka")
+		}
+
+		sink, err := kafka.NewKafkaSink(cfg.Addrs, cfg.Topic)
+		if err != nil {
+			return err
+		}
+		d.recorder = &lumberjack.Logger{
+			Filename: cfg.FailedRecordFile,
+			MaxAge:   7,
+		}
+		d.out.AddSinks(sink)
+		d.out.StartConsumer(sink.Name(), d)
+	}
+	return nil
 }
 
 func (d *DriveNode) initClusterConfig() error {

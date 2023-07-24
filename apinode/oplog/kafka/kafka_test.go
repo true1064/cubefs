@@ -2,7 +2,6 @@ package kafka
 
 import (
 	"context"
-	"os"
 	"testing"
 	"time"
 
@@ -12,10 +11,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewKafkaSink(t *testing.T) {
-	config := "{\"addrs\": \"127.0.0.1:9050\", \"topic\": \"cfa-unit-test\"}"
-	os.WriteFile("/tmp/kafka.conf", []byte(config), 0o600)
+const (
+	addrs = "127.0.0.1:9050"
+	topic = "cfa-unit-test"
+)
 
+func TestNewKafkaSink(t *testing.T) {
 	mockFetchResponse := sarama.NewMockFetchResponse(t, 1)
 	broker := sarama.NewMockBrokerAddr(t, 0, "127.0.0.1:9050")
 	broker.SetHandlerByMap(map[string]sarama.MockResponse{
@@ -27,16 +28,13 @@ func TestNewKafkaSink(t *testing.T) {
 			SetOffset("cfa-unit-test", 0, sarama.OffsetNewest, 2345),
 		"FetchRequest": mockFetchResponse,
 	})
-	sink, err := NewKafkaSink("/tmp/kafka.conf")
+	sink, err := NewKafkaSink(addrs, topic)
 	require.Nil(t, err)
 	sink.Close()
 	broker.Close()
 }
 
 func TestPublish(t *testing.T) {
-	config := "{\"addrs\": \"127.0.0.1:9050\", \"topic\": \"cfa-unit-test\"}"
-	os.WriteFile("/tmp/kafka.conf", []byte(config), 0o600)
-
 	mockFetchResponse := sarama.NewMockFetchResponse(t, 1)
 	broker := sarama.NewMockBrokerAddr(t, 0, "127.0.0.1:9050")
 	broker.SetHandlerByMap(map[string]sarama.MockResponse{
@@ -48,7 +46,7 @@ func TestPublish(t *testing.T) {
 			SetOffset("cfa-unit-test", 0, sarama.OffsetNewest, 2345),
 		"FetchRequest": mockFetchResponse,
 	})
-	s, err := NewKafkaSink("/tmp/kafka.conf")
+	s, err := NewKafkaSink(addrs, topic)
 	require.Nil(t, err)
 	producer := s.(*sink).producer
 	producer.Close()
@@ -81,10 +79,8 @@ func (h *handler) ConsumerEvent(ctx context.Context, e oplog.Event) {
 }
 
 func TestConsumer(t *testing.T) {
-	config := "{\"addrs\": \"127.0.0.1:9050\", \"topic\": \"cfa-unit-test\"}"
-	os.WriteFile("/tmp/kafka.conf", []byte(config), 0o600)
 
-	broker := sarama.NewMockBrokerAddr(t, 0, "127.0.0.1:9050")
+	broker := sarama.NewMockBrokerAddr(t, 0, addrs)
 	broker.SetHandlerByMap(map[string]sarama.MockResponse{
 		"MetadataRequest": sarama.NewMockMetadataResponse(t).
 			SetBroker(broker.Addr(), broker.BrokerID()).
@@ -120,7 +116,7 @@ func TestConsumer(t *testing.T) {
 		),
 	})
 
-	sink, err := NewKafkaSink("/tmp/kafka.conf")
+	sink, err := NewKafkaSink(addrs, topic)
 	require.Nil(t, err)
 
 	h := &handler{
