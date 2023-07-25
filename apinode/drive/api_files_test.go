@@ -230,6 +230,7 @@ func TestHandleBatchDelete(t *testing.T) {
 
 	{
 		node.OnceGetUser(testUserID)
+		node.Volume.EXPECT().Lookup(A, A, A).Return(&sdk.DirInfo{}, nil).Times(2)
 		node.Volume.EXPECT().Delete(A, A, A, A).Return(nil)
 		args := ArgsBatchDelete{
 			Paths: []string{"/test/1234"},

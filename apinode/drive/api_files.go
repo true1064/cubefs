@@ -15,6 +15,9 @@
 package drive
 
 import (
+	"context"
+	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
@@ -88,27 +91,14 @@ func (d *DriveNode) handleFilesDelete(c *rpc.Context) {
 		return
 	}
 
-	dir, name := args.Path.Split()
-	parentIno := root
-	if dir != "" && dir != "/" {
-		parent, errx := d.lookup(ctx, vol, root, dir.String())
-		if errx != nil {
-			span.Warn(errx)
-			d.respError(c, errx)
-			return
-		}
-		parentIno = Inode(parent.Inode)
-	}
-
-	var file *sdk.DirInfo
+	var info *sdk.DirInfo
 	if d.checkFunc(c, func(err error) { span.Error(err) },
-		func() error { file, err = d.lookup(ctx, vol, parentIno, name); return err },
-		func() error { return vol.Delete(ctx, parentIno.Uint64(), name, file.IsDir()) }) {
+		func() error { info, err = deleteFile(ctx, vol, root, args.Path.String()); return err }) {
 		return
 	}
 
 	op := OpDeleteFile
-	if file.IsDir() {
+	if info.IsDir() {
 		op = OpDeleteDir
 	}
 	d.out.Publish(ctx, makeOpLog(op, d.requestID(c), d.userID(c), args.Path.String()))
@@ -235,7 +225,7 @@ func (d *DriveNode) handleBatchDelete(c *rpc.Context) {
 	}
 	ctx, span := d.ctxSpan(c)
 	root, vol, err := d.getRootInoAndVolume(ctx, d.userID(c))
-	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
+	if d.checkError(c, func(err error) { span.Warnf("get root inode and volume return error: %v", err) }, err) {
 		return
 	}
 
@@ -253,9 +243,12 @@ func (d *DriveNode) handleBatchDelete(c *rpc.Context) {
 		name := path
 		pool.Run(func() {
 			defer wg.Done()
-			err := vol.Delete(ctx, uint64(root), name, false)
+			_, err := deleteFile(ctx, vol, root, name)
 			if err == sdk.ErrNotFound {
+				span.Infof("delete file %s rootIno %d return error: not found, ignore this error", name, root)
 				err = nil
+			} else {
+				span.Debugf("delete file %s rootIno %d return success", name, root)
 			}
 			ch <- result{name, err}
 			if err != nil {
@@ -281,4 +274,30 @@ func (d *DriveNode) handleBatchDelete(c *rpc.Context) {
 	}
 
 	c.RespondJSON(res)
+}
+
+func deleteFile(ctx context.Context, vol sdk.IVolume, root Inode, path string) (*sdk.DirInfo, error) {
+	path = filepath.Clean(path)
+	if path == "" || path == "/" {
+		return nil, sdk.ErrInvalidPath
+	}
+	ino := root
+	dir, file := filepath.Split(path)
+	names := strings.Split(dir, "/")
+	for _, name := range names {
+		if name == "" {
+			continue
+		}
+		info, err := vol.Lookup(ctx, ino.Uint64(), name)
+		if err != nil {
+			return nil, err
+		}
+		ino = Inode(info.Inode)
+	}
+
+	info, err := vol.Lookup(ctx, ino.Uint64(), file)
+	if err != nil {
+		return nil, err
+	}
+	return info, vol.Delete(ctx, ino.Uint64(), file, info.IsDir())
 }
