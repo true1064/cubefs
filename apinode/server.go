@@ -234,20 +234,24 @@ func handleStart(svr common.Server, cfg *config.Config) error {
 	}
 
 	if err := s.loadConfig(cfg); err != nil {
+		log.Errorf("load config error: %v", err)
 		return err
 	}
 
 	// get cluster from master.
 	ci, err := s.mc.AdminAPI().GetClusterInfo()
 	if err != nil {
+		log.Errorf("get cluster info error: %v", err)
 		return err
 	}
 
 	if err := s.startRouters(cfg); err != nil {
+		log.Errorf("start router error: %v", err)
 		return err
 	}
 
 	if err := s.startHTTPServer(); err != nil {
+		log.Errorf("start http server error: %v", err)
 		return err
 	}
 	registerLogLevel()

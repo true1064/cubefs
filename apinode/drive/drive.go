@@ -248,6 +248,7 @@ func (d *DriveNode) Start(cfg *config.Config) error {
 
 	_, ctx := trace.StartSpanFromContext(context.TODO(), "")
 	if err := d.clusterMgr.AddCluster(ctx, d.clusterID, d.masterAddr); err != nil {
+		log.Errorf("add cluster [clusterID: %s, masterAddr: %s] error: %v", d.clusterID, d.masterAddr, err)
 		return err
 	}
 	cluster := d.clusterMgr.GetCluster(d.clusterID)
@@ -473,6 +474,7 @@ func (d *DriveNode) initOplog(cfg *config.Config) error {
 func (d *DriveNode) initClusterConfig() error {
 	dirInfo, err := d.lookup(context.TODO(), d.vol, volumeRootIno, "/usr/clusters.conf")
 	if err != nil {
+		log.Errorf("lookup /usr/clusters.conf error: %v", err)
 		return err
 	}
 	inoInfo, err := d.vol.GetInode(context.TODO(), dirInfo.Inode)
