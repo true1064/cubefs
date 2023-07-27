@@ -106,8 +106,8 @@ func newCrc32Reader(header http.Header, reader io.Reader, logger logFunc) (io.Re
 	if val == "" {
 		return reader, nil
 	}
-	i, err := strconv.Atoi(val)
-	if err != nil || i < 0 {
+	i, err := strconv.ParseUint(val, 10, 32)
+	if err != nil {
 		logger("invalid checksum %s", val)
 		return reader, sdk.ErrBadRequest.Extend(val)
 	}
