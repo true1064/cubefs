@@ -16,14 +16,14 @@ import (
 var consumerGroup = "cfa-oplog"
 
 type sink struct {
-	topic         string
-	producer      sarama.SyncProducer
-	consumerGroup sarama.ConsumerGroup
-	handler       oplog.Handler
-	wg            sync.WaitGroup
-	once          sync.Once
-	stopCtx       context.Context
-	stopCancel    context.CancelFunc
+	topic      string
+	producer   sarama.SyncProducer
+	group      sarama.ConsumerGroup
+	handler    oplog.Handler
+	wg         sync.WaitGroup
+	once       sync.Once
+	stopCtx    context.Context
+	stopCancel context.CancelFunc
 }
 
 func NewKafkaSink(addrs string, topic string) (oplog.Sink, error) {
@@ -43,7 +43,7 @@ func NewKafkaSink(addrs string, topic string) (oplog.Sink, error) {
 	conf.Consumer.Offsets.Initial = sarama.OffsetOldest
 	conf.Consumer.Group.Rebalance.Strategy = sarama.BalanceStrategyRange
 	conf.Consumer.Offsets.CommitInterval = time.Second
-	consumerGroup, err := sarama.NewConsumerGroup(kafkaAddrs, consumerGroup, conf)
+	group, err := sarama.NewConsumerGroup(kafkaAddrs, consumerGroup, conf)
 	if err != nil {
 		producer.Close()
 		return nil, err
@@ -51,11 +51,11 @@ func NewKafkaSink(addrs string, topic string) (oplog.Sink, error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	s := &sink{
-		topic:         topic,
-		producer:      producer,
-		consumerGroup: consumerGroup,
-		stopCtx:       ctx,
-		stopCancel:    cancel,
+		topic:      topic,
+		producer:   producer,
+		group:      group,
+		stopCtx:    ctx,
+		stopCancel: cancel,
 	}
 	return s, nil
 }
@@ -63,7 +63,7 @@ func NewKafkaSink(addrs string, topic string) (oplog.Sink, error) {
 func (s *sink) Close() error {
 	s.stopCancel()
 	s.producer.Close()
-	s.consumerGroup.Close()
+	s.group.Close()
 	s.wg.Wait()
 	return nil
 }
@@ -87,7 +87,7 @@ func (s *sink) StartConsumer(h oplog.Handler) {
 		go func() {
 			defer s.wg.Done()
 			for {
-				if err := s.consumerGroup.Consume(s.stopCtx, []string{s.topic}, s); err != nil {
+				if err := s.group.Consume(s.stopCtx, []string{s.topic}, s); err != nil {
 					log.Panicf("consume error: %v", err)
 				}
 
