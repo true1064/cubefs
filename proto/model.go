@@ -243,6 +243,11 @@ type VolStatInfo struct {
 	DpReadOnlyWhenVolFull bool
 }
 
+type FileId struct {
+	Begin uint64
+	End   uint64
+}
+
 // DataPartition represents the structure of storing the file contents.
 type DataPartitionInfo struct {
 	PartitionID              uint64

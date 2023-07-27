@@ -11,6 +11,7 @@ type ICluster interface {
 	Info() *ClusterInfo
 	Addr() string
 	UpdateAddr(ctx context.Context, addr string) error
+	AllocFileId(ctx context.Context) (id uint64, err error)
 }
 
 type ClusterManager interface {

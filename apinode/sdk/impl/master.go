@@ -8,12 +8,14 @@ import (
 type MasterApi struct {
 	//*master.MasterClient
 	*master.AdminAPI
+	*master.ClientAPI
 }
 
 func newSdkMasterCli(addr string) sdk.IMaster {
 	masterCli := master.NewMasterClientFromString(addr, false)
 	m := &MasterApi{
-		masterCli.AdminAPI(),
+		AdminAPI:  masterCli.AdminAPI(),
+		ClientAPI: masterCli.ClientAPI(),
 	}
 
 	return m

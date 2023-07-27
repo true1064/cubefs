@@ -35,7 +35,7 @@ func (l *InodeLock) Lock(ctx context.Context, inode uint64, expireTime int) erro
 		return sdk.ErrConflict
 	}
 
-	span.Errorf("set inode lock failed, unknown error, inode %d, req %v, err %s", err.Error())
+	span.Errorf("set inode lock failed, unknown error, inode %d, req %v, err %s", inode, req, err.Error())
 	return sdk.ErrInternalServerError
 }
 

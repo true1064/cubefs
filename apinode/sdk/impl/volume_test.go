@@ -311,6 +311,8 @@ func Test_volume_CompleteMultiPart(t *testing.T) {
 		_, err = v.CompleteMultiPart(ctx, filePath, uploadId, 0, parts)
 		require.Equal(t, err, syscallToErr(syscall.EEXIST))
 	}
+
+	mockMeta.EXPECT().InodeGet_ll(any).Return(nil, nil).AnyTimes()
 	mockMeta.EXPECT().DentryCreateEx_ll(any, any, newIno, uint64(0), any).Return(nil)
 	_, err = v.CompleteMultiPart(ctx, filePath, uploadId, 0, parts)
 	require.True(t, err == nil)

@@ -46,6 +46,30 @@ func main() {
 	testXAttrOp(ctx, vol)
 	testMultiPartOp(ctx, vol)
 	testInodeLock(ctx, vol)
+	testClusterOp(ctx, cluster)
+}
+
+// alloc fileId
+func testClusterOp(ctx context.Context, cluster sdk.ICluster) {
+	span := trace.SpanFromContextSafe(ctx)
+	span.Infof("start test cluster op ===================")
+
+	id1, err := cluster.AllocFileId(ctx)
+	if err != nil {
+		span.Fatalf("alloc file id1 failed, err %s", err.Error())
+	}
+
+	for idx := id1; idx < id1+20000; idx++ {
+		tmpId, err := cluster.AllocFileId(ctx)
+		if err != nil {
+			span.Fatalf("alloc file id1 failed, err %s", err.Error())
+		}
+		if tmpId != idx+1 {
+			span.Fatalf("alooc wrong file id, got %d, want %d", tmpId, idx+1)
+		}
+	}
+
+	span.Infof("end cluster op ===================")
 }
 
 // mkdir, readdir, deleteDir, createFile, deleteFile
@@ -522,6 +546,8 @@ func testInodeLock(ctx context.Context, vol sdk.IVolume) {
 	defer span.Infof("end testInodeLock op ===================")
 
 	dirName := "testInodeLock1"
+	_ = vol.Delete(ctx, proto.RootIno, dirName, true)
+
 	ifo, err := vol.Mkdir(ctx, proto.RootIno, dirName)
 	if err != nil {
 		span.Fatalf("create dir failed, dir %s, err %s", dirName, err.Error())

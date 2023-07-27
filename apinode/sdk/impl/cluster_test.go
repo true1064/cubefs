@@ -36,6 +36,7 @@ func TestCluster_initMasterCli(t *testing.T) {
 		newMaster = func(addr string) sdk.IMaster {
 			m := mocks.NewMockMaster(ctrl)
 			m.EXPECT().GetClusterIP().Return(tc.cIp, tc.returnErr)
+			m.EXPECT().AllocFileId().Return(nil, nil).AnyTimes()
 			return m
 		}
 
@@ -50,6 +51,7 @@ func TestCluster_updateVols(t *testing.T) {
 
 	m := mocks.NewMockMaster(ctrl)
 	m.EXPECT().GetClusterIP().Return(&proto.ClusterIP{Cluster: "cid1"}, nil)
+	m.EXPECT().AllocFileId().Return(nil, nil).AnyTimes()
 
 	newMaster = func(addr string) sdk.IMaster {
 		return m
@@ -83,4 +85,44 @@ func TestCluster_updateVols(t *testing.T) {
 	err = cl.updateVols(ctx)
 	require.True(t, err == sdk.ErrInternalServerError)
 	require.True(t, len(cl.ListVols()) == 2)
+}
+
+func TestCluster_AllocFileId(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	m := mocks.NewMockMaster(ctrl)
+	newMaster = func(addr string) sdk.IMaster {
+		return m
+	}
+
+	m.EXPECT().GetClusterIP().Return(&proto.ClusterIP{Cluster: "cid1"}, nil).AnyTimes()
+	_, ctx := trace.StartSpanFromContext(context.TODO(), "")
+
+	begin, end := uint64(10), uint64(100)
+	expect := &proto.FileId{Begin: begin, End: end}
+	m.EXPECT().AllocFileId().Return(expect, sdk.ErrInternalServerError)
+	cl, err := newClusterIn(ctx, "addr1", "cid1")
+	require.Error(t, err)
+
+	m.EXPECT().AllocFileId().Return(expect, nil)
+	cl, err = newClusterIn(ctx, "addr1", "cid1")
+	require.NoError(t, err)
+	require.True(t, cl.fileId.Begin == begin)
+
+	for idx := begin; idx < end; idx++ {
+		gotId, err := cl.AllocFileId(ctx)
+		require.NoError(t, err)
+		require.True(t, gotId == idx+1)
+	}
+
+	m.EXPECT().AllocFileId().Return(expect, sdk.ErrInternalServerError)
+	_, err = cl.AllocFileId(ctx)
+	require.Error(t, err)
+
+	newBegin := uint64(1001)
+	m.EXPECT().AllocFileId().Return(&proto.FileId{Begin: newBegin}, nil)
+	gotFile, err := cl.AllocFileId(ctx)
+	require.NoError(t, err)
+	require.Equal(t, gotFile, newBegin+1)
 }

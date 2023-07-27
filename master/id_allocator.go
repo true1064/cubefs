@@ -16,6 +16,7 @@ package master
 
 import (
 	"fmt"
+	"github.com/cubefs/cubefs/proto"
 	"math"
 	"strconv"
 	"sync"
@@ -34,12 +35,14 @@ type IDAllocator struct {
 	clientID        uint64
 	clientIDLimit   uint64
 	quotaID         uint32
-	store           *raftstore_db.RocksDBStore
-	partition       raftstore.Partition
-	dpIDLock        sync.RWMutex
-	mpIDLock        sync.RWMutex
-	mnIDLock        sync.RWMutex
-	qaIDLock        sync.RWMutex
+	fileId          uint64
+
+	store     *raftstore_db.RocksDBStore
+	partition raftstore.Partition
+	dpIDLock  sync.RWMutex
+	mpIDLock  sync.RWMutex
+	mnIDLock  sync.RWMutex
+	qaIDLock  sync.RWMutex
 }
 
 const clientIDBatchCount = 1000
@@ -55,8 +58,35 @@ func (alloc *IDAllocator) restore() {
 	alloc.restoreMaxDataPartitionID()
 	alloc.restoreMaxMetaPartitionID()
 	alloc.restoreMaxCommonID()
+	alloc.restoreFileID()
 	alloc.restoreMaxQuotaID()
 	alloc.restoreClientID()
+}
+
+func (alloc *IDAllocator) restoreFileID() {
+	defer func() {
+		log.LogWarnf("action[restoreFileID] fileId[%v]", alloc.fileId)
+	}()
+
+	value, err := alloc.store.Get(maxFileIDKey)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to restore maxFileIDKey,err:%v ", err.Error()))
+	}
+	alloc.qaIDLock.Lock()
+	defer alloc.qaIDLock.Unlock()
+
+	bytes := value.([]byte)
+	if len(bytes) == 0 {
+		alloc.fileId = 0
+		return
+	}
+	fileID, err := strconv.ParseUint(string(bytes), 10, 64)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to restore maxFileIDKey,err:%v ", err.Error()))
+	}
+
+	alloc.fileId = fileID
+
 }
 
 func (alloc *IDAllocator) restoreMaxDataPartitionID() {
@@ -245,6 +275,38 @@ func (alloc *IDAllocator) allocateClientID() (clientID uint64, err error) {
 	return
 errHandler:
 	log.LogErrorf("action[allocateClientID] err:%v", err.Error())
+	return
+}
+
+func (alloc *IDAllocator) allocateFileId(countOnce uint64) (id *proto.FileId, err error) {
+	alloc.qaIDLock.Lock()
+	defer alloc.qaIDLock.Unlock()
+
+	id = &proto.FileId{
+		Begin: alloc.fileId,
+	}
+
+	var cmd []byte
+	metadata := new(RaftCmd)
+	metadata.Op = opSyncAllocFileId
+	metadata.K = maxFileIDKey
+	id.End = alloc.fileId + countOnce
+	value := strconv.FormatUint(id.End, 10)
+	metadata.V = []byte(value)
+
+	cmd, err = metadata.Marshal()
+	if err != nil {
+		goto errHandler
+	}
+
+	if _, err = alloc.partition.Submit(cmd); err != nil {
+		goto errHandler
+	}
+
+	atomic.StoreUint64(&alloc.fileId, id.End)
+	return
+errHandler:
+	log.LogErrorf("action[allocateFileId] err:%v", err.Error())
 	return
 }
 

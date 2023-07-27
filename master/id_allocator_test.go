@@ -14,9 +14,28 @@
 
 package master
 
-import "testing"
+import (
+	"github.com/stretchr/testify/require"
+	"testing"
+)
 
 const idallocTestCount = 1010
+
+func Test_AllocFileID(t *testing.T) {
+	idAlloc := server.cluster.idAlloc
+
+	start := idAlloc.fileId
+	id, err := idAlloc.allocateFileId(100)
+	require.NoError(t, err)
+
+	require.Equal(t, id.Begin, start)
+	require.Equal(t, id.End, start+100)
+	require.Equal(t, id.End, idAlloc.fileId)
+
+	idAlloc.restoreFileID()
+	require.Equal(t, id.End, idAlloc.fileId)
+}
+
 
 func SelfIncreaseIdAllocTest(t *testing.T, allocator *IDAllocator, allocFunc func() (uint64, error)) {
 	var id uint64

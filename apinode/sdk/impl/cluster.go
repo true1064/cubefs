@@ -2,6 +2,8 @@ package impl
 
 import (
 	"context"
+	"github.com/cubefs/cubefs/proto"
+	"github.com/pkg/errors"
 	"sync"
 	"time"
 
@@ -15,6 +17,8 @@ var newMaster = newSdkMasterCli
 type cluster struct {
 	masterAddr string
 	clusterId  string
+	lock       sync.RWMutex
+	fileId     *proto.FileId
 
 	cli sdk.IMaster
 
@@ -38,6 +42,10 @@ func newClusterIn(ctx context.Context, addr, cId string) (*cluster, error) {
 
 	cl.newVol = newVolume
 	cl.cli = cli
+	cl.fileId, err = cli.AllocFileId()
+	if err != nil {
+		return nil, errors.Wrap(err, "alloc file id failed")
+	}
 	return cl, nil
 }
 
@@ -61,6 +69,30 @@ func (c *cluster) Info() *sdk.ClusterInfo {
 	}
 
 	return ci
+}
+
+func (c *cluster) AllocFileId(ctx context.Context) (id uint64, err error) {
+	span := trace.SpanFromContextSafe(ctx)
+
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	if c.fileId.Begin < c.fileId.End {
+		c.fileId.Begin++
+		return c.fileId.Begin, nil
+	}
+
+	start := time.Now()
+	fileId, err := c.cli.AllocFileId()
+	if err != nil {
+		span.Errorf("alloc file id failed, err %s", err.Error())
+		return 0, err
+	}
+	span.Infof("alloc fileId success, id %v, cost %s", fileId, time.Since(start).String())
+
+	c.fileId = fileId
+	c.fileId.Begin++
+	return c.fileId.Begin, nil
 }
 
 func (c *cluster) GetVol(name string) sdk.IVolume {

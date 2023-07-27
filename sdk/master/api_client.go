@@ -100,6 +100,19 @@ func (api *ClientAPI) GetVolumeStat(volName string) (info *proto.VolStatInfo, er
 	return
 }
 
+func (api *ClientAPI) AllocFileId() (info *proto.FileId, err error) {
+	var request = newAPIRequest(http.MethodPost, proto.ClientAllocFileId)
+	var data []byte
+	if data, err = api.mc.serveRequest(request); err != nil {
+		return
+	}
+	info = &proto.FileId{}
+	if err = json.Unmarshal(data, info); err != nil {
+		return
+	}
+	return
+}
+
 func (api *ClientAPI) GetMetaPartition(partitionID uint64) (partition *proto.MetaPartitionInfo, err error) {
 	var request = newAPIRequest(http.MethodGet, proto.ClientMetaPartition)
 	request.addParam("id", strconv.FormatUint(partitionID, 10))

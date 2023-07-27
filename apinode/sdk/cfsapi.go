@@ -47,10 +47,11 @@ type MetaOp interface {
 }
 
 type IMaster interface {
-	AdminApi
+	MasterApi
 }
 
-type AdminApi interface {
+type MasterApi interface {
 	GetClusterIP() (cp *proto.ClusterIP, err error)
 	ListVols(keywords string) (volsInfo []*proto.VolInfo, err error)
+	AllocFileId() (info *proto.FileId, err error)
 }

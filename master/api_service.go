@@ -4644,6 +4644,26 @@ func (m *Server) getVol(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+const fileIdCntOnce = 10000
+
+func (m *Server) allocFileId(w http.ResponseWriter, r *http.Request) {
+	var err error
+
+	metric := exporter.NewTPCnt(apiToMetricsName(proto.ClientAllocFileId))
+	defer func() {
+		doStatAndMetric(proto.ClientAllocFileId, metric, err, nil)
+	}()
+
+	id, err := m.cluster.idAlloc.allocateFileId(fileIdCntOnce)
+	if err != nil {
+		sendErrReply(w, r, newErrHTTPReply(proto.ErrInternalError))
+		return
+	}
+
+	sendOkReply(w, r, newSuccessHTTPReply(id))
+	log.LogInfof("allocFileId: alloc fileId success, result %v", id)
+}
+
 // Obtain the volume information such as total capacity and used space, etc.
 func (m *Server) getVolStatInfo(w http.ResponseWriter, r *http.Request) {
 	var (

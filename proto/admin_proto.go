@@ -109,6 +109,7 @@ const (
 	// Client APIs
 	ClientDataPartitions = "/client/partitions"
 	ClientVol            = "/client/vol"
+	ClientAllocFileId    = "/client/alloc/fileId"
 	ClientMetaPartition  = "/metaPartition/get"
 	ClientVolStat        = "/client/volStat"
 	ClientMetaPartitions = "/client/metaPartitions"

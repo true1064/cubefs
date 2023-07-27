@@ -280,6 +280,8 @@ const (
 	opSyncAllocQuotaID uint32 = 0x40
 	opSyncSetQuota     uint32 = 0x41
 	opSyncDeleteQuota  uint32 = 0x42
+	opSyncAllocFileId  uint32 = 0x43
+
 	opSyncMulitVersion uint32 = 0x53
 
 	opSyncS3QosSet    uint32 = 0x60
@@ -308,6 +310,7 @@ const (
 	maxCommonIDKey         = keySeparator + "max_common_id"
 	maxClientIDKey         = keySeparator + "client_id"
 	maxQuotaIDKey          = keySeparator + "quota_id"
+	maxFileIDKey          = keySeparator + "file_id"
 	metaNodePrefix         = keySeparator + metaNodeAcronym + keySeparator
 	dataNodePrefix         = keySeparator + dataNodeAcronym + keySeparator
 	dataPartitionPrefix    = keySeparator + dataPartitionAcronym + keySeparator

@@ -59,7 +59,7 @@ const (
 )
 
 type InodeLockReq struct {
-	PartitionId uint64 `pid`
+	PartitionId uint64 `json:"pid"`
 	LockType    uint8  `json:"lock_type"`
 	Id          string `json:"id"`
 	ExpireTime  int    `json:"expire_time"`
