@@ -17,10 +17,15 @@ package drive
 import (
 	"time"
 
+	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
 )
 
 type GetPropertiesResult = FileInfo
+
+const (
+	maxProperityNum = 1000
+)
 
 func (d *DriveNode) handleSetProperties(c *rpc.Context) {
 	ctx, span := d.ctxSpan(c)
@@ -40,6 +45,10 @@ func (d *DriveNode) handleSetProperties(c *rpc.Context) {
 	}
 	if len(xattrs) == 0 {
 		c.Respond()
+		return
+	}
+	if len(xattrs) > maxProperityNum {
+		c.RespondError(sdk.ErrTooLarge)
 		return
 	}
 	span.Info("to set xattrs:", xattrs)
@@ -77,6 +86,10 @@ func (d *DriveNode) handleDelProperties(c *rpc.Context) {
 	}
 	if len(xattrs) == 0 {
 		c.Respond()
+		return
+	}
+	if len(xattrs) > maxProperityNum {
+		c.RespondError(sdk.ErrTooLarge)
 		return
 	}
 
