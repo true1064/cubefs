@@ -67,7 +67,7 @@ func newMockCryptor(tb testing.TB) *mocks.MockCryptor {
 	transmitter.EXPECT().Decrypt(A, A).DoAndReturn(func(text string, _ bool) (string, error) { return text, nil }).AnyTimes()
 
 	cryptor := mocks.NewMockCryptor(C(tb))
-	cryptor.EXPECT().TransEncryptor(A, A).DoAndReturn(func(_ string, r io.Reader) (io.Reader, error) { return r, nil }).AnyTimes()
+	cryptor.EXPECT().TransEncryptor(A, A).DoAndReturn(func(_ string, r io.Reader) (io.Reader, string, error) { return r, "", nil }).AnyTimes()
 	cryptor.EXPECT().TransDecryptor(A, A).DoAndReturn(func(_ string, r io.Reader) (io.Reader, error) { return r, nil }).AnyTimes()
 	cryptor.EXPECT().GenKey().Return(nil, nil).AnyTimes()
 	cryptor.EXPECT().FileEncryptor(A, A).DoAndReturn(func(_ []byte, r io.Reader) (io.Reader, error) { return r, nil }).AnyTimes()

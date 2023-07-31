@@ -219,6 +219,7 @@ func TestHandleBatchDelete(t *testing.T) {
 		req.Header.Add(HeaderUserID, testUserID)
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
+		defer resp.Body.Close()
 
 		res := &BatchDeleteResult{}
 		body, err := io.ReadAll(resp.Body)

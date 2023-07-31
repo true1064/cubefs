@@ -45,13 +45,12 @@ type client struct {
 	rpc.Client
 }
 
-func setHeaders(req *http.Request, meta []string) error {
+func setHeaders(req *http.Request, material string, meta []string) error {
 	req.Header.Set("x-cfa-service", "drive")
 	req.Header.Set(drive.HeaderUserID, user)
 	if len(pass) > 0 {
-		req.Header.Set(drive.HeaderCipherMaterial, pass)
-		req.Header.Set(drive.HeaderCipherMaterialRequest, bodyMaterial)
-		req.Header.Set(drive.HeaderCipherMaterialResponse, bodyMaterial)
+		req.Header.Set(drive.HeaderCipherMeta, pass)
+		req.Header.Set(drive.HeaderCipherBody, material)
 	}
 	for i := 0; i < len(meta); i += 2 {
 		k, err := encoder.Encrypt(meta[i], false)
@@ -77,14 +76,17 @@ func (c *client) requestWith(method string, uri string, body io.Reader, ret inte
 
 func (c *client) requestWithHeader(method string, uri string, body io.Reader, headers map[string]string,
 	ret interface{}, meta ...string) error {
+	var material string
 	if body != nil {
-		body = requester(body)
+		body, material = requester(body)
+	} else {
+		_, material = requester(io.MultiReader())
 	}
 	req, err := http.NewRequest(method, host+uri, body)
 	if err != nil {
 		return err
 	}
-	if err = setHeaders(req, meta); err != nil {
+	if err = setHeaders(req, material, meta); err != nil {
 		return err
 	}
 	for k, v := range headers {
@@ -97,7 +99,7 @@ func (c *client) requestWithHeader(method string, uri string, body io.Reader, he
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode/100 == 2 {
-		resp.Body = readCloser{Reader: responser(resp.Body), Closer: resp.Body}
+		resp.Body = readCloser{Reader: responser(resp.Body, resp.Header.Get(drive.HeaderCipherBody)), Closer: resp.Body}
 	}
 	return newStatusError(rpc.ParseData(resp, ret), resp.Header.Get("x-cfa-trace-id"))
 }
@@ -198,7 +200,8 @@ func (c *client) FileDownload(path string, from, to int, w io.Writer) (err error
 	if err != nil {
 		return
 	}
-	setHeaders(req, nil)
+	_, material := requester(io.MultiReader())
+	setHeaders(req, material, nil)
 	if from >= 0 || to >= 0 {
 		req.Header.Set("Range", getRange(from, to))
 	}
@@ -209,7 +212,7 @@ func (c *client) FileDownload(path string, from, to int, w io.Writer) (err error
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == 200 || resp.StatusCode == 206 {
-		if _, err = io.Copy(w, responser(resp.Body)); err == io.EOF {
+		if _, err = io.Copy(w, responser(resp.Body, resp.Header.Get(drive.HeaderCipherBody))); err == io.EOF {
 			err = nil
 		}
 		return

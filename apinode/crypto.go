@@ -84,13 +84,13 @@ func (c cryptor) Handler(w http.ResponseWriter, req *http.Request, f func(http.R
 		w.Write(errBuff)
 	}()
 
-	material := req.Header.Get(drive.HeaderCipherMaterial)
-	rMaterial := req.Header.Get(drive.HeaderCipherMaterialRequest)
+	metaMaterial := req.Header.Get(drive.HeaderCipherMeta)
+	bodyMaterial := req.Header.Get(drive.HeaderCipherBody)
 
 	st := time.Now()
-	if rMaterial != "" {
+	if bodyMaterial != "" {
 		var decryptBody io.Reader
-		if decryptBody, err = c.cryptor.TransDecryptor(rMaterial, req.Body); err != nil {
+		if decryptBody, err = c.cryptor.TransDecryptor(bodyMaterial, req.Body); err != nil {
 			err = fmt.Errorf("new request trans: %s", err.Error())
 			errBuff = errNew[:]
 			return
@@ -105,7 +105,7 @@ func (c cryptor) Handler(w http.ResponseWriter, req *http.Request, f func(http.R
 
 	st = time.Now()
 	var t crypto.Transmitter
-	if t, err = c.cryptor.Transmitter(material); err != nil {
+	if t, err = c.cryptor.Transmitter(metaMaterial); err != nil {
 		err = fmt.Errorf("new trans: %s", err.Error())
 		errBuff = errNew[:]
 		return

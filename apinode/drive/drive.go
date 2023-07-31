@@ -51,9 +51,8 @@ const (
 	HeaderCrc32     = "x-cfa-content-crc32"
 	ChecksumPrefix  = "x-cfa-content-"
 	// headerSign      = "x-cfa-sign"
-	HeaderCipherMaterial         = "x-cfa-cipher-material"
-	HeaderCipherMaterialRequest  = "x-cfa-cipher-material-request"
-	HeaderCipherMaterialResponse = "x-cfa-cipher-material-response"
+	HeaderCipherMeta = "x-cfa-cipher-meta"
+	HeaderCipherBody = "x-cfa-cipher-body"
 
 	UserPropertyPrefix = "x-cfa-meta-"
 

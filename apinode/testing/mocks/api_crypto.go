@@ -96,12 +96,13 @@ func (mr *MockCryptorMockRecorder) TransDecryptor(arg0, arg1 interface{}) *gomoc
 }
 
 // TransEncryptor mocks base method.
-func (m *MockCryptor) TransEncryptor(arg0 string, arg1 io.Reader) (io.Reader, error) {
+func (m *MockCryptor) TransEncryptor(arg0 string, arg1 io.Reader) (io.Reader, string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "TransEncryptor", arg0, arg1)
 	ret0, _ := ret[0].(io.Reader)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // TransEncryptor indicates an expected call of TransEncryptor.

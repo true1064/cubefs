@@ -68,26 +68,25 @@ var (
 	user string = "test"
 	pass string = ""
 
-	material string = "" +
-		"CtgCWjk3Rk1zUEJQdlZEeTdFQnlkZDJ1V2NWdVp0enFNOVFTRU5mYmgxb2E5QU5tbHNXeDRnSGxVQVVo" +
-		"VU5qbmRZdFRJOTYyUU1oMkx3N1QxRi91dU9pbjZXR1M5V05KaSs2SEdLd0t4STFEaUFPZXVMdml4UUph" +
-		"b2hkUkVKNDNHMFhHbU9VN0ZKL0R5MFI2VkwvUnpjWFBjMVEwbGxTRUZMT2NnRU5JQnR4bnl4QzY4L1h3" +
-		"MWkvMWFiYWtXNkh1dzdwbzBVSFdGRXZDMHh5VDVycUZ4RW91OGYzbHpBcWx6ZjlGTGxXb24xZVJOUlpj" +
-		"QWZpUFFBNHJ1a0NGSVR2WXBua3RKd0pTSUVJVDFhWk9NUlVsTDNQQ0VWanVuTlBGZ0pvRUJ1S2F3dEVu" +
-		"MWY1OUZBRnNaMkJNc2ljdG1wUFVSVXMvQUtuRXBUdjZwQU1lM3lhL0hlbFR3PT0="
+	metaMaterial string = "" +
+		"CoACa0/B6pPpInXLffXsD4RWzAe7JMK94E9pzmMbT8Uq1E0GyiDJ1ssku+U6U3nPHqeMON83vIoeMWey" +
+		"v3jzjEuOgV/cm3IDZe8d6O3mWBZ6F45+LjR/Sc0Gw8Hax3zcsonvTIljWzbiwhEQSw+Wlo5vbkU6IYfS" +
+		"7XHtffyNv1znf9FCY6n9da/MbbNDH0z3jbiy8PZgIucFitna8U2UU6l/U4Az3TRhhm/sEwRuONPgQV4i" +
+		"+rbCbR0cVJsqaLaRfPCPwO1TlMfEIlpejucZyrHdF2HUanuwjIG6EqAlfLaVY6/Occ+XQlE31GExCMFx" +
+		"wk3FYKKkWIg4aKijdOOAsOUfoBo8TAKhluGM6jPoTI/sWPe7rJRqXbVPdSmmzWgPKmxiJ3Pz0Fv1t/Ua" +
+		"mhB0HzsvpJHg4Bk4H1Vlyc0vQJH4"
 	bodyMaterial string = "" +
-		"CtgCSkRmNXlVRDUzYTkvUy9GRDJhVTBSdGNFU0dOeUNHTEhqWXhUMlN2Ym5CVUp5YXQ4eVdHVDArNVRh" +
-		"MlF4M00rZTdoazQ3dFhEYThQK0xSV2NlWC9IbzdML3pzL1dBdSs1Y0dUUUp3c1FhRE5rNGVab25xRXpt" +
-		"U2c0SHJ0UkEwWklrVDcrL0ZsOGowOWlNSjkwc2QrY3Rpc3djcEFhcTZORzRFTEorc0RxREVBYjhGTkFi" +
-		"TTNUQXMvN2dXelpSM0tIQjB6aG1Wa3pNL1J5anQxSkVQUFpYR0FaVmRTdExFNzRXN21ZVGhySzBXeERG" +
-		"ZzhqQ25ZUlRQQXJLMnl0cHA0c01ER1V0MEp1Y2doUlA4UHBuVDlvT2JGY2NsNHAyenFhZjh3aGdoWkFD" +
-		"c2JDUjRkZFFCdnNzenZIazc0dnhac0V0OG5CNDlNK0U3WjBmdVRpR2x5K2tBPT0SGGlFWEJZMjBTbnhW" +
-		"SStva1RaMG9FSlE9PRgC"
+		"CoACa0/B6pPpInXLffXsD4RWzAe7JMK94E9pzmMbT8Uq1E0GyiDJ1ssku+U6U3nPHqeMON83vIoeMWey" +
+		"v3jzjEuOgV/cm3IDZe8d6O3mWBZ6F45+LjR/Sc0Gw8Hax3zcsonvTIljWzbiwhEQSw+Wlo5vbkU6IYfS" +
+		"7XHtffyNv1znf9FCY6n9da/MbbNDH0z3jbiy8PZgIucFitna8U2UU6l/U4Az3TRhhm/sEwRuONPgQV4i" +
+		"+rbCbR0cVJsqaLaRfPCPwO1TlMfEIlpejucZyrHdF2HUanuwjIG6EqAlfLaVY6/Occ+XQlE31GExCMFx" +
+		"wk3FYKKkWIg4aKijdOOAsOUfoBIQZjxuARdr1C24eHatCjp0vRo8TAKhluGM6jPoTI/sWPe7rJRqXbVP" +
+		"dSmmzWgPKmxiJ3Pz0Fv1t/UamhB0HzsvpJHg4Bk4H1Vlyc0vQJH4OAE="
 
 	cryptor   = crypto.NoneCryptor()
 	encoder   = newTransmitter()
-	requester = newTransFunc(true)
-	responser = newTransFunc(false)
+	requester = newTransFuncEncoder()
+	responser = newTransFuncDecoder()
 )
 
 func newTransmitter() (t crypto.Transmitter) {
@@ -98,16 +97,25 @@ func newTransmitter() (t crypto.Transmitter) {
 	return
 }
 
-func newTransFunc(encode bool) func(io.Reader) io.Reader {
-	f := cryptor.TransDecryptor
-	if encode {
-		f = cryptor.TransEncryptor
-	}
-	return func(r io.Reader) io.Reader {
+func newTransFuncEncoder() func(io.Reader) (io.Reader, string) {
+	return func(r io.Reader) (io.Reader, string) {
 		if pass == "" {
+			return r, ""
+		}
+		rr, newMaterial, err := cryptor.TransEncryptor(bodyMaterial, r)
+		if err != nil {
+			panic(err)
+		}
+		return rr, newMaterial
+	}
+}
+
+func newTransFuncDecoder() func(io.Reader, string) io.Reader {
+	return func(r io.Reader, respMaterial string) io.Reader {
+		if respMaterial == "" {
 			return r
 		}
-		rr, err := f(bodyMaterial, r)
+		rr, err := cryptor.TransDecryptor(respMaterial, r)
 		if err != nil {
 			panic(err)
 		}
@@ -145,7 +153,7 @@ func registerUser(app *grumble.App) {
 					if len(val) > 16 {
 						pass = val
 					} else {
-						pass = material
+						pass = metaMaterial
 					}
 					cryptor = crypto.NewCryptor()
 				} else {
@@ -153,8 +161,8 @@ func registerUser(app *grumble.App) {
 					cryptor = crypto.NoneCryptor()
 				}
 				encoder = newTransmitter()
-				requester = newTransFunc(true)
-				responser = newTransFunc(false)
+				requester = newTransFuncEncoder()
+				responser = newTransFuncDecoder()
 			}
 			return nil
 		},

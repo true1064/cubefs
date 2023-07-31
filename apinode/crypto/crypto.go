@@ -18,7 +18,7 @@ import (
 	kit "andescryptokit"
 	"andescryptokit/engine"
 	"andescryptokit/errno"
-	"bytes"
+	"andescryptokit/types"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
@@ -30,9 +30,9 @@ import (
 
 const (
 	// EncryptMode alias of engine mode.
-	EncryptMode = engine.ENCRYPT_MODE
+	EncryptMode = types.ENCRYPT_MODE
 	// DecryptMode alias of engine mode.
-	DecryptMode = engine.DECRYPT_MODE
+	DecryptMode = types.DECRYPT_MODE
 )
 
 var (
@@ -73,17 +73,21 @@ func fileError(en *errno.Errno) error {
 func initOnce() error {
 	var err *errno.Errno
 	once.Do(func() {
-		if cryptoKit, err = kit.New(kit.CipherScheme_Service); err != errno.OK {
+		configure := types.Configure{
+			Environment: types.EnvironmentTest,
+			AuthParam: types.AuthParam{
+				AppName: "cryptokit",
+				AK:      "AK0642C908CE001356",
+				SK:      "cded5f1a55747351dbf4435a4f8fab02f803ee74fd4518fcd1bec1311bdadf79",
+			},
+			CustomMasterKey: types.CustomMasterKey{
+				FileKeyId:  "a08be12a-08df-4754-a7b4-ff69c0fac73e",
+				TransKeyId: "a67d2abb-c7f6-408d-93d7-450c8394e73e",
+			},
+		}
+		if cryptoKit, err = kit.New(types.CipherScheme_ServiceBasedKMS, configure); err != errno.OK {
 			return
 		}
-
-		kmsParam := kit.KmsParam{
-			AppName: "cryptokit",
-			AK:      "AK0642C908CE001356",
-			SK:      "cded5f1a55747351dbf4435a4f8fab02f803ee74fd4518fcd1bec1311bdadf79",
-			KeyId:   "a08be12a-08df-4754-a7b4-ff69c0fac73e",
-		}
-		err = cryptoKit.Init(kmsParam, kit.EnvironmentTest)
 	})
 	return fileError(err)
 }
@@ -97,7 +101,7 @@ func Init() error {
 type Cryptor interface {
 	Transmitter(material string) (trans Transmitter, err error)
 	// Trans encrypt and decrypt every byte.
-	TransEncryptor(material string, plaintexter io.Reader) (ciphertexter io.Reader, err error)
+	TransEncryptor(material string, plaintexter io.Reader) (ciphertexter io.Reader, newMaterial string, err error)
 	TransDecryptor(material string, ciphertexter io.Reader) (plaintexter io.Reader, err error)
 
 	// File encrypt and decrypt every BlockSize bytes.
@@ -176,22 +180,25 @@ func NewCryptor() Cryptor {
 	return cryptor{}
 }
 
-func newTransReader(mode engine.CipherMode, material string, r io.Reader) (*engine.EngineTransCipherStream, *errno.Errno) {
+func newTransReader(mode types.CipherMode, material string, r io.Reader) (*engine.EngineTransCipher, *errno.Errno) {
 	key, derr := base64.StdEncoding.DecodeString(material)
 	if derr != nil {
 		return nil, errno.TransCipherIVBase64DecodeError.Append(derr.Error())
 	}
-	return cryptoKit.NewEngineTransCipherStream(mode, io.MultiReader(bytes.NewReader(key), r))
+	return cryptoKit.NewEngineTransCipher(mode, key, r)
 }
 
 type cryptor struct{}
 
-func (cryptor) TransEncryptor(material string, plaintexter io.Reader) (io.Reader, error) {
+func (cryptor) TransEncryptor(material string, plaintexter io.Reader) (io.Reader, string, error) {
 	if len(material) == 0 {
-		return plaintexter, nil
+		return plaintexter, "", nil
 	}
 	r, err := newTransReader(EncryptMode, material, plaintexter)
-	return r, transError(err)
+	if errx := transError(err); errx != nil {
+		return nil, "", nil
+	}
+	return r, base64.StdEncoding.EncodeToString(r.GetCipherMaterial()), nil
 }
 
 func (cryptor) TransDecryptor(material string, ciphertexter io.Reader) (io.Reader, error) {
@@ -219,18 +226,18 @@ func (cryptor) Transmitter(material string) (Transmitter, error) {
 }
 
 func (cryptor) GenKey() ([]byte, error) {
-	_, key, err := cryptoKit.NewEngineFileCipherStream(nil, uint64(BlockSize), EncryptMode, io.MultiReader())
+	cipher, err := cryptoKit.NewEngineFileCipher(EncryptMode, nil, io.MultiReader(), uint64(BlockSize))
 	if err != errno.OK {
 		return nil, fileError(err)
 	}
-	return key, nil
+	return cipher.GetCipherMaterial(), nil
 }
 
 func (cryptor) FileEncryptor(key []byte, plaintexter io.Reader) (io.Reader, error) {
 	if key == nil {
 		return plaintexter, nil
 	}
-	cipher, _, err := cryptoKit.NewEngineFileCipherStream(key, uint64(BlockSize), EncryptMode, plaintexter)
+	cipher, err := cryptoKit.NewEngineFileCipher(EncryptMode, key, plaintexter, uint64(BlockSize))
 	if err != errno.OK {
 		return nil, fileError(err)
 	}
@@ -246,7 +253,7 @@ func (cryptor) FileDecryptor(key []byte, ciphertexter io.Reader) (io.Reader, err
 	if key == nil {
 		return ciphertexter, nil
 	}
-	cipher, _, err := cryptoKit.NewEngineFileCipherStream(key, uint64(BlockSize), DecryptMode, ciphertexter)
+	cipher, err := cryptoKit.NewEngineFileCipher(DecryptMode, key, ciphertexter, uint64(BlockSize))
 	if err != errno.OK {
 		return nil, fileError(err)
 	}

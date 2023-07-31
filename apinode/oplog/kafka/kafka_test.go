@@ -79,7 +79,6 @@ func (h *handler) ConsumerEvent(ctx context.Context, e oplog.Event) {
 }
 
 func TestConsumer(t *testing.T) {
-
 	broker := sarama.NewMockBrokerAddr(t, 0, addrs)
 	broker.SetHandlerByMap(map[string]sarama.MockResponse{
 		"MetadataRequest": sarama.NewMockMetadataResponse(t).

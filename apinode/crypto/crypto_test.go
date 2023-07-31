@@ -29,13 +29,12 @@ const (
 	mb = 1 << 20
 
 	material string = "" +
-		"CtgCSkRmNXlVRDUzYTkvUy9GRDJhVTBSdGNFU0dOeUNHTEhqWXhUMlN2Ym5CVUp5YXQ4eVdHVDArNVRh" +
-		"MlF4M00rZTdoazQ3dFhEYThQK0xSV2NlWC9IbzdML3pzL1dBdSs1Y0dUUUp3c1FhRE5rNGVab25xRXpt" +
-		"U2c0SHJ0UkEwWklrVDcrL0ZsOGowOWlNSjkwc2QrY3Rpc3djcEFhcTZORzRFTEorc0RxREVBYjhGTkFi" +
-		"TTNUQXMvN2dXelpSM0tIQjB6aG1Wa3pNL1J5anQxSkVQUFpYR0FaVmRTdExFNzRXN21ZVGhySzBXeERG" +
-		"ZzhqQ25ZUlRQQXJLMnl0cHA0c01ER1V0MEp1Y2doUlA4UHBuVDlvT2JGY2NsNHAyenFhZjh3aGdoWkFD" +
-		"c2JDUjRkZFFCdnNzenZIazc0dnhac0V0OG5CNDlNK0U3WjBmdVRpR2x5K2tBPT0SGGlFWEJZMjBTbnhW" +
-		"SStva1RaMG9FSlE9PRgC"
+		"CoACa0/B6pPpInXLffXsD4RWzAe7JMK94E9pzmMbT8Uq1E0GyiDJ1ssku+U6U3nPHqeMON83vIoeMWey" +
+		"v3jzjEuOgV/cm3IDZe8d6O3mWBZ6F45+LjR/Sc0Gw8Hax3zcsonvTIljWzbiwhEQSw+Wlo5vbkU6IYfS" +
+		"7XHtffyNv1znf9FCY6n9da/MbbNDH0z3jbiy8PZgIucFitna8U2UU6l/U4Az3TRhhm/sEwRuONPgQV4i" +
+		"+rbCbR0cVJsqaLaRfPCPwO1TlMfEIlpejucZyrHdF2HUanuwjIG6EqAlfLaVY6/Occ+XQlE31GExCMFx" +
+		"wk3FYKKkWIg4aKijdOOAsOUfoBIQZjxuARdr1C24eHatCjp0vRo8TAKhluGM6jPoTI/sWPe7rJRqXbVP" +
+		"dSmmzWgPKmxiJ3Pz0Fv1t/UamhB0HzsvpJHg4Bk4H1Vlyc0vQJH4OAE="
 )
 
 var (
@@ -62,15 +61,18 @@ func BenchmarkTransmit(b *testing.B) {
 		for _, size := range sizes {
 			b.Run(name(block, size), func(b *testing.B) {
 				buffer := make([]byte, size)
+				newBuff := make([]byte, size)
 				c := NewCryptor()
 				b.ResetTimer()
 				for ii := 0; ii <= b.N; ii++ {
 					r := bytes.NewBuffer(buffer)
-					cr, err := c.TransEncryptor(material, r)
+					cr, newMaterial, err := c.TransEncryptor(material, r)
 					require.NoError(b, err)
-					pr, err := c.TransDecryptor(material, cr)
+					pr, err := c.TransDecryptor(newMaterial, cr)
 					require.NoError(b, err)
-					io.Copy(io.Discard, pr)
+					_, err = io.ReadFull(pr, newBuff)
+					require.NoError(b, err)
+					require.Equal(b, buffer, newBuff)
 				}
 			})
 		}
