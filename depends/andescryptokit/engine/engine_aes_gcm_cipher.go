@@ -7,12 +7,13 @@ Copyright OPPO Corp. All Rights Reserved.
 package engine
 
 import (
-	"andescryptokit/errno"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
 	"fmt"
 	"io"
+
+	"andescryptokit/errno"
 )
 
 // EngineAesGCMCipher 基于AES-256-GCM加（解）密用户数据。

@@ -5,28 +5,36 @@ Copyright OPPO Corp. All Rights Reserved.
 package andescryptokit
 
 import (
+	"io"
+
 	"andescryptokit/engine"
 	"andescryptokit/errno"
-	"io"
+	"andescryptokit/types"
 )
 
 // DeviceBased Based on the device-based encryption scheme, the encrypted data can only be decrypted on the same device.
-type DeviceBased struct{}
-
-// Init AndesCryptoKit初始化，完成不同加密方案的秘钥托管配置管理以及认证鉴权。
-//
-//	@param kmsParam KMS认证鉴权信息，业务方需要到安全密钥控制台申请相关的权限以及下载相关的密钥信息。
-//	@return error 如果初始化失败（如KMS鉴权失败），将返回具体的错误信息，否则返回空。
-func (d *DeviceBased) Init(kmsParam KmsParam, env EnvironmentType) *errno.Errno {
-	return nil
+type DeviceBased struct {
 }
 
-func (d *DeviceBased) NewEngineTransCipherStream(cipherMode engine.CipherMode, reader io.Reader) (*engine.EngineTransCipherStream, *errno.Errno) {
-	return engine.NewEngineTransCipherStream(nil, nil, true, engine.ENCRYPT_MODE, reader)
+// NewEngineTransCipher 创建传输加密引擎。
+//  @param cipherMode 工作模式：加密、解密。
+//  @param cipherMaterial 加密材料。如果为空，将会从reader读取，如果不为空但解析加密材料失败，则返回错误。
+//  @param reader 待处理的数据流。
+//  @return *engine.EngineTransCipher 传输加密引擎对象。
+//  @return *errno.Errno 如果失败，返回错误原因以及错误码。
+func (s *DeviceBased)NewEngineTransCipher(cipherMode types.CipherMode, cipherMaterial []byte, reader io.Reader) (*engine.EngineTransCipher, *errno.Errno){
+	return engine.NewEngineTransCipher(cipherMode, cipherMaterial, reader, nil, nil, false)
 }
 
-func (s *DeviceBased) NewEngineFileCipherStream(cipherKey []byte, blockSize uint64, cipherMode engine.CipherMode, reader io.Reader) (*engine.EngineFileCipherStream, []byte, *errno.Errno) {
-	return engine.NewEngineFileCipherStream(nil, cipherKey, blockSize, cipherMode, reader)
+// NewEngineFileCipher 创建文件加密引擎。
+//  @param cipherMode 工作模式：加密、解密。
+//  @param cipherMaterial 加密材料。如果为空，将重新向KMS申请DEK，如果不为空但解析加密材料失败，则返回错误。
+//  @param reader 待处理的数据流。
+//  @param blockSize 数据分组长度，必须为16的倍数。数据将按设定的分组长度进行分组加密，用户随机解密的最新分段即为该分组大小。
+//  @return *engine.EngineFileCipher 文件加密引擎对象。
+//  @return *errno.Errno 如果失败，返回错误原因以及错误码。
+func (s *DeviceBased) NewEngineFileCipher(cipherMode types.CipherMode, cipherMaterial []byte, reader io.Reader, blockSize uint64) (*engine.EngineFileCipher, *errno.Errno) {
+return engine.NewEngineFileCipher(cipherMode, nil, reader, blockSize, nil)
 }
 
 func (s *DeviceBased) NewEngineAesGCMCipher(cipherMaterial []byte) (*engine.EngineAesGCMCipher, *errno.Errno) {

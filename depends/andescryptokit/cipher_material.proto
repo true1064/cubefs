@@ -4,20 +4,26 @@ package andescryptokit;
 
 option go_package ="./";
 
-// 端云加密材料，Golang执行命令：
+// 端云加密材料，Golang执行命令：protoc --go_out=. cipher_material.proto
 message CipherMaterial {
-  // Data Encrypt Key，数据加密密钥，由公钥加密后的密文，base64编码
-  string PublickKeyCipherDEK = 1;
+  // 由公钥加密的DEK。
+  bytes PublickKeyCipherDEK = 1;
   
-  // Initial Vetor，初始化向量，明文，base64编码
-  string IV = 2;
+  // 传输加密的初始化向量，每次加密都应当被更新。
+  bytes IV = 2;
+
+  // 由TEE内部密钥加密后的DEK
+  bytes  TEECipherDEK = 3;
   
-  // 传输加密是否开启HMAC完整性校验，1bytes
-  bool Hmac = 3;
+  // [仅云端]由KMS加密的DEK。
+  bytes KMSCipherDEK = 4;
   
-  // 由安全芯片内部密钥加密后的DEK，base64编码
-  string  SEKekCipherDEK = 4;
+  // [仅终端]由安全芯片内部密钥加密后的DEK
+  bytes  SECipherDEK = 5;
   
-  // 由TEE内部密钥加密后的DEK，base64编码
-  string  TEEKekCipherDEK = 5;
+  // DEK的sha256值
+  bytes  Sha256DEK = 6;
+  
+  // 传输加密是否开启HMAC完整性校验，false为1，true为2
+  uint32 Hmac = 7;
 }

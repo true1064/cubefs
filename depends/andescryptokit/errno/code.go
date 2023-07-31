@@ -11,7 +11,7 @@ var (
 
 	/* InternalError 系统错误, 前缀为 100 */
 	// InternalError 不存在的加密方案。
-	InternalError = &Errno{code: 10001, message: "cipher scheme type error."}
+	InternalError = &Errno{code: 10001, message: "unknown cipher scheme type error."}
 
 	// UnsupportedCipherSchemeError 暂未实现的加密方案。
 	UnsupportedCipherSchemeError = &Errno{code: 10002, message: "unsupported cipher scheme type error."}
@@ -86,7 +86,7 @@ var (
 
 	/*  文件存储错误，前缀为 400 */
 	// FileCipherKeyLengthError 文件加密密钥长度错误，必须为32字节或者64字节。
-	FileCipherKeyLengthError = &Errno{code: 40001, message: "file cipher param key length(must 32 or 64 bytes) error."}
+	FileCipherKeyLengthError = &Errno{code: 40001, message: "file cipher param key length(must 32 bytes) error."}
 
 	// FileCipherBlockSizeError 文件加密分组长度错误，必须为16的整数倍。
 	FileCipherBlockSizeError = &Errno{code: 40002, message: "file cipher block size(must be a multiple of 16 bytes) error."}
@@ -114,6 +114,12 @@ var (
 
 	// FileCipherBlockModeSectorNumError 文件加密传入空流错误。
 	FileCipherStreamModeNilStreamError = &Errno{code: 40010, message: "file cipher stream mode nil stream error."}
+
+	FileCipherDecryptModeMaterialNilError = &Errno{code: 40011, message: "file cipher decrypt mode material nil error."}
+
+	FileCipherDecryptModeMaterialUnexpectedEOfError = &Errno{code: 40012, message: "file cipher decrypt mode material unexpected EOF error."}
+
+	FileCipherMaterialUnmarshalError = &Errno{code: 40013, message: "file cipher material unmarshal error."}
 
 	/*  文件存储错误，前缀为 500 */
 	ServiceBasedDataEncryptKeyError = &Errno{code: 50001, message: "service based scheme data encrypt key(DEK) get error."}
