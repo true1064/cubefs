@@ -42,10 +42,11 @@ type ArgsMPUploads struct {
 
 func (d *DriveNode) handleMultipartUploads(c *rpc.Context) {
 	args := new(ArgsMPUploads)
-	if d.checkError(c, nil, c.ParseArgs(args)) {
+	_, span := d.ctxSpan(c)
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args)) {
 		return
 	}
-	if d.checkError(c, nil, args.Path.Clean()) {
+	if d.checkError(c, func(err error) { span.Error(args.Path, err) }, args.Path.Clean()) {
 		return
 	}
 
@@ -63,13 +64,30 @@ type RespMPuploads struct {
 
 func (d *DriveNode) multipartUploads(c *rpc.Context, args *ArgsMPUploads) {
 	ctx, span := d.ctxSpan(c)
-	_, vol, err := d.getRootInoAndVolume(ctx, d.userID(c))
-	if d.checkError(c, func(err error) { span.Info(err) }, err) {
+	ur, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c))
+	if d.checkError(c, func(err error) { span.Error(err) }, err) {
+		return
+	}
+	root := ur.RootFileID
+
+	extend, err := d.getProperties(c)
+	if d.checkError(c, func(err error) { span.Error(err) }, err) {
 		return
 	}
 
-	extend, err := d.getProperties(c)
-	if d.checkError(c, func(err error) { span.Info(err) }, err) {
+	if d.checkFunc(c, func(err error) { span.Error("lookup error: ", err, args) }, func() error {
+		dirInfo, err := d.lookup(ctx, vol, root, args.Path.String())
+		if err == sdk.ErrNotFound {
+			return nil
+		} else if err != nil {
+			return err
+		}
+
+		if dirInfo.Inode != args.FileID.Uint64() {
+			return sdk.ErrConflict
+		}
+		return nil
+	}) {
 		return
 	}
 
@@ -101,10 +119,11 @@ func (d *DriveNode) requestParts(c *rpc.Context) (parts []MPPart, err error) {
 
 func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 	ctx, span := d.ctxSpan(c)
-	root, vol, err := d.getRootInoAndVolume(ctx, d.userID(c))
+	ur, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c))
 	if d.checkError(c, func(err error) { span.Info(err) }, err) {
 		return
 	}
+	root := ur.RootFileID
 	if d.checkError(c, func(err error) { span.Warn(args.Path, err) },
 		d.lookupID(ctx, vol, root, args.Path, args.FileID)) {
 		return
@@ -187,10 +206,11 @@ type ArgsMPUpload struct {
 
 func (d *DriveNode) handleMultipartPart(c *rpc.Context) {
 	args := new(ArgsMPUpload)
-	if d.checkError(c, nil, c.ParseArgs(args)) {
+	ctx, span := d.ctxSpan(c)
+
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args)) {
 		return
 	}
-	ctx, span := d.ctxSpan(c)
 	if d.checkError(c, func(err error) { span.Info(args.Path, err) }, args.Path.Clean()) {
 		return
 	}
@@ -199,9 +219,8 @@ func (d *DriveNode) handleMultipartPart(c *rpc.Context) {
 		return
 	}
 
-	_, vol, err := d.getRootInoAndVolume(ctx, d.userID(c))
-	ur, err1 := d.GetUserRouteInfo(ctx, d.userID(c))
-	if d.checkError(c, func(err error) { span.Warn(err) }, err, err1) {
+	ur, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c))
+	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
 
@@ -240,10 +259,10 @@ type RespMPList struct {
 
 func (d *DriveNode) handleMultipartList(c *rpc.Context) {
 	args := new(ArgsMPList)
-	if d.checkError(c, nil, c.ParseArgs(args)) {
+	ctx, span := d.ctxSpan(c)
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args)) {
 		return
 	}
-	ctx, span := d.ctxSpan(c)
 	if d.checkError(c, func(err error) { span.Info(args.Path, err) }, args.Path.Clean()) {
 		return
 	}
@@ -251,7 +270,7 @@ func (d *DriveNode) handleMultipartList(c *rpc.Context) {
 		args.Count = 400
 	}
 
-	_, vol, err := d.getRootInoAndVolume(ctx, d.userID(c))
+	_, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c))
 	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
@@ -290,7 +309,7 @@ func (d *DriveNode) handleMultipartAbort(c *rpc.Context) {
 		return
 	}
 
-	_, vol, err := d.getRootInoAndVolume(ctx, d.userID(c))
+	_, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c))
 	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}

@@ -61,7 +61,7 @@ func TestHandleFileUpload(t *testing.T) {
 	}
 	{
 		node.TestGetUser(t, func() rpc.HTTPError {
-			resp := doRequest(newMockBody(64), "path", "f")
+			resp := doRequest(newMockBody(64), "path", "/f")
 			defer resp.Body.Close()
 			return resp2Error(resp)
 		}, testUserID)
@@ -147,7 +147,7 @@ func TestHandleFileVerify(t *testing.T) {
 	defer server.Close()
 
 	doRequest := func(ranged string, md5 string, paths ...string) rpc.HTTPError {
-		p := "verify"
+		p := "/verify"
 		if len(paths) > 0 {
 			p = paths[0]
 		}
@@ -174,15 +174,13 @@ func TestHandleFileVerify(t *testing.T) {
 		node.TestGetUser(t, func() rpc.HTTPError {
 			return doRequest("", "")
 		}, testUserID)
-		node.OnceGetUser()
-		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e1)
-		require.Equal(t, e1.Status, doRequest("", "").StatusCode())
+		require.Equal(t, 400, doRequest("", "", "").StatusCode())
 	}
 	{
 		node.OnceGetUser()
 		node.OnceLookup(false)
 		node.Volume.EXPECT().GetInode(A, A).Return(nil, e2)
-		require.Equal(t, e2.Status, doRequest("", "", "a").StatusCode())
+		require.Equal(t, e2.Status, doRequest("", "", "/a").StatusCode())
 	}
 	{
 		node.OnceGetUser()
@@ -577,11 +575,9 @@ func TestHandleFileRename(t *testing.T) {
 		src, dst string
 	}{
 		{lookup: 2, src: "/dir/a", dst: "/dir/b"},
-		{lookup: 2, src: "dir/a", dst: "dir/b"},
 		{lookup: 1, src: "/dir/a", dst: "/b"},
 		{lookup: 1, src: "/a", dst: "/dir/b"},
-		{lookup: 0, src: "a", dst: "/b"},
-		{lookup: 0, src: "a", dst: "b"},
+		{lookup: 0, src: "/a", dst: "/b"},
 	} {
 		node.OnceGetUser()
 		for i := 0; i < cs.lookup; i++ {

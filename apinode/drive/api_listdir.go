@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -157,35 +156,33 @@ func (builder *filterBuilder) matchFileInfo(f *FileInfo) bool {
 func (d *DriveNode) handleListDir(c *rpc.Context) {
 	ctx, span := d.ctxSpan(c)
 	args := new(ArgsListDir)
-	if d.checkError(c, nil, c.ParseArgs(args)) {
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args)) {
 		return
 	}
 
-	path, marker, limit := args.Path, args.Marker, args.Limit
-	path = filepath.Clean(path)
+	if d.checkError(c, func(err error) { span.Error(err) }, args.Path.Clean()) {
+		return
+	}
+	path, marker, limit := args.Path.String(), args.Marker, args.Limit
 
 	uid := d.userID(c)
-	var (
-		rootIno Inode
-		pathIno Inode
-		vol     sdk.IVolume
-		err     error
-	)
+	var pathIno Inode
 	// 1. get user route info
-	rootIno, vol, err = d.getRootInoAndVolume(ctx, uid)
+	ur, vol, err := d.getUserRouterAndVolume(ctx, uid)
 	if err != nil {
 		span.Errorf("Failed to get volume: %v", err)
 		d.respError(c, err)
 		return
 	}
+	root := ur.RootFileID
 
 	builders := []filterBuilder{}
 	if path == "/" {
-		pathIno = rootIno
+		pathIno = root
 		builders = append(builders, usrFolderFilter)
 	} else {
 		// 2. lookup the inode of dir
-		dirInodeInfo, err := d.lookup(ctx, vol, rootIno, path)
+		dirInodeInfo, err := d.lookup(ctx, vol, root, path)
 		if err != nil {
 			span.Errorf("lookup path=%s error: %v", path, err)
 			d.respError(c, err)
@@ -209,14 +206,14 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 		builders = append(builders, bs...)
 	}
 
-	var (
-		res ListDirResult
-		wg  sync.WaitGroup
-	)
+	res := ListDirResult{
+		ID:         pathIno.Uint64(),
+		Type:       typeFolder,
+		Properties: make(map[string]string),
+		Files:      []FileInfo{},
+	}
 
-	res.ID = pathIno.Uint64()
-	res.Type = typeFolder
-
+	var wg sync.WaitGroup
 	wg.Add(1)
 	// lookup filePath's inode concurrency
 	go func() {

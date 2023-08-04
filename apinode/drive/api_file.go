@@ -37,20 +37,21 @@ type ArgsFileUpload struct {
 
 func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 	args := new(ArgsFileUpload)
-	if d.checkError(c, nil, c.ParseArgs(args)) {
+	ctx, span := d.ctxSpan(c)
+
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args)) {
 		return
 	}
-	ctx, span := d.ctxSpan(c)
 	if d.checkError(c, func(err error) { span.Info(args.Path, err) }, args.Path.Clean()) {
 		return
 	}
 
 	uid := d.userID(c)
-	root, vol, err := d.getRootInoAndVolume(ctx, uid)
-	ur, err1 := d.GetUserRouteInfo(ctx, uid)
-	if d.checkError(c, func(err error) { span.Warn(err) }, err, err1) {
+	ur, vol, err := d.getUserRouterAndVolume(ctx, uid)
+	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
+	root := ur.RootFileID
 	if d.checkError(c, func(err error) { span.Warn(args.Path, err) },
 		d.lookupID(ctx, vol, root, args.Path, args.FileID)) {
 		return
@@ -104,20 +105,21 @@ type ArgsFileWrite struct {
 
 func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 	args := new(ArgsFileWrite)
-	if d.checkError(c, nil, c.ParseArgs(args)) {
+	ctx, span := d.ctxSpan(c)
+
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args)) {
 		return
 	}
-	ctx, span := d.ctxSpan(c)
 	if d.checkError(c, func(err error) { span.Info(args.Path, err) }, args.Path.Clean()) {
 		return
 	}
 
 	uid := d.userID(c)
-	root, vol, err := d.getRootInoAndVolume(ctx, uid)
-	ur, err1 := d.GetUserRouteInfo(ctx, uid)
-	if d.checkError(c, func(err error) { span.Warn(err) }, err, err1) {
+	ur, vol, err := d.getUserRouterAndVolume(ctx, uid)
+	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
+	root := ur.RootFileID
 	if d.checkError(c, func(err error) { span.Warn(args.Path, err) },
 		d.lookupID(ctx, vol, root, args.Path, args.FileID)) {
 		return
@@ -197,23 +199,29 @@ type ArgsFileVerify struct {
 
 func (d *DriveNode) handleFileVerify(c *rpc.Context) {
 	args := new(ArgsFileVerify)
-	if d.checkError(c, nil, c.ParseArgs(args)) {
+	ctx, span := d.ctxSpan(c)
+
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args)) {
 		return
 	}
-	ctx, span := d.ctxSpan(c)
-	if d.checkError(c, func(err error) { span.Info(args.Path, err) }, args.Path.Clean()) {
+	if d.checkError(c, func(err error) { span.Error(args.Path, err) }, args.Path.Clean()) {
 		return
 	}
 
 	uid := d.userID(c)
-	root, vol, err := d.getRootInoAndVolume(ctx, uid)
-	ur, err1 := d.GetUserRouteInfo(ctx, uid)
-	if d.checkError(c, func(err error) { span.Warn(err) }, err, err1) {
+	ur, vol, err := d.getUserRouterAndVolume(ctx, uid)
+	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
+	root := ur.RootFileID
 
 	file, err := d.lookup(ctx, vol, root, args.Path.String())
 	if d.checkError(c, func(err error) { span.Warn(args.Path, err) }, err) {
+		return
+	}
+
+	if file.IsDir() {
+		d.respError(c, sdk.ErrNotFile)
 		return
 	}
 
@@ -286,11 +294,12 @@ func (d *DriveNode) downloadConfig(c *rpc.Context) {
 
 func (d *DriveNode) handleFileDownload(c *rpc.Context) {
 	args := new(ArgsFileDownload)
-	if d.checkError(c, nil, c.ParseArgs(args)) {
+	ctx, span := d.ctxSpan(c)
+
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args)) {
 		return
 	}
-	ctx, span := d.ctxSpan(c)
-	if d.checkError(c, func(err error) { span.Info(err) }, args.Path.Clean()) {
+	if d.checkError(c, func(err error) { span.Error(err) }, args.Path.Clean()) {
 		return
 	}
 
@@ -300,14 +309,18 @@ func (d *DriveNode) handleFileDownload(c *rpc.Context) {
 	}
 
 	uid := d.userID(c)
-	root, vol, err := d.getRootInoAndVolume(ctx, uid)
-	ur, err1 := d.GetUserRouteInfo(ctx, uid)
-	if d.checkError(c, func(err error) { span.Warn(err) }, err, err1) {
+	ur, vol, err := d.getUserRouterAndVolume(ctx, uid)
+	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
+	root := ur.RootFileID
 
 	file, err := d.lookup(ctx, vol, root, args.Path.String())
 	if d.checkError(c, func(err error) { span.Warn(args.Path, err) }, err) {
+		return
+	}
+	if file.IsDir() {
+		d.respError(c, sdk.ErrNotFile)
 		return
 	}
 	md5Val, err := vol.GetXAttr(ctx, file.Inode, internalMetaMD5)
@@ -388,26 +401,21 @@ type ArgsFileRename struct {
 
 func (d *DriveNode) handleFileRename(c *rpc.Context) {
 	args := new(ArgsFileRename)
-	if d.checkError(c, nil, c.ParseArgs(args)) {
-		return
-	}
 	ctx, span := d.ctxSpan(c)
-	if d.checkError(c, func(err error) { span.Info(args, err) }, args.Src.Clean(), args.Dst.Clean()) {
+
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args)) {
 		return
 	}
-	span.Info("to rename", args)
+	if d.checkError(c, func(err error) { span.Error(args, err) }, args.Src.Clean(), args.Dst.Clean()) {
+		return
+	}
+	span.Debug("to rename", args)
 
-	root, vol, err := d.getRootInoAndVolume(ctx, d.userID(c))
+	ur, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c))
 	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
-
-	if args.Src.IsDir() {
-		args.Src = args.Src[:len(args.Src)-1]
-	}
-	if args.Dst.IsDir() {
-		args.Dst = args.Dst[:len(args.Dst)-1]
-	}
+	root := ur.RootFileID
 
 	srcDir, srcName := args.Src.Split()
 	dstDir, dstName := args.Dst.Split()
@@ -452,20 +460,21 @@ type ArgsFileCopy struct {
 
 func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 	args := new(ArgsFileCopy)
-	if d.checkError(c, nil, c.ParseArgs(args)) {
+	ctx, span := d.ctxSpan(c)
+
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args)) {
 		return
 	}
-	ctx, span := d.ctxSpan(c)
-	if d.checkError(c, func(err error) { span.Warn(args, err) }, args.Src.Clean(), args.Dst.Clean()) {
+	if d.checkError(c, func(err error) { span.Error(args, err) }, args.Src.Clean(), args.Dst.Clean()) {
 		return
 	}
 	span.Info("to copy", args)
 
-	root, vol, err := d.getRootInoAndVolume(ctx, d.userID(c))
-	ur, err1 := d.GetUserRouteInfo(ctx, d.userID(c))
-	if d.checkError(c, func(err error) { span.Warn(err) }, err, err1) {
+	ur, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c))
+	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
+	root := ur.RootFileID
 
 	file, err := d.lookup(ctx, vol, root, args.Src.String())
 	if d.checkError(c, func(err error) { span.Warn(err) }, err) {

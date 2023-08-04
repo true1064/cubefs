@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -83,37 +82,14 @@ type FileID = Inode
 //	It ends with a separator if path is directory.
 type FilePath string
 
-// Valid returns valid or not.
-func (p *FilePath) Valid() bool {
-	s := *p
-	return s != "" && s[0] != '.'
-}
-
-// IsDir returns true if path is directory.
-func (p *FilePath) IsDir() bool {
-	s := *p
-	return p.Valid() && s[len(s)-1] == os.PathSeparator
-}
-
-// IsFile returns true if path is file.
-func (p *FilePath) IsFile() bool {
-	s := *p
-	return p.Valid() && s[len(s)-1] != os.PathSeparator
-}
-
 // Clean replace origin path to cleaned path.
 func (p *FilePath) Clean() error {
 	s := p.String()
-	isDir := len(s) > 0 && s[len(s)-1] == os.PathSeparator
 	path := filepath.Clean(s)
-	if isDir {
-		path += string(os.PathSeparator)
-	}
-	*p = FilePath(path)
-
-	if !p.Valid() {
+	if path == "" || path[0] != '/' {
 		return sdk.ErrInvalidPath
 	}
+	*p = FilePath(path)
 	return nil
 }
 
@@ -173,10 +149,10 @@ const (
 )
 
 type ArgsListDir struct {
-	Path   string `json:"path"`
-	Marker string `json:"marker,omitempty"`
-	Limit  int    `json:"limit"`
-	Filter string `json:"filter,omitempty"`
+	Path   FilePath `json:"path"`
+	Marker string   `json:"marker,omitempty"`
+	Limit  int      `json:"limit"`
+	Filter string   `json:"filter,omitempty"`
 }
 
 type ArgsGetProperties struct {
@@ -292,23 +268,23 @@ func (d *DriveNode) GetUserRouteInfo(ctx context.Context, uid UserID) (*UserRout
 
 // get full path and volume by uid
 // filePath is an absolute of client
-func (d *DriveNode) getRootInoAndVolume(ctx context.Context, uid UserID) (Inode, sdk.IVolume, error) {
+func (d *DriveNode) getUserRouterAndVolume(ctx context.Context, uid UserID) (*UserRoute, sdk.IVolume, error) {
 	span := trace.SpanFromContextSafe(ctx)
 	st := time.Now()
 	defer func() { span.AppendTrackLog("civ", st, nil) }()
-	userRouter, err := d.GetUserRouteInfo(ctx, uid)
+	ur, err := d.GetUserRouteInfo(ctx, uid)
 	if err != nil {
-		return 0, nil, err
+		return nil, nil, err
 	}
-	cluster := d.clusterMgr.GetCluster(userRouter.ClusterID)
+	cluster := d.clusterMgr.GetCluster(ur.ClusterID)
 	if cluster == nil {
-		return 0, nil, sdk.ErrNoCluster
+		return nil, nil, sdk.ErrNoCluster
 	}
-	volume := cluster.GetVol(userRouter.VolumeID)
+	volume := cluster.GetVol(ur.VolumeID)
 	if volume == nil {
-		return 0, nil, sdk.ErrNoVolume
+		return nil, nil, sdk.ErrNoVolume
 	}
-	return userRouter.RootFileID, volume, nil
+	return ur, volume, nil
 }
 
 func (d *DriveNode) lookupID(ctx context.Context, vol sdk.IVolume, pIno Inode, path FilePath, id FileID) (err error) {

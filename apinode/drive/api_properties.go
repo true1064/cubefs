@@ -32,7 +32,7 @@ func (d *DriveNode) handleSetProperties(c *rpc.Context) {
 	uid := d.userID(c)
 
 	args := new(ArgsSetProperties)
-	if d.checkError(c, nil, c.ParseArgs(args)) {
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args)) {
 		return
 	}
 	if d.checkError(c, func(err error) { span.Info(args.Path, err) }, args.Path.Clean()) {
@@ -53,11 +53,12 @@ func (d *DriveNode) handleSetProperties(c *rpc.Context) {
 	}
 	span.Info("to set xattrs:", xattrs)
 
-	rootIno, vol, err := d.getRootInoAndVolume(ctx, uid)
+	ur, vol, err := d.getUserRouterAndVolume(ctx, uid)
 	if d.checkError(c, func(err error) { span.Errorf("get user router uid=%s error: %v", uid, err) }, err) {
 		return
 	}
-	dirInfo, err := d.lookup(ctx, vol, rootIno, args.Path.String())
+	root := ur.RootFileID
+	dirInfo, err := d.lookup(ctx, vol, root, args.Path.String())
 	if d.checkError(c, func(err error) { span.Errorf("lookup path=%s error: %v", args.Path, err) }, err) {
 		return
 	}
@@ -73,7 +74,7 @@ func (d *DriveNode) handleDelProperties(c *rpc.Context) {
 	uid := d.userID(c)
 
 	args := new(ArgsDelProperties)
-	if d.checkError(c, nil, c.ParseArgs(args)) {
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args)) {
 		return
 	}
 	if d.checkError(c, func(err error) { span.Info(args.Path, err) }, args.Path.Clean()) {
@@ -99,11 +100,12 @@ func (d *DriveNode) handleDelProperties(c *rpc.Context) {
 	}
 	span.Info("to del xattrs:", keys)
 
-	rootIno, vol, err := d.getRootInoAndVolume(ctx, uid)
+	ur, vol, err := d.getUserRouterAndVolume(ctx, uid)
 	if d.checkError(c, func(err error) { span.Errorf("get user router uid=%s error: %v", uid, err) }, err) {
 		return
 	}
-	dirInfo, err := d.lookup(ctx, vol, rootIno, args.Path.String())
+	root := ur.RootFileID
+	dirInfo, err := d.lookup(ctx, vol, root, args.Path.String())
 	if d.checkError(c, func(err error) { span.Errorf("lookup path=%s error: %v", args.Path, err) }, err) {
 		return
 	}
@@ -119,18 +121,19 @@ func (d *DriveNode) handleGetProperties(c *rpc.Context) {
 	uid := d.userID(c)
 
 	args := new(ArgsGetProperties)
-	if d.checkError(c, nil, c.ParseArgs(args)) {
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args)) {
 		return
 	}
 	if d.checkError(c, func(err error) { span.Info(args.Path, err) }, args.Path.Clean()) {
 		return
 	}
 
-	rootIno, vol, err := d.getRootInoAndVolume(ctx, uid)
+	ur, vol, err := d.getUserRouterAndVolume(ctx, uid)
 	if d.checkError(c, func(err error) { span.Errorf("get user router uid=%s error: %v", uid, err) }, err) {
 		return
 	}
-	dirInfo, err := d.lookup(ctx, vol, rootIno, args.Path.String())
+	root := ur.RootFileID
+	dirInfo, err := d.lookup(ctx, vol, root, args.Path.String())
 	if d.checkError(c, func(err error) { span.Errorf("lookup path=%s error: %v", args.Path, err) }, err) {
 		return
 	}

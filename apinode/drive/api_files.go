@@ -45,13 +45,14 @@ func (d *DriveNode) handleMkDir(c *rpc.Context) {
 	}
 
 	uid := d.userID(c)
-	rootIno, vol, err := d.getRootInoAndVolume(ctx, uid)
+	ur, vol, err := d.getUserRouterAndVolume(ctx, uid)
 	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
+	root := ur.RootFileID
 
 	span.Info("to makedir", args)
-	_, err = d.createDir(ctx, vol, rootIno, args.Path.String(), args.Recursive)
+	_, err = d.createDir(ctx, vol, root, args.Path.String(), args.Recursive)
 	if d.checkError(c, func(err error) {
 		span.Errorf("create dir %s error: %s, uid=%s recursive=%v", args.Path, err.Error(), uid, args.Recursive)
 	}, err) {
@@ -76,9 +77,6 @@ func (d *DriveNode) handleFilesDelete(c *rpc.Context) {
 	if d.checkError(c, func(err error) { span.Info(args.Path, err) }, args.Path.Clean()) {
 		return
 	}
-	if args.Path.IsDir() {
-		args.Path = args.Path[:len(args.Path)-1]
-	}
 	span.Info("to delete", args)
 
 	if args.Recursive {
@@ -86,10 +84,11 @@ func (d *DriveNode) handleFilesDelete(c *rpc.Context) {
 		return
 	}
 
-	root, vol, err := d.getRootInoAndVolume(ctx, d.userID(c))
+	ur, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c))
 	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
+	root := ur.RootFileID
 
 	var info *sdk.DirInfo
 	if d.checkFunc(c, func(err error) { span.Error(err) },
@@ -113,10 +112,11 @@ type delDir struct {
 func (d *DriveNode) recursivelyDelete(c *rpc.Context, path FilePath) {
 	ctx, span := d.ctxSpan(c)
 
-	root, vol, err := d.getRootInoAndVolume(ctx, d.userID(c))
+	ur, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c))
 	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
+	root := ur.RootFileID
 	parent, err := d.lookup(ctx, vol, root, path.String())
 	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
@@ -171,7 +171,7 @@ func (d *DriveNode) recursivelyDelete(c *rpc.Context, path FilePath) {
 			for _, file := range files {
 				if !file.IsDir() {
 					span.Info("sub name was not dir:", file)
-					d.respError(c, sdk.ErrNotDir)
+					d.respError(c, sdk.ErrNotEmpty)
 					return
 				}
 
@@ -204,7 +204,7 @@ func (d *DriveNode) recursivelyDelete(c *rpc.Context, path FilePath) {
 }
 
 type ArgsBatchDelete struct {
-	Paths []string `json:"paths"`
+	Paths []FilePath `json:"paths"`
 }
 
 type ErrorEntry struct {
@@ -214,8 +214,8 @@ type ErrorEntry struct {
 }
 
 type BatchDeleteResult struct {
-	Deleted []string     `json:"deleted,omitempty"`
-	Errors  []ErrorEntry `json:"error,omitempty"`
+	Deleted []string     `json:"deleted"`
+	Errors  []ErrorEntry `json:"error"`
 }
 
 func (d *DriveNode) handleBatchDelete(c *rpc.Context) {
@@ -224,10 +224,11 @@ func (d *DriveNode) handleBatchDelete(c *rpc.Context) {
 		return
 	}
 	ctx, span := d.ctxSpan(c)
-	root, vol, err := d.getRootInoAndVolume(ctx, d.userID(c))
+	ur, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c))
 	if d.checkError(c, func(err error) { span.Warnf("get root inode and volume return error: %v", err) }, err) {
 		return
 	}
+	root := ur.RootFileID
 
 	type result struct {
 		path string
@@ -243,14 +244,19 @@ func (d *DriveNode) handleBatchDelete(c *rpc.Context) {
 		name := path
 		pool.Run(func() {
 			defer wg.Done()
-			_, err := deleteFile(ctx, vol, root, name)
+			arg := name.String()
+			if err := name.Clean(); err != nil {
+				span.Infof("invalid path %s", arg)
+				ch <- result{arg, err}
+			}
+			_, err := deleteFile(ctx, vol, root, name.String())
 			if err == sdk.ErrNotFound {
-				span.Infof("delete file %s rootIno %d return error: not found, ignore this error", name, root)
+				span.Infof("delete file %s rootIno %d return error: not found, ignore this error", arg, root)
 				err = nil
 			} else {
-				span.Debugf("delete file %s rootIno %d return success", name, root)
+				span.Debugf("delete file %s rootIno %d return success", arg, root)
 			}
-			ch <- result{name, err}
+			ch <- result{arg, err}
 			if err != nil {
 				span.Errorf("delete %s error: %v, uid=%s", name, err, d.userID(c))
 			}
@@ -260,7 +266,10 @@ func (d *DriveNode) handleBatchDelete(c *rpc.Context) {
 	wg.Wait()
 	close(ch)
 
-	res := &BatchDeleteResult{}
+	res := &BatchDeleteResult{
+		Deleted: []string{},
+		Errors:  []ErrorEntry{},
+	}
 	for r := range ch {
 		if r.err == nil {
 			res.Deleted = append(res.Deleted, r.path)

@@ -315,7 +315,7 @@ func TestGetUserRouteInfo(t *testing.T) {
 	require.Equal(t, *ur1, ur)
 }
 
-func TestGetRootInoAndVolume(t *testing.T) {
+func TestGetUserRouterAndVolume(t *testing.T) {
 	node := newMockNode(t)
 	d := node.DriveNode
 
@@ -336,19 +336,19 @@ func TestGetRootInoAndVolume(t *testing.T) {
 	}).AnyTimes()
 
 	node.ClusterMgr.EXPECT().GetCluster(A).Return(nil)
-	_, _, err := d.getRootInoAndVolume(Ctx, "test1")
+	_, _, err := d.getUserRouterAndVolume(Ctx, "test1")
 	require.ErrorIs(t, err, sdk.ErrNoCluster)
 
 	node.ClusterMgr.EXPECT().GetCluster(A).Return(node.Cluster)
 	node.Cluster.EXPECT().GetVol(A).Return(nil)
-	_, _, err = d.getRootInoAndVolume(Ctx, "test1")
+	_, _, err = d.getUserRouterAndVolume(Ctx, "test1")
 	require.ErrorIs(t, err, sdk.ErrNoVolume)
 
 	node.ClusterMgr.EXPECT().GetCluster(A).Return(node.Cluster)
 	node.Cluster.EXPECT().GetVol(A).Return(node.Volume)
-	rootIno, vol, err := d.getRootInoAndVolume(Ctx, "test1")
+	ur, vol, err := d.getUserRouterAndVolume(Ctx, "test1")
 	require.NoError(t, err)
-	require.Equal(t, rootIno, Inode(10))
+	require.Equal(t, ur.RootFileID, Inode(10))
 	require.Equal(t, vol, node.Volume)
 }
 

@@ -125,7 +125,7 @@ func TestHandleFilesDelete(t *testing.T) {
 		node.OnceGetUser()
 		node.OnceLookup(true)
 		node.Volume.EXPECT().Delete(A, A, A, A).Return(nil)
-		require.NoError(t, doRequest("path", "a"))
+		require.NoError(t, doRequest("path", "/a"))
 	}
 
 	// recursively delete
@@ -176,7 +176,7 @@ func TestHandleFilesDelete(t *testing.T) {
 		node.OnceGetUser()
 		node.LookupDirN(4)
 		node.ListDir(100, 1)
-		require.Equal(t, sdk.ErrNotDir.Status, doRecuDel().StatusCode())
+		require.Equal(t, sdk.ErrNotEmpty.Status, doRecuDel().StatusCode())
 	}
 	{
 		node.OnceGetUser()
@@ -234,11 +234,15 @@ func TestHandleBatchDelete(t *testing.T) {
 		node.Volume.EXPECT().Lookup(A, A, A).Return(&sdk.DirInfo{}, nil).Times(2)
 		node.Volume.EXPECT().Delete(A, A, A, A).Return(nil)
 		args := ArgsBatchDelete{
-			Paths: []string{"/test/1234"},
+			Paths: []FilePath{"/test/1234"},
 		}
 
+		paths := []string{}
+		for _, path := range args.Paths {
+			paths = append(paths, string(path))
+		}
 		res, err := doRequest(args)
 		require.NoError(t, err)
-		require.True(t, reflect.DeepEqual(res.Deleted, args.Paths))
+		require.True(t, reflect.DeepEqual(res.Deleted, paths))
 	}
 }
