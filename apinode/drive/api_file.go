@@ -480,6 +480,11 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
+	if file.IsDir() {
+		span.Errorf("%v src is not a file", args)
+		d.respError(c, sdk.ErrNotFile)
+		return
+	}
 
 	st := time.Now()
 	inode, err := vol.GetInode(ctx, file.Inode)
