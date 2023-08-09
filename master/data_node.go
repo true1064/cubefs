@@ -73,9 +73,10 @@ type DataNode struct {
 	DecommissionDpTotal       int
 	DecommissionSyncMutex     sync.Mutex
 	BackupDataPartitions      []proto.BackupDataPartitionInfo
+	MediaType                 uint32
 }
 
-func newDataNode(addr, zoneName, clusterID string) (dataNode *DataNode) {
+func newDataNode(addr, zoneName, clusterID string, mediaType uint32) (dataNode *DataNode) {
 	dataNode = new(DataNode)
 	dataNode.Total = 1
 	dataNode.Addr = addr
@@ -87,6 +88,7 @@ func newDataNode(addr, zoneName, clusterID string) (dataNode *DataNode) {
 	dataNode.CpuUtil.Store(0)
 	dataNode.SetIoUtils(make(map[string]float64))
 	dataNode.AllDisks = make([]string, 0)
+	dataNode.MediaType = mediaType
 	return
 }
 
