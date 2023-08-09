@@ -68,8 +68,8 @@ const (
 	authenticateKey            = "authenticate"
 	akKey                      = "ak"
 	keywordsKey                = "keywords"
-	zoneNameKey                = "zoneName"
 	nodesetIdKey               = "nodesetId"
+	zoneNameKey                = "zoneName"
 	crossZoneKey               = "crossZone"
 	normalZonesFirstKey        = "normalZonesFirst"
 	userKey                    = "user"
@@ -139,6 +139,7 @@ const (
 	dpRepairBlockSizeKey       = "dpRepairBlockSize"
 	markDiskBrokenThresholdKey = "markDiskBrokenThreshold"
 	decommissionTypeKey        = "decommissionType"
+	mediaTypeKey               = "mediaType"
 )
 
 const (
