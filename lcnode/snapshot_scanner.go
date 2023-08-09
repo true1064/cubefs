@@ -106,7 +106,7 @@ func (l *LcNode) startSnapshotScan(adminTask *proto.AdminTask) (err error) {
 }
 
 func (s *SnapshotScanner) getTaskVerSeq() uint64 {
-	return s.verDelReq.Task.VolVersionInfo.Ver
+	return s.verDelReq.Task.VerSeq
 }
 
 func (s *SnapshotScanner) Stop() {
@@ -333,21 +333,21 @@ func (s *SnapshotScanner) handlVerDelBreadthFirst(dentry *proto.ScanDentry) {
 			break
 		}
 
-		if marker != "" {
-			if len(children) >= 1 && marker == children[0].Name {
-				if len(children) <= 1 {
-					done = true
-					log.LogDebugf("action[handlVerDelBreadthFirst] ReadDirLimit_ll done, parent[%v] maker[%v] verSeq[%v] children[%v]",
-						dentry.Inode, marker, s.getTaskVerSeq(), children)
-					break
-				} else {
-					skippedChild := children[0]
-					children = children[1:]
-					log.LogDebugf("action[handlVerDelBreadthFirst] ReadDirLimit_ll skip last marker[%v], parent[%v] verSeq[%v] skippedName[%v]",
-						marker, dentry.Inode, s.getTaskVerSeq(), skippedChild.Name)
+			if marker != "" {
+				if len(children) >= 1 && marker == children[0].Name {
+					if len(children) <= 1 {
+						done = true
+						log.LogDebugf("action[handlVerDel] ReadDirLimit_ll done, parent[%v] maker[%v] limit[%v] verSeq[%v] children[%v]",
+							dentry.Inode, marker, uint64(snapshotRoutineNumPerTask), s.getTaskVerSeq(), children)
+						break
+					} else {
+						skippedChild := children[0]
+						children = children[1:]
+						log.LogDebugf("action[handlVerDel] ReadDirLimit_ll skip last marker[%v], parent[%v] verSeq[%v] skippedName[%v]",
+							marker, dentry.Inode, s.getTaskVerSeq(), skippedChild.Name)
+					}
 				}
 			}
-		}
 
 		for _, child := range children {
 			childDentry := &proto.ScanDentry{

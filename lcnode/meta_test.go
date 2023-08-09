@@ -26,6 +26,10 @@ func (*MockMetaWrapper) ReadDirLimitForSnapShotClean(parentID uint64, from strin
 	return nil, nil
 }
 
+func (*MockMetaWrapper) ReadDirLimitByVer(parentID uint64, from string, limit uint64, verSeq uint64, is2nd bool) ([]proto.Dentry, error) {
+	return nil, nil
+}
+
 func (*MockMetaWrapper) Delete_Ver_ll(parentID uint64, name string, isDir bool, verSeq uint64) (*proto.InodeInfo, error) {
 	return nil, nil
 }
