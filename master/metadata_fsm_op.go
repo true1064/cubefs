@@ -417,6 +417,7 @@ type dataNodeValue struct {
 	ToBeOffline              bool
 	DecommissionDiskList     []string
 	DecommissionDpTotal      int
+	MediaType                uint32
 }
 
 func newDataNodeValue(dataNode *DataNode) *dataNodeValue {
@@ -435,6 +436,7 @@ func newDataNodeValue(dataNode *DataNode) *dataNodeValue {
 		ToBeOffline:              dataNode.ToBeOffline,
 		DecommissionDiskList:     dataNode.DecommissionDiskList,
 		DecommissionDpTotal:      dataNode.DecommissionDpTotal,
+		MediaType:                dataNode.MediaType,
 	}
 }
 
@@ -1429,7 +1431,8 @@ func (c *Cluster) loadDataNodes() (err error) {
 		if dnv.ZoneName == "" {
 			dnv.ZoneName = DefaultZoneName
 		}
-		dataNode := newDataNode(dnv.Addr, dnv.ZoneName, c.Name)
+
+		dataNode := newDataNode(dnv.Addr, dnv.ZoneName, c.Name, dnv.MediaType)
 		dataNode.DpCntLimit = newLimitCounter(&c.cfg.MaxDpCntLimit, defaultMaxDpCntLimit)
 		dataNode.ID = dnv.ID
 		dataNode.NodeSetID = dnv.NodeSetID
@@ -1453,13 +1456,13 @@ func (c *Cluster) loadDataNodes() (err error) {
 			}
 		}
 		c.dataNodes.Store(dataNode.Addr, dataNode)
-		log.LogInfof("action[loadDataNodes],dataNode[%v],dataNodeID[%v],zone[%v],ns[%v] DecommissionStatus [%v] "+
+
+		log.LogInfof("action[loadDataNodes],dataNode[%v],dataNodeID[%v],MediaType[%v],zone[%v],ns[%v] DecommissionStatus [%v] "+
 			"DecommissionDstAddr[%v] DecommissionRaftForce[%v] DecommissionDpTotal[%v] DecommissionLimit[%v]  "+
 			"DecommissionCompleteTime [%v] ToBeOffline[%v]",
-			dataNode.Addr, dataNode.ID, dnv.ZoneName, dnv.NodeSetID, dataNode.DecommissionStatus, dataNode.DecommissionDstAddr,
-			dataNode.DecommissionRaftForce, dataNode.DecommissionDpTotal, dataNode.DecommissionLimit,
-			time.Unix(dataNode.DecommissionCompleteTime, 0).Format("2006-01-02 15:04:05"),
-			dataNode.ToBeOffline)
+			dataNode.Addr, dataNode.ID, dataNode.MediaType, dnv.ZoneName, dnv.NodeSetID, dataNode.DecommissionStatus,
+			dataNode.DecommissionDstAddr, dataNode.DecommissionRaftForce, dataNode.DecommissionDpTotal, dataNode.DecommissionLimit,
+			time.Unix(dataNode.DecommissionCompleteTime, 0).Format("2006-01-02 15:04:05"), dataNode.ToBeOffline)
 	}
 	return
 }
