@@ -248,6 +248,7 @@ func (d *DriveNode) handleBatchDelete(c *rpc.Context) {
 			if err := name.Clean(); err != nil {
 				span.Infof("invalid path %s", arg)
 				ch <- result{arg, err}
+				return
 			}
 			_, err := deleteFile(ctx, vol, root, name.String())
 			if err == sdk.ErrNotFound {
