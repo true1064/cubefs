@@ -41,15 +41,6 @@ func newDataOp(cfg *stream.ExtentConfig) (sdk.DataOp, error) {
 	return stream.NewExtentClient(cfg)
 }
 
-type MetaOpImp struct {
-	*meta.MetaWrapper
-}
-
-func newMetaOp(config *meta.MetaConfig) (sdk.MetaOp, error) {
-	mw, err := meta.NewMetaWrapper(config)
-	return mw, err
-}
-
 func newVolume(ctx context.Context, name, owner, addr string) (sdk.IVolume, error) {
 	span := trace.SpanFromContextSafe(ctx)
 
@@ -75,7 +66,7 @@ func newVolume(ctx context.Context, name, owner, addr string) (sdk.IVolume, erro
 		OnTruncate:   mw.Truncate,
 	}
 
-	if mw1, ok := mw.(*meta.MetaWrapper); ok {
+	if mw1, ok := mw.(*metaOpImp); ok {
 		ecCfg.OnAppendExtentKey = mw1.AppendExtentKey
 	}
 
@@ -85,7 +76,7 @@ func newVolume(ctx context.Context, name, owner, addr string) (sdk.IVolume, erro
 		return nil, sdk.ErrInternalServerError
 	}
 
-	if mw1, ok := mw.(*meta.MetaWrapper); ok {
+	if mw1, ok := mw.(*metaOpImp); ok {
 		mw1.Client = ec.(*stream.ExtentClient)
 	}
 
@@ -99,10 +90,11 @@ func newVolume(ctx context.Context, name, owner, addr string) (sdk.IVolume, erro
 	return v, nil
 }
 
-// func (v *volume) updateMasterAddr(addr string) {
-// 	// v.mw.UpdateMasterAddr(addr)
-// 	// v.ec.UpdateMasterAddr(addr)
-// }
+func (v *volume) setAllocFunc(allocId func(ctx context.Context) (id uint64, err error)) {
+	if mw1, ok := v.mw.(*metaOpImp); ok {
+		mw1.allocId = allocId
+	}
+}
 
 func (v *volume) NewInodeLock() sdk.InodeLockApi {
 	uidByte, _ := uuid.New().MarshalBinary()
@@ -128,21 +120,16 @@ func (v *volume) Info() *sdk.VolInfo {
 func (v *volume) Lookup(ctx context.Context, parentIno uint64, name string) (*sdk.DirInfo, error) {
 	span := trace.SpanFromContextSafe(ctx)
 
-	ino, mode, err := v.mw.Lookup_ll(parentIno, name)
+	den, err := v.mw.LookupEx(parentIno, name)
 	if err != nil {
 		span.Errorf("look up file failed, parIno %d, name %s, err %s", parentIno, name, err.Error())
 		return nil, syscallToErr(err)
 	}
 
-	dir := &sdk.DirInfo{
-		Name:  name,
-		Type:  mode,
-		Inode: ino,
-	}
-	return dir, nil
+	return den, nil
 }
 
-func (v *volume) GetInode(ctx context.Context, ino uint64) (*sdk.InodeInfo, error) {
+func (v *volume) GetInode(ctx context.Context, ino uint64) (*proto.InodeInfo, error) {
 	span := trace.SpanFromContextSafe(ctx)
 
 	info, err := v.mw.InodeGet_ll(ino)
@@ -206,6 +193,17 @@ func (v *volume) Readdir(ctx context.Context, parIno uint64, marker string, coun
 		return dirs[:cnt-1], nil
 	}
 	return dirs, nil
+}
+
+func (v *volume) Rename(ctx context.Context, srcParIno, dstParIno uint64, srcName, destName string) error {
+	span := trace.SpanFromContextSafe(ctx)
+	err := v.mw.Rename_ll(srcParIno, srcName, dstParIno, destName, false)
+	if err != nil {
+		span.Errorf("rename file failed, srcIno %d, srcName %s, dstIno %d, dstName %s, err %s",
+			srcParIno, srcName, dstParIno, destName, err.Error())
+		return syscallToErr(err)
+	}
+	return nil
 }
 
 func (v *volume) ReadDirAll(ctx context.Context, ino uint64) ([]sdk.DirInfo, error) {
@@ -382,7 +380,7 @@ const (
 func (v *volume) Mkdir(ctx context.Context, parIno uint64, name string) (*sdk.InodeInfo, error) {
 	span := trace.SpanFromContextSafe(ctx)
 
-	info, err := v.mw.Create_ll(parIno, name, uint32(defaultDirMod), 0, 0, nil)
+	info, err := v.mw.CreateFileEx(ctx, parIno, name, uint32(defaultDirMod))
 	if err != nil {
 		span.Errorf("create dir failed, parIno %d, name %s, err %s", parIno, name, err.Error())
 		return nil, syscallToErr(err)
@@ -392,15 +390,11 @@ func (v *volume) Mkdir(ctx context.Context, parIno uint64, name string) (*sdk.In
 }
 
 func (v *volume) CreateFile(ctx context.Context, parentIno uint64, name string) (*sdk.InodeInfo, error) {
-	span := trace.SpanFromContextSafe(ctx)
-
-	info, err := v.mw.Create_ll(parentIno, name, uint32(defaultFileMode), 0, 0, nil)
+	ifo, err := v.mw.CreateFileEx(ctx, parentIno, name, uint32(defaultFileMode))
 	if err != nil {
-		span.Errorf("create file failed, parIno %d, name %s, err %s", parentIno, name, err.Error())
 		return nil, syscallToErr(err)
 	}
-
-	return info, nil
+	return ifo, nil
 }
 
 func (v *volume) Delete(ctx context.Context, parIno uint64, name string, isDir bool) error {
@@ -425,36 +419,26 @@ func (v *volume) Delete(ctx context.Context, parIno uint64, name string, isDir b
 	return nil
 }
 
-func (v *volume) Rename(ctx context.Context, srcParIno, dstParIno uint64, srcName, destName string) error {
-	span := trace.SpanFromContextSafe(ctx)
-
-	err := v.mw.Rename_ll(srcParIno, srcName, dstParIno, destName, false)
-	if err != nil {
-		span.Errorf("rename file failed, srcIno %d, srcName %s, dstIno %d, dstName %s, err %s",
-			srcParIno, srcName, dstParIno, destName, err.Error())
-		return syscallToErr(err)
-	}
-
-	return nil
-}
-
 func (v *volume) UploadFile(ctx context.Context, req *sdk.UploadFileReq) (*sdk.InodeInfo, error) {
 	span := trace.SpanFromContextSafe(ctx)
-
-	if req.OldIno != 0 {
-		oldIno, mode, err := v.mw.Lookup_ll(req.ParIno, req.Name)
+	var oldIno uint64
+	if req.OldFileId != 0 {
+		//oldIno, mode, err := v.mw.Lookup_ll(req.ParIno, req.Name)
+		den, err := v.mw.LookupEx(req.ParIno, req.Name)
 		if err != nil && err != syscall.ENOENT {
 			span.Errorf("lookup file failed, ino %d, name %s, err %s", req.ParIno, req.Name, err.Error())
 			return nil, syscallToErr(err)
 		}
-		if oldIno != req.OldIno || proto.IsDir(mode) {
-			span.Errorf("target file already exist but conflict, isDir %v, oldIno %d, reqOld %d",
-				proto.IsDir(mode), oldIno, req.OldIno)
+
+		if den == nil || den.FileId != req.OldFileId || proto.IsDir(den.Type) {
+			span.Errorf("target file already exist but conflict, den %v, reqOld %d",
+				den, req.OldFileId)
 			return nil, sdk.ErrConflict
 		}
+		oldIno = den.Inode
 	}
 
-	tmpInoInfo, err := v.mw.InodeCreate_ll(defaultFileMode, 0, 0, nil, nil)
+	tmpInoInfo, err := v.mw.CreateInode(defaultFileMode)
 	if err != nil {
 		span.Errorf("create inode failed, err %s", err.Error())
 		return nil, syscallToErr(err)
@@ -522,12 +506,21 @@ func (v *volume) UploadFile(ctx context.Context, req *sdk.UploadFileReq) (*sdk.I
 		}
 	}
 
-	err = v.mw.DentryCreateEx_ll(req.ParIno, req.Name, tmpIno, req.OldIno, defaultFileMode)
+	dirReq := &sdk.CreateDentryReq{
+		ParentId: req.ParIno,
+		Name:     req.Name,
+		Inode:    tmpIno,
+		OldIno:   oldIno,
+		Mode:     defaultFileMode,
+	}
+
+	_, err = v.mw.CreateDentryEx(ctx, dirReq)
 	if err != nil {
-		span.Errorf("dentryCreateEx failed, parent %d, name %s, ino %d", req.ParIno, req.Name, req.OldIno)
+		span.Errorf("dentryCreateEx failed, parent %d, name %s, ino %d", req.ParIno, req.Name, req.OldFileId)
 		return nil, syscallToErr(err)
 	}
 
+	//return sdk.NewInode(finalIno, fileId), nil
 	return finalIno, nil
 }
 
@@ -612,22 +605,36 @@ func (v *volume) ReadFile(ctx context.Context, ino, off uint64, data []byte) (n 
 	return n, nil
 }
 
-func (v *volume) InitMultiPart(ctx context.Context, filepath string, oldIno uint64, extend map[string]string) (string, error) {
+func (v *volume) InitMultiPart(ctx context.Context, filepath string, oldFileId uint64, extend map[string]string) (string, error) {
 	if !startWithSlash(filepath) {
 		return "", sdk.ErrBadRequest
 	}
 
 	span := trace.SpanFromContextSafe(ctx)
-	// try check whether ino of path is equal to oldIno.
-	if oldIno != 0 {
-		ino, err := v.mw.LookupPath(filepath)
-		if err != nil && err != syscall.ENOENT {
-			span.Errorf("look up path %s failed, err %s", filepath, err.Error())
+
+	dir, name := path.Split(filepath)
+	if name == "" {
+		span.Warnf("path is not illegal, path %s", filepath)
+		return "", sdk.ErrBadRequest
+	}
+
+	// try check whether fileId of path is equal to oldFileId.
+	if oldFileId != 0 {
+		dirIno, err := v.mw.LookupPath(dir)
+		if err != nil {
+			span.Warnf("look up parent inode failed, dir %s, err %s", dir, err.Error())
 			return "", syscallToErr(err)
 		}
 
-		if ino != oldIno {
-			span.Errorf("init part, inode %d is conflict with exist inode %d", oldIno, ino)
+		ifo, err := v.mw.LookupEx(dirIno, name)
+		if err != nil {
+			span.Warnf("find target inode failed, path %s, dirIno %d, name %s, err %s",
+				filepath, dirIno, name, err.Error())
+			return "", syscallToErr(err)
+		}
+
+		if ifo.FileId != oldFileId {
+			span.Errorf("init part, inode %d is conflict with exist inode %v", oldFileId, ifo)
 			return "", sdk.ErrConflict
 		}
 	}
@@ -642,14 +649,14 @@ func (v *volume) InitMultiPart(ctx context.Context, filepath string, oldIno uint
 }
 
 func (v *volume) UploadMultiPart(ctx context.Context, filepath, uploadId string, partNum uint16, read io.Reader) (part *sdk.Part, err error) {
+	span := trace.SpanFromContextSafe(ctx)
 	if !startWithSlash(filepath) {
+		span.Warnf("input file path is not illegal, path %s", filepath)
 		err = sdk.ErrBadRequest
 		return
 	}
 
-	span := trace.SpanFromContextSafe(ctx)
-
-	tmpInfo, err := v.mw.InodeCreate_ll(defaultFileMode, 0, 0, nil, nil)
+	tmpInfo, err := v.mw.CreateInode(defaultFileMode)
 	if err != nil {
 		span.Errorf("create ino failed", err.Error())
 		return nil, syscallToErr(err)
@@ -783,7 +790,7 @@ func (v *volume) AbortMultiPart(ctx context.Context, filepath, uploadId string) 
 	return nil
 }
 
-func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId string, oldIno uint64, partsArg []sdk.Part) (ifo *sdk.InodeInfo, err error) {
+func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId string, oldFileId uint64, partsArg []sdk.Part) (ifo *sdk.InodeInfo, err error) {
 	if !startWithSlash(filepath) {
 		return nil, sdk.ErrBadRequest
 	}
@@ -817,7 +824,7 @@ func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId strin
 		partArr = append(partArr, part)
 	}
 
-	completeInfo, err := v.mw.InodeCreate_ll(defaultFileMode, 0, 0, nil, nil)
+	completeInfo, err := v.mw.CreateInode(defaultFileMode)
 	if err != nil {
 		span.Errorf("inode create failed, path %s, err %s", filepath, err.Error())
 		return nil, syscallToErr(err)
@@ -891,7 +898,15 @@ func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId strin
 		}
 	}
 
-	err = v.mw.DentryCreateEx_ll(parIno, name, cIno, oldIno, defaultFileMode)
+	dirReq := &sdk.CreateDentryReq{
+		ParentId: parIno,
+		Name:     name,
+		Inode:    cIno,
+		OldIno:   oldFileId,
+		Mode:     defaultFileMode,
+	}
+
+	_, err = v.mw.CreateDentryEx(ctx, dirReq)
 	if err != nil {
 		span.Errorf("final create dentry failed, parIno %d, name %s, childIno %d, err %s",
 			parIno, name, cIno, err.Error())
@@ -905,6 +920,7 @@ func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId strin
 		return nil, syscallToErr(err)
 	}
 
+	//return sdk.NewInode(newIfo, fileId), nil
 	return newIfo, nil
 }
 
@@ -915,7 +931,7 @@ func (v *volume) mkdirByPath(ctx context.Context, dir string) (ino uint64, err e
 	dir = strings.TrimSpace(dir)
 	var childIno uint64
 	var childMod uint32
-	var info *proto.InodeInfo
+	var info *sdk.InodeInfo
 
 	defer func() {
 		ino = parIno
@@ -927,23 +943,24 @@ func (v *volume) mkdirByPath(ctx context.Context, dir string) (ino uint64, err e
 			continue
 		}
 
-		childIno, childMod, err = v.mw.Lookup_ll(parIno, name)
+		childDen, err := v.mw.LookupEx(parIno, name)
 		if err != nil && err != syscall.ENOENT {
 			span.Errorf("lookup file failed, ino %d, name %s, err %s", parIno, name, err.Error())
 			return 0, err
 		}
+		childIno, childMod = childDen.Inode, childDen.Type
 
 		if err == syscall.ENOENT {
-			info, err = v.mw.Create_ll(parIno, name, uint32(defaultDirMod), 0, 0, nil)
+			info, err = v.mw.CreateFileEx(ctx, parIno, name, uint32(defaultDirMod))
 			if err != nil && err == syscall.EEXIST {
-				existIno, mode, e := v.mw.Lookup_ll(parIno, name)
+				existDen, e := v.mw.LookupEx(parIno, name)
 				if e != nil {
 					span.Errorf("lookup exist ino failed, ino %d, name %s, err %s", parIno, name, err.Error())
-					return 0, err
+					return 0, e
 				}
 
-				if proto.IsDir(mode) {
-					parIno, err = existIno, nil
+				if proto.IsDir(existDen.Type) {
+					parIno, err = existDen.Inode, nil
 					continue
 				}
 			}

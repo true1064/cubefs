@@ -485,21 +485,6 @@ func (mr *MockIClusterMockRecorder) Addr() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Addr", reflect.TypeOf((*MockICluster)(nil).Addr))
 }
 
-// AllocFileId mocks base method.
-func (m *MockICluster) AllocFileId(arg0 context.Context) (uint64, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllocFileId", arg0)
-	ret0, _ := ret[0].(uint64)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AllocFileId indicates an expected call of AllocFileId.
-func (mr *MockIClusterMockRecorder) AllocFileId(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllocFileId", reflect.TypeOf((*MockICluster)(nil).AllocFileId), arg0)
-}
-
 // GetVol mocks base method.
 func (m *MockICluster) GetVol(arg0 string) sdk.IVolume {
 	m.ctrl.T.Helper()

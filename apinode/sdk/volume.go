@@ -2,6 +2,7 @@ package sdk
 
 import (
 	"context"
+	"github.com/cubefs/cubefs/proto"
 	"io"
 )
 
@@ -10,9 +11,9 @@ type IVolume interface {
 	Info() *VolInfo
 	// Lookup from target parentDir ino, parentIno 0 means lookup from root
 	Lookup(ctx context.Context, parentIno uint64, name string) (*DirInfo, error)
-	GetInode(ctx context.Context, ino uint64) (*InodeInfo, error)
+	GetInode(ctx context.Context, ino uint64) (*proto.InodeInfo, error)
 	// BatchGetInodes maybe cost much time
-	BatchGetInodes(ctx context.Context, inos []uint64) ([]*InodeInfo, error)
+	BatchGetInodes(ctx context.Context, inos []uint64) ([]*proto.InodeInfo, error)
 	Readdir(ctx context.Context, parIno uint64, marker string, count uint32) ([]DirInfo, error)
 	ReadDirAll(ctx context.Context, ino uint64) ([]DirInfo, error)
 	StatFs(ctx context.Context, ino uint64) (*StatFs, error)

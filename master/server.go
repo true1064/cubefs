@@ -39,6 +39,7 @@ import (
 // configuration keys
 const (
 	ClusterName          = "clusterName"
+	ClusterIdx           = "clusterIdx"
 	ID                   = "id"
 	IP                   = "ip"
 	Port                 = "port"
@@ -105,6 +106,7 @@ var (
 // Server represents the server in a cluster
 type Server struct {
 	id              uint64
+	clusterIdx      uint64
 	clusterName     string
 	ip              string
 	bindIp          bool
@@ -225,6 +227,15 @@ func (m *Server) checkConfig(cfg *config.Config) (err error) {
 		return fmt.Errorf("%v,err:%v,%v,%v,%v,%v,%v", proto.ErrInvalidCfg, "one of (listen,walDir,storeDir,clusterName) is null",
 			m.port, m.walDir, m.storeDir, m.clusterName, peerAddrs)
 	}
+
+	idxStr := cfg.GetString(ClusterIdx)
+	if idxStr != "" {
+		m.clusterIdx, err = strconv.ParseUint(idxStr, 10, 8)
+		if err != nil {
+			return fmt.Errorf("parse clusterIdx failed, idx %s, err %s", idxStr, err.Error())
+		}
+	}
+	syslog.Println("clusterIdx=", m.clusterIdx)
 
 	if m.id, err = strconv.ParseUint(cfg.GetString(ID), 10, 64); err != nil {
 		return fmt.Errorf("%v,err:%v", proto.ErrInvalidCfg, err.Error())

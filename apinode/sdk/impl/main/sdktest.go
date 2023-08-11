@@ -4,10 +4,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/cubefs/cubefs/util/log"
 	"strings"
 	"time"
-
-	"github.com/cubefs/cubefs/depends/tiglabs/raft/util/log"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/apinode/sdk/impl"
@@ -22,7 +21,8 @@ const (
 )
 
 func main() {
-	log.InitFileLog("/tmp/cfs", "test", "debug")
+	//log.InitFileLog("/tmp/cfs", "test", "debug")
+	log.InitLog("/tmp/cfs/sdktest", "test", log.DebugLevel, nil)
 	mgr := impl.NewClusterMgr()
 	span, ctx := trace.StartSpanFromContext(context.TODO(), "")
 	err := mgr.AddCluster(ctx, cluster, addr)
@@ -47,6 +47,7 @@ func main() {
 	testMultiPartOp(ctx, vol)
 	testInodeLock(ctx, vol)
 	testClusterOp(ctx, cluster)
+	//testVolOp(ctx, vol)
 }
 
 // alloc fileId
@@ -54,20 +55,20 @@ func testClusterOp(ctx context.Context, cluster sdk.ICluster) {
 	span := trace.SpanFromContextSafe(ctx)
 	span.Infof("start test cluster op ===================")
 
-	id1, err := cluster.AllocFileId(ctx)
-	if err != nil {
-		span.Fatalf("alloc file id1 failed, err %s", err.Error())
-	}
-
-	for idx := id1; idx < id1+20000; idx++ {
-		tmpId, err := cluster.AllocFileId(ctx)
-		if err != nil {
-			span.Fatalf("alloc file id1 failed, err %s", err.Error())
-		}
-		if tmpId != idx+1 {
-			span.Fatalf("alooc wrong file id, got %d, want %d", tmpId, idx+1)
-		}
-	}
+	//id1, err := cluster.AllocFileId(ctx)
+	//if err != nil {
+	//	span.Fatalf("alloc file id1 failed, err %s", err.Error())
+	//}
+	//
+	//for idx := id1; idx < id1+20000; idx++ {
+	//	tmpId, err := cluster.AllocFileId(ctx)
+	//	if err != nil {
+	//		span.Fatalf("alloc file id1 failed, err %s", err.Error())
+	//	}
+	//	if tmpId != idx+1 {
+	//		span.Fatalf("alooc wrong file id, got %d, want %d", tmpId, idx+1)
+	//	}
+	//}
 
 	span.Infof("end cluster op ===================")
 }
@@ -78,7 +79,7 @@ func testDirOp(ctx context.Context, vol sdk.IVolume) {
 	span.Infof("start test dir op ===================")
 	defer span.Infof("end test dir op ===================")
 
-	tmpDir := "testDirD6"
+	tmpDir := "testDirD6" + tmpString()
 	dirIfo, err := vol.Mkdir(ctx, proto.RootIno, tmpDir)
 	if err != nil {
 		span.Fatalf("create dir failed, dir %s, err %s", tmpDir, err.Error())
@@ -165,6 +166,9 @@ func testDirOp(ctx context.Context, vol sdk.IVolume) {
 		}
 		totalItems = append(totalItems, tmpItems...)
 		marker = tmpItems[0].Name
+		if tmpItems[0].FileId < 0 {
+			span.Fatalf("got item is not illegal, item %v", tmpItems)
+		}
 		span.Infof("read limit, marker %v, items %v, total %d", marker, tmpItems, len(totalItems))
 	}
 
@@ -175,7 +179,7 @@ func testDirOp(ctx context.Context, vol sdk.IVolume) {
 		}
 	}
 
-	var inoInfos []*sdk.InodeInfo
+	var inoInfos []*proto.InodeInfo
 	inoInfos, err = vol.BatchGetInodes(ctx, inos)
 	if err != nil {
 		span.Fatalf("execute BatchGetInodes failed, err %s", err.Error())
@@ -188,15 +192,19 @@ func testDirOp(ctx context.Context, vol sdk.IVolume) {
 	}
 }
 
+func tmpString() string {
+	return fmt.Sprintf("tmp_%s", time.Now().String())
+}
+
 // test create, write, read, delete
 func testCreateFile(ctx context.Context, vol sdk.IVolume) {
 	span := trace.SpanFromContextSafe(ctx)
-	tmpFile := "testCreateFile"
+	tmpFile := "file" + tmpString()
 
 	span.Info("start testCreateFile =================")
 	defer span.Info("end testCreateFile =================")
 
-	tmpDir := "testCreateFileDir"
+	tmpDir := "dir" + tmpString()
 	dirIfo, err := vol.Mkdir(ctx, proto.RootIno, tmpDir)
 	if err != nil {
 		span.Fatalf("create dir failed, dir %s, err %s", tmpDir, err.Error())
@@ -228,7 +236,11 @@ func testCreateFile(ctx context.Context, vol sdk.IVolume) {
 		span.Fatalf("execute lookup result not valid, want %d, got %d", tmpInfo.Inode, lookInfo.Inode)
 	}
 
-	var getInfo *sdk.InodeInfo
+	if lookInfo.FileId == 0 {
+		span.Fatalf("crate dentry fileId can't be zero, info %v", lookInfo)
+	}
+
+	var getInfo *proto.InodeInfo
 	getInfo, err = vol.GetInode(ctx, tmpInfo.Inode)
 	if err != nil {
 		span.Fatalf("execute get Inode failed, ino %d, err %s", tmpInfo.Inode, err.Error())
@@ -270,11 +282,11 @@ func testCreateFile(ctx context.Context, vol sdk.IVolume) {
 
 	// test file upload
 	req := &sdk.UploadFileReq{
-		ParIno: dirIfo.Inode,
-		Name:   "file2",
-		OldIno: 0,
-		Extend: map[string]string{"k1": "v1"},
-		Body:   bytes.NewBuffer(data),
+		ParIno:    dirIfo.Inode,
+		Name:      "file2",
+		OldFileId: 0,
+		Extend:    map[string]string{"k1": "v1"},
+		Body:      bytes.NewBuffer(data),
 	}
 
 	var uploadIfo *sdk.InodeInfo
@@ -284,18 +296,22 @@ func testCreateFile(ctx context.Context, vol sdk.IVolume) {
 	}
 	span.Infof("upload file success, info %v", uploadIfo)
 
-	req.OldIno = uploadIfo.Inode
+	den, err := vol.Lookup(ctx, req.ParIno, req.Name)
+	if err != nil {
+		span.Fatalf("look up path failed, err %s, name %s", err.Error(), req.Name)
+	}
+
+	req.OldFileId = den.FileId
 	req.Body = bytes.NewBuffer(data)
 	uploadIfo, err = vol.UploadFile(ctx, req)
 	if err != nil {
 		span.Fatalf("upload file failed, name %s, err %s", req.Name, err.Error())
 	}
 
-	// test rename
-	newName := "rename-new"
+	newName := "testNewName"
 	err = vol.Rename(ctx, dirIfo.Inode, dirIfo.Inode, req.Name, newName)
 	if err != nil {
-		span.Fatalf("execute rename failed, err %s", err.Error())
+		span.Fatalf("rename file failed, err %s", err.Error())
 	}
 
 	defer func() {
@@ -340,7 +356,7 @@ func testCreateFile(ctx context.Context, vol sdk.IVolume) {
 		span.Fatalf("set attr failed, req %v, err %s", attrReq, err.Error())
 	}
 
-	var newUploadIfo *sdk.InodeInfo
+	var newUploadIfo *proto.InodeInfo
 	newUploadIfo, err = vol.GetInode(ctx, uploadIfo.Inode)
 	if err != nil {
 		span.Fatalf("get inode failed, ino %d, err %s", uploadIfo.Inode, err.Error())

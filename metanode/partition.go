@@ -125,6 +125,7 @@ func (c *MetaPartitionConfig) sortPeers() {
 // OpInode defines the interface for the inode operations.
 type OpInode interface {
 	CreateInode(req *CreateInoReq, p *Packet) (err error)
+	//CreateInodeEx(req *proto.CreateInodeExt, p *Packet) (err error)
 	UnlinkInode(req *UnlinkInoReq, p *Packet) (err error)
 	UnlinkInodeBatch(req *BatchUnlinkInoReq, p *Packet) (err error)
 	InodeGet(req *InodeGetReq, p *Packet) (err error)

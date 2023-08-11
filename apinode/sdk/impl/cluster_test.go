@@ -111,18 +111,18 @@ func TestCluster_AllocFileId(t *testing.T) {
 	require.True(t, cl.fileId.Begin == begin)
 
 	for idx := begin; idx < end; idx++ {
-		gotId, err := cl.AllocFileId(ctx)
+		gotId, err := cl.allocFileId(ctx)
 		require.NoError(t, err)
 		require.True(t, gotId == idx+1)
 	}
 
 	m.EXPECT().AllocFileId().Return(expect, sdk.ErrInternalServerError)
-	_, err = cl.AllocFileId(ctx)
+	_, err = cl.allocFileId(ctx)
 	require.Error(t, err)
 
 	newBegin := uint64(1001)
 	m.EXPECT().AllocFileId().Return(&proto.FileId{Begin: newBegin}, nil)
-	gotFile, err := cl.AllocFileId(ctx)
+	gotFile, err := cl.allocFileId(ctx)
 	require.NoError(t, err)
 	require.Equal(t, gotFile, newBegin+1)
 }

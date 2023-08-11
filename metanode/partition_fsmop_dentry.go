@@ -178,6 +178,7 @@ func (mp *metaPartition) fsmCreateDentryEx(dentry *DentryEx) (status uint8) {
 
 		d.Inode = den.Inode
 		d.Type = den.Type
+		d.FileId = den.FileId
 	})
 
 	return
@@ -522,9 +523,10 @@ func (mp *metaPartition) readDirLimit(req *ReadDirLimitReq) (resp *ReadDirLimitR
 			return true
 		}
 		resp.Children = append(resp.Children, proto.Dentry{
-			Inode: d.Inode,
-			Type:  d.Type,
-			Name:  d.Name,
+			Inode:  d.Inode,
+			Type:   d.Type,
+			Name:   d.Name,
+			FileId: d.FileId,
 		})
 		// Limit == 0 means no limit.
 		if req.Limit > 0 && uint64(len(resp.Children)) >= req.Limit {

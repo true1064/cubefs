@@ -244,6 +244,44 @@ func (m *metadataManager) opQuotaCreateInode(conn net.Conn, p *Packet, remoteAdd
 	return
 }
 
+// Handle OpCreateEx inode.
+//func (m *metadataManager) opCreateInodeEx(conn net.Conn, p *Packet,
+//	remoteAddr string) (err error) {
+//	req := &proto.CreateInodeExt{}
+//	if err = json.Unmarshal(p.Data, req); err != nil {
+//		p.PacketErrorWithBody(proto.OpErr, ([]byte)(err.Error()))
+//		m.respondToClientWithVer(conn, p)
+//		err = errors.NewErrorf("[%v],req[%v],err[%v]", p.GetOpMsgWithReqAndResult(), req, string(p.Data))
+//		return
+//	}
+//
+//	mp, err := m.getPartition(req.PartitionID)
+//	if err != nil {
+//		p.PacketErrorWithBody(proto.OpErr, ([]byte)(err.Error()))
+//		m.respondToClientWithVer(conn, p)
+//		err = errors.NewErrorf("[%v],req[%v],err[%v]", p.GetOpMsgWithReqAndResult(), req, string(p.Data))
+//		return
+//	}
+//
+//	if !m.serveProxy(conn, mp, p) {
+//		return
+//	}
+//
+//	if err = m.checkMultiVersionStatus(mp, p); err != nil {
+//		err = errors.NewErrorf("[%v],req[%v],err[%v]", p.GetOpMsgWithReqAndResult(), req, string(p.Data))
+//		return
+//	}
+//
+//	err = mp.CreateInodeEx(req, p)
+//	// reply the operation result to the client through TCP
+//	m.respondToClientWithVer(conn, p)
+//	if log.EnableDebug() {
+//		log.LogDebugf("%s [opCreateInodeEx] req: %d - %v, resp: %v, body: %s",
+//			remoteAddr, p.GetReqID(), req, p.GetResultMsg(), string(p.Data))
+//	}
+//	return
+//}
+
 func (m *metadataManager) opTxMetaLinkInode(conn net.Conn, p *Packet, remoteAddr string) (err error) {
 	req := &proto.TxLinkInodeRequest{}
 	if err = json.Unmarshal(p.Data, req); err != nil {

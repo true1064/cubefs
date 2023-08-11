@@ -153,10 +153,10 @@ func (mp *metaPartition) QuotaCreateDentry(req *proto.QuotaCreateDentryRequest, 
 		Name:     req.Name,
 		Inode:    req.Inode,
 		Type:     req.Mode,
+		FileId:   req.FileId,
 	}
 	dentry.setVerSeq(mp.verSeq)
 
-	// TODO createDentryEx support snap and tx
 	if req.OldIno != 0 {
 		return mp.createDentryEx(dentry, req.OldIno, p)
 	}
@@ -535,6 +535,7 @@ func (mp *metaPartition) Lookup(req *LookupReq, p *Packet) (err error) {
 				Mode:   dentry.Type,
 				VerSeq: dentry.getSeqFiled(),
 				LayAll: denList,
+				FileId: dentry.FileId,
 			}
 		} else {
 			resp = &LookupResp{

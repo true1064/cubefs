@@ -5,8 +5,10 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
+	sdk "github.com/cubefs/cubefs/apinode/sdk"
 	proto "github.com/cubefs/cubefs/proto"
 	gomock "github.com/golang/mock/gomock"
 )
@@ -188,19 +190,49 @@ func (mr *MockMetaOpMockRecorder) BatchSetXAttr_ll(arg0, arg1 interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BatchSetXAttr_ll", reflect.TypeOf((*MockMetaOp)(nil).BatchSetXAttr_ll), arg0, arg1)
 }
 
-// Create_ll mocks base method.
-func (m *MockMetaOp) Create_ll(arg0 uint64, arg1 string, arg2, arg3, arg4 uint32, arg5 []byte) (*proto.InodeInfo, error) {
+// CreateDentryEx mocks base method.
+func (m *MockMetaOp) CreateDentryEx(arg0 context.Context, arg1 *sdk.CreateDentryReq) (uint64, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Create_ll", arg0, arg1, arg2, arg3, arg4, arg5)
+	ret := m.ctrl.Call(m, "CreateDentryEx", arg0, arg1)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateDentryEx indicates an expected call of CreateDentryEx.
+func (mr *MockMetaOpMockRecorder) CreateDentryEx(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateDentryEx", reflect.TypeOf((*MockMetaOp)(nil).CreateDentryEx), arg0, arg1)
+}
+
+// CreateFileEx mocks base method.
+func (m *MockMetaOp) CreateFileEx(arg0 context.Context, arg1 uint64, arg2 string, arg3 uint32) (*proto.InodeInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateFileEx", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(*proto.InodeInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Create_ll indicates an expected call of Create_ll.
-func (mr *MockMetaOpMockRecorder) Create_ll(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
+// CreateFileEx indicates an expected call of CreateFileEx.
+func (mr *MockMetaOpMockRecorder) CreateFileEx(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create_ll", reflect.TypeOf((*MockMetaOp)(nil).Create_ll), arg0, arg1, arg2, arg3, arg4, arg5)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateFileEx", reflect.TypeOf((*MockMetaOp)(nil).CreateFileEx), arg0, arg1, arg2, arg3)
+}
+
+// CreateInode mocks base method.
+func (m *MockMetaOp) CreateInode(arg0 uint32) (*proto.InodeInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateInode", arg0)
+	ret0, _ := ret[0].(*proto.InodeInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateInode indicates an expected call of CreateInode.
+func (mr *MockMetaOpMockRecorder) CreateInode(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateInode", reflect.TypeOf((*MockMetaOp)(nil).CreateInode), arg0)
 }
 
 // Delete_ll mocks base method.
@@ -216,34 +248,6 @@ func (m *MockMetaOp) Delete_ll(arg0 uint64, arg1 string, arg2 bool) (*proto.Inod
 func (mr *MockMetaOpMockRecorder) Delete_ll(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete_ll", reflect.TypeOf((*MockMetaOp)(nil).Delete_ll), arg0, arg1, arg2)
-}
-
-// DentryCreateEx_ll mocks base method.
-func (m *MockMetaOp) DentryCreateEx_ll(arg0 uint64, arg1 string, arg2, arg3 uint64, arg4 uint32) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DentryCreateEx_ll", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DentryCreateEx_ll indicates an expected call of DentryCreateEx_ll.
-func (mr *MockMetaOpMockRecorder) DentryCreateEx_ll(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DentryCreateEx_ll", reflect.TypeOf((*MockMetaOp)(nil).DentryCreateEx_ll), arg0, arg1, arg2, arg3, arg4)
-}
-
-// DentryCreate_ll mocks base method.
-func (m *MockMetaOp) DentryCreate_ll(arg0 uint64, arg1 string, arg2 uint64, arg3 uint32) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DentryCreate_ll", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DentryCreate_ll indicates an expected call of DentryCreate_ll.
-func (mr *MockMetaOpMockRecorder) DentryCreate_ll(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DentryCreate_ll", reflect.TypeOf((*MockMetaOp)(nil).DentryCreate_ll), arg0, arg1, arg2, arg3)
 }
 
 // Evict mocks base method.
@@ -307,21 +311,6 @@ func (mr *MockMetaOpMockRecorder) InitMultipart_ll(arg0, arg1 interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitMultipart_ll", reflect.TypeOf((*MockMetaOp)(nil).InitMultipart_ll), arg0, arg1)
 }
 
-// InodeCreate_ll mocks base method.
-func (m *MockMetaOp) InodeCreate_ll(arg0, arg1, arg2 uint32, arg3 []byte, arg4 []uint64) (*proto.InodeInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InodeCreate_ll", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(*proto.InodeInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// InodeCreate_ll indicates an expected call of InodeCreate_ll.
-func (mr *MockMetaOpMockRecorder) InodeCreate_ll(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InodeCreate_ll", reflect.TypeOf((*MockMetaOp)(nil).InodeCreate_ll), arg0, arg1, arg2, arg3, arg4)
-}
-
 // InodeDelete_ll mocks base method.
 func (m *MockMetaOp) InodeDelete_ll(arg0 uint64) error {
 	m.ctrl.T.Helper()
@@ -366,21 +355,6 @@ func (mr *MockMetaOpMockRecorder) InodeUnlink_ll(arg0 interface{}) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InodeUnlink_ll", reflect.TypeOf((*MockMetaOp)(nil).InodeUnlink_ll), arg0)
 }
 
-// Link mocks base method.
-func (m *MockMetaOp) Link(arg0 uint64, arg1 string, arg2 uint64) (*proto.InodeInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Link", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*proto.InodeInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Link indicates an expected call of Link.
-func (mr *MockMetaOpMockRecorder) Link(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Link", reflect.TypeOf((*MockMetaOp)(nil).Link), arg0, arg1, arg2)
-}
-
 // ListMultipart_ll mocks base method.
 func (m *MockMetaOp) ListMultipart_ll(arg0, arg1, arg2, arg3 string, arg4 uint64) ([]*proto.MultipartInfo, error) {
 	m.ctrl.T.Helper()
@@ -396,6 +370,21 @@ func (mr *MockMetaOpMockRecorder) ListMultipart_ll(arg0, arg1, arg2, arg3, arg4 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListMultipart_ll", reflect.TypeOf((*MockMetaOp)(nil).ListMultipart_ll), arg0, arg1, arg2, arg3, arg4)
 }
 
+// LookupEx mocks base method.
+func (m *MockMetaOp) LookupEx(arg0 uint64, arg1 string) (*proto.Dentry, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LookupEx", arg0, arg1)
+	ret0, _ := ret[0].(*proto.Dentry)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LookupEx indicates an expected call of LookupEx.
+func (mr *MockMetaOpMockRecorder) LookupEx(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LookupEx", reflect.TypeOf((*MockMetaOp)(nil).LookupEx), arg0, arg1)
+}
+
 // LookupPath mocks base method.
 func (m *MockMetaOp) LookupPath(arg0 string) (uint64, error) {
 	m.ctrl.T.Helper()
@@ -409,22 +398,6 @@ func (m *MockMetaOp) LookupPath(arg0 string) (uint64, error) {
 func (mr *MockMetaOpMockRecorder) LookupPath(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LookupPath", reflect.TypeOf((*MockMetaOp)(nil).LookupPath), arg0)
-}
-
-// Lookup_ll mocks base method.
-func (m *MockMetaOp) Lookup_ll(arg0 uint64, arg1 string) (uint64, uint32, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Lookup_ll", arg0, arg1)
-	ret0, _ := ret[0].(uint64)
-	ret1, _ := ret[1].(uint32)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// Lookup_ll indicates an expected call of Lookup_ll.
-func (mr *MockMetaOpMockRecorder) Lookup_ll(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Lookup_ll", reflect.TypeOf((*MockMetaOp)(nil).Lookup_ll), arg0, arg1)
 }
 
 // ReadDirLimit_ll mocks base method.

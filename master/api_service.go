@@ -4660,8 +4660,17 @@ func (m *Server) allocFileId(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sendOkReply(w, r, newSuccessHTTPReply(id))
-	log.LogInfof("allocFileId: alloc fileId success, result %v", id)
+	sf := func(num uint64) uint64 {
+		return num<<8>>8 + m.clusterIdx<<24
+	}
+
+	newId := &proto.FileId{
+		Begin: sf(id.Begin),
+		End:   sf(id.End),
+	}
+
+	sendOkReply(w, r, newSuccessHTTPReply(newId))
+	log.LogInfof("allocFileId: alloc fileId success, id %v, newId %v", id, newId)
 }
 
 // Obtain the volume information such as total capacity and used space, etc.

@@ -16,6 +16,7 @@ package drive
 
 import (
 	"context"
+	"github.com/cubefs/cubefs/proto"
 	"io"
 
 	"github.com/cubefs/cubefs/apinode/crypto"
@@ -67,7 +68,7 @@ func (d *DriveNode) makeBlockedReader(ctx context.Context, vol sdk.IVolume, ino,
 	return r, nil
 }
 
-func (d *DriveNode) blockReaderFirst(ctx context.Context, vol sdk.IVolume, inode *sdk.InodeInfo, off uint64,
+func (d *DriveNode) blockReaderFirst(ctx context.Context, vol sdk.IVolume, inode *proto.InodeInfo, off uint64,
 	cipherKey []byte) (io.Reader, uint64, error) {
 	remain := off % crypto.BlockSize
 	fixedSize := remain
@@ -87,7 +88,7 @@ func (d *DriveNode) blockReaderFirst(ctx context.Context, vol sdk.IVolume, inode
 	return newFixedReader(r, int64(fixedSize)), fixedSize, nil
 }
 
-func (d *DriveNode) blockReaderLast(ctx context.Context, vol sdk.IVolume, inode *sdk.InodeInfo, off uint64,
+func (d *DriveNode) blockReaderLast(ctx context.Context, vol sdk.IVolume, inode *proto.InodeInfo, off uint64,
 	cipherKey []byte) (io.Reader, uint64, error) {
 	if inode.Size <= off {
 		return newFixedReader(nil, 0), 0, nil

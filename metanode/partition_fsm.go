@@ -78,6 +78,29 @@ func (mp *metaPartition) Apply(command []byte, index uint64) (resp interface{}, 
 				mp.mqMgr.updateUsedInfo(0, 1, quotaId)
 			}
 		}
+	//case opFsmCreateInodeEx:
+	//	inoEx := &InodeEx{}
+	//	err = inoEx.UnMarshal(msg.V)
+	//	if err != nil {
+	//		log.LogWarnf("Apply: unmarshal inode ex failed, data %s, err %s", string(msg.V), err.Error())
+	//		return
+	//	}
+	//
+	//	ino := inoEx.Inode.Inode
+	//	if mp.config.Cursor < ino {
+	//		mp.config.Cursor = ino
+	//	}
+	//
+	//	resp = mp.fsmCreateInode(inoEx.Inode)
+	//	if resp != proto.OpOk {
+	//		return
+	//	}
+	//
+	//	newErr := mp.fsmSetXAttr(inoEx.Extend)
+	//	if newErr != nil {
+	//		resp = proto.OpConflictExtentsErr
+	//		return
+	//	}
 	case opFSMUnlinkInode:
 		ino := NewInode(0, 0)
 		if err = ino.Unmarshal(msg.V); err != nil {

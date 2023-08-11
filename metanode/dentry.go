@@ -54,7 +54,8 @@ type Dentry struct {
 	Name     string // Name of the current dentry.
 	Inode    uint64 // FileID value of the current inode.
 	Type     uint32
-	//snapshot
+	FileId   uint64
+
 	multiSnap *DentryMultiSnap
 }
 
@@ -659,6 +660,8 @@ func (d *Dentry) MarshalValue() []byte {
 
 	writeBinary(&d.Inode)
 	writeBinary(&d.Type)
+	writeBinary(&d.FileId)
+
 	seq := d.getSeqFiled()
 	if seq == 0 {
 		return buff.Bytes()
@@ -687,6 +690,12 @@ func (d *Dentry) UnmarshalValue(val []byte) (err error) {
 	}
 	if err = binary.Read(buff, binary.BigEndian, &d.Type); err != nil {
 		return
+	}
+
+	if buff.Len() != 0 {
+		if err = binary.Read(buff, binary.BigEndian, &d.FileId); err != nil {
+			return
+		}
 	}
 
 	if len(val) >= 24 {

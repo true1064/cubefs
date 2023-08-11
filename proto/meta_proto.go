@@ -53,9 +53,14 @@ type CreateMetaPartitionResponse struct {
 }
 
 const (
+	XAttrInnerPre = "cfs_x_attr_in_"
+	InodeLockKey  = XAttrInnerPre + "inode_lock"
+	//XAttrFileIdKey = XAttrInnerPre + "file_id"
+)
+
+const (
 	InodeLockStatus   = uint8(0)
 	InodeUnLockStatus = uint8(1)
-	InodeLockKey      = "xattr_inode_lock"
 )
 
 type InodeLockReq struct {

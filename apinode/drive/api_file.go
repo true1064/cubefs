@@ -77,11 +77,11 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 	}
 	st := time.Now()
 	inode, err := vol.UploadFile(ctx, &sdk.UploadFileReq{
-		ParIno: info.Inode,
-		Name:   filename,
-		OldIno: args.FileID.Uint64(),
-		Extend: extend,
-		Body:   reader,
+		ParIno:    info.Inode,
+		Name:      filename,
+		OldFileId: args.FileID.Uint64(),
+		Extend:    extend,
+		Body:      reader,
 		Callback: func() error {
 			extend[internalMetaMD5] = hex.EncodeToString(hasher.Sum(nil))
 			return nil
@@ -523,11 +523,11 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 		return
 	}
 	_, err = vol.UploadFile(ctx, &sdk.UploadFileReq{
-		ParIno: dstParent.Inode,
-		Name:   filename,
-		OldIno: 0,
-		Extend: extend,
-		Body:   reader,
+		ParIno:    dstParent.Inode,
+		Name:      filename,
+		OldFileId: 0,
+		Extend:    extend,
+		Body:      reader,
 		Callback: func() error {
 			newMd5 := hex.EncodeToString(hasher.Sum(nil))
 			if oldMd5, ok := extend[internalMetaMD5]; ok {

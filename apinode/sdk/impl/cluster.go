@@ -71,7 +71,7 @@ func (c *cluster) Info() *sdk.ClusterInfo {
 	return ci
 }
 
-func (c *cluster) AllocFileId(ctx context.Context) (id uint64, err error) {
+func (c *cluster) allocFileId(ctx context.Context) (id uint64, err error) {
 	span := trace.SpanFromContextSafe(ctx)
 
 	c.lock.Lock()
@@ -186,6 +186,10 @@ func (c *cluster) updateVols(ctx context.Context) error {
 			span.Errorf("new volume failed, name %s, err %s", vol.Name, err.Error())
 			returnErr = err
 			continue
+		}
+
+		if v, ok := newVol.(*volume); ok {
+			v.setAllocFunc(c.allocFileId)
 		}
 
 		c.putVol(vol.Name, newVol)
