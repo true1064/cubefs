@@ -142,8 +142,6 @@ func (m *metadataManager) HandleMetadataOperation(conn net.Conn, p *Packet, remo
 	switch p.Opcode {
 	case proto.OpMetaCreateInode:
 		err = m.opCreateInode(conn, p, remoteAddr)
-	//case proto.OpMetaCreateInodeEx:
-	//	err = m.opCreateInodeEx(conn, p, remoteAddr)
 	case proto.OpMetaLinkInode:
 		err = m.opMetaLinkInode(conn, p, remoteAddr)
 	case proto.OpMetaFreeInodesOnRaftFollower:

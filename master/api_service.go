@@ -4661,7 +4661,7 @@ func (m *Server) allocFileId(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sf := func(num uint64) uint64 {
-		return num<<8>>8 + m.clusterIdx<<24
+		return num<<8>>8 + m.clusterIdx<<56
 	}
 
 	newId := &proto.FileId{

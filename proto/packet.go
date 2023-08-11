@@ -88,7 +88,6 @@ const (
 	OpMetaLinkInode     uint8 = 0x2E
 	OpMetaEvictInode    uint8 = 0x2F
 	OpMetaSetattr       uint8 = 0x30
-	OpMetaCreateInodeEx uint8 = 0x31
 
 	//Operations: MetaNode Leader -> MetaNode Follower
 	OpMetaFreeInodesOnRaftFollower uint8 = 0x32
@@ -427,8 +426,6 @@ func (p *Packet) GetOpMsg() (m string) {
 		m = "OpMetaBatchDeleteDentry"
 	case OpMetaOpen:
 		m = "OpMetaOpen"
-	//case OpMetaCreateInodeEx:
-	//	m = "OpMetaCreateInodeEx"
 	case OpMetaLookup:
 		m = "OpMetaLookup"
 	case OpMetaReadDir:

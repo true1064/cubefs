@@ -21,11 +21,6 @@ func (sf *StatFs) Add(sub *StatFs) {
 	sf.Files += sub.Files
 }
 
-//type InodeInfoEx struct {
-//	proto.InodeInfo
-//	FileId uint64
-//}
-
 //type InodeInfo = proto.InodeInfo
 
 type InodeInfo struct {
