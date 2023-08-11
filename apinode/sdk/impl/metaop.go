@@ -72,12 +72,12 @@ func (m *metaOpImp) CreateFileEx(ctx context.Context, parentID uint64, name stri
 		Mode:     mode,
 	}
 
-	_, err = m.CreateDentryEx(ctx, req)
+	fileId, err := m.CreateDentryEx(ctx, req)
 	if err != nil {
 		span.Errorf("create dentry failed, req %s, err %s", req, err.Error())
 		return nil, err
 	}
 
-	//return sdk.NewInode(ifo, fileId), nil
-	return ifo, nil
+	return sdk.NewInode(ifo, fileId), nil
+	//return ifo, nil
 }

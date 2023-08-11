@@ -26,19 +26,19 @@ func (sf *StatFs) Add(sub *StatFs) {
 //	FileId uint64
 //}
 
-type InodeInfo = proto.InodeInfo
+//type InodeInfo = proto.InodeInfo
 
-//type InodeInfo struct {
-//	*proto.InodeInfo
-//	FileId uint64
-//}
-//
-//func NewInode(inode *proto.InodeInfo, fileId uint64) *InodeInfo {
-//	return &InodeInfo{
-//		InodeInfo: inode,
-//		FileId:    fileId,
-//	}
-//}
+type InodeInfo struct {
+	*proto.InodeInfo
+	FileId uint64
+}
+
+func NewInode(inode *proto.InodeInfo, fileId uint64) *InodeInfo {
+	return &InodeInfo{
+		InodeInfo: inode,
+		FileId:    fileId,
+	}
+}
 
 type DirInfo = proto.Dentry
 

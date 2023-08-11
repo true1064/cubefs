@@ -331,7 +331,7 @@ func Test_volume_CreateFile(t *testing.T) {
 	_, ctx := trace.StartSpanFromContext(context.TODO(), "")
 	fileName := "tmpCreateFile"
 	var err error
-	var ifo *proto.InodeInfo
+	var ifo *sdk.InodeInfo
 	parIno := uint64(10)
 
 	{
@@ -341,7 +341,7 @@ func Test_volume_CreateFile(t *testing.T) {
 	}
 	{
 		tmIfo := &proto.InodeInfo{Inode: 10}
-		mockMeta.EXPECT().CreateFileEx(any, any, any, any).Return(tmIfo, nil)
+		mockMeta.EXPECT().CreateFileEx(any, any, any, any).Return(sdk.NewInode(tmIfo, uint64(0)), nil)
 		ifo, err = v.CreateFile(ctx, parIno, fileName)
 		require.NoError(t, err)
 		require.True(t, ifo.Inode == tmIfo.Inode)
@@ -710,7 +710,7 @@ func Test_volume_Mkdir(t *testing.T) {
 		inoIfo := &proto.InodeInfo{
 			Inode: 10,
 		}
-		mockMeta.EXPECT().CreateFileEx(any, any, any, any).Return(inoIfo, nil)
+		mockMeta.EXPECT().CreateFileEx(any, any, any, any).Return(sdk.NewInode(inoIfo, uint64(0)), nil)
 		newIfo, err := v.Mkdir(ctx, parIno, name)
 		require.NoError(t, err)
 		require.True(t, inoIfo.Inode == newIfo.Inode)
@@ -946,7 +946,7 @@ func Test_volume_UploadFile(t *testing.T) {
 		_, err = v.UploadFile(ctx, req)
 		require.Equal(t, err, syscallToErr(syscall.EAGAIN))
 	}
-	ifo := &sdk.InodeInfo{
+	ifo := &proto.InodeInfo{
 		Inode: 10,
 	}
 	mockMeta.EXPECT().CreateInode(any).Return(ifo, nil).AnyTimes()
@@ -1040,7 +1040,7 @@ func Test_volume_UploadMultiPart(t *testing.T) {
 		_, err = v.UploadMultiPart(ctx, filePath, uploadId, partNum, body)
 		require.Equal(t, err, syscallToErr(syscall.EAGAIN))
 	}
-	ifo := &sdk.InodeInfo{
+	ifo := &proto.InodeInfo{
 		Inode: 10,
 	}
 	mockMeta.EXPECT().CreateInode(any).Return(ifo, nil).AnyTimes()
@@ -1184,7 +1184,7 @@ func Test_volume_getStatByIno(t *testing.T) {
 		require.Equal(t, err, syscallToErr(syscall.ENOENT))
 	}
 
-	inoInfos := []*sdk.InodeInfo{
+	inoInfos := []*proto.InodeInfo{
 		{Size: 101, Inode: 12},
 		{Size: 103, Inode: 13},
 	}

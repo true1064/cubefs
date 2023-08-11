@@ -95,10 +95,10 @@ func (mr *MockIVolumeMockRecorder) BatchSetXAttr(arg0, arg1, arg2 interface{}) *
 }
 
 // CompleteMultiPart mocks base method.
-func (m *MockIVolume) CompleteMultiPart(arg0 context.Context, arg1, arg2 string, arg3 uint64, arg4 []proto.MultipartPartInfo) (*proto.InodeInfo, error) {
+func (m *MockIVolume) CompleteMultiPart(arg0 context.Context, arg1, arg2 string, arg3 uint64, arg4 []proto.MultipartPartInfo) (*sdk.InodeInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CompleteMultiPart", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(*proto.InodeInfo)
+	ret0, _ := ret[0].(*sdk.InodeInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -110,10 +110,10 @@ func (mr *MockIVolumeMockRecorder) CompleteMultiPart(arg0, arg1, arg2, arg3, arg
 }
 
 // CreateFile mocks base method.
-func (m *MockIVolume) CreateFile(arg0 context.Context, arg1 uint64, arg2 string) (*proto.InodeInfo, error) {
+func (m *MockIVolume) CreateFile(arg0 context.Context, arg1 uint64, arg2 string) (*sdk.InodeInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateFile", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*proto.InodeInfo)
+	ret0, _ := ret[0].(*sdk.InodeInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -274,10 +274,10 @@ func (mr *MockIVolumeMockRecorder) Lookup(arg0, arg1, arg2 interface{}) *gomock.
 }
 
 // Mkdir mocks base method.
-func (m *MockIVolume) Mkdir(arg0 context.Context, arg1 uint64, arg2 string) (*proto.InodeInfo, error) {
+func (m *MockIVolume) Mkdir(arg0 context.Context, arg1 uint64, arg2 string) (*sdk.InodeInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Mkdir", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*proto.InodeInfo)
+	ret0, _ := ret[0].(*sdk.InodeInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -405,10 +405,10 @@ func (mr *MockIVolumeMockRecorder) StatFs(arg0, arg1 interface{}) *gomock.Call {
 }
 
 // UploadFile mocks base method.
-func (m *MockIVolume) UploadFile(arg0 context.Context, arg1 *sdk.UploadFileReq) (*proto.InodeInfo, error) {
+func (m *MockIVolume) UploadFile(arg0 context.Context, arg1 *sdk.UploadFileReq) (*sdk.InodeInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UploadFile", arg0, arg1)
-	ret0, _ := ret[0].(*proto.InodeInfo)
+	ret0, _ := ret[0].(*sdk.InodeInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

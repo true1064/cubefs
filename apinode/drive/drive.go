@@ -333,8 +333,10 @@ func (d *DriveNode) createDir(ctx context.Context, vol sdk.IVolume, parentIno In
 	span := trace.SpanFromContextSafe(ctx)
 	st := time.Now()
 	defer func() { span.AppendTrackLog("ccd", st, err) }()
+	var ifo *proto.InodeInfo
 	if path == "" || path == "/" {
-		return vol.GetInode(ctx, parentIno.Uint64())
+		ifo, err = vol.GetInode(ctx, parentIno.Uint64())
+		return sdk.NewInode(ifo, 0), err
 	}
 
 	var dirInfo *sdk.DirInfo
@@ -378,7 +380,9 @@ func (d *DriveNode) createDir(ctx context.Context, vol sdk.IVolume, parentIno In
 		}
 	}
 	if info == nil && err == nil {
-		info, err = vol.GetInode(ctx, parentIno.Uint64())
+		ifo, err = vol.GetInode(ctx, parentIno.Uint64())
+		// TODO get fileId from dentry
+		return sdk.NewInode(ifo, 0), err
 	}
 	return
 }
@@ -406,7 +410,9 @@ func (d *DriveNode) createFile(ctx context.Context, vol sdk.IVolume, parentIno I
 		if err != nil {
 			return
 		}
-		info, err = vol.GetInode(ctx, dirInfo.Inode)
+		var ifo *proto.InodeInfo
+		ifo, err = vol.GetInode(ctx, dirInfo.Inode)
+		return sdk.NewInode(ifo, dirInfo.FileId), err
 	}
 	return
 }

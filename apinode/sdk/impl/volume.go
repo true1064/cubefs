@@ -514,14 +514,14 @@ func (v *volume) UploadFile(ctx context.Context, req *sdk.UploadFileReq) (*sdk.I
 		Mode:     defaultFileMode,
 	}
 
-	_, err = v.mw.CreateDentryEx(ctx, dirReq)
+	fileId, err := v.mw.CreateDentryEx(ctx, dirReq)
 	if err != nil {
 		span.Errorf("dentryCreateEx failed, parent %d, name %s, ino %d", req.ParIno, req.Name, req.OldFileId)
 		return nil, syscallToErr(err)
 	}
 
-	//return sdk.NewInode(finalIno, fileId), nil
-	return finalIno, nil
+	return sdk.NewInode(finalIno, fileId), nil
+	//return finalIno, nil
 }
 
 func (v *volume) writeAt(ctx context.Context, ino uint64, off, size int, body io.Reader) (s int, err error) {
@@ -906,7 +906,7 @@ func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId strin
 		Mode:     defaultFileMode,
 	}
 
-	_, err = v.mw.CreateDentryEx(ctx, dirReq)
+	fileId, err := v.mw.CreateDentryEx(ctx, dirReq)
 	if err != nil {
 		span.Errorf("final create dentry failed, parIno %d, name %s, childIno %d, err %s",
 			parIno, name, cIno, err.Error())
@@ -920,8 +920,8 @@ func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId strin
 		return nil, syscallToErr(err)
 	}
 
-	//return sdk.NewInode(newIfo, fileId), nil
-	return newIfo, nil
+	return sdk.NewInode(newIfo, fileId), nil
+	//return newIfo, nil
 }
 
 func (v *volume) mkdirByPath(ctx context.Context, dir string) (ino uint64, err error) {
