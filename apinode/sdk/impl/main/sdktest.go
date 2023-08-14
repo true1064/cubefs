@@ -55,7 +55,7 @@ func testDirOp(ctx context.Context, vol sdk.IVolume) {
 	defer span.Infof("end test dir op ===================")
 
 	tmpDir := "testDirD6" + tmpString()
-	dirIfo, err := vol.Mkdir(ctx, proto.RootIno, tmpDir)
+	dirIfo, _, err := vol.Mkdir(ctx, proto.RootIno, tmpDir)
 	if err != nil {
 		span.Fatalf("create dir failed, dir %s, err %s", tmpDir, err.Error())
 	}
@@ -88,9 +88,9 @@ func testDirOp(ctx context.Context, vol sdk.IVolume) {
 	var tmpInfo *sdk.InodeInfo
 	for _, c := range cases {
 		if c.dir {
-			tmpInfo, err = vol.Mkdir(ctx, dirIfo.Inode, c.name)
+			tmpInfo, _, err = vol.Mkdir(ctx, dirIfo.Inode, c.name)
 		} else {
-			tmpInfo, err = vol.CreateFile(ctx, dirIfo.Inode, c.name)
+			tmpInfo, _, err = vol.CreateFile(ctx, dirIfo.Inode, c.name)
 		}
 
 		inos = append(inos, tmpInfo.Inode)
@@ -180,7 +180,7 @@ func testCreateFile(ctx context.Context, vol sdk.IVolume) {
 	defer span.Info("end testCreateFile =================")
 
 	tmpDir := "dir" + tmpString()
-	dirIfo, err := vol.Mkdir(ctx, proto.RootIno, tmpDir)
+	dirIfo, _, err := vol.Mkdir(ctx, proto.RootIno, tmpDir)
 	if err != nil {
 		span.Fatalf("create dir failed, dir %s, err %s", tmpDir, err.Error())
 	}
@@ -196,7 +196,7 @@ func testCreateFile(ctx context.Context, vol sdk.IVolume) {
 	}()
 
 	var tmpInfo *sdk.InodeInfo
-	tmpInfo, err = vol.CreateFile(ctx, dirIfo.Inode, tmpFile)
+	tmpInfo, _, err = vol.CreateFile(ctx, dirIfo.Inode, tmpFile)
 	if err != nil {
 		span.Fatalf("create file failed, name %s", tmpFile)
 	}
@@ -265,7 +265,7 @@ func testCreateFile(ctx context.Context, vol sdk.IVolume) {
 	}
 
 	var uploadIfo *sdk.InodeInfo
-	uploadIfo, err = vol.UploadFile(ctx, req)
+	uploadIfo, _, err = vol.UploadFile(ctx, req)
 	if err != nil {
 		span.Fatalf("upload file failed, name %s, err %s", req.Name, err.Error())
 	}
@@ -278,7 +278,7 @@ func testCreateFile(ctx context.Context, vol sdk.IVolume) {
 
 	req.OldFileId = den.FileId
 	req.Body = bytes.NewBuffer(data)
-	uploadIfo, err = vol.UploadFile(ctx, req)
+	uploadIfo, _, err = vol.UploadFile(ctx, req)
 	if err != nil {
 		span.Fatalf("upload file failed, name %s, err %s", req.Name, err.Error())
 	}
@@ -349,7 +349,7 @@ func testXAttrOp(ctx context.Context, vol sdk.IVolume) {
 	span.Info("start testXAttrOp =================")
 	defer span.Info("end testXAttrOp =================")
 
-	inoIfo, err := vol.CreateFile(ctx, proto.RootIno, tmpFile)
+	inoIfo, _, err := vol.CreateFile(ctx, proto.RootIno, tmpFile)
 	if err != nil {
 		span.Fatalf("create file failed, name %s, err %s", tmpFile, err.Error())
 	}
@@ -507,7 +507,7 @@ func testMultiPartOp(ctx context.Context, vol sdk.IVolume) {
 	}
 
 	var finalIno *sdk.InodeInfo
-	finalIno, err = vol.CompleteMultiPart(ctx, tmpFile, uploadId, 0, newPartArr)
+	finalIno, _, err = vol.CompleteMultiPart(ctx, tmpFile, uploadId, 0, newPartArr)
 	if err != nil {
 		span.Fatalf("complete multipart failed, file %s, err %s", tmpFile, err.Error())
 	}
@@ -539,7 +539,7 @@ func testInodeLock(ctx context.Context, vol sdk.IVolume) {
 	dirName := "testInodeLock1"
 	_ = vol.Delete(ctx, proto.RootIno, dirName, true)
 
-	ifo, err := vol.Mkdir(ctx, proto.RootIno, dirName)
+	ifo, _, err := vol.Mkdir(ctx, proto.RootIno, dirName)
 	if err != nil {
 		span.Fatalf("create dir failed, dir %s, err %s", dirName, err.Error())
 	}

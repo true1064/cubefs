@@ -55,12 +55,12 @@ func (m *metaOpImp) CreateInode(mode uint32) (*proto.InodeInfo, error) {
 	return m.InodeCreate_ll(mode, 0, 0, nil, nil)
 }
 
-func (m *metaOpImp) CreateFileEx(ctx context.Context, parentID uint64, name string, mode uint32) (*sdk.InodeInfo, error) {
+func (m *metaOpImp) CreateFileEx(ctx context.Context, parentID uint64, name string, mode uint32) (*sdk.InodeInfo, uint64, error) {
 	span := trace.SpanFromContextSafe(ctx)
 	ifo, err := m.CreateInode(mode)
 	if err != nil {
 		span.Errorf("create inode failed, err %s", err.Error())
-		return nil, err
+		return nil, 0, err
 	}
 	span.Debugf("create inode success, %v", ifo.String())
 
@@ -75,9 +75,9 @@ func (m *metaOpImp) CreateFileEx(ctx context.Context, parentID uint64, name stri
 	fileId, err := m.CreateDentryEx(ctx, req)
 	if err != nil {
 		span.Errorf("create dentry failed, req %s, err %s", req, err.Error())
-		return nil, err
+		return nil, 0, err
 	}
 
-	return sdk.NewInode(ifo, fileId), nil
-	//return ifo, nil
+	//return sdk.NewInode(ifo, fileId), nil
+	return ifo, fileId, nil
 }

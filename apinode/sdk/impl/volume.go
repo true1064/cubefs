@@ -377,24 +377,24 @@ const (
 	defaultFileMode = 0o644
 )
 
-func (v *volume) Mkdir(ctx context.Context, parIno uint64, name string) (*sdk.InodeInfo, error) {
+func (v *volume) Mkdir(ctx context.Context, parIno uint64, name string) (*sdk.InodeInfo, uint64, error) {
 	span := trace.SpanFromContextSafe(ctx)
 
-	info, err := v.mw.CreateFileEx(ctx, parIno, name, uint32(defaultDirMod))
+	info, id, err := v.mw.CreateFileEx(ctx, parIno, name, uint32(defaultDirMod))
 	if err != nil {
 		span.Errorf("create dir failed, parIno %d, name %s, err %s", parIno, name, err.Error())
-		return nil, syscallToErr(err)
+		return nil, 0, syscallToErr(err)
 	}
 
-	return info, err
+	return info, id, err
 }
 
-func (v *volume) CreateFile(ctx context.Context, parentIno uint64, name string) (*sdk.InodeInfo, error) {
-	ifo, err := v.mw.CreateFileEx(ctx, parentIno, name, uint32(defaultFileMode))
+func (v *volume) CreateFile(ctx context.Context, parentIno uint64, name string) (*sdk.InodeInfo, uint64, error) {
+	ifo, id, err := v.mw.CreateFileEx(ctx, parentIno, name, uint32(defaultFileMode))
 	if err != nil {
-		return nil, syscallToErr(err)
+		return nil, 0, syscallToErr(err)
 	}
-	return ifo, nil
+	return ifo, id, nil
 }
 
 func (v *volume) Delete(ctx context.Context, parIno uint64, name string, isDir bool) error {
@@ -419,7 +419,7 @@ func (v *volume) Delete(ctx context.Context, parIno uint64, name string, isDir b
 	return nil
 }
 
-func (v *volume) UploadFile(ctx context.Context, req *sdk.UploadFileReq) (*sdk.InodeInfo, error) {
+func (v *volume) UploadFile(ctx context.Context, req *sdk.UploadFileReq) (*sdk.InodeInfo, uint64, error) {
 	span := trace.SpanFromContextSafe(ctx)
 	var oldIno uint64
 	if req.OldFileId != 0 {
@@ -427,13 +427,13 @@ func (v *volume) UploadFile(ctx context.Context, req *sdk.UploadFileReq) (*sdk.I
 		den, err := v.mw.LookupEx(req.ParIno, req.Name)
 		if err != nil && err != syscall.ENOENT {
 			span.Errorf("lookup file failed, ino %d, name %s, err %s", req.ParIno, req.Name, err.Error())
-			return nil, syscallToErr(err)
+			return nil, 0, syscallToErr(err)
 		}
 
 		if den == nil || den.FileId != req.OldFileId || proto.IsDir(den.Type) {
 			span.Errorf("target file already exist but conflict, den %v, reqOld %d",
 				den, req.OldFileId)
-			return nil, sdk.ErrConflict
+			return nil, 0, sdk.ErrConflict
 		}
 		oldIno = den.Inode
 	}
@@ -441,7 +441,7 @@ func (v *volume) UploadFile(ctx context.Context, req *sdk.UploadFileReq) (*sdk.I
 	tmpInoInfo, err := v.mw.CreateInode(defaultFileMode)
 	if err != nil {
 		span.Errorf("create inode failed, err %s", err.Error())
-		return nil, syscallToErr(err)
+		return nil, 0, syscallToErr(err)
 	}
 
 	tmpIno := tmpInoInfo.Inode
@@ -464,7 +464,7 @@ func (v *volume) UploadFile(ctx context.Context, req *sdk.UploadFileReq) (*sdk.I
 	err = v.ec.OpenStream(tmpIno)
 	if err != nil {
 		span.Errorf("open stream failed, ino %d, err %s", tmpIno, err.Error())
-		return nil, syscallToErr(err)
+		return nil, 0, syscallToErr(err)
 	}
 
 	defer func() {
@@ -477,24 +477,24 @@ func (v *volume) UploadFile(ctx context.Context, req *sdk.UploadFileReq) (*sdk.I
 	_, err = v.writeAt(ctx, tmpIno, 0, -1, req.Body)
 	if err != nil {
 		span.Errorf("writeAt file failed, ino %s, err %s", tmpIno, err.Error())
-		return nil, err
+		return nil, 0, err
 	}
 
 	if err = v.ec.Flush(tmpIno); err != nil {
 		span.Errorf("flush file failed, ino %d, err %s", tmpIno, err.Error())
-		return nil, syscallToErr(err)
+		return nil, 0, syscallToErr(err)
 	}
 
 	var finalIno *proto.InodeInfo
 	if finalIno, err = v.mw.InodeGet_ll(tmpIno); err != nil {
 		span.Errorf("get ino info failed, ino %d, err %s", tmpIno, err.Error())
-		return nil, syscallToErr(err)
+		return nil, 0, syscallToErr(err)
 	}
 
 	if cb := req.Callback; cb != nil {
 		if err = cb(); err != nil {
 			span.Errorf("callback, ino %d, err %s", tmpIno, err.Error())
-			return nil, syscallToErr(err)
+			return nil, 0, syscallToErr(err)
 		}
 	}
 
@@ -502,7 +502,7 @@ func (v *volume) UploadFile(ctx context.Context, req *sdk.UploadFileReq) (*sdk.I
 		err = v.mw.BatchSetXAttr_ll(tmpIno, req.Extend)
 		if err != nil {
 			span.Errorf("setXAttr failed, ino %d, err %s", tmpIno, err.Error())
-			return nil, syscallToErr(err)
+			return nil, 0, syscallToErr(err)
 		}
 	}
 
@@ -514,14 +514,14 @@ func (v *volume) UploadFile(ctx context.Context, req *sdk.UploadFileReq) (*sdk.I
 		Mode:     defaultFileMode,
 	}
 
-	fileId, err := v.mw.CreateDentryEx(ctx, dirReq)
+	id, err := v.mw.CreateDentryEx(ctx, dirReq)
 	if err != nil {
 		span.Errorf("dentryCreateEx failed, parent %d, name %s, ino %d", req.ParIno, req.Name, req.OldFileId)
-		return nil, syscallToErr(err)
+		return nil, 0, syscallToErr(err)
 	}
 
-	return sdk.NewInode(finalIno, fileId), nil
-	//return finalIno, nil
+	//return sdk.NewInode(finalIno, fileId), nil
+	return finalIno, id, nil
 }
 
 func (v *volume) writeAt(ctx context.Context, ino uint64, off, size int, body io.Reader) (s int, err error) {
@@ -790,28 +790,28 @@ func (v *volume) AbortMultiPart(ctx context.Context, filepath, uploadId string) 
 	return nil
 }
 
-func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId string, oldFileId uint64, partsArg []sdk.Part) (ifo *sdk.InodeInfo, err error) {
+func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId string, oldFileId uint64, partsArg []sdk.Part) (ifo *sdk.InodeInfo, fileId uint64, err error) {
 	if !startWithSlash(filepath) {
-		return nil, sdk.ErrBadRequest
+		return nil, 0, sdk.ErrBadRequest
 	}
 
 	span := trace.SpanFromContextSafe(ctx)
 
 	for idx, part := range partsArg {
 		if part.ID != uint16(idx+1) {
-			return nil, sdk.ErrInvalidPartOrder
+			return nil, 0, sdk.ErrInvalidPartOrder
 		}
 	}
 
 	info, err := v.mw.GetMultipart_ll(filepath, uploadId)
 	if err != nil {
 		span.Errorf("get multipart info failed, path %s, uploadId %s, err %s", filepath, uploadId, err.Error())
-		return nil, syscallToErr(err)
+		return nil, 0, syscallToErr(err)
 	}
 
 	if len(partsArg) != len(info.Parts) {
 		span.Errorf("request part is not valid, path %s, uploadId %s", filepath, uploadId)
-		return nil, sdk.ErrInvalidPart
+		return nil, 0, sdk.ErrInvalidPart
 	}
 
 	partArr := make([]*sdk.Part, 0, len(partsArg))
@@ -819,7 +819,7 @@ func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId strin
 		tmpPart := partsArg[idx]
 		if tmpPart.MD5 != part.MD5 {
 			span.Errorf("request part md5 is invalid, path %s, uploadId %s, num %d, md5 %s", filepath, uploadId, tmpPart.ID, tmpPart.MD5)
-			return nil, sdk.ErrInvalidPart
+			return nil, 0, sdk.ErrInvalidPart
 		}
 		partArr = append(partArr, part)
 	}
@@ -827,7 +827,7 @@ func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId strin
 	completeInfo, err := v.mw.CreateInode(defaultFileMode)
 	if err != nil {
 		span.Errorf("inode create failed, path %s, err %s", filepath, err.Error())
-		return nil, syscallToErr(err)
+		return nil, 0, syscallToErr(err)
 	}
 	cIno := completeInfo.Inode
 
@@ -848,7 +848,7 @@ func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId strin
 		_, _, eks, err = v.mw.GetExtents(part.Inode)
 		if err != nil {
 			span.Errorf("get part extent failed, ino %d, err %s", part.Inode, err.Error())
-			return nil, syscallToErr(err)
+			return nil, 0, syscallToErr(err)
 		}
 
 		for _, ek := range eks {
@@ -862,20 +862,20 @@ func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId strin
 	err = v.mw.AppendExtentKeys(cIno, totalExtents)
 	if err != nil {
 		span.Errorf("append ino to complete ino failed, ino %d, err %s", cIno, err.Error())
-		return nil, syscallToErr(err)
+		return nil, 0, syscallToErr(err)
 	}
 
 	dir, name := path.Split(filepath)
 	parIno, err := v.mkdirByPath(ctx, dir)
 	if err != nil {
 		span.Errorf("mkdir dir failed, dir %s, err %s", dir, err.Error())
-		return nil, syscallToErr(err)
+		return nil, 0, syscallToErr(err)
 	}
 
 	err = v.mw.RemoveMultipart_ll(filepath, uploadId)
 	if err != nil {
 		span.Errorf("remove multipart failed, path %s, id %s, err %s", filepath, uploadId, err.Error())
-		return nil, syscallToErr(err)
+		return nil, 0, syscallToErr(err)
 	}
 
 	for _, part := range partArr {
@@ -894,7 +894,7 @@ func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId strin
 
 		if err = v.mw.BatchSetXAttr_ll(cIno, attrs); err != nil {
 			span.Errorf("batch setXAttr failed, ino %d", cIno, err.Error())
-			return nil, err
+			return nil, 0, err
 		}
 	}
 
@@ -906,22 +906,21 @@ func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId strin
 		Mode:     defaultFileMode,
 	}
 
-	fileId, err := v.mw.CreateDentryEx(ctx, dirReq)
+	filId, err := v.mw.CreateDentryEx(ctx, dirReq)
 	if err != nil {
 		span.Errorf("final create dentry failed, parIno %d, name %s, childIno %d, err %s",
 			parIno, name, cIno, err.Error())
-		return nil, syscallToErr(err)
+		return nil, 0, syscallToErr(err)
 	}
 
 	var newIfo *proto.InodeInfo
 	newIfo, err = v.mw.InodeGet_ll(completeInfo.Inode)
 	if err != nil {
 		span.Errorf("final get inode ifo failed, ino %d, err %s", completeInfo.Inode, err.Error())
-		return nil, syscallToErr(err)
+		return nil, 0, syscallToErr(err)
 	}
 
-	return sdk.NewInode(newIfo, fileId), nil
-	//return newIfo, nil
+	return newIfo, filId, nil
 }
 
 func (v *volume) mkdirByPath(ctx context.Context, dir string) (ino uint64, err error) {
@@ -951,7 +950,7 @@ func (v *volume) mkdirByPath(ctx context.Context, dir string) (ino uint64, err e
 		childIno, childMod = childDen.Inode, childDen.Type
 
 		if err == syscall.ENOENT {
-			info, err = v.mw.CreateFileEx(ctx, parIno, name, uint32(defaultDirMod))
+			info, _, err = v.mw.CreateFileEx(ctx, parIno, name, uint32(defaultDirMod))
 			if err != nil && err == syscall.EEXIST {
 				existDen, e := v.mw.LookupEx(parIno, name)
 				if e != nil {

@@ -237,7 +237,7 @@ func Test_volume_CompleteMultiPart(t *testing.T) {
 
 	{
 		// path not illegal
-		_, err = v.CompleteMultiPart(ctx, "test", "", 0, nil)
+		_, _, err = v.CompleteMultiPart(ctx, "test", "", 0, nil)
 		require.True(t, err == sdk.ErrBadRequest)
 	}
 
@@ -248,7 +248,7 @@ func Test_volume_CompleteMultiPart(t *testing.T) {
 	}
 	{
 		// order is not valid
-		_, err = v.CompleteMultiPart(ctx, filePath, uploadId, 0, parts)
+		_, _, err = v.CompleteMultiPart(ctx, filePath, uploadId, 0, parts)
 		require.True(t, err == sdk.ErrInvalidPartOrder)
 	}
 
@@ -263,7 +263,7 @@ func Test_volume_CompleteMultiPart(t *testing.T) {
 	{
 		mockMeta.EXPECT().GetMultipart_ll(filePath, uploadId).Return(resultPart, nil)
 		// md5 not equal
-		_, err = v.CompleteMultiPart(ctx, filePath, uploadId, 0, parts)
+		_, _, err = v.CompleteMultiPart(ctx, filePath, uploadId, 0, parts)
 		require.True(t, err == sdk.ErrInvalidPart)
 	}
 	resultPart = &proto.MultipartInfo{
@@ -275,7 +275,7 @@ func Test_volume_CompleteMultiPart(t *testing.T) {
 	{
 		// inode create failed
 		mockMeta.EXPECT().CreateInode(any).Return(nil, syscall.EAGAIN)
-		_, err = v.CompleteMultiPart(ctx, filePath, uploadId, 0, parts)
+		_, _, err = v.CompleteMultiPart(ctx, filePath, uploadId, 0, parts)
 		require.True(t, err == syscallToErr(syscall.EAGAIN))
 	}
 	newIno := uint64(10)
@@ -285,7 +285,7 @@ func Test_volume_CompleteMultiPart(t *testing.T) {
 		mockMeta.EXPECT().InodeDelete_ll(newIno).Return(syscall.ENOENT).AnyTimes()
 		// getExtents error (gen uint64, size uint64, extents []proto.ExtentKey, err error)
 		mockMeta.EXPECT().GetExtents(uint64(1)).Return(uint64(0), uint64(0), nil, syscall.ENOENT)
-		_, err = v.CompleteMultiPart(ctx, filePath, uploadId, 0, parts)
+		_, _, err = v.CompleteMultiPart(ctx, filePath, uploadId, 0, parts)
 		require.True(t, err == syscallToErr(syscall.ENOENT))
 	}
 	exts := []proto.ExtentKey{
@@ -295,27 +295,27 @@ func Test_volume_CompleteMultiPart(t *testing.T) {
 	{
 		// append extent failed
 		mockMeta.EXPECT().AppendExtentKeys(any, any).Return(syscall.ENOTSUP)
-		_, err = v.CompleteMultiPart(ctx, filePath, uploadId, 0, parts)
+		_, _, err = v.CompleteMultiPart(ctx, filePath, uploadId, 0, parts)
 		require.Equal(t, err, syscallToErr(syscall.ENOTSUP))
 	}
 	mockMeta.EXPECT().AppendExtentKeys(newIno, any).Return(nil).AnyTimes()
 	{
 		// remove multipart failed
 		mockMeta.EXPECT().RemoveMultipart_ll(any, any).Return(syscall.ENOTSUP)
-		_, err = v.CompleteMultiPart(ctx, filePath, uploadId, 0, parts)
+		_, _, err = v.CompleteMultiPart(ctx, filePath, uploadId, 0, parts)
 		require.Equal(t, err, syscallToErr(syscall.ENOTSUP))
 	}
 	mockMeta.EXPECT().RemoveMultipart_ll(any, any).Return(nil).AnyTimes()
 	mockMeta.EXPECT().InodeDelete_ll(any).Return(syscall.ENOENT).AnyTimes()
 	{
 		mockMeta.EXPECT().CreateDentryEx(any, any).Return(uint64(0), syscall.EEXIST)
-		_, err = v.CompleteMultiPart(ctx, filePath, uploadId, 0, parts)
+		_, _, err = v.CompleteMultiPart(ctx, filePath, uploadId, 0, parts)
 		require.Equal(t, err, syscallToErr(syscall.EEXIST))
 	}
 
 	mockMeta.EXPECT().InodeGet_ll(any).Return(nil, nil).AnyTimes()
 	mockMeta.EXPECT().CreateDentryEx(any, any).Return(uint64(0), nil)
-	_, err = v.CompleteMultiPart(ctx, filePath, uploadId, 0, parts)
+	_, _, err = v.CompleteMultiPart(ctx, filePath, uploadId, 0, parts)
 	require.True(t, err == nil)
 }
 
@@ -335,14 +335,14 @@ func Test_volume_CreateFile(t *testing.T) {
 	parIno := uint64(10)
 
 	{
-		mockMeta.EXPECT().CreateFileEx(any, any, any, any).Return(nil, syscall.EEXIST)
-		_, err = v.CreateFile(ctx, parIno, fileName)
+		mockMeta.EXPECT().CreateFileEx(any, any, any, any).Return(nil, parIno, syscall.EEXIST)
+		_, _, err = v.CreateFile(ctx, parIno, fileName)
 		require.Equal(t, err, syscallToErr(syscall.EEXIST))
 	}
 	{
 		tmIfo := &proto.InodeInfo{Inode: 10}
-		mockMeta.EXPECT().CreateFileEx(any, any, any, any).Return(sdk.NewInode(tmIfo, uint64(0)), nil)
-		ifo, err = v.CreateFile(ctx, parIno, fileName)
+		mockMeta.EXPECT().CreateFileEx(any, any, any, any).Return(tmIfo, parIno, nil)
+		ifo, _, err = v.CreateFile(ctx, parIno, fileName)
 		require.NoError(t, err)
 		require.True(t, ifo.Inode == tmIfo.Inode)
 	}
@@ -702,16 +702,16 @@ func Test_volume_Mkdir(t *testing.T) {
 	name := "tmpLookName"
 	{
 		// failed Create_ll(parentID uint64, name string, mode, uid, gid uint32, target []byte) (*proto.InodeInfo, error)
-		mockMeta.EXPECT().CreateFileEx(any, any, any, any).Return(nil, syscall.EEXIST)
-		_, err = v.Mkdir(ctx, parIno, name)
+		mockMeta.EXPECT().CreateFileEx(any, any, any, any).Return(nil, parIno, syscall.EEXIST)
+		_, _, err = v.Mkdir(ctx, parIno, name)
 		require.Equal(t, err, syscallToErr(syscall.EEXIST))
 	}
 	{
 		inoIfo := &proto.InodeInfo{
 			Inode: 10,
 		}
-		mockMeta.EXPECT().CreateFileEx(any, any, any, any).Return(sdk.NewInode(inoIfo, uint64(0)), nil)
-		newIfo, err := v.Mkdir(ctx, parIno, name)
+		mockMeta.EXPECT().CreateFileEx(any, any, any, any).Return(inoIfo, parIno, nil)
+		newIfo, _, err := v.Mkdir(ctx, parIno, name)
 		require.NoError(t, err)
 		require.True(t, inoIfo.Inode == newIfo.Inode)
 	}
@@ -935,7 +935,7 @@ func Test_volume_UploadFile(t *testing.T) {
 	}
 	for _, lc := range lookCase {
 		mockMeta.EXPECT().LookupEx(req.ParIno, req.Name).Return(lc.den, lc.returnErr)
-		_, err = v.UploadFile(ctx, req)
+		_, _, err = v.UploadFile(ctx, req)
 		require.Equal(t, err, lc.wantErr)
 	}
 
@@ -943,7 +943,7 @@ func Test_volume_UploadFile(t *testing.T) {
 	{
 		// failed InodeCreate_ll(mode, uid, gid uint32, target []byte) (*proto.InodeInfo, error)
 		mockMeta.EXPECT().CreateInode(uint32(defaultFileMode)).Return(nil, syscall.EAGAIN)
-		_, err = v.UploadFile(ctx, req)
+		_, _, err = v.UploadFile(ctx, req)
 		require.Equal(t, err, syscallToErr(syscall.EAGAIN))
 	}
 	ifo := &proto.InodeInfo{
@@ -955,7 +955,7 @@ func Test_volume_UploadFile(t *testing.T) {
 		mockMeta.EXPECT().InodeUnlink_ll(ifo.Inode).Return(nil, syscall.ENOENT)
 		mockMeta.EXPECT().Evict(ifo.Inode).Return(syscall.EAGAIN)
 		mockData.EXPECT().OpenStream(ifo.Inode).Return(syscall.ENOENT)
-		_, err = v.UploadFile(ctx, req)
+		_, _, err = v.UploadFile(ctx, req)
 		require.Equal(t, err, syscallToErr(syscall.ENOENT))
 	}
 
@@ -967,7 +967,7 @@ func Test_volume_UploadFile(t *testing.T) {
 		// write failed Write(inode uint64, offset int, data []byte, flags int) (write int, err error)
 		mockData.EXPECT().CloseStream(ifo.Inode).Return(syscall.EAGAIN)
 		mockData.EXPECT().Write(ifo.Inode, 0, any, any).Return(0, syscall.EBADF)
-		_, err = v.UploadFile(ctx, req)
+		_, _, err = v.UploadFile(ctx, req)
 		require.Equal(t, err, syscallToErr(syscall.EBADF))
 	}
 
@@ -976,7 +976,7 @@ func Test_volume_UploadFile(t *testing.T) {
 	{
 		// flush failed
 		mockData.EXPECT().Flush(ifo.Inode).Return(syscall.EBADF)
-		_, err = v.UploadFile(ctx, req)
+		_, _, err = v.UploadFile(ctx, req)
 		require.Equal(t, err, syscallToErr(syscall.EBADF))
 	}
 
@@ -984,26 +984,26 @@ func Test_volume_UploadFile(t *testing.T) {
 	{
 		// InodeGet_ll(inode uint64) (*proto.InodeInfo, error)
 		mockMeta.EXPECT().InodeGet_ll(ifo.Inode).Return(nil, syscall.ENOENT)
-		_, err = v.UploadFile(ctx, req)
+		_, _, err = v.UploadFile(ctx, req)
 		require.Equal(t, err, syscallToErr(syscall.ENOENT))
 	}
 	mockMeta.EXPECT().InodeGet_ll(ifo.Inode).Return(ifo, nil).AnyTimes()
 	// BatchSetXAttr_ll(inode uint64, attrs map[string]string) error
 	{
 		mockMeta.EXPECT().BatchSetXAttr_ll(ifo.Inode, any).Return(syscall.ENOENT)
-		_, err = v.UploadFile(ctx, req)
+		_, _, err = v.UploadFile(ctx, req)
 		require.Equal(t, err, syscallToErr(syscall.ENOENT))
 	}
 	mockMeta.EXPECT().BatchSetXAttr_ll(ifo.Inode, any).Return(nil).AnyTimes()
 	{
 		// DentryCreateEx_ll(parentID uint64, name string, inode, oldIno uint64, mode uint32) error
 		mockMeta.EXPECT().CreateDentryEx(ctx, any).Return(uint64(0), syscall.EINVAL)
-		_, err = v.UploadFile(ctx, req)
+		_, _, err = v.UploadFile(ctx, req)
 		require.Equal(t, err, syscallToErr(syscall.EINVAL))
 	}
 
 	mockMeta.EXPECT().CreateDentryEx(any, any).Return(uint64(0), nil)
-	_, err = v.UploadFile(ctx, req)
+	_, _, err = v.UploadFile(ctx, req)
 	require.NoError(t, err)
 }
 
@@ -1244,13 +1244,13 @@ func Test_volume_mkdirByPath(t *testing.T) {
 	mockMeta.EXPECT().LookupEx(any, any).Return(defDen, syscall.ENOENT).AnyTimes()
 	{
 		// create failed, (parentID uint64, name string, mode, uid, gid uint32, target []byte) (*proto.InodeInfo, error)
-		mockMeta.EXPECT().CreateFileEx(any, any, any, any).Return(nil, syscall.ENOMEM)
+		mockMeta.EXPECT().CreateFileEx(any, any, any, any).Return(nil, defIno, syscall.ENOMEM)
 		_, err = v.mkdirByPath(ctx, tmpDir)
 		require.True(t, err == syscall.ENOMEM)
 	}
 	{
 		// create return exist
-		mockMeta.EXPECT().CreateFileEx(any, any, any, any).Return(nil, syscall.EEXIST).AnyTimes()
+		mockMeta.EXPECT().CreateFileEx(any, any, any, any).Return(nil, defIno, syscall.EEXIST).AnyTimes()
 		{
 			// lookup return no entry
 			mockMeta.EXPECT().LookupEx(any, any).Return(defDen, syscall.ENOENT).AnyTimes()

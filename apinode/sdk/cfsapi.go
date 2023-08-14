@@ -15,7 +15,7 @@ type DataOp interface {
 
 type MetaOp interface {
 	CreateInode(mode uint32) (*proto.InodeInfo, error)
-	CreateFileEx(ctx context.Context, parentID uint64, name string, mode uint32) (*InodeInfo, error)
+	CreateFileEx(ctx context.Context, parentID uint64, name string, mode uint32) (*InodeInfo, uint64, error)
 	Delete_ll(parentID uint64, name string, isDir bool) (*proto.InodeInfo, error)
 	Truncate(inode, size uint64) error
 	InodeUnlink_ll(inode uint64) (*proto.InodeInfo, error)
