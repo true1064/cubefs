@@ -845,6 +845,10 @@ func Test_volume_Rename(t *testing.T) {
 		require.Equal(t, err, syscallToErr(syscall.ENOENT))
 	}
 	{
+		err = v.Rename(ctx, srcIno, srcIno, srcName, srcName)
+		require.True(t, err == sdk.ErrBadRequest)
+	}
+	{
 		mockMeta.EXPECT().Rename_ll(srcIno, srcName, destIno, destName, false).Return(nil)
 		err = v.Rename(ctx, srcIno, destIno, srcName, destName)
 		require.NoError(t, err)

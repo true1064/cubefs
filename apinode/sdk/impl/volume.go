@@ -197,6 +197,12 @@ func (v *volume) Readdir(ctx context.Context, parIno uint64, marker string, coun
 
 func (v *volume) Rename(ctx context.Context, srcParIno, dstParIno uint64, srcName, destName string) error {
 	span := trace.SpanFromContextSafe(ctx)
+	if srcParIno == dstParIno && srcName == destName {
+		span.Warnf("rename args can't be same for input and output, srcIno %d, dstIno %d, srcName %s, dstName %s",
+			srcParIno, dstParIno, srcName, destName)
+		return sdk.ErrBadRequest
+	}
+
 	err := v.mw.Rename_ll(srcParIno, srcName, dstParIno, destName, false)
 	if err != nil {
 		span.Errorf("rename file failed, srcIno %d, srcName %s, dstIno %d, dstName %s, err %s",
