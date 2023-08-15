@@ -35,12 +35,16 @@ type verifyTokenResponse struct {
 type auth struct {
 	url    string
 	appKey string
+	client *http.Client
 }
 
 func NewAuth(hostport, appkey string) Auth {
 	return &auth{
 		url:    fmt.Sprintf("http//%s/sub/token/v1/auth", hostport),
 		appKey: appkey,
+		client: &http.Client{
+			Timeout: 30 * time.Second,
+		},
 	}
 }
 
@@ -64,7 +68,7 @@ func (s *auth) VerifyToken(ctx context.Context, token string) (string, error) {
 			Message: err.Error(),
 		}
 	}
-	resp, err := http.Post(s.url, "application/json", bytes.NewReader(data))
+	resp, err := s.client.Post(s.url, "application/json", bytes.NewReader(data))
 	if err != nil {
 		span.Errorf("http post error: %v, origin str is %s", err, signStr)
 		return "", &sdk.Error{
@@ -73,6 +77,7 @@ func (s *auth) VerifyToken(ctx context.Context, token string) (string, error) {
 			Message: err.Error(),
 		}
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		span.Errorf("verify token return %d, origin str is %s", resp.StatusCode, signStr)
 		return "", &sdk.Error{
@@ -81,7 +86,6 @@ func (s *auth) VerifyToken(ctx context.Context, token string) (string, error) {
 			Message: fmt.Sprintf("verify token return %d", resp.StatusCode),
 		}
 	}
-	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil || len(body) == 0 {
 		var errStr string

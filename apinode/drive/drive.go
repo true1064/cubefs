@@ -352,6 +352,7 @@ func (d *DriveNode) createDir(ctx context.Context, vol sdk.IVolume, parentIno In
 			} else {
 				parentIno = Inode(inoInfo.Inode)
 			}
+			ino = parentIno
 		} else {
 			if !dirInfo.IsDir() {
 				err = sdk.ErrConflict
