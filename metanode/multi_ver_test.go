@@ -257,7 +257,6 @@ func TestEkMarshal(t *testing.T) {
 func initVer() {
 	verInfo := &proto.VersionInfo{
 		Ver:    0,
-		Ctime:  time.Unix(0, 0).Unix(),
 		Status: proto.VersionNormal,
 	}
 	mp.multiVersionList.VerList = append(mp.multiVersionList.VerList, verInfo)
@@ -380,7 +379,6 @@ func testCreateVer() (verSeq uint64) {
 	tm = tm + 1
 	verInfo := &proto.VersionInfo{
 		Ver:    uint64(tm),
-		Ctime:  time.Now().Unix(),
 		Status: proto.VersionNormal,
 	}
 	mp.multiVersionList.VerList = append(mp.multiVersionList.VerList, verInfo)
@@ -425,7 +423,6 @@ func TestAppendList(t *testing.T) {
 	for _, verSeq := range seqAllArr {
 		verInfo := &proto.VersionInfo{
 			Ver:    verSeq,
-			Ctime:  time.Unix(int64(verSeq), 0).Unix(),
 			Status: proto.VersionNormal,
 		}
 		mp.multiVersionList.VerList = append(mp.multiVersionList.VerList, verInfo)

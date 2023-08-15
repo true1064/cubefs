@@ -141,14 +141,11 @@ func (verMgr *VolVersionManager) GenerateVer(verSeq uint64, op uint8) (err error
 	verMgr.prepareCommit.reset(verMgr.vol.Name)
 	verMgr.prepareCommit.prepareInfo = &proto.VersionInfo{
 		Ver:    verSeq,
-		Ctime:  tm.Unix(),
 		Status: proto.VersionNormal,
 	}
 
 	verMgr.prepareCommit.op = op
 	size := len(verMgr.multiVersionList)
-	if size > 0 && !tm.After(time.Unix(int64(verMgr.multiVersionList[size-1].Ver)/1e6, 0)) {
-		verMgr.prepareCommit.prepareInfo.Ver = uint64(verMgr.multiVersionList[size-1].Ver) + 1
 	if size > 0 && tm.Before(time.Unix(verMgr.multiVersionList[size-1].Ctime,0)) {
 		verMgr.prepareCommit.prepareInfo.Ctime++
 		verMgr.prepareCommit.prepareInfo.Ver = uint64(verMgr.multiVersionList[size-1].Ctime) + 1
@@ -556,7 +553,6 @@ func (verMgr *VolVersionManager) initVer2PhaseTask(verSeq uint64, op uint8) (ver
 		verMgr.prepareCommit.prepareInfo =
 			&proto.VersionInfo{
 				Ver:    verSeq,
-				Ctime:  time.Now().Unix(),
 				Status: proto.VersionWorking,
 			}
 	}
@@ -694,7 +690,6 @@ func (verMgr *VolVersionManager) init(cluster *Cluster) error {
 	log.LogWarnf("action[VolVersionManager.init] vol %v", verMgr.vol.Name)
 	verMgr.multiVersionList = append(verMgr.multiVersionList, &proto.VersionInfo{
 		Ver:    0,
-		Ctime:  time.Now().Unix(),
 		Status: 1,
 	})
 	if cluster.partition.IsRaftLeader() {
