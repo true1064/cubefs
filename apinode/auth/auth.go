@@ -40,7 +40,7 @@ type auth struct {
 
 func NewAuth(hostport, appkey string) Auth {
 	return &auth{
-		url:    fmt.Sprintf("http//%s/sub/token/v1/auth", hostport),
+		url:    fmt.Sprintf("http://%s/sub/token/v1/auth", hostport),
 		appKey: appkey,
 		client: &http.Client{
 			Timeout: 30 * time.Second,
