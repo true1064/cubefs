@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
@@ -40,7 +41,7 @@ type auth struct {
 
 func NewAuth(hostport, appkey string) Auth {
 	return &auth{
-		url:    fmt.Sprintf("http://%s/sub/token/v1/auth", hostport),
+		url:    fmt.Sprintf("https://%s/sub/token/v1/auth", hostport),
 		appKey: appkey,
 		client: &http.Client{
 			Timeout: 30 * time.Second,
@@ -55,7 +56,7 @@ func (s *auth) VerifyToken(ctx context.Context, token string) (string, error) {
 		SubAppKey: s.appKey,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	signStr := fmt.Sprintf("subAppKey=%s&subToken=%s&timestamp=%d&subAppKey=%s", args.SubAppKey, args.SubToken, args.Timestamp, args.SubAppKey)
+	signStr := fmt.Sprintf("subToken=%s&timestamp=%d&subAppKey=%s", args.SubToken, args.Timestamp, args.SubAppKey)
 	sum := md5.Sum([]byte(signStr))
 	args.Sign = hex.EncodeToString(sum[:])
 
@@ -68,7 +69,18 @@ func (s *auth) VerifyToken(ctx context.Context, token string) (string, error) {
 			Message: err.Error(),
 		}
 	}
-	resp, err := s.client.Post(s.url, "application/json", bytes.NewReader(data))
+	req, err := http.NewRequest(http.MethodPost, s.url, bytes.NewReader(data))
+	if err != nil {
+		span.Errorf("new request error: %v, origin str is %s", err, signStr)
+		return "", &sdk.Error{
+			Status:  sdk.ErrTokenVerify.Status,
+			Code:    sdk.ErrTokenVerify.Code,
+			Message: err.Error(),
+		}
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Length", strconv.FormatInt(int64(len(data)), 10))
+	resp, err := s.client.Do(req)
 	if err != nil {
 		span.Errorf("http post error: %v, origin str is %s", err, signStr)
 		return "", &sdk.Error{
