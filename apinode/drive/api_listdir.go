@@ -321,22 +321,24 @@ func (d *DriveNode) listDir(ctx context.Context, ino uint64, vol sdk.IVolume, ma
 			typ = typeFolder
 		}
 		ino := dirInfos[i].Inode
+		fileId := dirInfos[i].FileId
 
 		files = append(files, FileInfo{
-			ID:    dirInfos[i].FileId,
-			Name:  dirInfos[i].Name,
-			Type:  typ,
-			Size:  int64(inoInfo[i].Size),
-			Ctime: inoInfo[i].CreateTime.Unix(),
-			Mtime: inoInfo[i].ModifyTime.Unix(),
-			Atime: inoInfo[i].AccessTime.Unix(),
+			ID:         dirInfos[i].FileId,
+			Name:       dirInfos[i].Name,
+			Type:       typ,
+			Size:       int64(inoInfo[i].Size),
+			Ctime:      inoInfo[i].CreateTime.Unix(),
+			Mtime:      inoInfo[i].ModifyTime.Unix(),
+			Atime:      inoInfo[i].AccessTime.Unix(),
+			Properties: make(map[string]string),
 		})
 
 		pool.Run(func() {
 			defer wg.Done()
 			properties, err := vol.GetXAttrMap(ctx, ino)
 			mu.Lock()
-			res[ino] = result{properties, err}
+			res[fileId] = result{properties, err}
 			mu.Unlock()
 		})
 	}
@@ -346,7 +348,9 @@ func (d *DriveNode) listDir(ctx context.Context, ino uint64, vol sdk.IVolume, ma
 		if r.err != nil {
 			return nil, r.err
 		}
-		files[i].Properties = r.properties
+		if r.properties != nil {
+			files[i].Properties = r.properties
+		}
 	}
 	sort.Sort(FileInfoSlice(files))
 	//
