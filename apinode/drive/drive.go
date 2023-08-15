@@ -126,13 +126,13 @@ func (fi *FileInfo) IsDir() bool {
 	return fi.Type == typeFolder
 }
 
-func inode2file(ino *sdk.InodeInfo, name string, properties map[string]string) *FileInfo {
+func inode2file(ino *sdk.InodeInfo, fileID uint64, name string, properties map[string]string) *FileInfo {
 	typ := typeFile
 	if proto.IsDir(ino.Mode) {
 		typ = typeFolder
 	}
 	return &FileInfo{
-		ID:         ino.Inode,
+		ID:         fileID,
 		Name:       name,
 		Type:       typ,
 		Size:       int64(ino.Size),
@@ -196,7 +196,7 @@ type DriveNode struct {
 }
 
 // New returns a drive node.
-func New() *DriveNode {
+func New(limiter *rate.Limiter) *DriveNode {
 	cm := impl.NewClusterMgr()
 	urm, err := NewUserRouteMgr()
 	if err != nil {
@@ -208,7 +208,7 @@ func New() *DriveNode {
 	return &DriveNode{
 		userRouter: urm,
 		clusterMgr: cm,
-		limiter:    rate.NewLimiter(rate.Inf, defaultLimiterBurst),
+		limiter:    limiter,
 		out:        oplog.NewOutput(),
 		cryptor:    crypto.NewCryptor(),
 		Closer:     closer.New(),
@@ -287,29 +287,6 @@ func (d *DriveNode) getUserRouterAndVolume(ctx context.Context, uid UserID) (*Us
 	return ur, volume, nil
 }
 
-func (d *DriveNode) lookupID(ctx context.Context, vol sdk.IVolume, pIno Inode, path FilePath, id FileID) (err error) {
-	if id == 0 {
-		return nil
-	}
-	span := trace.SpanFromContextSafe(ctx)
-	st := time.Now()
-	defer func() { span.AppendTrackLog("clux", st, err) }()
-
-	var ino *sdk.DirInfo
-	ino, err = d.lookup(ctx, vol, pIno, path.String())
-	if err != nil {
-		if err == sdk.ErrNotFound {
-			err = sdk.ErrConflict
-			return
-		}
-		return err
-	}
-	if ino.Inode != id.Uint64() {
-		return sdk.ErrConflict
-	}
-	return nil
-}
-
 func (d *DriveNode) lookup(ctx context.Context, vol sdk.IVolume, parentIno Inode, path string) (info *sdk.DirInfo, err error) {
 	err = sdk.ErrBadRequest
 	span := trace.SpanFromContextSafe(ctx)
@@ -329,17 +306,20 @@ func (d *DriveNode) lookup(ctx context.Context, vol sdk.IVolume, parentIno Inode
 	return
 }
 
-func (d *DriveNode) createDir(ctx context.Context, vol sdk.IVolume, parentIno Inode, path string, recursive bool) (info *sdk.InodeInfo, err error) {
+func (d *DriveNode) createDir(ctx context.Context, vol sdk.IVolume, parentIno Inode, path string, recursive bool) (ino Inode, fileID uint64, err error) {
 	span := trace.SpanFromContextSafe(ctx)
 	st := time.Now()
 	defer func() { span.AppendTrackLog("ccd", st, err) }()
-	var ifo *proto.InodeInfo
+	ino = parentIno
+	fileID = 0
 	if path == "" || path == "/" {
-		ifo, err = vol.GetInode(ctx, parentIno.Uint64())
-		return sdk.NewInode(ifo, 0), err
+		return
 	}
 
-	var dirInfo *sdk.DirInfo
+	var (
+		dirInfo *sdk.DirInfo
+		inoInfo *sdk.InodeInfo
+	)
 	err = sdk.ErrBadRequest
 	names := strings.Split(path, "/")
 	for i, name := range names {
@@ -352,10 +332,9 @@ func (d *DriveNode) createDir(ctx context.Context, vol sdk.IVolume, parentIno In
 				return
 			}
 			if i != len(names)-1 && !recursive {
-				err = sdk.ErrNotFound
 				return
 			}
-			info, err = vol.Mkdir(ctx, parentIno.Uint64(), name)
+			inoInfo, fileID, err = vol.Mkdir(ctx, parentIno.Uint64(), name)
 			if err != nil {
 				if err != sdk.ErrExist {
 					return
@@ -369,38 +348,36 @@ func (d *DriveNode) createDir(ctx context.Context, vol sdk.IVolume, parentIno In
 					return
 				}
 				parentIno = Inode(dirInfo.Inode)
+				fileID = dirInfo.FileId
 			} else {
-				parentIno = Inode(info.Inode)
+				parentIno = Inode(inoInfo.Inode)
 			}
 		} else {
 			if !dirInfo.IsDir() {
-				return nil, sdk.ErrConflict
+				err = sdk.ErrConflict
+				return
 			}
 			parentIno = Inode(dirInfo.Inode)
+			fileID = dirInfo.FileId
+			ino = parentIno
 		}
-	}
-	if info == nil && err == nil {
-		ifo, err = vol.GetInode(ctx, parentIno.Uint64())
-		// TODO get fileId from dentry
-		return sdk.NewInode(ifo, 0), err
 	}
 	return
 }
 
-func (d *DriveNode) createFile(ctx context.Context, vol sdk.IVolume, parentIno Inode, path string) (info *sdk.InodeInfo, err error) {
+func (d *DriveNode) createFile(ctx context.Context, vol sdk.IVolume, parentIno Inode, path string) (info *sdk.InodeInfo, fileID uint64, err error) {
 	dir, file := filepath.Split(filepath.Clean(path))
 	if file == "" {
 		err = sdk.ErrBadRequest
 		return
 	}
 	if dir != "" && dir != "/" {
-		info, err = d.createDir(ctx, vol, parentIno, dir, true)
+		parentIno, _, err = d.createDir(ctx, vol, parentIno, dir, true)
 		if err != nil {
 			return
 		}
-		parentIno = Inode(info.Inode)
 	}
-	info, err = vol.CreateFile(ctx, parentIno.Uint64(), file)
+	info, fileID, err = vol.CreateFile(ctx, parentIno.Uint64(), file)
 	if err != nil {
 		if err != sdk.ErrExist {
 			return
@@ -410,9 +387,8 @@ func (d *DriveNode) createFile(ctx context.Context, vol sdk.IVolume, parentIno I
 		if err != nil {
 			return
 		}
-		var ifo *proto.InodeInfo
-		ifo, err = vol.GetInode(ctx, dirInfo.Inode)
-		return sdk.NewInode(ifo, dirInfo.FileId), err
+		fileID = dirInfo.FileId
+		info, err = vol.GetInode(ctx, dirInfo.Inode)
 	}
 	return
 }

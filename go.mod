@@ -34,6 +34,7 @@ require (
 	github.com/klauspost/reedsolomon v1.11.7
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/peterbourgon/diskv/v3 v3.0.1
+	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.13.0
 	github.com/rs/xid v1.5.0
 	github.com/samsarahq/thunder v0.0.0-20211005041752-96f4331b7baa
@@ -106,7 +107,6 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect

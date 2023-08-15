@@ -17,11 +17,13 @@ package apinode
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"path"
 	"strconv"
 
 	"github.com/gorilla/mux"
+	"golang.org/x/time/rate"
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/cubefs/cubefs/apinode/drive"
@@ -62,6 +64,7 @@ const (
 	servicePosix  = "posix"
 	serviceHdfs   = "hdfs"
 	serviceS3     = "s3"
+	limiterBrust  = 2000
 )
 
 type rpcNode interface {
@@ -171,7 +174,8 @@ func (s *apiNode) loadConfig(cfg *config.Config) error {
 
 func (s *apiNode) startRouters(cfg *config.Config) error {
 	{
-		node := drive.New()
+		limiter := rate.NewLimiter(rate.Inf, limiterBrust)
+		node := drive.New(limiter)
 		lh, logf, err := auditlog.Open("drive", &s.audit)
 		if err != nil {
 			return err
@@ -180,7 +184,21 @@ func (s *apiNode) startRouters(cfg *config.Config) error {
 			s.defers = append(s.defers, func() { logf.Close() })
 		}
 
-		hs := []rpc.ProgressHandler{newCryptor(), lh}
+		authServiceAddr := cfg.GetString("auth_service_addr")
+		if authServiceAddr == "" {
+			return fmt.Errorf("not found auth_service_addr in config file")
+		}
+		appkey := cfg.GetString("appkey")
+		if appkey == "" {
+			return fmt.Errorf("not found appkey in config file")
+		}
+		hs := []rpc.ProgressHandler{newAuthenticator(authServiceAddr, appkey, limiter), newCryptor(), lh}
+
+		disableAuth := cfg.GetBool("disableAuth")
+		if disableAuth {
+			hs = hs[1:]
+		}
+
 		// register only once
 		if profileHandler := profile.NewProfileHandler(s.listen); profileHandler != nil {
 			hs = append(hs, profileHandler)

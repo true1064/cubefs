@@ -605,38 +605,16 @@ func (v *volume) ReadFile(ctx context.Context, ino, off uint64, data []byte) (n 
 	return n, nil
 }
 
-func (v *volume) InitMultiPart(ctx context.Context, filepath string, oldFileId uint64, extend map[string]string) (string, error) {
+func (v *volume) InitMultiPart(ctx context.Context, filepath string, extend map[string]string) (string, error) {
 	if !startWithSlash(filepath) {
 		return "", sdk.ErrBadRequest
 	}
 
 	span := trace.SpanFromContextSafe(ctx)
 
-	dir, name := path.Split(filepath)
-	if name == "" {
-		span.Warnf("path is not illegal, path %s", filepath)
+	if _, name := path.Split(filepath); name == "" {
+		span.Warnf("path is illegal, path %s", filepath)
 		return "", sdk.ErrBadRequest
-	}
-
-	// try check whether fileId of path is equal to oldFileId.
-	if oldFileId != 0 {
-		dirIno, err := v.mw.LookupPath(dir)
-		if err != nil {
-			span.Warnf("look up parent inode failed, dir %s, err %s", dir, err.Error())
-			return "", syscallToErr(err)
-		}
-
-		ifo, err := v.mw.LookupEx(dirIno, name)
-		if err != nil {
-			span.Warnf("find target inode failed, path %s, dirIno %d, name %s, err %s",
-				filepath, dirIno, name, err.Error())
-			return "", syscallToErr(err)
-		}
-
-		if ifo.FileId != oldFileId {
-			span.Errorf("init part, inode %d is conflict with exist inode %v", oldFileId, ifo)
-			return "", sdk.ErrConflict
-		}
 	}
 
 	uploadId, err := v.mw.InitMultipart_ll(filepath, extend)

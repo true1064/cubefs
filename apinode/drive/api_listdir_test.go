@@ -29,6 +29,7 @@ import (
 
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/apinode/testing/mocks"
+	"github.com/cubefs/cubefs/proto"
 )
 
 func TestFilterBuilder(t *testing.T) {
@@ -203,14 +204,14 @@ func TestHandleListDir(t *testing.T) {
 			})
 
 		mockVol.EXPECT().BatchGetInodes(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(ctx context.Context, inos []uint64) ([]*sdk.InodeInfo, error) {
-				infos := []*sdk.InodeInfo{}
+			func(ctx context.Context, inos []uint64) ([]*proto.InodeInfo, error) {
+				infos := []*proto.InodeInfo{}
 				for _, ino := range inos {
 					mode := uint32(os.ModeIrregular)
 					if ino == 100 {
 						mode = uint32(os.ModeDir)
 					}
-					info := &sdk.InodeInfo{
+					info := &proto.InodeInfo{
 						Inode:      ino,
 						Size:       1024,
 						Mode:       mode,

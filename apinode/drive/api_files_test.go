@@ -63,7 +63,7 @@ func TestHandleFilesMakedir(t *testing.T) {
 	{
 		node.OnceGetUser()
 		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotFound).Times(2)
-		node.Volume.EXPECT().Mkdir(A, A, A).Return(&sdk.InodeInfo{Inode: node.GenInode()}, nil).Times(2)
+		node.Volume.EXPECT().Mkdir(A, A, A).Return(&sdk.InodeInfo{Inode: node.GenInode()}, uint64(0), nil).Times(2)
 		require.NoError(t, doRequest("path", "/dira/dirb/", "recursive", "1"))
 	}
 }

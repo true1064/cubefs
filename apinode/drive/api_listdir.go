@@ -136,19 +136,19 @@ func (builder *filterBuilder) matchFileInfo(f *FileInfo) bool {
 	case "type":
 		return builder.match(f.Type)
 	case "propertyKey":
-		for k := range f.Properties {
-			if !builder.match(k) {
-				delete(f.Properties, k)
+		for k, _ := range f.Properties {
+			if builder.match(k) {
+				return true
 			}
 		}
-		return true
+		return false
 	case "propertyValue":
-		for k, v := range f.Properties {
-			if !builder.match(v) {
-				delete(f.Properties, k)
+		for _, v := range f.Properties {
+			if builder.match(v) {
+				return true
 			}
 		}
-		return true
+		return false
 	}
 	return false
 }
@@ -166,7 +166,10 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 	path, marker, limit := args.Path.String(), args.Marker, args.Limit
 
 	uid := d.userID(c)
-	var pathIno Inode
+	var (
+		pathIno Inode
+		fileId  uint64
+	)
 	// 1. get user route info
 	ur, vol, err := d.getUserRouterAndVolume(ctx, uid)
 	if err != nil {
@@ -194,6 +197,7 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 			return
 		}
 		pathIno = Inode(dirInodeInfo.Inode)
+		fileId = dirInodeInfo.FileId
 	}
 
 	if args.Filter != "" {
@@ -207,7 +211,7 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 	}
 
 	res := ListDirResult{
-		ID:         pathIno.Uint64(),
+		ID:         fileId,
 		Type:       typeFolder,
 		Properties: make(map[string]string),
 		Files:      []FileInfo{},
@@ -218,7 +222,7 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 	// lookup filePath's inode concurrency
 	go func() {
 		defer wg.Done()
-		res.Properties, _ = vol.GetXAttrMap(ctx, res.ID)
+		res.Properties, _ = vol.GetXAttrMap(ctx, pathIno.Uint64())
 	}()
 
 	if limit < 0 {
@@ -319,7 +323,7 @@ func (d *DriveNode) listDir(ctx context.Context, ino uint64, vol sdk.IVolume, ma
 		ino := dirInfos[i].Inode
 
 		files = append(files, FileInfo{
-			ID:    dirInfos[i].Inode,
+			ID:    dirInfos[i].FileId,
 			Name:  dirInfos[i].Name,
 			Type:  typ,
 			Size:  int64(inoInfo[i].Size),

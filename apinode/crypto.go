@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"runtime/debug"
 	"strings"
 	"time"
 
@@ -27,7 +26,6 @@ import (
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
 	"github.com/cubefs/cubefs/blobstore/common/trace"
-	"github.com/cubefs/cubefs/blobstore/util/log"
 )
 
 const metaHeaderLen = len(drive.UserPropertyPrefix)
@@ -63,13 +61,6 @@ func (c cryptor) Handler(w http.ResponseWriter, req *http.Request, f func(http.R
 	var err error
 	var errBuff []byte
 	defer func() {
-		p := recover()
-		if p != nil {
-			log.Printf("WARN: panic fired in %v.panic - %v\n", f, p)
-			log.Println(string(debug.Stack()))
-			w.WriteHeader(597)
-		}
-
 		if err == nil {
 			return
 		}

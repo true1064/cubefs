@@ -37,7 +37,7 @@ type MPPart struct {
 type ArgsMPUploads struct {
 	Path     FilePath `json:"path"`
 	UploadID string   `json:"uploadId,omitempty"`
-	FileID   FileID   `json:"fileId,omitempty"`
+	FileID   uint64   `json:"fileId,omitempty"`
 }
 
 func (d *DriveNode) handleMultipartUploads(c *rpc.Context) {
@@ -78,12 +78,15 @@ func (d *DriveNode) multipartUploads(c *rpc.Context, args *ArgsMPUploads) {
 	if d.checkFunc(c, func(err error) { span.Error("lookup error: ", err, args) }, func() error {
 		dirInfo, err := d.lookup(ctx, vol, root, args.Path.String())
 		if err == sdk.ErrNotFound {
+			if args.FileID != 0 {
+				return sdk.ErrConflict
+			}
 			return nil
 		} else if err != nil {
 			return err
 		}
 
-		if dirInfo.Inode != args.FileID.Uint64() {
+		if dirInfo.FileId != args.FileID {
 			return sdk.ErrConflict
 		}
 		return nil
@@ -92,7 +95,7 @@ func (d *DriveNode) multipartUploads(c *rpc.Context, args *ArgsMPUploads) {
 	}
 
 	fullPath := multipartFullPath(d.userID(c), args.Path)
-	uploadID, err := vol.InitMultiPart(ctx, fullPath, uint64(args.FileID), extend)
+	uploadID, err := vol.InitMultiPart(ctx, fullPath, extend)
 	if d.checkError(c, func(err error) { span.Error("multipart uploads", args, err) }, err) {
 		return
 	}
@@ -124,8 +127,22 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 		return
 	}
 	root := ur.RootFileID
-	if d.checkError(c, func(err error) { span.Warn(args.Path, err) },
-		d.lookupID(ctx, vol, root, args.Path, args.FileID)) {
+	if d.checkFunc(c, func(err error) { span.Error("lookup error: ", err, args) }, func() error {
+		dirInfo, err := d.lookup(ctx, vol, root, args.Path.String())
+		if err == sdk.ErrNotFound {
+			if args.FileID != 0 {
+				return sdk.ErrConflict
+			}
+			return nil
+		} else if err != nil {
+			return err
+		}
+
+		if dirInfo.FileId != args.FileID {
+			return sdk.ErrConflict
+		}
+		return nil
+	}) {
 		return
 	}
 
@@ -182,7 +199,7 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 	}
 	span.AppendTrackLog("cmcl", st, nil)
 
-	inode, err := vol.CompleteMultiPart(ctx, fullPath, args.UploadID, uint64(args.FileID), sParts)
+	inode, fileId, err := vol.CompleteMultiPart(ctx, fullPath, args.UploadID, args.FileID, sParts)
 	if d.checkError(c, func(err error) { span.Error("multipart complete", args, parts, err) }, err) {
 		return
 	}
@@ -194,7 +211,7 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 	d.out.Publish(ctx, makeOpLog(OpMultiUploadFile, d.requestID(c), d.userID(c), args.Path.String(), "size", inode.Size))
 	span.Info("multipart complete", args, parts)
 	_, filename := args.Path.Split()
-	d.respData(c, inode2file(inode, filename, extend))
+	d.respData(c, inode2file(inode, fileId, filename, extend))
 }
 
 // ArgsMPUpload multipart upload part argument.

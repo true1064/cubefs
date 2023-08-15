@@ -26,6 +26,7 @@ import (
 	"github.com/cubefs/cubefs/apinode/testing/mocks"
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
 	_ "github.com/cubefs/cubefs/blobstore/testing/nolog"
+	"github.com/cubefs/cubefs/proto"
 )
 
 const (
@@ -186,8 +187,8 @@ func (node *mockNode) LookupDirN(n int) {
 
 func (node *mockNode) OnceGetInode() {
 	node.Volume.EXPECT().GetInode(A, A).DoAndReturn(
-		func(_ context.Context, ino uint64) (*sdk.InodeInfo, error) {
-			return &sdk.InodeInfo{
+		func(_ context.Context, ino uint64) (*proto.InodeInfo, error) {
+			return &proto.InodeInfo{
 				Size:  1024,
 				Inode: ino,
 			}, nil
@@ -209,10 +210,10 @@ func (node *mockNode) ListDir(n, nFile int) {
 			return dirs, nil
 		})
 	node.Volume.EXPECT().BatchGetInodes(A, A).DoAndReturn(
-		func(_ context.Context, inos []uint64) ([]*sdk.InodeInfo, error) {
-			r := make([]*sdk.InodeInfo, len(inos))
+		func(_ context.Context, inos []uint64) ([]*proto.InodeInfo, error) {
+			r := make([]*proto.InodeInfo, len(inos))
 			for i := range r {
-				r[i] = &sdk.InodeInfo{Inode: inos[i]}
+				r[i] = &proto.InodeInfo{Inode: inos[i]}
 			}
 			return r, nil
 		})
@@ -375,49 +376,43 @@ func TestCreateDir(t *testing.T) {
 	d := node.DriveNode
 
 	for _, path := range []string{"", "/"} {
-		node.Volume.EXPECT().GetInode(A, A).Return(nil, sdk.ErrNotFound)
-		_, err := d.createDir(Ctx, node.Volume, 1, path, false)
-		require.ErrorIs(t, err, sdk.ErrNotFound)
-
-		node.Volume.EXPECT().GetInode(A, A).Return(nil, nil)
-		_, err = d.createDir(Ctx, node.Volume, 1, path, false)
+		ino, _, err := d.createDir(Ctx, node.Volume, 1, path, false)
 		require.NoError(t, err)
+		require.Equal(t, uint64(1), ino.Uint64())
 	}
 
 	node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotFound).Times(2)
-	_, err := d.createDir(Ctx, node.Volume, 1, "/a/b", false)
+	_, _, err := d.createDir(Ctx, node.Volume, 1, "/a/b", false)
 	require.ErrorIs(t, err, sdk.ErrNotFound)
-	node.Volume.EXPECT().Mkdir(A, A, A).Return(nil, sdk.ErrForbidden)
-	_, err = d.createDir(Ctx, node.Volume, 1, "/a", false)
+	node.Volume.EXPECT().Mkdir(A, A, A).Return(nil, uint64(0), sdk.ErrForbidden)
+	_, _, err = d.createDir(Ctx, node.Volume, 1, "/a", false)
 	require.ErrorIs(t, err, sdk.ErrForbidden)
 
 	node.OnceLookup(false)
-	_, err = d.createDir(Ctx, node.Volume, 1, "/a/b", false)
+	_, _, err = d.createDir(Ctx, node.Volume, 1, "/a/b", false)
 	require.ErrorIs(t, err, sdk.ErrConflict)
 
 	node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotFound).Times(2)
-	node.Volume.EXPECT().Mkdir(A, A, A).Return(nil, sdk.ErrExist)
-	_, err = d.createDir(Ctx, node.Volume, 1, "/a", true)
+	node.Volume.EXPECT().Mkdir(A, A, A).Return(nil, uint64(0), sdk.ErrExist)
+	_, _, err = d.createDir(Ctx, node.Volume, 1, "/a", true)
 	require.ErrorIs(t, err, sdk.ErrNotFound)
 
 	node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotFound)
-	node.Volume.EXPECT().Mkdir(A, A, A).Return(nil, sdk.ErrExist)
+	node.Volume.EXPECT().Mkdir(A, A, A).Return(nil, uint64(0), sdk.ErrExist)
 	node.OnceLookup(false)
-	_, err = d.createDir(Ctx, node.Volume, 1, "/a", true)
+	_, _, err = d.createDir(Ctx, node.Volume, 1, "/a", true)
 	require.ErrorIs(t, err, sdk.ErrConflict)
 
 	node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotFound)
-	node.Volume.EXPECT().Mkdir(A, A, A).Return(nil, sdk.ErrExist)
+	node.Volume.EXPECT().Mkdir(A, A, A).Return(nil, uint64(0), sdk.ErrExist)
 	node.OnceLookup(true)
-	node.Volume.EXPECT().GetInode(A, A).Return(&sdk.InodeInfo{Mode: uint32(os.ModeDir)}, nil)
-	inoInfo, err := d.createDir(Ctx, node.Volume, 1, "/a", true)
+	_, _, err = d.createDir(Ctx, node.Volume, 1, "/a", true)
 	require.NoError(t, err)
-	require.True(t, os.FileMode(inoInfo.Mode).IsDir())
 
 	node.LookupDirN(2)
 	node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotFound)
 	node.Volume.EXPECT().Mkdir(A, A, A).DoAndReturn(
-		func(ctx context.Context, parentIno uint64, name string) (*sdk.InodeInfo, error) {
+		func(ctx context.Context, parentIno uint64, name string) (*sdk.InodeInfo, uint64, error) {
 			return &sdk.InodeInfo{
 				Inode:      parentIno + 1,
 				Mode:       uint32(os.ModeDir),
@@ -426,16 +421,14 @@ func TestCreateDir(t *testing.T) {
 				ModifyTime: time.Now(),
 				CreateTime: time.Now(),
 				AccessTime: time.Now(),
-			}, nil
+			}, 0, nil
 		})
-	inoInfo, err = d.createDir(Ctx, node.Volume, 1, "/a/b/c", false)
+	_, _, err = d.createDir(Ctx, node.Volume, 1, "/a/b/c", false)
 	require.NoError(t, err)
-	require.Equal(t, inoInfo.Size, uint64(4096))
-	require.True(t, os.FileMode(inoInfo.Mode).IsDir())
 
 	node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotFound).Times(3)
 	node.Volume.EXPECT().Mkdir(A, A, A).DoAndReturn(
-		func(ctx context.Context, parentIno uint64, name string) (*sdk.InodeInfo, error) {
+		func(ctx context.Context, parentIno uint64, name string) (*sdk.InodeInfo, uint64, error) {
 			return &sdk.InodeInfo{
 				Inode:      parentIno + 1,
 				Mode:       uint32(os.ModeDir),
@@ -444,73 +437,56 @@ func TestCreateDir(t *testing.T) {
 				ModifyTime: time.Now(),
 				CreateTime: time.Now(),
 				AccessTime: time.Now(),
-			}, nil
+			}, 0, nil
 		}).Times(3)
-	inoInfo, err = d.createDir(Ctx, node.Volume, 1, "/a/b/c", true)
+	_, _, err = d.createDir(Ctx, node.Volume, 1, "/a/b/c", true)
 	require.Nil(t, err)
-	require.Equal(t, inoInfo.Size, uint64(4096))
-	require.True(t, os.FileMode(inoInfo.Mode).IsDir())
 
 	node.LookupDirN(3)
-	node.Volume.EXPECT().GetInode(A, A).Return(nil, sdk.ErrNotFound)
-	_, err = d.createDir(Ctx, node.Volume, 1, "/a/b/c", true)
-	require.ErrorIs(t, err, sdk.ErrNotFound)
-
-	node.LookupDirN(3)
-	node.Volume.EXPECT().GetInode(A, A).DoAndReturn(
-		func(ctx context.Context, inode uint64) (*sdk.InodeInfo, error) {
-			return &sdk.InodeInfo{
-				Inode: inode,
-				Mode:  uint32(os.ModeDir),
-			}, nil
-		})
-	inoInfo, err = d.createDir(Ctx, node.Volume, 1, "/a/b/c", true)
+	_, _, err = d.createDir(Ctx, node.Volume, 1, "/a/b/c", true)
 	require.Nil(t, err)
-	require.True(t, os.FileMode(inoInfo.Mode).IsDir())
 }
 
 func TestCreateFile(t *testing.T) {
 	node := newMockNode(t)
 	d := node.DriveNode
 
-	_, err := d.createFile(Ctx, node.Volume, 1, "/")
+	_, _, err := d.createFile(Ctx, node.Volume, 1, "/")
 	require.ErrorIs(t, err, sdk.ErrBadRequest)
 
-	node.Volume.EXPECT().CreateFile(A, A, A).Return(nil, sdk.ErrBadFile)
-	_, err = d.createFile(Ctx, node.Volume, 1, "a")
+	node.Volume.EXPECT().CreateFile(A, A, A).Return(nil, uint64(0), sdk.ErrBadFile)
+	_, _, err = d.createFile(Ctx, node.Volume, 1, "a")
 	require.ErrorIs(t, err, sdk.ErrBadFile)
 
 	node.Volume.EXPECT().CreateFile(A, A, A).DoAndReturn(
-		func(ctx context.Context, parentIno uint64, name string) (*sdk.InodeInfo, error) {
+		func(ctx context.Context, parentIno uint64, name string) (*sdk.InodeInfo, uint64, error) {
 			return &sdk.InodeInfo{
 				Inode: parentIno + 1,
 				Mode:  uint32(os.ModeIrregular),
-			}, nil
+			}, 0, nil
 		})
-	inoInfo, err := d.createFile(Ctx, node.Volume, 1, "a")
+	inoInfo, _, err := d.createFile(Ctx, node.Volume, 1, "a")
 	require.Nil(t, err)
 	require.Equal(t, inoInfo.Inode, uint64(2))
 
 	node.LookupDirN(2)
 	node.OnceGetInode()
 	node.Volume.EXPECT().CreateFile(A, A, A).DoAndReturn(
-		func(ctx context.Context, parentIno uint64, name string) (*sdk.InodeInfo, error) {
+		func(ctx context.Context, parentIno uint64, name string) (*sdk.InodeInfo, uint64, error) {
 			return &sdk.InodeInfo{
 				Inode: parentIno + 1,
 				Mode:  uint32(os.ModeIrregular),
 				Size:  100,
-			}, nil
+			}, 0, nil
 		})
-	inoInfo, err = d.createFile(Ctx, node.Volume, 1, "/a/b/c")
+	inoInfo, _, err = d.createFile(Ctx, node.Volume, 1, "/a/b/c")
 	require.Nil(t, err)
 	require.Equal(t, inoInfo.Size, uint64(100))
 
 	node.LookupDirN(2)
 	node.OnceLookup(false)
-	node.OnceGetInode()
-	node.OnceGetInode()
-	node.Volume.EXPECT().CreateFile(A, A, A).Return(nil, sdk.ErrExist)
-	_, err = d.createFile(Ctx, node.Volume, 1, "/a/b/c")
+	node.Volume.EXPECT().CreateFile(A, A, A).Return(nil, uint64(0), sdk.ErrExist)
+	_, _, err = d.createFile(Ctx, node.Volume, 1, "/a/b/c")
 	require.NoError(t, err)
 }
 
@@ -547,8 +523,8 @@ func TestInitClusterConfig(t *testing.T) {
 	}
 	data, _ := json.Marshal(&cfg)
 	node.Volume.EXPECT().GetInode(A, A).DoAndReturn(
-		func(ctx context.Context, inode uint64) (*sdk.InodeInfo, error) {
-			return &sdk.InodeInfo{
+		func(ctx context.Context, inode uint64) (*proto.InodeInfo, error) {
+			return &proto.InodeInfo{
 				Inode: inode,
 				Mode:  uint32(os.ModeIrregular),
 				Size:  uint64(len(data)),

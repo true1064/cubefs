@@ -32,7 +32,7 @@ import (
 // ArgsFileUpload file upload argument.
 type ArgsFileUpload struct {
 	Path   FilePath `json:"path"`
-	FileID FileID   `json:"fileId,omitempty"`
+	FileID uint64   `json:"fileId,omitempty"`
 }
 
 func (d *DriveNode) handleFileUpload(c *rpc.Context) {
@@ -52,14 +52,29 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 		return
 	}
 	root := ur.RootFileID
-	if d.checkError(c, func(err error) { span.Warn(args.Path, err) },
-		d.lookupID(ctx, vol, root, args.Path, args.FileID)) {
+
+	dir, filename := args.Path.Split()
+	ino, _, err := d.createDir(ctx, vol, root, dir.String(), true)
+	if d.checkError(c, func(err error) { span.Warn(root, dir, err) }, err) {
 		return
 	}
 
-	dir, filename := args.Path.Split()
-	info, err := d.createDir(ctx, vol, root, dir.String(), true)
-	if d.checkError(c, func(err error) { span.Warn(root, dir, err) }, err) {
+	if d.checkFunc(c, func(err error) { span.Errorf("lookup %+v error: %v", args, err) }, func() error {
+		dirInfo, err := d.lookup(ctx, vol, ino, filename)
+		if err == sdk.ErrNotFound {
+			if args.FileID != 0 {
+				return sdk.ErrConflict
+			}
+			return nil
+		} else if err != nil {
+			return err
+		}
+
+		if dirInfo.FileId != args.FileID {
+			return sdk.ErrConflict
+		}
+		return nil
+	}) {
 		return
 	}
 
@@ -76,10 +91,10 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 		return
 	}
 	st := time.Now()
-	inode, err := vol.UploadFile(ctx, &sdk.UploadFileReq{
-		ParIno:    info.Inode,
+	inode, fileId, err := vol.UploadFile(ctx, &sdk.UploadFileReq{
+		ParIno:    ino.Uint64(),
 		Name:      filename,
-		OldFileId: args.FileID.Uint64(),
+		OldFileId: args.FileID,
 		Extend:    extend,
 		Body:      reader,
 		Callback: func() error {
@@ -94,13 +109,13 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 	}
 
 	d.out.Publish(ctx, makeOpLog(OpUploadFile, d.requestID(c), uid, string(args.Path), "size", inode.Size))
-	d.respData(c, inode2file(inode, filename, extend))
+	d.respData(c, inode2file(inode, fileId, filename, extend))
 }
 
 // ArgsFileWrite file write.
 type ArgsFileWrite struct {
 	Path   FilePath `json:"path"`
-	FileID FileID   `json:"fileId,omitempty"`
+	FileID uint64   `json:"fileId,omitempty"`
 }
 
 func (d *DriveNode) handleFileWrite(c *rpc.Context) {
@@ -120,15 +135,23 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 		return
 	}
 	root := ur.RootFileID
-	if d.checkError(c, func(err error) { span.Warn(args.Path, err) },
-		d.lookupID(ctx, vol, root, args.Path, args.FileID)) {
+	dirInfo, err := d.lookup(ctx, vol, root, args.Path.String())
+	if err != nil {
+		if err == sdk.ErrNotFound {
+			err = sdk.ErrConflict
+		}
+		d.respError(c, err)
+		return
+	}
+	if dirInfo.FileId != args.FileID {
+		d.respError(c, sdk.ErrConflict)
 		return
 	}
 
 	st := time.Now()
-	inode, err := vol.GetInode(ctx, args.FileID.Uint64())
+	inode, err := vol.GetInode(ctx, dirInfo.Inode)
 	span.AppendTrackLog("cfwi", st, err)
-	if d.checkError(c, func(err error) { span.Warn(args.FileID, err) }, err) {
+	if d.checkError(c, func(err error) { span.Warn(args, err) }, err) {
 		return
 	}
 
@@ -181,12 +204,12 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 	}
 
 	wOffset, wSize := uint64(ranged.Start)-firstN, firstN+size+lastN
-	span.Infof("write file:%d range-start:%d body-size:%d rewrite-offset:%d rewrite-size:%d",
-		args.FileID, ranged.Start, size, wOffset, wSize)
+	span.Infof("write file: %+v range-start: %d body-size: %d rewrite-offset: %d rewrite-size: %d",
+		args, ranged.Start, size, wOffset, wSize)
 	st = time.Now()
 	defer func() { span.AppendTrackLog("cfww", st, nil) }()
 	if d.checkError(c, func(err error) { span.Warn(err) },
-		vol.WriteFile(ctx, args.FileID.Uint64(), wOffset, wSize, reader)) {
+		vol.WriteFile(ctx, inode.Inode, wOffset, wSize, reader)) {
 		return
 	}
 	c.Respond()
@@ -518,7 +541,7 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 	}
 
 	dir, filename := args.Dst.Split()
-	dstParent, err := d.createDir(ctx, vol, root, dir.String(), true)
+	dstParent, _, err := d.createDir(ctx, vol, root, dir.String(), true)
 	if d.checkError(c, func(err error) { span.Warn(root, dir, err) }, err) {
 		return
 	}
@@ -527,8 +550,8 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 		d.respError(c, err)
 		return
 	}
-	_, err = vol.UploadFile(ctx, &sdk.UploadFileReq{
-		ParIno:    dstParent.Inode,
+	_, _, err = vol.UploadFile(ctx, &sdk.UploadFileReq{
+		ParIno:    dstParent.Uint64(),
 		Name:      filename,
 		OldFileId: 0,
 		Extend:    extend,

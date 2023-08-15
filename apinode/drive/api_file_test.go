@@ -25,6 +25,7 @@ import (
 	"testing"
 
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
+	"github.com/cubefs/cubefs/proto"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
@@ -96,8 +97,8 @@ func TestHandleFileUpload(t *testing.T) {
 	{
 		node.OnceGetUser()
 		node.OnceLookup(true)
-		node.OnceGetInode()
 		// invalid crc
+		node.Volume.EXPECT().Lookup(A, A, A).Return(&sdk.DirInfo{Inode: 1000}, nil)
 		url := genURL(server.URL, "/v1/files/upload", "path", "/dir/a/../filename")
 		req, _ := http.NewRequest(http.MethodPost, url, newMockBody(64))
 		req.Header.Add(HeaderUserID, testUserID)
@@ -110,8 +111,8 @@ func TestHandleFileUpload(t *testing.T) {
 	{
 		node.OnceGetUser()
 		node.OnceLookup(true)
-		node.OnceGetInode()
-		node.Volume.EXPECT().UploadFile(A, A).Return(nil, e2)
+		node.Volume.EXPECT().UploadFile(A, A).Return(nil, uint64(0), e2)
+		node.Volume.EXPECT().Lookup(A, A, A).Return(&sdk.DirInfo{Inode: 1000}, nil)
 		// uploda file error
 		resp := doRequest(newMockBody(64), "path", "/dir/a/../filename")
 		defer resp.Body.Close()
@@ -120,12 +121,12 @@ func TestHandleFileUpload(t *testing.T) {
 	{
 		node.OnceGetUser()
 		node.OnceLookup(true)
-		node.OnceGetInode()
 		node.Volume.EXPECT().UploadFile(A, A).DoAndReturn(
-			func(_ context.Context, req *sdk.UploadFileReq) (*sdk.InodeInfo, error) {
+			func(_ context.Context, req *sdk.UploadFileReq) (*sdk.InodeInfo, uint64, error) {
 				req.Callback()
-				return &sdk.InodeInfo{Inode: node.GenInode()}, nil
+				return &sdk.InodeInfo{Inode: node.GenInode()}, uint64(100), nil
 			})
+		node.Volume.EXPECT().Lookup(A, A, A).Return(&sdk.DirInfo{Inode: 1000}, nil)
 		// uploda file error
 		resp := doRequest(newMockBody(64), "path", "/dir/a/../filename")
 		defer resp.Body.Close()
@@ -203,7 +204,7 @@ func TestHandleFileVerify(t *testing.T) {
 	{
 		node.OnceGetUser()
 		node.OnceLookup(false)
-		node.Volume.EXPECT().GetInode(A, A).Return(&sdk.InodeInfo{Size: 0}, nil)
+		node.Volume.EXPECT().GetInode(A, A).Return(&proto.InodeInfo{Size: 0}, nil)
 		require.NoError(t, doRequest("", ""))
 	}
 	{
@@ -272,7 +273,7 @@ func TestHandleFileWrite(t *testing.T) {
 		defer resp.Body.Close()
 		require.Equal(t, sdk.ErrConflict.Status, resp.StatusCode)
 	}
-	node.Volume.EXPECT().Lookup(A, A, A).Return(&sdk.DirInfo{Inode: 1111}, nil).AnyTimes()
+	node.Volume.EXPECT().Lookup(A, A, A).Return(&sdk.DirInfo{Inode: 1111, FileId: 1111}, nil).AnyTimes()
 	{
 		node.OnceGetUser()
 		node.Volume.EXPECT().GetInode(A, A).Return(nil, e1)
@@ -282,21 +283,21 @@ func TestHandleFileWrite(t *testing.T) {
 	}
 	{
 		node.OnceGetUser()
-		node.Volume.EXPECT().GetInode(A, A).Return(&sdk.InodeInfo{Size: 1024}, nil)
+		node.Volume.EXPECT().GetInode(A, A).Return(&proto.InodeInfo{Size: 1024}, nil)
 		resp := doRequest(newMockBody(64), "bytes=i-j", queries...)
 		defer resp.Body.Close()
 		require.Equal(t, 400, resp.StatusCode)
 	}
 	{
 		node.OnceGetUser()
-		node.Volume.EXPECT().GetInode(A, A).Return(&sdk.InodeInfo{Size: 1024}, nil)
+		node.Volume.EXPECT().GetInode(A, A).Return(&proto.InodeInfo{Size: 1024}, nil)
 		resp := doRequest(newMockBody(1), "bytes=1-", queries...)
 		defer resp.Body.Close()
 		require.Equal(t, 400, resp.StatusCode)
 	}
 	{
 		node.OnceGetUser()
-		node.Volume.EXPECT().GetInode(A, A).Return(&sdk.InodeInfo{Size: 1024}, nil)
+		node.Volume.EXPECT().GetInode(A, A).Return(&proto.InodeInfo{Size: 1024}, nil)
 		resp := doRequest(newMockBody(64), "bytes=1025-", queries...)
 		defer resp.Body.Close()
 		require.Equal(t, sdk.ErrWriteOverSize.Status, resp.StatusCode)
@@ -305,7 +306,7 @@ func TestHandleFileWrite(t *testing.T) {
 	{
 		file = newMockBody(1024)
 		node.OnceGetUser()
-		node.Volume.EXPECT().GetInode(A, A).Return(&sdk.InodeInfo{Size: 1024}, nil)
+		node.Volume.EXPECT().GetInode(A, A).Return(&proto.InodeInfo{Size: 1024}, nil)
 		node.Volume.EXPECT().WriteFile(A, A, A, A, A).Return(e2)
 		resp := doRequest(newMockBody(64), "bytes=1024-", queries...)
 		defer resp.Body.Close()
@@ -314,7 +315,7 @@ func TestHandleFileWrite(t *testing.T) {
 	{
 		file = newMockBody(1024)
 		node.OnceGetUser()
-		node.Volume.EXPECT().GetInode(A, A).Return(&sdk.InodeInfo{Size: 1024}, nil)
+		node.Volume.EXPECT().GetInode(A, A).Return(&proto.InodeInfo{Size: 1024}, nil)
 		node.Volume.EXPECT().WriteFile(A, A, A, A, A).Return(nil)
 		resp := doRequest(newMockBody(64), "bytes=100-", queries...)
 		defer resp.Body.Close()
@@ -322,7 +323,7 @@ func TestHandleFileWrite(t *testing.T) {
 	}
 	{
 		node.OnceGetUser()
-		node.Volume.EXPECT().GetInode(A, A).Return(&sdk.InodeInfo{Size: 1024}, nil)
+		node.Volume.EXPECT().GetInode(A, A).Return(&proto.InodeInfo{Size: 1024}, nil)
 		body := newMockBody(1024)
 		origin := body.buff[:]
 		file = &mockBody{buff: origin}
@@ -401,7 +402,7 @@ func TestHandleFileDownload(t *testing.T) {
 	{
 		node.OnceGetUser()
 		node.OnceLookup(false)
-		node.Volume.EXPECT().GetInode(A, A).Return(&sdk.InodeInfo{Size: 0}, nil)
+		node.Volume.EXPECT().GetInode(A, A).Return(&proto.InodeInfo{Size: 0}, nil)
 		resp := doRequest(nil, "", "path", "/download")
 		defer resp.Body.Close()
 		require.Equal(t, 200, resp.StatusCode)
@@ -604,14 +605,6 @@ func TestHandleFileCopy(t *testing.T) {
 		return resp2Error(resp)
 	}
 
-	funcs := make([]func(), 0, 8)
-	add := func(fs ...func()) {
-		funcs = append(funcs, fs...)
-		for _, f := range funcs {
-			f()
-		}
-	}
-
 	{
 		require.Equal(t, 400, doRequest("src", "/a").StatusCode())
 		require.Equal(t, 400, doRequest("src", "/a", "dst", "a/b/../../..").StatusCode())
@@ -620,51 +613,79 @@ func TestHandleFileCopy(t *testing.T) {
 		node.TestGetUser(t, func() rpc.HTTPError {
 			return doRequest("src", "/dir/a", "dst", "/dir/b")
 		}, testUserID)
-		add(func() { node.OnceGetUser() })
+		node.OnceGetUser()
 		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e1)
 		require.Equal(t, e1.Status, doRequest("src", "/dir/a", "dst", "/dir/b").StatusCode())
 	}
 	{
-		add(func() { node.LookupN(2) })
+		node.OnceGetUser()
+		node.LookupN(2)
 		node.Volume.EXPECT().GetInode(A, A).Return(nil, e2)
 		require.Equal(t, e2.Status, doRequest("src", "/dir/a", "dst", "/dir/b").StatusCode())
 	}
 	{
-		add(func() { node.OnceGetInode() })
+		node.OnceGetUser()
+		node.LookupN(2)
+		node.OnceGetInode()
 		node.Volume.EXPECT().GetXAttrMap(A, A).Return(nil, e1)
 		require.Equal(t, e1.Status, doRequest("src", "/dir/a", "dst", "/dir/b", "meta", "1").StatusCode())
 	}
 	{
-		add(func() {
-			node.Volume.EXPECT().GetXAttrMap(A, A).Return(map[string]string{
-				internalMetaMD5: "err-md5", "key": "value",
-			}, nil)
-		})
+		node.OnceGetUser()
+		node.LookupN(2)
+		node.OnceGetInode()
+		node.Volume.EXPECT().GetXAttrMap(A, A).Return(map[string]string{
+			internalMetaMD5: "err-md5", "key": "value",
+		}, nil)
 		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e3)
 		require.Equal(t, e3.Status, doRequest("src", "/dir/a", "dst", "/dir/b").StatusCode())
 	}
 	{
-		add(func() { node.OnceLookup(true) })
-		node.Volume.EXPECT().GetInode(A, A).Return(nil, e4)
+		node.OnceGetUser()
+		node.LookupN(2)
+		node.OnceGetInode()
+		node.OnceLookup(true)
+		node.Volume.EXPECT().GetXAttrMap(A, A).Return(map[string]string{
+			internalMetaMD5: "err-md5", "key": "value",
+		}, nil)
+		node.Volume.EXPECT().UploadFile(A, A).Return(nil, uint64(0), e4)
 		require.Equal(t, e4.Status, doRequest("src", "/dir/a", "dst", "/dir/b").StatusCode())
 	}
 	{
-		add(func() { node.OnceGetInode() })
+		node.OnceGetUser()
+		node.LookupN(2)
+		node.OnceGetInode()
+		node.OnceLookup(true)
+		node.Volume.EXPECT().GetXAttrMap(A, A).Return(map[string]string{
+			internalMetaMD5: "err-md5", "key": "value",
+		}, nil)
 		node.Volume.EXPECT().UploadFile(A, A).DoAndReturn(
-			func(_ context.Context, req *sdk.UploadFileReq) (*sdk.InodeInfo, error) {
+			func(_ context.Context, req *sdk.UploadFileReq) (*sdk.InodeInfo, uint64, error) {
 				req.Callback()
-				return &sdk.InodeInfo{}, nil
+				return &sdk.InodeInfo{}, uint64(100), nil
 			})
 		require.NoError(t, doRequest("src", "/dir/a", "dst", "/dir/b"))
 	}
 	{
-		add()
-		node.Volume.EXPECT().UploadFile(A, A).Return(nil, e2)
+		node.OnceGetUser()
+		node.LookupN(2)
+		node.OnceGetInode()
+		node.OnceLookup(true)
+		node.Volume.EXPECT().GetXAttrMap(A, A).Return(map[string]string{
+			internalMetaMD5: "err-md5", "key": "value",
+		}, nil)
+		node.Volume.EXPECT().UploadFile(A, A).Return(nil, uint64(0), e2)
 		require.Equal(t, e2.Status, doRequest("src", "/dir/a", "dst", "/dir/b").StatusCode())
 	}
 	{
-		add()
-		node.Volume.EXPECT().UploadFile(A, A).Return(&sdk.InodeInfo{}, nil)
+		node.OnceGetUser()
+		node.LookupN(2)
+		node.OnceGetInode()
+		node.OnceLookup(true)
+		node.Volume.EXPECT().GetXAttrMap(A, A).Return(map[string]string{
+			internalMetaMD5: "err-md5", "key": "value",
+		}, nil)
+		node.Volume.EXPECT().UploadFile(A, A).Return(&sdk.InodeInfo{}, uint64(0), nil)
 		require.NoError(t, doRequest("src", "/dir/a", "dst", "/dir/b", "meta", "1"))
 	}
 }

@@ -57,20 +57,8 @@ func TestHandleCreateDrive(t *testing.T) {
 					Type:  fileType,
 				}, nil
 			}).Times(6)
-		mockVol.EXPECT().GetInode(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(ctx context.Context, ino uint64) (*sdk.InodeInfo, error) {
-				return &sdk.InodeInfo{
-					Inode:      ino,
-					Mode:       uint32(os.ModeDir),
-					Nlink:      0,
-					Size:       0,
-					ModifyTime: time.Now(),
-					CreateTime: time.Now(),
-					AccessTime: time.Now(),
-				}, nil
-			}).Times(2)
 		mockVol.EXPECT().CreateFile(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-			func(ctx context.Context, parentIno uint64, name string) (*sdk.InodeInfo, error) {
+			func(ctx context.Context, parentIno uint64, name string) (*sdk.InodeInfo, uint64, error) {
 				return &sdk.InodeInfo{
 					Inode:      parentIno + 1,
 					Mode:       uint32(os.ModeIrregular),
@@ -79,7 +67,7 @@ func TestHandleCreateDrive(t *testing.T) {
 					ModifyTime: time.Now(),
 					CreateTime: time.Now(),
 					AccessTime: time.Now(),
-				}, nil
+				}, 0, nil
 			})
 		mockVol.EXPECT().SetXAttr(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
@@ -178,20 +166,8 @@ func TestHandleCreateDrive(t *testing.T) {
 					Type:  fileType,
 				}, nil
 			}).Times(6)
-		mockVol.EXPECT().GetInode(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(ctx context.Context, ino uint64) (*sdk.InodeInfo, error) {
-				return &sdk.InodeInfo{
-					Inode:      ino,
-					Mode:       uint32(os.ModeDir),
-					Nlink:      0,
-					Size:       0,
-					ModifyTime: time.Now(),
-					CreateTime: time.Now(),
-					AccessTime: time.Now(),
-				}, nil
-			}).Times(2)
 		mockVol.EXPECT().CreateFile(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-			func(ctx context.Context, parentIno uint64, name string) (*sdk.InodeInfo, error) {
+			func(ctx context.Context, parentIno uint64, name string) (*sdk.InodeInfo, uint64, error) {
 				return &sdk.InodeInfo{
 					Inode:      parentIno + 1,
 					Mode:       uint32(os.ModeIrregular),
@@ -200,7 +176,7 @@ func TestHandleCreateDrive(t *testing.T) {
 					ModifyTime: time.Now(),
 					CreateTime: time.Now(),
 					AccessTime: time.Now(),
-				}, nil
+				}, 0, nil
 			})
 		mockVol.EXPECT().SetXAttr(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(sdk.ErrForbidden)
 		tgt := fmt.Sprintf("%s/v1/drive", ts.URL)
@@ -395,20 +371,8 @@ func TestHandleAddUserConfig(t *testing.T) {
 					Type:  fileType,
 				}, nil
 			})
-		mockVol.EXPECT().GetInode(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(ctx context.Context, ino uint64) (*sdk.InodeInfo, error) {
-				return &sdk.InodeInfo{
-					Inode:      ino,
-					Mode:       uint32(os.ModeDir),
-					Nlink:      0,
-					Size:       0,
-					ModifyTime: time.Now(),
-					CreateTime: time.Now(),
-					AccessTime: time.Now(),
-				}, nil
-			})
 		mockVol.EXPECT().CreateFile(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-			func(ctx context.Context, parentIno uint64, name string) (*sdk.InodeInfo, error) {
+			func(ctx context.Context, parentIno uint64, name string) (*sdk.InodeInfo, uint64, error) {
 				return &sdk.InodeInfo{
 					Inode:      parentIno + 1,
 					Mode:       uint32(os.ModeIrregular),
@@ -417,7 +381,7 @@ func TestHandleAddUserConfig(t *testing.T) {
 					ModifyTime: time.Now(),
 					CreateTime: time.Now(),
 					AccessTime: time.Now(),
-				}, nil
+				}, 0, nil
 			})
 		mockVol.EXPECT().SetXAttr(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
@@ -501,19 +465,7 @@ func TestHandleAddUserConfig(t *testing.T) {
 					Type:  fileType,
 				}, nil
 			})
-		mockVol.EXPECT().GetInode(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(ctx context.Context, ino uint64) (*sdk.InodeInfo, error) {
-				return &sdk.InodeInfo{
-					Inode:      ino,
-					Mode:       uint32(os.ModeDir),
-					Nlink:      0,
-					Size:       0,
-					ModifyTime: time.Now(),
-					CreateTime: time.Now(),
-					AccessTime: time.Now(),
-				}, nil
-			})
-		mockVol.EXPECT().CreateFile(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, sdk.ErrConflict)
+		mockVol.EXPECT().CreateFile(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, uint64(0), sdk.ErrConflict)
 		tgt := fmt.Sprintf("%s/v1/user/config?path=%s", ts.URL, url.QueryEscape("/test"))
 		req, err := http.NewRequest(http.MethodPut, tgt, nil)
 		req.Header.Set(HeaderUserID, "test")

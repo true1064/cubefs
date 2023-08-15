@@ -52,7 +52,7 @@ func (d *DriveNode) handleMkDir(c *rpc.Context) {
 	root := ur.RootFileID
 
 	span.Info("to makedir", args)
-	_, err = d.createDir(ctx, vol, root, args.Path.String(), args.Recursive)
+	_, _, err = d.createDir(ctx, vol, root, args.Path.String(), args.Recursive)
 	if d.checkError(c, func(err error) {
 		span.Errorf("create dir %s error: %s, uid=%s recursive=%v", args.Path, err.Error(), uid, args.Recursive)
 	}, err) {

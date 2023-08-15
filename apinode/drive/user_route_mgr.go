@@ -104,7 +104,7 @@ func (d *DriveNode) CreateUserRoute(ctx context.Context, uid UserID) (string, er
 
 	rootPath := getRootPath(uid)
 	// create user root path
-	inoInfo, err := d.createDir(ctx, vol, volumeRootIno, rootPath, true)
+	ino, _, err := d.createDir(ctx, vol, volumeRootIno, rootPath, true)
 	if err != nil {
 		return "", err
 	}
@@ -121,7 +121,7 @@ func (d *DriveNode) CreateUserRoute(ctx context.Context, uid UserID) (string, er
 		VolumeID:    volumeid,
 		DriveID:     uuid.New().String(),
 		RootPath:    rootPath,
-		RootFileID:  Inode(inoInfo.Inode),
+		RootFileID:  ino,
 		CipherKey:   cipherKey,
 		Ctime:       time.Now().Unix(),
 	}
@@ -172,19 +172,18 @@ func (d *DriveNode) setUserRouteToFile(ctx context.Context, uid UserID, ur *User
 	file := getUserRouteFile(uid)
 	fileIno := uint64(0)
 	dir, name := filepath.Split(file)
-	inoInfo, err := d.createDir(ctx, d.vol, volumeRootIno, dir, true)
+	ino, _, err := d.createDir(ctx, d.vol, volumeRootIno, dir, true)
 	if err != nil {
 		return err
 	}
-	dirIno := inoInfo.Inode
-	inoInfo, err = d.vol.CreateFile(ctx, dirIno, name)
+	inoInfo, _, err := d.vol.CreateFile(ctx, ino.Uint64(), name)
 	if err != nil {
 		if err != sdk.ErrExist {
 			return err
 		}
 
 		var dirInfo *sdk.DirInfo
-		dirInfo, err = d.vol.Lookup(ctx, dirIno, name)
+		dirInfo, err = d.vol.Lookup(ctx, ino.Uint64(), name)
 		if err != nil {
 			return err
 		}
@@ -270,7 +269,7 @@ func (d *DriveNode) addUserConfig(ctx context.Context, uid UserID, path string) 
 	if vol == nil {
 		return sdk.ErrNoVolume
 	}
-	inoInfo, err := d.createFile(ctx, vol, ur.RootFileID, userConfigPath)
+	inoInfo, _, err := d.createFile(ctx, vol, ur.RootFileID, userConfigPath)
 	if err != nil {
 		return err
 	}

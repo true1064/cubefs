@@ -67,6 +67,9 @@ var (
 	ErrNoUser       = &Error{Status: 454, Code: "NotFoundUser", Message: "not found user"}
 	ErrTokenExpires = &Error{Status: 455, Code: "TokenExpires", Message: "token expires"}
 	ErrNotFile      = &Error{Status: 456, Code: "ENOTFILE", Message: "not a file"}
+	ErrAppExit      = &Error{Status: 457, Code: "4042", Message: "all tokens expires"}
+	ErrAccExit      = &Error{Status: 458, Code: "4043", Message: "account already exit"}
+	ErrTokenVerify  = &Error{Status: 401, Code: "InvalidToken", Message: "invalid token"}
 
 	ErrInvalidPath      = &Error{Status: 400, Code: "BadRequest", Message: "invalid path"}
 	ErrMismatchChecksum = &Error{Status: 461, Code: "MismatchChecksum", Message: "mismatch checksum"}
