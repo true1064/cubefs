@@ -27,10 +27,14 @@ type verifyTokenArgs struct {
 	Sign      string `json:"sign"`
 }
 
+type respData struct {
+	Ssoid string `json:"ssoid"`
+}
+
 type verifyTokenResponse struct {
-	Code   int    `json:"code"`
-	ErrMsg string `json:"errmsg"`
-	Ssoid  string `json:"ssoid"`
+	Code   int      `json:"code"`
+	ErrMsg string   `json:"errmsg"`
+	Data   respData `json:"data"`
 }
 
 type auth struct {
@@ -113,7 +117,6 @@ func (s *auth) VerifyToken(ctx context.Context, token string) (string, error) {
 			Message: errStr,
 		}
 	}
-	span.Infof("recv response: %s", string(body))
 	res := &verifyTokenResponse{}
 	if err = json.Unmarshal(body, res); err != nil {
 		span.Errorf("unmarshal resp body error: %v, body: %s, origin str is %s", err, string(body), signStr)
@@ -125,7 +128,8 @@ func (s *auth) VerifyToken(ctx context.Context, token string) (string, error) {
 	}
 	switch res.Code {
 	case 200:
-		if len(res.Ssoid) == 0 {
+		if len(res.Data.Ssoid) == 0 {
+			span.Errorf("recv response: %s", string(body))
 			err = &sdk.Error{
 				Status:  sdk.ErrTokenVerify.Status,
 				Code:    sdk.ErrTokenVerify.Code,
@@ -149,5 +153,5 @@ func (s *auth) VerifyToken(ctx context.Context, token string) (string, error) {
 		span.Errorf("verify token error: %v, origin str is %s", err, signStr)
 		return "", err
 	}
-	return res.Ssoid, nil
+	return res.Data.Ssoid, nil
 }
