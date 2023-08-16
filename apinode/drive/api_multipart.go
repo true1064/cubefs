@@ -28,9 +28,9 @@ import (
 
 // MPPart multipart part.
 type MPPart struct {
-	PartNumber uint16 `json:"partNumber,omitempty"`
-	Size       int    `json:"size,omitempty"`
-	MD5        string `json:"md5,omitempty"`
+	PartNumber uint16 `json:"partNumber"`
+	Size       int    `json:"size"`
+	MD5        string `json:"md5"`
 }
 
 // ArgsMPUploads multipart upload or complete argument.
