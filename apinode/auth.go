@@ -122,6 +122,7 @@ func (m *authenticator) Handler(w http.ResponseWriter, req *http.Request, f func
 		return
 	}
 	req.Header.Set(drive.HeaderUserID, ssoid)
+	span.Debugf("set %s: %s", drive.HeaderUserID, ssoid)
 
 	f(w, req)
 }
