@@ -273,6 +273,13 @@ func TestHandleFileWrite(t *testing.T) {
 		defer resp.Body.Close()
 		require.Equal(t, sdk.ErrConflict.Status, resp.StatusCode)
 	}
+	{
+		node.OnceGetUser()
+		node.OnceLookup(true)
+		resp := doRequest(newMockBody(64), "", queries...)
+		defer resp.Body.Close()
+		require.Equal(t, sdk.ErrNotFile.Status, resp.StatusCode)
+	}
 	node.Volume.EXPECT().Lookup(A, A, A).Return(&sdk.DirInfo{Inode: 1111, FileId: 1111}, nil).AnyTimes()
 	{
 		node.OnceGetUser()

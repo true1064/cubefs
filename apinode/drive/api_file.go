@@ -129,6 +129,10 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 		d.respError(c, err)
 		return
 	}
+	if dirInfo.IsDir() {
+		d.respError(c, sdk.ErrNotFile)
+		return
+	}
 	if dirInfo.FileId != args.FileID {
 		d.respError(c, sdk.ErrConflict)
 		return
