@@ -113,13 +113,12 @@ func (m *authenticator) Handler(w http.ResponseWriter, req *http.Request, f func
 	st := time.Now()
 	ssoid, err = m.auth.VerifyToken(ctx, token)
 	if err != nil {
-		span.Error("verify token error: %v, token: %s", err, token)
 		return
 	}
 	span.AppendTrackLog("vt", st, nil)
 
 	if err = verifySign(sign, ssoid, req); err != nil {
-		span.Error("verify sign error: %v", err)
+		span.Errorf("verify sign error: %v", err)
 		return
 	}
 

@@ -113,6 +113,7 @@ func (s *auth) VerifyToken(ctx context.Context, token string) (string, error) {
 			Message: errStr,
 		}
 	}
+	span.Infof("recv response: %s", string(body))
 	res := &verifyTokenResponse{}
 	if err = json.Unmarshal(body, res); err != nil {
 		span.Errorf("unmarshal resp body error: %v, body: %s, origin str is %s", err, string(body), signStr)
