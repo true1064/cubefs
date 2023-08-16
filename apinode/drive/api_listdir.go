@@ -50,13 +50,6 @@ const (
 	opNotEqual = "!="
 )
 
-var usrFolderFilter = filterBuilder{
-	re:        nil,
-	key:       "name",
-	operation: opNotEqual,
-	value:     ".usr",
-}
-
 type FileInfoSlice []FileInfo
 
 func (s FileInfoSlice) Len() int           { return len(s) }
@@ -182,7 +175,6 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 	builders := []filterBuilder{}
 	if path == "/" {
 		pathIno = root
-		builders = append(builders, usrFolderFilter)
 	} else {
 		// 2. lookup the inode of dir
 		dirInodeInfo, err := d.lookup(ctx, vol, root, path)
@@ -204,7 +196,7 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 		bs, err := makeFilterBuilders(args.Filter)
 		if err != nil {
 			span.Errorf("makeFilterBuilders error: %v, path=%s, filter=%s", err, path, args.Filter)
-			d.respError(c, err)
+			d.respError(c, &sdk.Error{Status: sdk.ErrBadFile.Status, Code: sdk.ErrBadRequest.Code, Message: err.Error()})
 			return
 		}
 		builders = append(builders, bs...)

@@ -466,6 +466,11 @@ func (d *DriveNode) handleFileRename(c *rpc.Context) {
 		dstParentIno = Inode(dstParent.Inode)
 	}
 
+	if srcParentIno == dstParentIno && srcName == dstName {
+		d.respError(c, sdk.ErrForbidden)
+		return
+	}
+
 	err = vol.Rename(ctx, srcParentIno.Uint64(), dstParentIno.Uint64(), srcName, dstName)
 	if d.checkError(c, func(err error) { span.Error("rename error", args, err) }, err) {
 		return

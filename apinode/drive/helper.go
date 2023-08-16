@@ -191,7 +191,7 @@ func (s checksums) verify() error {
 		default:
 			actual := hex.EncodeToString(hasher.hasher.Sum(nil))
 			expect := hasher.checksum.(string)
-			if actual != expect {
+			if actual != strings.ToLower(expect) {
 				msg = fmt.Sprintf("%s: expect(%s) actual(%s)", key, expect, actual)
 			}
 		}
