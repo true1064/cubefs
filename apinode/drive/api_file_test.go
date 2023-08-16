@@ -575,6 +575,14 @@ func TestHandleFileRename(t *testing.T) {
 		node.OnceGetUser()
 		node.OnceLookup(true)
 		node.OnceLookup(true)
+		node.OnceLookup(true)
+		require.Equal(t, sdk.ErrNotFile.Status, doRequest("src", "/dir/a/", "dst", "/dir/b/").StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		node.OnceLookup(true)
+		node.OnceLookup(true)
+		node.OnceLookup(false)
 		node.Volume.EXPECT().Rename(A, A, A, A, A).Return(e3)
 		require.Equal(t, e3.Status, doRequest("src", "/dir/a/", "dst", "/dir/b/").StatusCode())
 	}
@@ -591,6 +599,7 @@ func TestHandleFileRename(t *testing.T) {
 		for i := 0; i < cs.lookup; i++ {
 			node.OnceLookup(true)
 		}
+		node.OnceLookup(false)
 		node.Volume.EXPECT().Rename(A, A, A, A, A).Return(nil)
 		require.NoError(t, doRequest("src", cs.src, "dst", cs.dst))
 	}
