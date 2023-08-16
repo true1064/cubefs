@@ -432,7 +432,7 @@ func TestHandleFileDownload(t *testing.T) {
 		node.OnceGetInode()
 		resp := doRequest(nil, "bytes=1024-10000", "path", "/download")
 		defer resp.Body.Close()
-		require.Equal(t, 200, resp.StatusCode)
+		require.Equal(t, 206, resp.StatusCode)
 		buff, _ := io.ReadAll(resp.Body)
 		require.Equal(t, 0, len(buff))
 	}

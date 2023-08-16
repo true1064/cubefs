@@ -351,7 +351,9 @@ func (d *DriveNode) handleFileDownload(c *rpc.Context) {
 		ranged, err = parseRange(header, int64(inode.Size))
 		if err != nil {
 			if err == errEndOfFile {
-				c.Respond()
+				c.Writer.Header().Set(rpc.HeaderContentRange,
+					fmt.Sprintf("bytes %d-%d/%d", inode.Size, inode.Size, inode.Size))
+				c.RespondStatus(http.StatusPartialContent)
 				return
 			}
 			span.Warn(err)
