@@ -53,42 +53,6 @@ func addCmdDrive(cmd *grumble.Command) {
 	})
 }
 
-func addCmdConfig(cmd *grumble.Command) {
-	configCommand := &grumble.Command{
-		Name: "config",
-		Help: "config api",
-	}
-	cmd.AddCommand(configCommand)
-
-	configCommand.AddCommand(&grumble.Command{
-		Name: "add",
-		Help: "add config",
-		Args: func(a *grumble.Args) {
-			a.String("path", "path name")
-		},
-		Run: func(c *grumble.Context) error {
-			return cli.ConfigAdd(c.Args.String("path"))
-		},
-	})
-	configCommand.AddCommand(&grumble.Command{
-		Name: "get",
-		Help: "get config",
-		Run: func(c *grumble.Context) error {
-			return show(cli.ConfigGet())
-		},
-	})
-	configCommand.AddCommand(&grumble.Command{
-		Name: "del",
-		Help: "del config",
-		Args: func(a *grumble.Args) {
-			a.String("path", "path name")
-		},
-		Run: func(c *grumble.Context) error {
-			return cli.ConfigDel(c.Args.String("path"))
-		},
-	})
-}
-
 func addCmdMeta(cmd *grumble.Command) {
 	metaCommand := &grumble.Command{
 		Name: "meta",
@@ -503,7 +467,6 @@ func registerDrive(app *grumble.App) {
 	app.AddCommand(driveCommand)
 
 	addCmdDrive(driveCommand)
-	addCmdConfig(driveCommand)
 	addCmdMeta(driveCommand)
 	addCmdDir(driveCommand)
 	addCmdFile(driveCommand)

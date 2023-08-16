@@ -134,19 +134,6 @@ func (c *client) DriveGet(uid string) (r drive.UserRoute, err error) {
 	return
 }
 
-func (c *client) ConfigAdd(path string) error {
-	return c.request(put, genURI("/v1/user/config", "path", path), nil)
-}
-
-func (c *client) ConfigGet() (r drive.GetUserConfigResult, err error) {
-	err = c.requestWith(get, "/v1/user/config", nil, &r)
-	return
-}
-
-func (c *client) ConfigDel(path string) error {
-	return c.request(del, genURI("/v1/user/config", "path", path), nil)
-}
-
 func (c *client) MetaSet(path string, meta ...string) error {
 	return c.request(post, genURI("/v1/files/properties", "path", path), nil, meta...)
 }
