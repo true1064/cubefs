@@ -2,6 +2,7 @@ package impl
 
 import (
 	"context"
+
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/trace"
 	"github.com/cubefs/cubefs/proto"
@@ -78,6 +79,6 @@ func (m *metaOpImp) CreateFileEx(ctx context.Context, parentID uint64, name stri
 		return nil, 0, err
 	}
 
-	//return sdk.NewInode(ifo, fileId), nil
+	// return sdk.NewInode(ifo, fileId), nil
 	return ifo, fileId, nil
 }

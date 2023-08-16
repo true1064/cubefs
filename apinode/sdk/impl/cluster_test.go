@@ -102,17 +102,17 @@ func TestCluster_AllocFileId(t *testing.T) {
 	begin, end := uint64(10), uint64(100)
 	expect := &proto.FileId{Begin: begin, End: end}
 	m.EXPECT().AllocFileId().Return(expect, sdk.ErrInternalServerError)
-	cl, err := newClusterIn(ctx, "addr1", "cid1")
+	_, err := newClusterIn(ctx, "addr1", "cid1")
 	require.Error(t, err)
 
 	m.EXPECT().AllocFileId().Return(expect, nil)
-	cl, err = newClusterIn(ctx, "addr1", "cid1")
+	cl, err := newClusterIn(ctx, "addr1", "cid1")
 	require.NoError(t, err)
 	require.True(t, cl.fileId.Begin == begin)
 
 	for idx := begin; idx < end; idx++ {
-		gotId, err := cl.allocFileId(ctx)
-		require.NoError(t, err)
+		gotId, errx := cl.allocFileId(ctx)
+		require.NoError(t, errx)
 		require.True(t, gotId == idx+1)
 	}
 

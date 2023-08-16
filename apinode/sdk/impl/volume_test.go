@@ -509,7 +509,7 @@ func Test_volume_InitMultiPart(t *testing.T) {
 
 	var err error
 	filePath := "/tmpInitMultiPart"
-	//oldIno := uint64(10)
+	// oldIno := uint64(10)
 	var uploadId string
 
 	{
@@ -1056,7 +1056,7 @@ func Test_volume_UploadMultiPart(t *testing.T) {
 
 	body = bytes.NewBuffer(data)
 	mockMeta.EXPECT().AddMultipartPart_ll(filePath, uploadId, partNum, any, tag, any).Return(uint64(0), true, nil)
-	part := &sdk.Part{}
+	var part *sdk.Part
 	part, err = v.UploadMultiPart(ctx, filePath, uploadId, partNum, body)
 	require.NoError(t, err)
 	require.True(t, part.MD5 == tag)

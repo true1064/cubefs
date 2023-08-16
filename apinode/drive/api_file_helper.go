@@ -16,11 +16,11 @@ package drive
 
 import (
 	"context"
-	"github.com/cubefs/cubefs/proto"
 	"io"
 
 	"github.com/cubefs/cubefs/apinode/crypto"
 	"github.com/cubefs/cubefs/apinode/sdk"
+	"github.com/cubefs/cubefs/proto"
 )
 
 type downReader struct {

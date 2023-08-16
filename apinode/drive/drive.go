@@ -287,6 +287,22 @@ func (d *DriveNode) getUserRouterAndVolume(ctx context.Context, uid UserID) (*Us
 	return ur, volume, nil
 }
 
+func (d *DriveNode) lookupFileID(ctx context.Context, vol sdk.IVolume, parentIno Inode, path string, fileID uint64) (err error) {
+	dirInfo, err := d.lookup(ctx, vol, parentIno, path)
+	if err == sdk.ErrNotFound {
+		if fileID != 0 {
+			return sdk.ErrConflict
+		}
+		return nil
+	} else if err != nil {
+		return err
+	}
+	if dirInfo.FileId != fileID {
+		return sdk.ErrConflict
+	}
+	return nil
+}
+
 func (d *DriveNode) lookup(ctx context.Context, vol sdk.IVolume, parentIno Inode, path string) (info *sdk.DirInfo, err error) {
 	err = sdk.ErrBadRequest
 	span := trace.SpanFromContextSafe(ctx)

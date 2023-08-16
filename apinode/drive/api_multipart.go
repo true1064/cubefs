@@ -75,22 +75,8 @@ func (d *DriveNode) multipartUploads(c *rpc.Context, args *ArgsMPUploads) {
 		return
 	}
 
-	if d.checkFunc(c, func(err error) { span.Error("lookup error: ", err, args) }, func() error {
-		dirInfo, err := d.lookup(ctx, vol, root, args.Path.String())
-		if err == sdk.ErrNotFound {
-			if args.FileID != 0 {
-				return sdk.ErrConflict
-			}
-			return nil
-		} else if err != nil {
-			return err
-		}
-
-		if dirInfo.FileId != args.FileID {
-			return sdk.ErrConflict
-		}
-		return nil
-	}) {
+	if d.checkError(c, func(err error) { span.Error("lookup error: ", err, args) },
+		d.lookupFileID(ctx, vol, root, args.Path.String(), args.FileID)) {
 		return
 	}
 
@@ -127,22 +113,8 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 		return
 	}
 	root := ur.RootFileID
-	if d.checkFunc(c, func(err error) { span.Error("lookup error: ", err, args) }, func() error {
-		dirInfo, err := d.lookup(ctx, vol, root, args.Path.String())
-		if err == sdk.ErrNotFound {
-			if args.FileID != 0 {
-				return sdk.ErrConflict
-			}
-			return nil
-		} else if err != nil {
-			return err
-		}
-
-		if dirInfo.FileId != args.FileID {
-			return sdk.ErrConflict
-		}
-		return nil
-	}) {
+	if d.checkError(c, func(err error) { span.Error("lookup error: ", err, args) },
+		d.lookupFileID(ctx, vol, root, args.Path.String(), args.FileID)) {
 		return
 	}
 
@@ -199,7 +171,7 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 	}
 	span.AppendTrackLog("cmcl", st, nil)
 
-	inode, fileId, err := vol.CompleteMultiPart(ctx, fullPath, args.UploadID, args.FileID, sParts)
+	inode, fileID, err := vol.CompleteMultiPart(ctx, fullPath, args.UploadID, args.FileID, sParts)
 	if d.checkError(c, func(err error) { span.Error("multipart complete", args, parts, err) }, err) {
 		return
 	}
@@ -211,7 +183,7 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 	d.out.Publish(ctx, makeOpLog(OpMultiUploadFile, d.requestID(c), d.userID(c), args.Path.String(), "size", inode.Size))
 	span.Info("multipart complete", args, parts)
 	_, filename := args.Path.Split()
-	d.respData(c, inode2file(inode, fileId, filename, extend))
+	d.respData(c, inode2file(inode, fileID, filename, extend))
 }
 
 // ArgsMPUpload multipart upload part argument.

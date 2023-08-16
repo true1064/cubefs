@@ -59,22 +59,8 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 		return
 	}
 
-	if d.checkFunc(c, func(err error) { span.Errorf("lookup %+v error: %v", args, err) }, func() error {
-		dirInfo, err := d.lookup(ctx, vol, ino, filename)
-		if err == sdk.ErrNotFound {
-			if args.FileID != 0 {
-				return sdk.ErrConflict
-			}
-			return nil
-		} else if err != nil {
-			return err
-		}
-
-		if dirInfo.FileId != args.FileID {
-			return sdk.ErrConflict
-		}
-		return nil
-	}) {
+	if d.checkError(c, func(err error) { span.Errorf("lookup %+v error: %v", args, err) },
+		d.lookupFileID(ctx, vol, ino, filename, args.FileID)) {
 		return
 	}
 
@@ -91,7 +77,7 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 		return
 	}
 	st := time.Now()
-	inode, fileId, err := vol.UploadFile(ctx, &sdk.UploadFileReq{
+	inode, fileID, err := vol.UploadFile(ctx, &sdk.UploadFileReq{
 		ParIno:    ino.Uint64(),
 		Name:      filename,
 		OldFileId: args.FileID,
@@ -109,7 +95,7 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 	}
 
 	d.out.Publish(ctx, makeOpLog(OpUploadFile, d.requestID(c), uid, string(args.Path), "size", inode.Size))
-	d.respData(c, inode2file(inode, fileId, filename, extend))
+	d.respData(c, inode2file(inode, fileID, filename, extend))
 }
 
 // ArgsFileWrite file write.

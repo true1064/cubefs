@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/cubefs/cubefs/util/log"
 	"strings"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/cubefs/cubefs/apinode/sdk/impl"
 	"github.com/cubefs/cubefs/blobstore/common/trace"
 	"github.com/cubefs/cubefs/proto"
+	"github.com/cubefs/cubefs/util/log"
 )
 
 const (
@@ -21,7 +21,7 @@ const (
 )
 
 func main() {
-	//log.InitFileLog("/tmp/cfs", "test", "debug")
+	// log.InitFileLog("/tmp/cfs", "test", "debug")
 	log.InitLog("/tmp/cfs/sdktest", "test", log.DebugLevel, nil)
 	mgr := impl.NewClusterMgr()
 	span, ctx := trace.StartSpanFromContext(context.TODO(), "")
@@ -141,9 +141,6 @@ func testDirOp(ctx context.Context, vol sdk.IVolume) {
 		}
 		totalItems = append(totalItems, tmpItems...)
 		marker = tmpItems[0].Name
-		if tmpItems[0].FileId < 0 {
-			span.Fatalf("got item is not illegal, item %v", tmpItems)
-		}
 		span.Infof("read limit, marker %v, items %v, total %d", marker, tmpItems, len(totalItems))
 	}
 
@@ -448,7 +445,7 @@ func testMultiPartOp(ctx context.Context, vol sdk.IVolume) {
 	span.Info("start testMultiPartOp =================")
 	defer span.Info("end testMultiPartOp =================")
 
-	uploadId, err := vol.InitMultiPart(ctx, tmpFile, 0, nil)
+	uploadId, err := vol.InitMultiPart(ctx, tmpFile, nil)
 	if err != nil {
 		span.Fatalf("init multiPart failed, file %s, err %s", tmpFile, err.Error())
 	}
@@ -477,7 +474,7 @@ func testMultiPartOp(ctx context.Context, vol sdk.IVolume) {
 	}
 
 	ext := map[string]string{"k1": "v1", "k2": "v2"}
-	uploadId, err = vol.InitMultiPart(ctx, tmpFile, 0, ext)
+	uploadId, err = vol.InitMultiPart(ctx, tmpFile, ext)
 	if err != nil {
 		span.Fatalf("init multiPart failed, file %s, err %s", tmpFile, err.Error())
 	}

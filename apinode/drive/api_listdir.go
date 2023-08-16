@@ -129,7 +129,7 @@ func (builder *filterBuilder) matchFileInfo(f *FileInfo) bool {
 	case "type":
 		return builder.match(f.Type)
 	case "propertyKey":
-		for k, _ := range f.Properties {
+		for k := range f.Properties {
 			if builder.match(k) {
 				return true
 			}

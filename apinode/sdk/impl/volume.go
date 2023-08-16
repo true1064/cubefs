@@ -429,7 +429,7 @@ func (v *volume) UploadFile(ctx context.Context, req *sdk.UploadFileReq) (*sdk.I
 	span := trace.SpanFromContextSafe(ctx)
 	var oldIno uint64
 	if req.OldFileId != 0 {
-		//oldIno, mode, err := v.mw.Lookup_ll(req.ParIno, req.Name)
+		// oldIno, mode, err := v.mw.Lookup_ll(req.ParIno, req.Name)
 		den, err := v.mw.LookupEx(req.ParIno, req.Name)
 		if err != nil && err != syscall.ENOENT {
 			span.Warnf("lookup file failed, ino %d, name %s, err %s", req.ParIno, req.Name, err.Error())
@@ -526,7 +526,7 @@ func (v *volume) UploadFile(ctx context.Context, req *sdk.UploadFileReq) (*sdk.I
 		return nil, 0, syscallToErr(err)
 	}
 
-	//return sdk.NewInode(finalIno, fileId), nil
+	// return sdk.NewInode(finalIno, fileId), nil
 	return finalIno, id, nil
 }
 

@@ -2,6 +2,7 @@ package sdk
 
 import (
 	"context"
+
 	"github.com/cubefs/cubefs/proto"
 )
 
@@ -30,7 +31,7 @@ type MetaOp interface {
 	GetExtents(inode uint64) (gen uint64, size uint64, extents []proto.ExtentKey, err error)
 	InodeGet_ll(inode uint64) (*proto.InodeInfo, error)
 	ReadDir_ll(parentID uint64) ([]proto.Dentry, error)
-	//Link(parentID uint64, name string, ino uint64) (*proto.InodeInfo, error)
+	// Link(parentID uint64, name string, ino uint64) (*proto.InodeInfo, error)
 	Rename_ll(srcParentID uint64, srcName string, dstParentID uint64, dstName string, overwritten bool) (err error)
 	AppendExtentKeys(inode uint64, eks []proto.ExtentKey) error
 	BatchSetXAttr_ll(inode uint64, attrs map[string]string) error
