@@ -589,6 +589,9 @@ func Test_volume_ListMultiPart(t *testing.T) {
 		require.Equal(t, pt.ID, p.ID)
 		require.Equal(t, pt.MD5, p.MD5)
 	}
+
+	_, _, _, err = v.ListMultiPart(ctx, filePath, uploadId, count, uint64(10))
+	require.Equal(t, err, sdk.ErrBadRequest)
 }
 
 func Test_volume_ListXAttr(t *testing.T) {

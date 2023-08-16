@@ -724,10 +724,16 @@ func (v *volume) ListMultiPart(ctx context.Context, filepath, uploadId string, c
 	sessParts := info.Parts
 	total := len(sessParts)
 
+	if uint64(total) < marker {
+		span.Warnf("invalid marker, large than total parts cnt, marker %d, total %d", marker, total)
+		err = sdk.ErrBadRequest
+		return
+	}
+
 	next = marker + count
 	isTruncated = true
 
-	if uint64(total)-marker < count {
+	if uint64(total)-marker <= count {
 		count = uint64(total) - marker
 		next = 0
 		isTruncated = false
