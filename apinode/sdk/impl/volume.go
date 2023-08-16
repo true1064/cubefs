@@ -545,7 +545,7 @@ func (v *volume) writeAt(ctx context.Context, ino uint64, off, size int, body io
 		n, err := body.Read(buf)
 		if err != nil && err != io.EOF {
 			span.Errorf("read file from body failed, err %s", err.Error())
-			return 0, sdk.ErrBadRequest
+			return 0, err
 		}
 
 		if n > 0 {

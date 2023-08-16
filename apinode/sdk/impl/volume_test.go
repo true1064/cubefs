@@ -1260,7 +1260,7 @@ func Test_volume_writeAt(t *testing.T) {
 	body := bytes.NewReader(data)
 	{
 		_, err = v.writeAt(ctx, ino, off, size, &mockReader{})
-		require.Equal(t, err, sdk.ErrBadRequest)
+		require.Error(t, err)
 	}
 	{
 		// failed Write(inode uint64, offset int, data []byte, flags int) (write int, err error)
