@@ -6,7 +6,6 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
-	"path"
 	"reflect"
 	"syscall"
 	"testing"
@@ -510,53 +509,21 @@ func Test_volume_InitMultiPart(t *testing.T) {
 
 	var err error
 	filePath := "/tmpInitMultiPart"
-	oldIno := uint64(10)
+	//oldIno := uint64(10)
 	var uploadId string
 
 	{
 		// path not valid
 		dirs := []string{"testInit", "/", ""}
 		for _, d := range dirs {
-			_, err = v.InitMultiPart(ctx, d, oldIno, nil)
+			_, err = v.InitMultiPart(ctx, d, nil)
 			require.Equal(t, err, sdk.ErrBadRequest)
 		}
 	}
 
-	dir, name := path.Split(filePath)
-	parIno := uint64(5)
-
-	{
-		// failed LookupPath(subdir string) (uint64, error)
-		mockMeta.EXPECT().LookupPath(dir).Return(uint64(0), syscall.EAGAIN)
-		_, err = v.InitMultiPart(ctx, filePath, oldIno, nil)
-		require.Equal(t, err, syscallToErr(syscall.EAGAIN))
-	}
-	{
-		// lookup ino not equal id
-		mockMeta.EXPECT().LookupPath(dir).Return(parIno, nil)
-		mockMeta.EXPECT().LookupEx(parIno, name).Return(nil, syscall.ENOENT)
-		_, err = v.InitMultiPart(ctx, filePath, oldIno, nil)
-		require.Equal(t, err, sdk.ErrNotFound)
-	}
-	{
-		// lookup ino not equal id
-		mockMeta.EXPECT().LookupPath(dir).Return(parIno, nil)
-		mockMeta.EXPECT().LookupEx(parIno, name).Return(&proto.Dentry{FileId: 0}, nil)
-		_, err = v.InitMultiPart(ctx, filePath, oldIno, nil)
-		require.Equal(t, err, sdk.ErrConflict)
-	}
-	mockMeta.EXPECT().LookupPath(dir).Return(parIno, nil).AnyTimes()
-	mockMeta.EXPECT().LookupEx(parIno, name).Return(&proto.Dentry{FileId: oldIno}, nil).AnyTimes()
-	{
-		// failed InitMultipart_ll(path string, extend map[string]string) (multipartId string, err error)
-		mockMeta.EXPECT().InitMultipart_ll(filePath, nil).Return("", syscall.EAGAIN)
-		_, err = v.InitMultiPart(ctx, filePath, oldIno, nil)
-		require.Equal(t, err, syscallToErr(syscall.EAGAIN))
-	}
-
 	tmpUploadId := "testUploadId"
 	mockMeta.EXPECT().InitMultipart_ll(filePath, nil).Return(tmpUploadId, nil)
-	uploadId, err = v.InitMultiPart(ctx, filePath, oldIno, nil)
+	uploadId, err = v.InitMultiPart(ctx, filePath, nil)
 	require.NoError(t, err)
 	require.Equal(t, uploadId, tmpUploadId)
 
@@ -1245,7 +1212,7 @@ func Test_volume_mkdirByPath(t *testing.T) {
 		require.True(t, err == syscall.EINVAL)
 	}
 	// lookup no entry
-	mockMeta.EXPECT().LookupEx(any, any).Return(defDen, syscall.ENOENT).AnyTimes()
+	mockMeta.EXPECT().LookupEx(any, any).Return(nil, syscall.ENOENT).AnyTimes()
 	{
 		// create failed, (parentID uint64, name string, mode, uid, gid uint32, target []byte) (*proto.InodeInfo, error)
 		mockMeta.EXPECT().CreateFileEx(any, any, any, any).Return(nil, defIno, syscall.ENOMEM)
@@ -1257,7 +1224,7 @@ func Test_volume_mkdirByPath(t *testing.T) {
 		mockMeta.EXPECT().CreateFileEx(any, any, any, any).Return(nil, defIno, syscall.EEXIST).AnyTimes()
 		{
 			// lookup return no entry
-			mockMeta.EXPECT().LookupEx(any, any).Return(defDen, syscall.ENOENT).AnyTimes()
+			mockMeta.EXPECT().LookupEx(any, any).Return(nil, syscall.ENOENT).AnyTimes()
 			_, err = v.mkdirByPath(ctx, tmpDir)
 			require.Equal(t, err, syscall.ENOENT)
 		}

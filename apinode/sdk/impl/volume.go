@@ -432,12 +432,12 @@ func (v *volume) UploadFile(ctx context.Context, req *sdk.UploadFileReq) (*sdk.I
 		//oldIno, mode, err := v.mw.Lookup_ll(req.ParIno, req.Name)
 		den, err := v.mw.LookupEx(req.ParIno, req.Name)
 		if err != nil && err != syscall.ENOENT {
-			span.Errorf("lookup file failed, ino %d, name %s, err %s", req.ParIno, req.Name, err.Error())
+			span.Warnf("lookup file failed, ino %d, name %s, err %s", req.ParIno, req.Name, err.Error())
 			return nil, 0, syscallToErr(err)
 		}
 
 		if den == nil || den.FileId != req.OldFileId || proto.IsDir(den.Type) {
-			span.Errorf("target file already exist but conflict, den %v, reqOld %d",
+			span.Warnf("target file already exist but conflict, den %v, reqOld %d",
 				den, req.OldFileId)
 			return nil, 0, sdk.ErrConflict
 		}
@@ -931,7 +931,6 @@ func (v *volume) mkdirByPath(ctx context.Context, dir string) (ino uint64, err e
 			span.Errorf("lookup file failed, ino %d, name %s, err %s", parIno, name, err.Error())
 			return 0, err
 		}
-		childIno, childMod = childDen.Inode, childDen.Type
 
 		if err == syscall.ENOENT {
 			info, _, err = v.mw.CreateFileEx(ctx, parIno, name, uint32(defaultDirMod))
@@ -952,6 +951,8 @@ func (v *volume) mkdirByPath(ctx context.Context, dir string) (ino uint64, err e
 				return 0, err
 			}
 			childIno, childMod = info.Inode, info.Mode
+		} else {
+			childIno, childMod = childDen.Inode, childDen.Type
 		}
 
 		if !proto.IsDir(childMod) {
