@@ -150,7 +150,7 @@ func (d *DriveNode) handleGetProperties(c *rpc.Context) {
 		return
 	}
 	res := GetPropertiesResult{
-		ID:         inoInfo.Inode,
+		ID:         dirInfo.FileId,
 		Name:       dirInfo.Name,
 		Type:       typeFile,
 		Size:       int64(inoInfo.Size),
