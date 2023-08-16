@@ -203,8 +203,8 @@ func (d *DriveNode) handleMultipartPart(c *rpc.Context) {
 	if d.checkError(c, func(err error) { span.Info(args.Path, err) }, args.Path.Clean()) {
 		return
 	}
-	if args.PartNumber == 0 {
-		d.respError(c, sdk.ErrBadRequest.Extend("partNumber is 0"))
+	if args.PartNumber == 0 || args.PartNumber >= maxMultipartNumber {
+		d.respError(c, sdk.ErrBadRequest.Extend("invalid partNumber"))
 		return
 	}
 

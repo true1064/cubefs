@@ -60,6 +60,8 @@ const (
 
 	internalMetaPrefix = "x-cfa-"
 	internalMetaMD5    = internalMetaPrefix + "md5"
+
+	maxMultipartNumber = 10000
 )
 
 var noneTransmitter, _ = crypto.NoneCryptor().Transmitter("")

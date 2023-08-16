@@ -190,6 +190,7 @@ func TestHandleMultipartParts(t *testing.T) {
 		require.Equal(t, 400, doRequest(newMockBody(0), nil, "path", "/a", "uploadId", uploadID).StatusCode())
 		require.Equal(t, 400, doRequest(newMockBody(0), nil, "path", "/a", "uploadId", uploadID, "partNumber", "x").StatusCode())
 		require.Equal(t, 400, doRequest(newMockBody(0), nil, "path", "/a", "uploadId", uploadID, "partNumber", "0").StatusCode())
+		require.Equal(t, 400, doRequest(newMockBody(0), nil, "path", "/a", "uploadId", uploadID, "partNumber", "10000").StatusCode())
 	}
 	{
 		node.TestGetUser(t, func() rpc.HTTPError {
