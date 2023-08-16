@@ -143,7 +143,7 @@ func verifySign(sign, ssoid string, req *http.Request) error {
 	}
 	querys = querys[:0]
 	for key, vals := range req.Header {
-		if !strings.HasPrefix(key, "x-cfa-") {
+		if !strings.HasPrefix(strings.ToLower(key), "x-cfa-") {
 			continue
 		}
 		for _, val := range vals {
@@ -160,6 +160,7 @@ func verifySign(sign, ssoid string, req *http.Request) error {
 	}
 
 	signStr := req.Method + "\n" + req.URL.Path + "\n" + queryStr + "\n" + headStr
+	log.Debug("signStr=", signStr)
 	mac := hmac.New(sha1.New, []byte(ssoid))
 	mac.Write([]byte(signStr))
 	expectSign := base64.StdEncoding.EncodeToString(mac.Sum(nil))
