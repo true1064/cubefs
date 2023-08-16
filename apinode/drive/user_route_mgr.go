@@ -72,7 +72,6 @@ const (
 	volumeRootIno    = 1
 	hashMask         = 1024
 	defaultCacheSize = 1 << 17
-	userConfigPath   = "/.usr/config"
 	volumeConfigPath = "/config/apps.cfg"
 )
 
@@ -253,77 +252,6 @@ func getUserRouteFile(uid UserID) string {
 func getRootPath(uid UserID) string {
 	h1, h2 := hashUid(uid)
 	return fmt.Sprintf("/%d/%d/%s", h1%hashMask, h2%hashMask, string(uid))
-}
-
-func (d *DriveNode) addUserConfig(ctx context.Context, uid UserID, path string) error {
-	// 1.Get clusterid, volumeid from default cluster
-	ur, err := d.GetUserRouteInfo(ctx, uid)
-	if err != nil {
-		return err
-	}
-	cluster := d.clusterMgr.GetCluster(ur.ClusterID)
-	if cluster == nil {
-		return sdk.ErrNoCluster
-	}
-	vol := cluster.GetVol(ur.VolumeID)
-	if vol == nil {
-		return sdk.ErrNoVolume
-	}
-	inoInfo, _, err := d.createFile(ctx, vol, ur.RootFileID, userConfigPath)
-	if err != nil {
-		return err
-	}
-	// 2.add new path to user's config file attribute
-	ent := ConfigEntry{
-		Status: 1,
-		Time:   time.Now().Unix(),
-	}
-	val, err := json.Marshal(ent)
-	if err != nil {
-		return sdk.ErrInternalServerError
-	}
-	return vol.SetXAttr(ctx, inoInfo.Inode, path, string(val))
-}
-
-func (d *DriveNode) delUserConfig(ctx context.Context, uid UserID, path string) error {
-	ur, err := d.GetUserRouteInfo(ctx, uid)
-	if err != nil {
-		return err
-	}
-	cluster := d.clusterMgr.GetCluster(ur.ClusterID)
-	if cluster == nil {
-		return sdk.ErrNoCluster
-	}
-	vol := cluster.GetVol(ur.VolumeID)
-	if vol == nil {
-		return sdk.ErrNoVolume
-	}
-
-	dirInfo, err := d.lookup(ctx, vol, ur.RootFileID, userConfigPath)
-	if err != nil {
-		return err
-	}
-	return vol.DeleteXAttr(ctx, dirInfo.Inode, path)
-}
-
-func (d *DriveNode) getUserConfigFromFile(ctx context.Context, uid UserID, clusterid, volumeid string, rootIno uint64) (map[string]string, error) {
-	cluster := d.clusterMgr.GetCluster(clusterid)
-	if cluster == nil {
-		return nil, sdk.ErrNoCluster
-	}
-	vol := cluster.GetVol(volumeid)
-	if vol == nil {
-		return nil, sdk.ErrNoVolume
-	}
-	dirInfo, err := d.lookup(ctx, vol, Inode(rootIno), userConfigPath)
-	if err != nil {
-		return nil, err
-	}
-	xattrs, err := vol.GetXAttrMap(ctx, dirInfo.Inode)
-	if err != nil {
-		return nil, err
-	}
-	return xattrs, nil
 }
 
 func hashUid(uid UserID) (h1, h2 uint32) {

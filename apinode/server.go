@@ -184,19 +184,22 @@ func (s *apiNode) startRouters(cfg *config.Config) error {
 			s.defers = append(s.defers, func() { logf.Close() })
 		}
 
-		authServiceAddr := cfg.GetString("auth_service_addr")
-		if authServiceAddr == "" {
-			return fmt.Errorf("not found auth_service_addr in config file")
-		}
-		appkey := cfg.GetString("appkey")
-		if appkey == "" {
-			return fmt.Errorf("not found appkey in config file")
-		}
-		hs := []rpc.ProgressHandler{newAuthenticator(authServiceAddr, appkey, limiter), newCryptor(), lh}
+		var hs []rpc.ProgressHandler
 
-		disableAuth := cfg.GetBool("disableAuth")
-		if disableAuth {
-			hs = hs[1:]
+		disableAuth := cfg.GetBoolWithDefault("disableAuth", false)
+
+		if !disableAuth {
+			authServiceAddr := cfg.GetString("auth_service_addr")
+			if authServiceAddr == "" {
+				return fmt.Errorf("not found auth_service_addr in config file")
+			}
+			appkey := cfg.GetString("appkey")
+			if appkey == "" {
+				return fmt.Errorf("not found appkey in config file")
+			}
+			hs = []rpc.ProgressHandler{newAuthenticator(authServiceAddr, appkey, limiter), newCryptor(), lh}
+		} else {
+			hs = []rpc.ProgressHandler{newCryptor(), lh}
 		}
 
 		// register only once
