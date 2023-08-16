@@ -558,6 +558,23 @@ type LayerInfo struct {
 	Eks      []ExtentKey `json:"eks"`
 }
 
+type DirVerItem struct {
+	DirSnapIno uint64 `json:"ino"`
+	Ver        uint64 `json:"ver"`
+}
+
+type DirVerDelReq struct {
+	VolName     string `json:"vol"`
+	PartitionID uint64 `json:"pid"`
+	DirVerItem
+}
+
+type MetaBatchDelVerReq struct {
+	VolName     string       `json:"vol"`
+	PartitionID uint64       `json:"pid"`
+	Vers        []DirVerItem `json:"vers"`
+}
+
 // InodeGetResponse defines the response to the InodeGetRequest.
 type InodeGetResponse struct {
 	Info   *InodeInfo  `json:"info"`

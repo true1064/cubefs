@@ -42,3 +42,19 @@ type SnapshotVerDelTaskResponse struct {
 	Status    uint8
 	Result    string
 }
+
+type DelVer struct {
+	DelVel uint64
+	Vers   []VersionInfo
+}
+
+type DirVersionInfo struct {
+	DirIno  uint64
+	DelVers []DelVer
+}
+
+type MasterBatchDelDirVersionReq struct {
+	Vol         string
+	PartitionId uint64
+	DirInfos    []DirVersionInfo
+}

@@ -357,8 +357,8 @@ type VersionInfo struct {
 	DelTime int64
 	Status  uint8 // building,normal,deleted,abnormal
 }
-const VersionSimpleSize int = 33
 
+const VersionSimpleSize int = 33
 
 type VolVersionInfoList struct {
 	VerList  []*VersionInfo
