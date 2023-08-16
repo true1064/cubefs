@@ -121,6 +121,7 @@ func (m *authenticator) Handler(w http.ResponseWriter, req *http.Request, f func
 		span.Errorf("verify sign error: %v", err)
 		return
 	}
+	req.Header.Set(drive.HeaderUserID, ssoid)
 
 	f(w, req)
 }
@@ -160,11 +161,11 @@ func verifySign(sign, ssoid string, req *http.Request) error {
 	}
 
 	signStr := req.Method + "\n" + req.URL.Path + "\n" + queryStr + "\n" + headStr
-	log.Debug("signStr=", signStr)
 	mac := hmac.New(sha1.New, []byte(ssoid))
 	mac.Write([]byte(signStr))
 	expectSign := base64.StdEncoding.EncodeToString(mac.Sum(nil))
 	if sign != expectSign {
+		log.Errorf("signStr=%s", signStr)
 		return &sdk.Error{
 			Status:  sdk.ErrUnauthorized.Status,
 			Code:    sdk.ErrUnauthorized.Code,
