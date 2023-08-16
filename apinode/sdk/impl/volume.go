@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"math"
 	"os"
@@ -122,7 +123,12 @@ func (v *volume) Lookup(ctx context.Context, parentIno uint64, name string) (*sd
 
 	den, err := v.mw.LookupEx(parentIno, name)
 	if err != nil {
-		span.Errorf("look up file failed, parIno %d, name %s, err %s", parentIno, name, err.Error())
+		msg := fmt.Sprintf("look up file failed, parIno %d, name %s, err %s", parentIno, name, err.Error())
+		if err != syscall.ENOENT {
+			span.Warn(msg)
+		} else {
+			span.Info(msg)
+		}
 		return nil, syscallToErr(err)
 	}
 
@@ -934,7 +940,7 @@ func (v *volume) mkdirByPath(ctx context.Context, dir string) (ino uint64, err e
 
 		childDen, err := v.mw.LookupEx(parIno, name)
 		if err != nil && err != syscall.ENOENT {
-			span.Errorf("lookup file failed, ino %d, name %s, err %s", parIno, name, err.Error())
+			span.Warnf("lookup file failed, ino %d, name %s, err %s", parIno, name, err.Error())
 			return 0, err
 		}
 
