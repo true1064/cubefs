@@ -220,7 +220,7 @@ func (d *DriveNode) handleBatchDelete(c *rpc.Context) {
 	}
 	ctx, span := d.ctxSpan(c)
 	ur, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c))
-	if d.checkError(c, func(err error) { span.Warnf("get root inode and volume return error: %v", err, ur.CanWrite()) }, err) {
+	if d.checkError(c, func(err error) { span.Warnf("get root inode and volume return error: %v", err) }, err, ur.CanWrite()) {
 		return
 	}
 	root := ur.RootFileID
