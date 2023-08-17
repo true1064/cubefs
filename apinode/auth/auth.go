@@ -136,6 +136,12 @@ func (s *auth) VerifyToken(ctx context.Context, token string) (string, error) {
 				Message: "ssoid is empty",
 			}
 		}
+	case 3040:
+		err = &sdk.Error{
+			Status:  sdk.ErrTokenExpires.Status,
+			Code:    "3040",
+			Message: sdk.ErrTokenExpires.Message,
+		}
 	case 4041:
 		err = sdk.ErrTokenExpires
 	case 4042:
