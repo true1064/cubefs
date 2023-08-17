@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
-	"runtime/debug"
 	"sort"
 	"strings"
 	"time"
@@ -17,12 +16,10 @@ import (
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
 	"github.com/cubefs/cubefs/blobstore/common/trace"
 	"github.com/cubefs/cubefs/blobstore/util/log"
-	"golang.org/x/time/rate"
 )
 
 type authenticator struct {
-	auth    auth.Auth
-	limiter *rate.Limiter
+	auth auth.Auth
 }
 
 type queryItem struct {
@@ -36,10 +33,9 @@ func (s queryItemSlice) Len() int           { return len(s) }
 func (s queryItemSlice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 func (s queryItemSlice) Less(i, j int) bool { return s[i].key < s[j].key }
 
-func newAuthenticator(hostport, appkey string, limiter *rate.Limiter) rpc.ProgressHandler {
+func newAuthenticator(hostport, appkey string) rpc.ProgressHandler {
 	return &authenticator{
-		auth:    auth.NewAuth(hostport, appkey),
-		limiter: limiter,
+		auth: auth.NewAuth(hostport, appkey),
 	}
 }
 
@@ -50,19 +46,12 @@ func (m *authenticator) Handler(w http.ResponseWriter, req *http.Request, f func
 	)
 	ctx := req.Context()
 	if rid := req.Header.Get(drive.HeaderRequestID); rid != "" {
-		span, _ = trace.StartSpanFromContextWithTraceID(ctx, "", rid)
+		span, _ = trace.StartSpanFromContextWithTraceID(req.Context(), "", rid)
 	} else {
-		span = trace.SpanFromContextSafe(ctx)
+		span = trace.SpanFromContextSafe(req.Context())
 	}
 
 	defer func() {
-		p := recover()
-		if p != nil {
-			log.Printf("WARN: panic fired in %v.panic - %v\n", f, p)
-			log.Println(string(debug.Stack()))
-			w.WriteHeader(597)
-		}
-
 		if err == nil {
 			return
 		}
@@ -84,16 +73,6 @@ func (m *authenticator) Handler(w http.ResponseWriter, req *http.Request, f func
 	if !strings.HasPrefix(authVal, "cfa ") {
 		span.Error("invalid head Authorization: ", authVal)
 		err = sdk.ErrUnauthorized
-		return
-	}
-
-	if !m.limiter.Allow() {
-		span.Error("too many requests")
-		err = &sdk.Error{
-			Status:  http.StatusTooManyRequests,
-			Code:    "TooManyRequests",
-			Message: "too many requests",
-		}
 		return
 	}
 

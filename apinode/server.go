@@ -184,7 +184,7 @@ func (s *apiNode) startRouters(cfg *config.Config) error {
 			s.defers = append(s.defers, func() { logf.Close() })
 		}
 
-		var hs []rpc.ProgressHandler
+		hs := []rpc.ProgressHandler{newLimiter(limiter)}
 
 		disableAuth := cfg.GetBoolWithDefault("disableAuth", false)
 
@@ -197,10 +197,9 @@ func (s *apiNode) startRouters(cfg *config.Config) error {
 			if appkey == "" {
 				return fmt.Errorf("not found appkey in config file")
 			}
-			hs = []rpc.ProgressHandler{newAuthenticator(authServiceAddr, appkey, limiter), newCryptor(), lh}
-		} else {
-			hs = []rpc.ProgressHandler{newCryptor(), lh}
+			hs = append(hs, newAuthenticator(authServiceAddr, appkey))
 		}
+		hs = append(hs, newCryptor(), lh)
 
 		// register only once
 		if profileHandler := profile.NewProfileHandler(s.listen); profileHandler != nil {

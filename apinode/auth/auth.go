@@ -70,7 +70,7 @@ func (s *auth) VerifyToken(ctx context.Context, token string) (string, error) {
 		return "", &sdk.Error{
 			Status:  sdk.ErrTokenVerify.Status,
 			Code:    sdk.ErrTokenVerify.Code,
-			Message: err.Error(),
+			Message: "marshal token request body error",
 		}
 	}
 	req, err := http.NewRequest(http.MethodPost, s.url, bytes.NewReader(data))
@@ -79,7 +79,7 @@ func (s *auth) VerifyToken(ctx context.Context, token string) (string, error) {
 		return "", &sdk.Error{
 			Status:  sdk.ErrTokenVerify.Status,
 			Code:    sdk.ErrTokenVerify.Code,
-			Message: err.Error(),
+			Message: "new http request error",
 		}
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -90,7 +90,7 @@ func (s *auth) VerifyToken(ctx context.Context, token string) (string, error) {
 		return "", &sdk.Error{
 			Status:  sdk.ErrTokenVerify.Status,
 			Code:    sdk.ErrTokenVerify.Code,
-			Message: err.Error(),
+			Message: "remote invoke error",
 		}
 	}
 	defer resp.Body.Close()
@@ -114,7 +114,7 @@ func (s *auth) VerifyToken(ctx context.Context, token string) (string, error) {
 		return "", &sdk.Error{
 			Status:  sdk.ErrTokenVerify.Status,
 			Code:    sdk.ErrTokenVerify.Code,
-			Message: errStr,
+			Message: "verify token error",
 		}
 	}
 	res := &verifyTokenResponse{}
