@@ -48,7 +48,7 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 
 	uid := d.userID(c)
 	ur, vol, err := d.getUserRouterAndVolume(ctx, uid)
-	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
+	if d.checkError(c, func(err error) { span.Warn(err) }, err, ur.CanWrite()) {
 		return
 	}
 	root := ur.RootFileID
@@ -117,7 +117,7 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 
 	uid := d.userID(c)
 	ur, vol, err := d.getUserRouterAndVolume(ctx, uid)
-	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
+	if d.checkError(c, func(err error) { span.Warn(err) }, err, ur.CanWrite()) {
 		return
 	}
 	root := ur.RootFileID
@@ -415,7 +415,7 @@ func (d *DriveNode) handleFileRename(c *rpc.Context) {
 	span.Debug("to rename", args)
 
 	ur, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c))
-	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
+	if d.checkError(c, func(err error) { span.Warn(err) }, err, ur.CanWrite()) {
 		return
 	}
 	root := ur.RootFileID
@@ -484,7 +484,7 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 	span.Info("to copy", args)
 
 	ur, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c))
-	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
+	if d.checkError(c, func(err error) { span.Warn(err) }, err, ur.CanWrite()) {
 		return
 	}
 	root := ur.RootFileID

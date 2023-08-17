@@ -39,6 +39,7 @@ type UserRoute struct {
 	RootPath    string `json:"rootPath"`
 	RootFileID  FileID `json:"rootFileId"`
 	CipherKey   []byte `json:"cipherKey"`
+	ReadOnly    bool   `json:"readonly"`
 	Ctime       int64  `json:"ctime"`
 	Params      string `json:"params"` // cfs
 }
@@ -51,9 +52,14 @@ func (ur *UserRoute) Unmarshal(data []byte) error {
 	return json.Unmarshal(data, &ur)
 }
 
-type ConfigEntry struct {
-	Status int8  `json:"status"`
-	Time   int64 `json:"time"`
+func (ur *UserRoute) CanWrite() error {
+	if ur == nil {
+		return nil
+	}
+	if ur.ReadOnly {
+		return sdk.ErrReadOnly
+	}
+	return nil
 }
 
 type ClusterInfo struct {
@@ -122,6 +128,7 @@ func (d *DriveNode) CreateUserRoute(ctx context.Context, uid UserID) (string, er
 		RootPath:    rootPath,
 		RootFileID:  ino,
 		CipherKey:   cipherKey,
+		ReadOnly:    false,
 		Ctime:       time.Now().Unix(),
 	}
 

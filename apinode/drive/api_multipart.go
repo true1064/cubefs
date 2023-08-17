@@ -66,7 +66,7 @@ type RespMPuploads struct {
 func (d *DriveNode) multipartUploads(c *rpc.Context, args *ArgsMPUploads) {
 	ctx, span := d.ctxSpan(c)
 	ur, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c))
-	if d.checkError(c, func(err error) { span.Error(err) }, err) {
+	if d.checkError(c, func(err error) { span.Error(err) }, err, ur.CanWrite()) {
 		return
 	}
 	root := ur.RootFileID
@@ -114,7 +114,7 @@ func (d *DriveNode) requestParts(c *rpc.Context) (parts []MPPart, err error) {
 func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 	ctx, span := d.ctxSpan(c)
 	ur, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c))
-	if d.checkError(c, func(err error) { span.Info(err) }, err) {
+	if d.checkError(c, func(err error) { span.Info(err) }, err, ur.CanWrite()) {
 		return
 	}
 	root := ur.RootFileID
@@ -214,7 +214,7 @@ func (d *DriveNode) handleMultipartPart(c *rpc.Context) {
 	}
 
 	ur, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c))
-	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
+	if d.checkError(c, func(err error) { span.Warn(err) }, err, ur.CanWrite()) {
 		return
 	}
 

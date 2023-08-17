@@ -46,7 +46,7 @@ func (d *DriveNode) handleMkDir(c *rpc.Context) {
 
 	uid := d.userID(c)
 	ur, vol, err := d.getUserRouterAndVolume(ctx, uid)
-	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
+	if d.checkError(c, func(err error) { span.Warn(err) }, err, ur.CanWrite()) {
 		return
 	}
 	root := ur.RootFileID
@@ -85,7 +85,7 @@ func (d *DriveNode) handleFilesDelete(c *rpc.Context) {
 	}
 
 	ur, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c))
-	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
+	if d.checkError(c, func(err error) { span.Warn(err) }, err, ur.CanWrite()) {
 		return
 	}
 	root := ur.RootFileID
@@ -113,7 +113,7 @@ func (d *DriveNode) recursivelyDelete(c *rpc.Context, path FilePath) {
 	ctx, span := d.ctxSpan(c)
 
 	ur, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c))
-	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
+	if d.checkError(c, func(err error) { span.Warn(err) }, err, ur.CanWrite()) {
 		return
 	}
 	root := ur.RootFileID
@@ -220,7 +220,7 @@ func (d *DriveNode) handleBatchDelete(c *rpc.Context) {
 	}
 	ctx, span := d.ctxSpan(c)
 	ur, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c))
-	if d.checkError(c, func(err error) { span.Warnf("get root inode and volume return error: %v", err) }, err) {
+	if d.checkError(c, func(err error) { span.Warnf("get root inode and volume return error: %v", err, ur.CanWrite()) }, err) {
 		return
 	}
 	root := ur.RootFileID

@@ -83,6 +83,7 @@ var (
 	ErrInvalidPath      = &Error{Status: 400, Code: "BadRequest", Message: "invalid path"}
 	ErrMismatchChecksum = &Error{Status: 461, Code: "MismatchChecksum", Message: "mismatch checksum"}
 	ErrTransCipher      = &Error{Status: 462, Code: "TransCipher", Message: "trans cipher"}
+	ErrReadOnly         = &Error{Status: 463, Code: "ReadOnly", Message: "write is disabled"}
 	ErrWriteOverSize    = &Error{Status: 470, Code: "WriteOverSize", Message: "write over size"}
 	ErrServerCipher     = &Error{Status: 500, Code: "ServerCipher", Message: "server cipher"}
 
