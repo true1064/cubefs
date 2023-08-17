@@ -7,22 +7,30 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cubefs/cubefs/util/log"
+	"github.com/cubefs/cubefs/util/stat"
+
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/apinode/sdk/impl"
 	"github.com/cubefs/cubefs/blobstore/common/trace"
 	"github.com/cubefs/cubefs/proto"
-	"github.com/cubefs/cubefs/util/log"
 )
 
 const (
 	cluster = "cfs_dev"
-	addr    = "172.16.1.101:17010,172.16.1.102:17010,172.16.1.103:17010"
-	vol     = "abc"
+	// cluster = "cfs_fault_test"
+	addr = "172.16.1.101:17010,172.16.1.102:17010,172.16.1.103:17010"
+	// addr = "10.177.111.194:17010"
+	vol = "abc"
+	// vol = "create-vol-test"
 )
 
 func main() {
 	// log.InitFileLog("/tmp/cfs", "test", "debug")
-	log.InitLog("/tmp/cfs/sdktest", "test", log.DebugLevel, nil)
+	logDir := "/tmp/cfs/sdktest"
+	log.InitLog(logDir, "test", log.DebugLevel, nil)
+	stat.DefaultStatInterval = 2 * time.Second
+	stat.NewStatistic(logDir, "test", int64(stat.DefaultStatLogSize), stat.DefaultTimeOutUs, true)
 	mgr := impl.NewClusterMgr()
 	span, ctx := trace.StartSpanFromContext(context.TODO(), "")
 	err := mgr.AddCluster(ctx, cluster, addr)
@@ -141,6 +149,9 @@ func testDirOp(ctx context.Context, vol sdk.IVolume) {
 		}
 		totalItems = append(totalItems, tmpItems...)
 		marker = tmpItems[0].Name
+		if tmpItems[0].FileId < 0 {
+			span.Fatalf("got item is not illegal, item %v", tmpItems)
+		}
 		span.Infof("read limit, marker %v, items %v, total %d", marker, tmpItems, len(totalItems))
 	}
 
@@ -440,7 +451,7 @@ func testXAttrOp(ctx context.Context, vol sdk.IVolume) {
 
 func testMultiPartOp(ctx context.Context, vol sdk.IVolume) {
 	span := trace.SpanFromContextSafe(ctx)
-	tmpFile := "/testMultiPartOp10"
+	tmpFile := "/testMultiPartOp10" + tmpString()
 
 	span.Info("start testMultiPartOp =================")
 	defer span.Info("end testMultiPartOp =================")
@@ -520,6 +531,45 @@ func testMultiPartOp(ctx context.Context, vol sdk.IVolume) {
 
 	if len(newMap) != len(ext) {
 		span.Fatalf("get xAttr result not right, want %v, got %v", ext, newMap)
+	}
+
+	// test complete 1w part
+	newTmpFile := tmpFile + tmpString()
+	newUploadId, err := vol.InitMultiPart(ctx, newTmpFile, nil)
+	if err != nil {
+		span.Fatalf("init multiPart failed, file %s, err %s", newTmpFile, err.Error())
+	}
+
+	type pt struct {
+		num  int
+		data string
+	}
+	cnt := 1000
+	newParts := make([]pt, 0, cnt)
+	for idx := 0; idx < cnt; idx++ {
+		newParts = append(newParts, pt{num: idx + 1, data: fmt.Sprintf("tmpData_%d", idx)})
+	}
+
+	respParts := make([]sdk.Part, 0, len(newParts))
+	for _, p := range newParts {
+		rp, nerr := vol.UploadMultiPart(ctx, newTmpFile, newUploadId, uint16(p.num), bytes.NewBufferString(p.data))
+		if nerr != nil {
+			span.Fatalf("upload multipart failed, num %d, err %s", p.num, nerr.Error())
+		}
+		size += len([]byte(p.data))
+		respParts = append(respParts, *rp)
+	}
+
+	start := time.Now()
+	_, _, err = vol.CompleteMultiPart(ctx, newTmpFile, newUploadId, 0, respParts)
+	if err != nil {
+		span.Fatalf("complete multipart failed, file %s, err %s", newTmpFile, err.Error())
+	}
+	span.Infof("complete multipart success, cnt %d, cost %s", len(respParts), time.Since(start).String())
+
+	err = vol.Delete(ctx, proto.RootIno, strings.TrimPrefix(newTmpFile, "/"), false)
+	if err != nil {
+		span.Fatalf("delete multipart failed, file %v, err %s", newTmpFile, err.Error())
 	}
 
 	err = vol.Delete(ctx, proto.RootIno, strings.TrimPrefix(tmpFile, "/"), false)

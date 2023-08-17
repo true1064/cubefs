@@ -5,11 +5,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cubefs/cubefs/proto"
 	"github.com/pkg/errors"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/trace"
-	"github.com/cubefs/cubefs/proto"
 )
 
 // test can reset newMaster func

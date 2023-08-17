@@ -22,6 +22,8 @@ import (
 	"path"
 	"strconv"
 
+	"github.com/cubefs/cubefs/util/stat"
+
 	"github.com/gorilla/mux"
 	"golang.org/x/time/rate"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -169,6 +171,7 @@ func (s *apiNode) loadConfig(cfg *config.Config) error {
 		return config.NewIllegalConfigError(configMasterAddr)
 	}
 	s.mc = master.NewMasterClientFromString(masters, false)
+	stat.NewStatistic(logDir, "stat", int64(stat.DefaultStatLogSize), stat.DefaultTimeOutUs, true)
 	return nil
 }
 

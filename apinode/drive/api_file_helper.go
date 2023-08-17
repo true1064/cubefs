@@ -18,6 +18,8 @@ import (
 	"context"
 	"io"
 
+	"github.com/cubefs/cubefs/proto"
+
 	"github.com/cubefs/cubefs/apinode/crypto"
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/proto"

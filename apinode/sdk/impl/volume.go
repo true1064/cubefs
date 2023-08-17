@@ -10,12 +10,14 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync"
 	"syscall"
 
 	"github.com/google/uuid"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/trace"
+	"github.com/cubefs/cubefs/blobstore/util/taskpool"
 	"github.com/cubefs/cubefs/proto"
 	"github.com/cubefs/cubefs/sdk/data/stream"
 	"github.com/cubefs/cubefs/sdk/meta"
@@ -646,6 +648,12 @@ func (v *volume) UploadMultiPart(ctx context.Context, filepath, uploadId string,
 		return
 	}
 
+	if partNum >= sdk.MaxMultiPartCnt {
+		span.Warnf("multipart count (%d) is over max cnt (%d)", uploadId)
+		err = sdk.ErrBadRequest
+		return
+	}
+
 	tmpInfo, err := v.mw.CreateInode(defaultFileMode)
 	if err != nil {
 		span.Errorf("create ino failed", err.Error())
@@ -730,7 +738,7 @@ func (v *volume) ListMultiPart(ctx context.Context, filepath, uploadId string, c
 	sessParts := info.Parts
 	total := len(sessParts)
 
-	if uint64(total) < marker {
+	if uint64(total) <= marker {
 		span.Warnf("invalid marker, large than total parts cnt, marker %d, total %d", marker, total)
 		err = sdk.ErrBadRequest
 		return
@@ -837,22 +845,49 @@ func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId strin
 
 	totalExtents := make([]proto.ExtentKey, 0)
 	fileOffset := uint64(0)
-	size := uint64(0)
-	var eks []proto.ExtentKey
 
-	for _, part := range partArr {
-		_, _, eks, err = v.mw.GetExtents(part.Inode)
-		if err != nil {
-			span.Errorf("get part extent failed, ino %d, err %s", part.Inode, err.Error())
-			return nil, 0, syscallToErr(err)
+	cnt := sdk.MaxPoolSize
+	if cnt > len(partArr) {
+		cnt = len(partArr)
+	}
+
+	pool := taskpool.New(cnt, len(partArr))
+	defer pool.Close()
+	type result struct {
+		eks []proto.ExtentKey
+		err error
+	}
+	resArr := make([]result, len(partArr))
+	lk := sync.Mutex{}
+	wg := sync.WaitGroup{}
+
+	for idx, part := range partArr {
+		ino := part.Inode
+		tmpIdx := idx
+		wg.Add(1)
+		pool.Run(func() {
+			defer wg.Done()
+			_, _, eks, newErr := v.mw.GetExtents(ino)
+			if newErr != nil {
+				span.Errorf("get part extent failed, ino %d, err %s", ino, newErr.Error())
+			}
+			lk.Lock()
+			resArr[tmpIdx] = result{eks: eks, err: newErr}
+			lk.Unlock()
+		})
+	}
+	wg.Wait()
+
+	for _, r := range resArr {
+		if r.err != nil {
+			return nil, 0, syscallToErr(r.err)
 		}
 
-		for _, ek := range eks {
+		for _, ek := range r.eks {
 			ek.FileOffset = fileOffset
 			fileOffset += uint64(ek.Size)
 			totalExtents = append(totalExtents, ek)
 		}
-		size += part.Size
 	}
 
 	err = v.mw.AppendExtentKeys(cIno, totalExtents)
@@ -874,12 +909,14 @@ func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId strin
 		return nil, 0, syscallToErr(err)
 	}
 
-	for _, part := range partArr {
-		err1 := v.mw.InodeDelete_ll(part.Inode)
-		if err1 != nil {
-			span.Errorf("delete part ino failed, ino %d, err %s", part.Inode, err1.Error())
+	go func() {
+		for _, part := range partArr {
+			err1 := v.mw.InodeDelete_ll(part.Inode)
+			if err1 != nil {
+				span.Errorf("delete part ino failed, ino %d, err %s", part.Inode, err1.Error())
+			}
 		}
-	}
+	}()
 
 	extend := info.Extend
 	attrs := make(map[string]string)

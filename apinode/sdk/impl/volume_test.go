@@ -590,7 +590,7 @@ func Test_volume_ListMultiPart(t *testing.T) {
 		require.Equal(t, pt.MD5, p.MD5)
 	}
 
-	_, _, _, err = v.ListMultiPart(ctx, filePath, uploadId, count, uint64(10))
+	_, _, _, err = v.ListMultiPart(ctx, filePath, uploadId, count, uint64(len(partsResult.Parts)))
 	require.Equal(t, err, sdk.ErrBadRequest)
 }
 
@@ -1006,6 +1006,10 @@ func Test_volume_UploadMultiPart(t *testing.T) {
 
 	{
 		_, err = v.UploadMultiPart(ctx, "filePath", uploadId, partNum, body)
+		require.Equal(t, err, sdk.ErrBadRequest)
+	}
+	{
+		_, err = v.UploadMultiPart(ctx, filePath, uploadId, sdk.MaxMultiPartCnt+10, body)
 		require.Equal(t, err, sdk.ErrBadRequest)
 	}
 	{

@@ -35,6 +35,11 @@ type InodeInfo = proto.InodeInfo
 //	}
 //}
 
+const (
+	MaxMultiPartCnt = 10000
+	MaxPoolSize     = 10
+)
+
 type DirInfo = proto.Dentry
 
 type Part = proto.MultipartPartInfo
