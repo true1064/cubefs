@@ -149,9 +149,6 @@ func testDirOp(ctx context.Context, vol sdk.IVolume) {
 		}
 		totalItems = append(totalItems, tmpItems...)
 		marker = tmpItems[0].Name
-		if tmpItems[0].FileId < 0 {
-			span.Fatalf("got item is not illegal, item %v", tmpItems)
-		}
 		span.Infof("read limit, marker %v, items %v, total %d", marker, tmpItems, len(totalItems))
 	}
 

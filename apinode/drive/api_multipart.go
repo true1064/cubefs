@@ -16,6 +16,7 @@ package drive
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"path"
 	"time"
@@ -93,6 +94,10 @@ func (d *DriveNode) requestParts(c *rpc.Context) (parts []MPPart, err error) {
 	var size int
 	size, err = c.RequestLength()
 	if err != nil {
+		return
+	}
+	if size > (8 << 20) {
+		err = fmt.Errorf("body is too long %d", size)
 		return
 	}
 
@@ -204,7 +209,7 @@ func (d *DriveNode) handleMultipartPart(c *rpc.Context) {
 		return
 	}
 	if args.PartNumber == 0 || args.PartNumber >= maxMultipartNumber {
-		d.respError(c, sdk.ErrBadRequest.Extend("invalid partNumber"))
+		d.respError(c, sdk.ErrBadRequest.Extendf("exceeded part number %d", maxMultipartNumber))
 		return
 	}
 
@@ -229,6 +234,7 @@ func (d *DriveNode) handleMultipartPart(c *rpc.Context) {
 	d.respData(c, MPPart{
 		PartNumber: args.PartNumber,
 		MD5:        part.MD5,
+		Size:       int(part.Size),
 	})
 }
 

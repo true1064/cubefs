@@ -117,13 +117,8 @@ func (d *DriveNode) recursivelyDelete(c *rpc.Context, path FilePath) {
 		return
 	}
 	root := ur.RootFileID
-	parent, err := d.lookup(ctx, vol, root, path.String())
+	_, err = d.lookupDir(ctx, vol, root, path.String())
 	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
-		return
-	}
-	if !parent.IsDir() {
-		span.Info("not dir:", path)
-		d.respError(c, sdk.ErrNotDir)
 		return
 	}
 

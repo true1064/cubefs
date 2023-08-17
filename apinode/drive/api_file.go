@@ -121,16 +121,12 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 		return
 	}
 	root := ur.RootFileID
-	dirInfo, err := d.lookup(ctx, vol, root, args.Path.String())
+	dirInfo, err := d.lookupFile(ctx, vol, root, args.Path.String())
 	if err != nil {
 		if err == sdk.ErrNotFound {
 			err = sdk.ErrConflict
 		}
 		d.respError(c, err)
-		return
-	}
-	if dirInfo.IsDir() {
-		d.respError(c, sdk.ErrNotFile)
 		return
 	}
 	if dirInfo.FileId != args.FileID {
@@ -228,13 +224,8 @@ func (d *DriveNode) handleFileVerify(c *rpc.Context) {
 	}
 	root := ur.RootFileID
 
-	file, err := d.lookup(ctx, vol, root, args.Path.String())
+	file, err := d.lookupFile(ctx, vol, root, args.Path.String())
 	if d.checkError(c, func(err error) { span.Warn(args.Path, err) }, err) {
-		return
-	}
-
-	if file.IsDir() {
-		d.respError(c, sdk.ErrNotFile)
 		return
 	}
 
@@ -328,14 +319,11 @@ func (d *DriveNode) handleFileDownload(c *rpc.Context) {
 	}
 	root := ur.RootFileID
 
-	file, err := d.lookup(ctx, vol, root, args.Path.String())
+	file, err := d.lookupFile(ctx, vol, root, args.Path.String())
 	if d.checkError(c, func(err error) { span.Warn(args.Path, err) }, err) {
 		return
 	}
-	if file.IsDir() {
-		d.respError(c, sdk.ErrNotFile)
-		return
-	}
+
 	md5Val, err := vol.GetXAttr(ctx, file.Inode, internalMetaMD5)
 	needMD5 := err == nil && md5Val == ""
 
@@ -501,13 +489,8 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 	}
 	root := ur.RootFileID
 
-	file, err := d.lookup(ctx, vol, root, args.Src.String())
+	file, err := d.lookupFile(ctx, vol, root, args.Src.String())
 	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
-		return
-	}
-	if file.IsDir() {
-		span.Errorf("%v src is not a file", args)
-		d.respError(c, sdk.ErrNotFile)
 		return
 	}
 	dstFile, err := d.lookup(ctx, vol, root, args.Dst.String())

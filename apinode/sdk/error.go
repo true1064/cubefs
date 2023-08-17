@@ -55,6 +55,15 @@ func (e *Error) Extend(a ...interface{}) *Error {
 	}
 }
 
+// Extendf error with full format message.
+func (e *Error) Extendf(format string, a ...interface{}) *Error {
+	return &Error{
+		Status:  e.Status,
+		Code:    e.Code,
+		Message: fmt.Sprintf("%s : %s", e.Error(), fmt.Sprintf(format, a...)),
+	}
+}
+
 // defined errors.
 var (
 	ErrBadRequest   = &Error{Status: 400, Code: "BadRequest", Message: "bad request"}

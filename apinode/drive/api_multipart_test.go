@@ -202,10 +202,11 @@ func TestHandleMultipartParts(t *testing.T) {
 	}
 	{
 		node.OnceGetUser()
-		node.Volume.EXPECT().UploadMultiPart(A, A, A, A, A).Return(&sdk.Part{MD5: "md5"}, nil)
+		node.Volume.EXPECT().UploadMultiPart(A, A, A, A, A).Return(&sdk.Part{MD5: "md5", Size: 64}, nil)
 		var part MPPart
 		require.NoError(t, doRequest(newMockBody(0), &part, "path", "/a", "uploadId", uploadID, "partNumber", "1"))
 		require.Equal(t, "md5", part.MD5)
+		require.Equal(t, 64, part.Size)
 	}
 }
 

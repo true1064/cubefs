@@ -104,6 +104,7 @@ func TestCluster_AllocFileId(t *testing.T) {
 	m.EXPECT().AllocFileId().Return(expect, sdk.ErrInternalServerError)
 	cl, err := newClusterIn(ctx, "addr1", "cid1")
 	require.Error(t, err)
+	require.Nil(t, cl)
 
 	m.EXPECT().AllocFileId().Return(expect, nil)
 	cl, err = newClusterIn(ctx, "addr1", "cid1")

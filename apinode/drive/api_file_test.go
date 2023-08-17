@@ -179,6 +179,16 @@ func TestHandleFileVerify(t *testing.T) {
 	}
 	{
 		node.OnceGetUser()
+		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e1)
+		require.Equal(t, e1.Status, doRequest("", "", "/a").StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		node.OnceLookup(true)
+		require.Equal(t, sdk.ErrNotFile.Status, doRequest("", "", "/a").StatusCode())
+	}
+	{
+		node.OnceGetUser()
 		node.OnceLookup(false)
 		node.Volume.EXPECT().GetInode(A, A).Return(nil, e2)
 		require.Equal(t, e2.Status, doRequest("", "", "/a").StatusCode())
@@ -346,6 +356,12 @@ func TestHandleFileWrite(t *testing.T) {
 		resp := doRequest(body, "bytes=100-", queries...)
 		defer resp.Body.Close()
 		require.Equal(t, 200, resp.StatusCode)
+	}
+	{
+		node.OnceGetUser()
+		resp := doRequest(newMockBody(64), "", "path", "/a", "fileId", "2222")
+		defer resp.Body.Close()
+		require.Equal(t, sdk.ErrConflict.Status, resp.StatusCode)
 	}
 }
 
@@ -577,6 +593,12 @@ func TestHandleFileRename(t *testing.T) {
 		node.OnceLookup(true)
 		node.OnceLookup(true)
 		require.Equal(t, sdk.ErrNotFile.Status, doRequest("src", "/dir/a/", "dst", "/dir/b/").StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		node.Volume.EXPECT().Lookup(A, A, A).Return(&sdk.DirInfo{Inode: 11111}, nil).Times(2)
+		node.OnceLookup(false)
+		require.Equal(t, sdk.ErrForbidden.Status, doRequest("src", "/dir/a", "dst", "/dir/a").StatusCode())
 	}
 	{
 		node.OnceGetUser()
