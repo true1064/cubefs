@@ -635,20 +635,32 @@ func TestHandleFileCopy(t *testing.T) {
 	}
 	{
 		node.OnceGetUser()
+		node.OnceLookup(true)
+		node.OnceLookup(true)
+		require.Equal(t, sdk.ErrNotFile.Status, doRequest("src", "/dir/a", "dst", "/dir/b").StatusCode())
+	}
+	{
+		node.OnceGetUser()
 		node.LookupN(2)
+		node.OnceLookup(true)
+		require.Equal(t, sdk.ErrNotFile.Status, doRequest("src", "/dir/a", "dst", "/b").StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		node.LookupN(4)
 		node.Volume.EXPECT().GetInode(A, A).Return(nil, e2)
 		require.Equal(t, e2.Status, doRequest("src", "/dir/a", "dst", "/dir/b").StatusCode())
 	}
 	{
 		node.OnceGetUser()
-		node.LookupN(2)
+		node.LookupN(4)
 		node.OnceGetInode()
 		node.Volume.EXPECT().GetXAttrMap(A, A).Return(nil, e1)
 		require.Equal(t, e1.Status, doRequest("src", "/dir/a", "dst", "/dir/b", "meta", "1").StatusCode())
 	}
 	{
 		node.OnceGetUser()
-		node.LookupN(2)
+		node.LookupN(4)
 		node.OnceGetInode()
 		node.Volume.EXPECT().GetXAttrMap(A, A).Return(map[string]string{
 			internalMetaMD5: "err-md5", "key": "value",
@@ -658,7 +670,7 @@ func TestHandleFileCopy(t *testing.T) {
 	}
 	{
 		node.OnceGetUser()
-		node.LookupN(2)
+		node.LookupN(4)
 		node.OnceGetInode()
 		node.OnceLookup(true)
 		node.Volume.EXPECT().GetXAttrMap(A, A).Return(map[string]string{
@@ -669,7 +681,7 @@ func TestHandleFileCopy(t *testing.T) {
 	}
 	{
 		node.OnceGetUser()
-		node.LookupN(2)
+		node.LookupN(4)
 		node.OnceGetInode()
 		node.OnceLookup(true)
 		node.Volume.EXPECT().GetXAttrMap(A, A).Return(map[string]string{
@@ -684,7 +696,7 @@ func TestHandleFileCopy(t *testing.T) {
 	}
 	{
 		node.OnceGetUser()
-		node.LookupN(2)
+		node.LookupN(4)
 		node.OnceGetInode()
 		node.OnceLookup(true)
 		node.Volume.EXPECT().GetXAttrMap(A, A).Return(map[string]string{
@@ -695,7 +707,7 @@ func TestHandleFileCopy(t *testing.T) {
 	}
 	{
 		node.OnceGetUser()
-		node.LookupN(2)
+		node.LookupN(4)
 		node.OnceGetInode()
 		node.OnceLookup(true)
 		node.Volume.EXPECT().GetXAttrMap(A, A).Return(map[string]string{

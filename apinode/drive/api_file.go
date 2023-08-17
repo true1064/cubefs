@@ -510,6 +510,11 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 		d.respError(c, sdk.ErrNotFile)
 		return
 	}
+	dstFile, err := d.lookup(ctx, vol, root, args.Dst.String())
+	if err == nil && dstFile.IsDir() {
+		d.respError(c, sdk.ErrNotFile)
+		return
+	}
 
 	st := time.Now()
 	inode, err := vol.GetInode(ctx, file.Inode)
