@@ -560,6 +560,13 @@ func Test_volume_ListMultiPart(t *testing.T) {
 		require.Equal(t, err, syscallToErr(syscall.ENOENT))
 	}
 
+	{
+		mockMeta.EXPECT().GetMultipart_ll(filePath, uploadId).Return(&proto.MultipartInfo{}, nil)
+		parts, next, isTrunc, err := v.ListMultiPart(ctx, filePath, uploadId, count, 0)
+		require.NoError(t, err)
+		require.True(t, len(parts) == 0 && next == 0 && !isTrunc)
+	}
+
 	partsResult := &proto.MultipartInfo{
 		Parts: []*proto.MultipartPartInfo{
 			{ID: 1, MD5: "xxt"},
