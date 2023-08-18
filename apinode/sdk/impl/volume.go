@@ -490,7 +490,7 @@ func (v *volume) UploadFile(ctx context.Context, req *sdk.UploadFileReq) (*sdk.I
 
 	_, err = v.writeAt(ctx, tmpIno, 0, -1, req.Body)
 	if err != nil {
-		span.Errorf("writeAt file failed, ino %s, err %s", tmpIno, err.Error())
+		span.Errorf("writeAt file failed, ino %d, err %s", tmpIno, err.Error())
 		return nil, 0, err
 	}
 
