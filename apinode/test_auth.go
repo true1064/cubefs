@@ -71,7 +71,7 @@ func (m *testAuth) Handler(w http.ResponseWriter, req *http.Request, f func(http
 	ssoid = token
 
 	if err = verifySign(sign, ssoid, req); err != nil {
-		span.Errorf("verify sign error: %v", err)
+		span.Errorf("verify sign error: %v, ssoid=%s", err, ssoid)
 		return
 	}
 	req.Header.Set(drive.HeaderUserID, ssoid)
