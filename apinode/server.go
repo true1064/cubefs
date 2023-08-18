@@ -192,15 +192,19 @@ func (s *apiNode) startRouters(cfg *config.Config) error {
 		disableAuth := cfg.GetBoolWithDefault("disableAuth", false)
 
 		if !disableAuth {
-			authServiceAddr := cfg.GetString("auth_service_addr")
-			if authServiceAddr == "" {
-				return fmt.Errorf("not found auth_service_addr in config file")
+			if cfg.GetBoolWithDefault("use_test_auth", false) {
+				hs = append(hs, newTestAuth())
+			} else {
+				authServiceAddr := cfg.GetString("auth_service_addr")
+				if authServiceAddr == "" {
+					return fmt.Errorf("not found auth_service_addr in config file")
+				}
+				appkey := cfg.GetString("appkey")
+				if appkey == "" {
+					return fmt.Errorf("not found appkey in config file")
+				}
+				hs = append(hs, newAuthenticator(authServiceAddr, appkey))
 			}
-			appkey := cfg.GetString("appkey")
-			if appkey == "" {
-				return fmt.Errorf("not found appkey in config file")
-			}
-			hs = append(hs, newAuthenticator(authServiceAddr, appkey))
 		}
 		hs = append(hs, newCryptor(), lh)
 
