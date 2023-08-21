@@ -65,25 +65,33 @@ var filterKeyMap = map[string][]string{
 
 func validFilterBuilder(builder *filterBuilder) error {
 	ops, ok := filterKeyMap[builder.key]
+	err := &sdk.Error{
+		Status: sdk.ErrInvalidPath.Status,
+		Code:   sdk.ErrInvalidPath.Code,
+	}
 	if !ok {
-		return fmt.Errorf("invalid filter[%s]", builder)
+		err.Message = fmt.Sprintf("invalid filter[%s]", builder)
+		return err
 	}
 	if builder.key == "type" && builder.value != typeFile && builder.value != typeFolder {
-		return fmt.Errorf("invalid filter[%s], type value is neither file nor folder", builder)
+		err.Message = fmt.Sprintf("invalid filter[%s], type value is neither file nor folder", builder)
+		return err
 	}
 	for _, op := range ops {
 		if builder.operation == op {
 			if builder.operation == opContains {
-				re, err := regexp.Compile(builder.value)
-				if err != nil {
-					return fmt.Errorf("invalid filter[%s], regexp.Compile error: %v", builder, err)
+				re, e := regexp.Compile(builder.value)
+				if e != nil {
+					err.Message = fmt.Sprintf("invalid filter[%s], regexp.Compile error: %v", builder, e)
+					return err
 				}
 				builder.re = re
 			}
 			return nil
 		}
 	}
-	return fmt.Errorf("invalid filter[%s]", builder)
+	err.Message = fmt.Sprintf("invalid filter[%s]", builder)
+	return err
 }
 
 func makeFilterBuilders(value string) ([]filterBuilder, error) {
@@ -95,7 +103,11 @@ func makeFilterBuilders(value string) ([]filterBuilder, error) {
 	for _, s := range filters {
 		f := strings.Split(s, " ")
 		if len(f) != 3 {
-			return nil, fmt.Errorf("invalid filter=%s", value)
+			return nil, &sdk.Error{
+				Status:  sdk.ErrInvalidPath.Status,
+				Code:    sdk.ErrInvalidPath.Code,
+				Message: fmt.Sprintf("invalid filter=%s", value),
+			}
 		}
 		builder := filterBuilder{key: f[0], operation: f[1], value: f[2]}
 		if err := validFilterBuilder(&builder); err != nil {
