@@ -58,6 +58,9 @@ func (c cryptor) Handler(w http.ResponseWriter, req *http.Request, f func(http.R
 		span = trace.SpanFromContextSafe(req.Context())
 	}
 
+	metaMaterial := req.Header.Get(drive.HeaderCipherMeta)
+	bodyMaterial := req.Header.Get(drive.HeaderCipherBody)
+
 	var err error
 	var errBuff []byte
 	defer func() {
@@ -66,6 +69,8 @@ func (c cryptor) Handler(w http.ResponseWriter, req *http.Request, f func(http.R
 		}
 
 		span.Warn(err)
+		span.Warn(drive.HeaderCipherMeta, metaMaterial)
+		span.Warn(drive.HeaderCipherBody, bodyMaterial)
 		handleCounter("crypto", req.Method, sdk.ErrTransCipher.Status)
 
 		w.Header().Set(trace.GetTraceIDKey(), span.TraceID())
@@ -75,9 +80,6 @@ func (c cryptor) Handler(w http.ResponseWriter, req *http.Request, f func(http.R
 		w.WriteHeader(sdk.ErrTransCipher.Status)
 		w.Write(errBuff)
 	}()
-
-	metaMaterial := req.Header.Get(drive.HeaderCipherMeta)
-	bodyMaterial := req.Header.Get(drive.HeaderCipherBody)
 
 	st := time.Now()
 	if bodyMaterial != "" {

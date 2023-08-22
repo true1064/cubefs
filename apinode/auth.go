@@ -40,6 +40,11 @@ func newAuthenticator(hostport, appkey string) rpc.ProgressHandler {
 }
 
 func (m *authenticator) Handler(w http.ResponseWriter, req *http.Request, f func(http.ResponseWriter, *http.Request)) {
+	if isMetricRequest(req) {
+		f(w, req)
+		return
+	}
+
 	var (
 		span trace.Span
 		err  error

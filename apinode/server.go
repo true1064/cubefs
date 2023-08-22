@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"path"
 	"strconv"
+	"strings"
 
 	"github.com/cubefs/cubefs/util/stat"
 
@@ -232,6 +233,12 @@ func (s *apiNode) handler(resp http.ResponseWriter, req *http.Request) {
 		s.router.Drive.handler.ServeHTTP(resp, req)
 	case servicePosix, serviceS3, serviceHdfs: // TODO
 		panic("Not Implemented")
+	case "":
+		if isMetricRequest(req) {
+			s.router.Drive.handler.ServeHTTP(resp, req)
+			return
+		}
+		panic("Not Implemented")
 	default:
 		panic("Not Implemented")
 	}
@@ -328,4 +335,12 @@ func registerLogLevel() {
 	profile.HandleFunc(http.MethodGet, logLevelPath, func(c *rpc.Context) {
 		logLevelHandler.ServeHTTP(c.Writer, c.Request)
 	})
+}
+
+func isMetricRequest(req *http.Request) bool {
+	addr := req.RemoteAddr
+	if (strings.HasPrefix(addr, "localhost") || strings.HasPrefix(addr, "127.0.0.1")) && req.URL.Path == "/metrics" {
+		return true
+	}
+	return false
 }
