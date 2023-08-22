@@ -580,23 +580,21 @@ func Test_volume_ListMultiPart(t *testing.T) {
 	}
 	span, ctx := trace.StartSpanFromContext(context.TODO(), "")
 
-	var err error
 	filePath := "/tmpInitMultiPart"
 	var uploadId string
 	count := uint64(3)
 	marker := uint64(0)
-	var parts []*sdk.Part
 
 	{
 		// path not valid
-		_, _, _, err = v.ListMultiPart(ctx, uploadId, filePath, count, marker)
+		_, _, _, err := v.ListMultiPart(ctx, uploadId, filePath, count, marker)
 		require.Equal(t, err, sdk.ErrBadRequest)
 	}
 
 	{
 		// failed GetMultipart_ll(path, multipartId string) (info *proto.MultipartInfo, err error)
 		mockMeta.EXPECT().GetMultipart_ll(filePath, uploadId).Return(nil, syscall.ENOENT)
-		_, _, _, err = v.ListMultiPart(ctx, filePath, uploadId, count, marker)
+		_, _, _, err := v.ListMultiPart(ctx, filePath, uploadId, count, marker)
 		require.Equal(t, err, syscallToErr(syscall.ENOENT))
 	}
 

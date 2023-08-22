@@ -11,8 +11,7 @@ import (
 	"github.com/cubefs/cubefs/blobstore/common/trace"
 )
 
-type testAuth struct {
-}
+type testAuth struct{}
 
 func newTestAuth() rpc.ProgressHandler {
 	return &testAuth{}

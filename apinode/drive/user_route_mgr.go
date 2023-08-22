@@ -215,19 +215,6 @@ func (d *DriveNode) setUserRouteToFile(ctx context.Context, uid UserID, ur *User
 	return nil
 }
 
-func (d *DriveNode) updateUserRoute(ctx context.Context, uid UserID, ur *UserRoute) error {
-	file := getUserRouteFile(uid)
-	dirInfo, err := d.lookup(ctx, d.vol, volumeRootIno, file)
-	if err != nil {
-		return err
-	}
-	val, err := ur.Marshal()
-	if err != nil {
-		return err
-	}
-	return d.vol.SetXAttr(ctx, dirInfo.Inode, string(uid), string(val))
-}
-
 func (d *DriveNode) getUserRouteFromFile(ctx context.Context, uid UserID) (*UserRoute, error) {
 	userRouteFile := getUserRouteFile(uid)
 	dirInfo, err := d.lookup(ctx, d.vol, volumeRootIno, userRouteFile)

@@ -824,7 +824,7 @@ func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId strin
 			return nil, 0, syscallToErr(err)
 		}
 
-		den := &proto.Dentry{}
+		var den *proto.Dentry
 		den, err = v.mw.LookupEx(parIno, name)
 		if err != nil && err != syscall.ENOENT {
 			span.Warnf("lookup path file failed, filepath %s, err %s", parDir, err.Error())
