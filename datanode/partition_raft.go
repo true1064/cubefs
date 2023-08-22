@@ -791,6 +791,12 @@ func (dp *DataPartition) getRemoteAppliedID(target string, p *repl.Packet) (appl
 	var conn *net.TCPConn
 	start := time.Now().UnixNano()
 	defer func() {
+		if r := recover(); r != nil {
+			msg := fmt.Sprintf("[getRemoteAppliedID] occurred panic, err[%v], target:[%v], packet:{%+v}", r, target, p)
+			log.LogFlush()
+			panic(msg)
+		}
+
 		if err != nil {
 			err = fmt.Errorf(p.LogMessage(p.GetOpMsg(), target, start, err))
 			log.LogErrorf(err.Error())
@@ -804,6 +810,11 @@ func (dp *DataPartition) getRemoteAppliedID(target string, p *repl.Packet) (appl
 	defer func() {
 		gConnPool.PutConnect(conn, err != nil)
 	}()
+	originReqId := p.ReqID
+	originOpcode := p.Opcode
+
+	log.LogInfof("### [getRemoteAppliedID] partition(%v) before send packet, target:%v, packet:{%+v}",
+		dp.partitionID, target, p)
 	err = p.WriteToConn(conn) // write command to the remote host
 	if err != nil {
 		return
@@ -814,6 +825,25 @@ func (dp *DataPartition) getRemoteAppliedID(target string, p *repl.Packet) (appl
 	}
 	if p.ResultCode != proto.OpOk {
 		err = errors.NewErrorf("partition(%v) result code not ok (%v) from host(%v)", dp.partitionID, p.ResultCode, target)
+		return
+	}
+	log.LogInfof("### [getRemoteAppliedID] partition(%v) receive reply packet, target:%v, packet:{%+v}",
+		dp.partitionID, target, p)
+
+	replyReqId := p.ReqID
+	replyOpcode := p.Opcode
+
+	if originReqId != replyReqId || originOpcode != replyOpcode {
+		err = errors.NewErrorf("[getRemoteAppliedID] partition(%v) wrong reply packet, target:%v, originReqId:%v, replyReqId:%v, originOpcode:%v, replyOpcode:%v",
+			dp.partitionID, target, originReqId, replyReqId, originOpcode, replyOpcode)
+		log.LogError(err.Error())
+		return
+	}
+
+	if len(p.Data) != 8 {
+		err = errors.NewErrorf("[getRemoteAppliedID] partition(%v) wrong reply packet, len(p.Data):%v, target:%v, packet:{%+v}",
+			dp.partitionID, len(p.Data), target, p)
+		log.LogError(err.Error())
 		return
 	}
 	appliedID = binary.BigEndian.Uint64(p.Data)

@@ -103,8 +103,8 @@ func (s *DataNode) OperatePacket(p *repl.Packet, c net.Conn) (err error) {
 				log.LogErrorf(logContent)
 			}
 		} else {
-			logContent := fmt.Sprintf("action[OperatePacket] %v.",
-				p.LogMessage(p.GetOpMsg(), c.RemoteAddr().String(), start, nil))
+			logContent := fmt.Sprintf("action[OperatePacket] %v , packetHeader:{%+v}",
+				p.LogMessage(p.GetOpMsg(), c.RemoteAddr().String(), start, nil), p)
 			switch p.Opcode {
 			case proto.OpStreamRead, proto.OpRead, proto.OpExtentRepairRead, proto.OpStreamFollowerRead:
 			case proto.OpReadTinyDeleteRecord:
@@ -959,6 +959,7 @@ func (s *DataNode) handlePacketToGetAppliedID(p *repl.Packet) {
 	binary.BigEndian.PutUint64(buf, appliedID)
 	p.PacketOkWithBody(buf)
 	p.AddMesgLog(fmt.Sprintf("_AppliedID(%v)", appliedID))
+	log.LogWarnf("[handlePacketToGetAppliedID] reply packet(%+v)", p)
 	return
 }
 

@@ -284,8 +284,32 @@ func (p *Packet) GetCopy() *Packet {
 	return newPacket
 }
 
+//func (p *Packet) String() string {
+//	return fmt.Sprintf("ReqID(%v)Op(%v)PartitionID(%v)ResultCode(%v)", p.ReqID, p.GetOpMsg(), p.PartitionID, p.GetResultMsg())
+//}
+
 func (p *Packet) String() string {
-	return fmt.Sprintf("ReqID(%v)Op(%v)PartitionID(%v)ResultCode(%v)", p.ReqID, p.GetOpMsg(), p.PartitionID, p.GetResultMsg())
+	return fmt.Sprintf("Magic(%v), ExtentType(%v), Opcode(%v), ResultCode(%v), RemainingFollowers(%v), CRC(%v), "+
+		"Size(%v), ArgLen(%v), KernelOffset(%v), PartitionID(%v), ExtentID(%v), ExtentOffset(%v), ReqID(%v), ArgLen(%v), "+
+		"DataLen(%v), StartT(%v), mesg(%v), HasPrepare(%v)",
+		p.Magic,
+		p.GetStoreType(),
+		p.GetOpMsg(),
+		p.GetResultMsg(),
+		p.RemainingFollowers,
+		p.CRC,
+		p.Size,
+		p.ArgLen,
+		p.KernelOffset,
+		p.PartitionID,
+		p.ExtentID,
+		p.ExtentOffset,
+		p.ReqID,
+		len(p.Arg),
+		len(p.Data),
+		p.StartT,
+		p.mesg,
+		p.HasPrepare)
 }
 
 // GetStoreType returns the store type.
