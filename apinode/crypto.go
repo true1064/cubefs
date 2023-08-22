@@ -66,6 +66,7 @@ func (c cryptor) Handler(w http.ResponseWriter, req *http.Request, f func(http.R
 		}
 
 		span.Warn(err)
+		handleCounter("crypto", req.Method, sdk.ErrTransCipher.Status)
 
 		w.Header().Set(trace.GetTraceIDKey(), span.TraceID())
 		w.Header().Set(rpc.HeaderContentType, rpc.MIMEJSON)
