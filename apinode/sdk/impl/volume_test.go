@@ -6,6 +6,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"path"
 	"reflect"
 	"syscall"
 	"testing"
@@ -270,7 +271,7 @@ func Test_volume_CompleteMultiPart(t *testing.T) {
 			{Inode: 1, MD5: "md1"},
 		},
 	}
-	mockMeta.EXPECT().GetMultipart_ll(filePath, uploadId).Return(resultPart, nil).AnyTimes()
+	mockMeta.EXPECT().GetMultipart_ll(any, uploadId).Return(resultPart, nil).AnyTimes()
 	{
 		// inode create failed
 		mockMeta.EXPECT().CreateInode(any).Return(nil, syscall.EAGAIN)
@@ -313,9 +314,48 @@ func Test_volume_CompleteMultiPart(t *testing.T) {
 	}
 
 	mockMeta.EXPECT().InodeGet_ll(any).Return(nil, nil).AnyTimes()
-	mockMeta.EXPECT().CreateDentryEx(any, any).Return(uint64(0), nil)
+	mockMeta.EXPECT().CreateDentryEx(any, any).Return(uint64(0), nil).AnyTimes()
 	_, _, err = v.CompleteMultiPart(ctx, filePath, uploadId, 0, parts)
 	require.True(t, err == nil)
+
+	// test with oldFile id not zero
+	oldId := uint64(10)
+	_, _, err = v.CompleteMultiPart(ctx, filePath+"/", uploadId, oldId, parts)
+	require.True(t, err == sdk.ErrBadRequest)
+
+	newPath := filePath
+	dir, name := path.Split(newPath)
+	mockMeta.EXPECT().LookupPath(dir).Return(uint64(0), syscall.EAGAIN)
+	_, _, err = v.CompleteMultiPart(ctx, newPath, uploadId, oldId, parts)
+	require.Equal(t, err, syscallToErr(syscall.EAGAIN))
+
+	mockMeta.EXPECT().LookupPath(dir).Return(uint64(0), syscall.ENOENT)
+	_, _, err = v.CompleteMultiPart(ctx, newPath, uploadId, oldId, parts)
+	require.Equal(t, err, sdk.ErrConflict)
+
+	parIno := uint64(10)
+	mockMeta.EXPECT().LookupPath(dir).Return(parIno, nil).AnyTimes()
+
+	tcases := []struct {
+		d         *sdk.DirInfo
+		err       error
+		expectErr error
+	}{
+		{nil, syscall.EAGAIN, syscallToErr(syscall.EAGAIN)},
+		{nil, syscall.ENOENT, sdk.ErrConflict},
+		{&sdk.DirInfo{FileId: 1}, nil, sdk.ErrConflict},
+		{&sdk.DirInfo{FileId: parIno, Type: uint32(defaultDirMod)}, nil, sdk.ErrConflict},
+	}
+
+	for _, c := range tcases {
+		mockMeta.EXPECT().LookupEx(parIno, name).Return(c.d, c.err)
+		_, _, err = v.CompleteMultiPart(ctx, newPath, uploadId, oldId, parts)
+		require.Equal(t, err, c.expectErr)
+	}
+
+	mockMeta.EXPECT().LookupEx(any, any).Return(&sdk.DirInfo{Inode: 1, FileId: oldId}, nil).AnyTimes()
+	_, _, err = v.CompleteMultiPart(ctx, newPath, uploadId, oldId, parts)
+	require.NoError(t, err)
 }
 
 func Test_volume_CreateFile(t *testing.T) {

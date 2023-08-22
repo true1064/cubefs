@@ -803,6 +803,41 @@ func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId strin
 	}
 
 	span := trace.SpanFromContextSafe(ctx)
+	span.Debugf("start complete multipart, filepath %s, upload %s, oldId %d, partCnt %d",
+		filepath, uploadId, oldFileId, len(partsArg))
+
+	oldIno := uint64(0)
+	if oldFileId != 0 {
+		parDir, name := path.Split(filepath)
+		if name == "" {
+			span.Warnf("path is illegal, path %s", filepath)
+			return nil, 0, sdk.ErrBadRequest
+		}
+
+		parIno := uint64(0)
+		parIno, err = v.mw.LookupPath(parDir)
+		if err != nil {
+			span.Warnf("lookup path file failed, filepath %s, err %s", parDir, err.Error())
+			if err == syscall.ENOENT {
+				return nil, 0, sdk.ErrConflict
+			}
+			return nil, 0, syscallToErr(err)
+		}
+
+		den := &proto.Dentry{}
+		den, err = v.mw.LookupEx(parIno, name)
+		if err != nil && err != syscall.ENOENT {
+			span.Warnf("lookup path file failed, filepath %s, err %s", parDir, err.Error())
+			return nil, 0, syscallToErr(err)
+		}
+
+		if den == nil || den.FileId != oldFileId || proto.IsDir(den.Type) {
+			span.Warnf("target file already exist but conflict, path %s, den %v, reqOld %d", filepath, den, oldFileId)
+			return nil, 0, sdk.ErrConflict
+		}
+
+		oldIno = den.Inode
+	}
 
 	for idx, part := range partsArg {
 		if part.ID != uint16(idx+1) {
@@ -938,7 +973,7 @@ func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId strin
 		ParentId: parIno,
 		Name:     name,
 		Inode:    cIno,
-		OldIno:   oldFileId,
+		OldIno:   oldIno,
 		Mode:     defaultFileMode,
 	}
 

@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	blog "github.com/cubefs/cubefs/blobstore/util/log"
+	"path"
 	"strings"
 	"time"
 
@@ -32,12 +34,12 @@ func main() {
 	stat.DefaultStatInterval = 2 * time.Second
 	stat.NewStatistic(logDir, "test", int64(stat.DefaultStatLogSize), stat.DefaultTimeOutUs, true)
 	mgr := impl.NewClusterMgr()
+	blog.SetOutputLevel(blog.Ldebug)
 	span, ctx := trace.StartSpanFromContext(context.TODO(), "")
 	err := mgr.AddCluster(ctx, cluster, addr)
 	if err != nil {
 		span.Fatalf("init cluster failed, err %s", err.Error())
 	}
-
 	span.Infof("init cluster success")
 	cluster := mgr.GetCluster(cluster)
 	if cluster == nil {
@@ -572,6 +574,43 @@ func testMultiPartOp(ctx context.Context, vol sdk.IVolume) {
 	err = vol.Delete(ctx, proto.RootIno, strings.TrimPrefix(tmpFile, "/"), false)
 	if err != nil {
 		span.Fatalf("delete multipart failed, file %v, err %s", tmpFile, err.Error())
+	}
+
+	newTmp2File := tmpFile + tmpString()
+	_, newName := path.Split(newTmp2File)
+	req := &sdk.UploadFileReq{
+		ParIno: proto.RootIno,
+		Name:   newName,
+		Body:   bytes.NewBufferString("hello world"),
+	}
+	_, oldId, err := vol.UploadFile(ctx, req)
+	if err != nil {
+		span.Fatalf("upload file failed, err %s, req %v", err.Error(), req)
+	}
+
+	newUploadId2, err := vol.InitMultiPart(ctx, newTmp2File, nil)
+	if err != nil {
+		span.Fatalf("init multiPart failed, file %s, err %s", tmpFile, err.Error())
+	}
+
+	for _, p := range parts {
+		_, err = vol.UploadMultiPart(ctx, newTmp2File, newUploadId2, p.num, bytes.NewBufferString(p.data))
+		if err != nil {
+			span.Fatalf("upload multipart failed, num %d, err %s", p.num, err.Error())
+		}
+	}
+
+	newPartArr2 := make([]sdk.Part, 0)
+	for _, part := range partArr {
+		newPartArr2 = append(newPartArr2, sdk.Part{
+			ID:  part.ID,
+			MD5: part.MD5,
+		})
+	}
+
+	_, _, err = vol.CompleteMultiPart(ctx, newTmp2File, newUploadId2, oldId, newPartArr2)
+	if err != nil {
+		span.Fatalf("complete multipart failed, file %s, err %s", tmpFile, err.Error())
 	}
 }
 
