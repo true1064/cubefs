@@ -291,16 +291,32 @@ func testCreateFile(ctx context.Context, vol sdk.IVolume) {
 		span.Fatalf("upload file failed, name %s, err %s", req.Name, err.Error())
 	}
 
-	newName := "testNewName"
+	newName := "testNewName" + tmpString()
 	err = vol.Rename(ctx, dirIfo.Inode, dirIfo.Inode, req.Name, newName)
 	if err != nil {
 		span.Fatalf("rename file failed, err %s", err.Error())
+	}
+
+	// test rename dest already exist, should be failed
+	tmpName := "test" + tmpString()
+	_, _, err = vol.CreateFile(ctx, dirIfo.Inode, tmpName)
+	if err != nil {
+		span.Fatalf("create file failed, err %s", err.Error())
+	}
+
+	err = vol.Rename(ctx, dirIfo.Inode, dirIfo.Inode, newName, tmpName)
+	if err != sdk.ErrExist {
+		span.Fatalf("if target file exist, should be failed, err %v", err)
 	}
 
 	defer func() {
 		err = vol.Delete(ctx, dirIfo.Inode, newName, false)
 		if err != nil {
 			span.Fatalf("delete file failed, file %s, err %s", newName, err.Error())
+		}
+		err = vol.Delete(ctx, dirIfo.Inode, tmpName, false)
+		if err != nil {
+			span.Fatalf("delete file failed, file %s, err %s", tmpName, err.Error())
 		}
 	}()
 
