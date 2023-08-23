@@ -592,19 +592,33 @@ func TestHandleFileRename(t *testing.T) {
 		node.OnceLookup(true)
 		node.OnceLookup(true)
 		node.OnceLookup(true)
-		require.Equal(t, sdk.ErrNotFile.Status, doRequest("src", "/dir/a/", "dst", "/dir/b/").StatusCode())
+		require.Equal(t, sdk.ErrConflict.Status, doRequest("src", "/dir/a/", "dst", "/dir/b/").StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		node.OnceLookup(true)
+		node.OnceLookup(true)
+		node.OnceLookup(false)
+		require.Equal(t, sdk.ErrConflict.Status, doRequest("src", "/dir/a/", "dst", "/dir/b/").StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		node.OnceLookup(true)
+		node.OnceLookup(true)
+		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e1)
+		require.Equal(t, e1.Status, doRequest("src", "/dir/a/", "dst", "/dir/b/").StatusCode())
 	}
 	{
 		node.OnceGetUser()
 		node.Volume.EXPECT().Lookup(A, A, A).Return(&sdk.DirInfo{Inode: 11111}, nil).Times(2)
-		node.OnceLookup(false)
+		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotFound)
 		require.Equal(t, sdk.ErrForbidden.Status, doRequest("src", "/dir/a", "dst", "/dir/a").StatusCode())
 	}
 	{
 		node.OnceGetUser()
 		node.OnceLookup(true)
 		node.OnceLookup(true)
-		node.OnceLookup(false)
+		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotFound)
 		node.Volume.EXPECT().Rename(A, A, A, A, A).Return(e3)
 		require.Equal(t, e3.Status, doRequest("src", "/dir/a/", "dst", "/dir/b/").StatusCode())
 	}
@@ -621,7 +635,7 @@ func TestHandleFileRename(t *testing.T) {
 		for i := 0; i < cs.lookup; i++ {
 			node.OnceLookup(true)
 		}
-		node.OnceLookup(false)
+		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotFound)
 		node.Volume.EXPECT().Rename(A, A, A, A, A).Return(nil)
 		require.NoError(t, doRequest("src", cs.src, "dst", cs.dst))
 	}

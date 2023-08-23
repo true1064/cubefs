@@ -445,9 +445,14 @@ func (d *DriveNode) handleFileRename(c *rpc.Context) {
 		}
 		dstParentIno = Inode(dstParent.Inode)
 	}
-	dstFile, err := d.lookup(ctx, vol, dstParentIno, dstName)
-	if err == nil && dstFile.IsDir() {
-		d.respError(c, sdk.ErrNotFile)
+	_, err = d.lookup(ctx, vol, dstParentIno, dstName)
+	if err == nil {
+		span.Info("check dst exist:", args.Dst.String())
+		d.respError(c, sdk.ErrConflict)
+		return
+	} else if err != sdk.ErrNotFound {
+		span.Warn("check dst", err)
+		d.respError(c, err)
 		return
 	}
 
