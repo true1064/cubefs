@@ -88,7 +88,15 @@ func (s *sink) StartConsumer(h oplog.Handler) {
 			defer s.wg.Done()
 			for {
 				if err := s.group.Consume(s.stopCtx, []string{s.topic}, s); err != nil {
-					log.Panicf("consume error: %v", err)
+					if err == sarama.ErrClosedConsumerGroup {
+						return
+					}
+					log.Errorf("consume error: %v", err)
+					select {
+					case <-time.After(time.Minute):
+					case <-s.stopCtx.Done():
+						return
+					}
 				}
 
 				log.Infof("Rebalance partition for topic %s", s.topic)
