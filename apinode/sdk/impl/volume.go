@@ -735,28 +735,27 @@ func (v *volume) ListMultiPart(ctx context.Context, filepath, uploadId string, c
 		return
 	}
 
-	sessParts := info.Parts
-	total := len(sessParts)
-	if marker == 0 && total == 0 {
-		return []*sdk.Part{}, 0, false, nil
-	}
-
-	if uint64(total) <= marker {
-		span.Warnf("invalid marker, large than total parts cnt, marker %d, total %d", marker, total)
+	if count > sdk.MaxMultiPartCnt {
 		err = sdk.ErrBadRequest
+		span.Warnf("invalid args, count %d", count)
 		return
 	}
 
-	next = marker + count
-	isTruncated = true
+	parts = make([]*sdk.Part, 0, count)
+	cnt := uint64(0)
+	for _, p := range info.Parts {
+		if uint64(p.ID) < marker {
+			continue
+		}
+		cnt++
+		if cnt > count {
+			next = uint64(p.ID)
+			isTruncated = true
+			break
+		}
 
-	if uint64(total)-marker <= count {
-		count = uint64(total) - marker
-		next = 0
-		isTruncated = false
+		parts = append(parts, p)
 	}
-
-	parts = sessParts[marker : marker+count]
 
 	return parts, next, isTruncated, nil
 }

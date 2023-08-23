@@ -609,16 +609,16 @@ func Test_volume_ListMultiPart(t *testing.T) {
 		Parts: []*proto.MultipartPartInfo{
 			{ID: 1, MD5: "xxt"},
 			{ID: 2, MD5: "xx2"},
-			{ID: 3, MD5: "xx3"},
-			{ID: 4, MD5: "xx4"},
-			{ID: 5, MD5: "xx5"},
+			{ID: 10, MD5: "xx3"},
+			{ID: 14, MD5: "xx4"},
+			{ID: 15, MD5: "xx5"},
 		},
 	}
 	mockMeta.EXPECT().GetMultipart_ll(filePath, uploadId).Return(partsResult, nil).AnyTimes()
 	parts, next, trunc, err := v.ListMultiPart(ctx, filePath, uploadId, count, marker)
 	span.Infof("listMultiPart failed, len(%d), next %d, trunc %v, err %v", len(parts), next, trunc, err)
 	require.Equal(t, err, nil)
-	require.True(t, len(parts) == int(count) && next == count+marker && trunc)
+	require.True(t, len(parts) == int(count) && next == 14 && trunc)
 	for idx, p := range parts {
 		pt := partsResult.Parts[idx]
 		require.True(t, pt.MD5 == p.MD5 && pt.ID == p.ID)
@@ -628,15 +628,24 @@ func Test_volume_ListMultiPart(t *testing.T) {
 	parts, next, trunc, err = v.ListMultiPart(ctx, filePath, uploadId, count, newMarker)
 	span.Infof("listMultiPart failed, len(%d), next %d, trunc %v, err %v", len(parts), next, trunc, err)
 	require.Equal(t, err, nil)
-	require.True(t, len(parts) == 2 && next == 0 && !trunc)
+	require.True(t, len(parts) == 3 && next == 0 && !trunc)
 	for idx, p := range parts {
-		pt := partsResult.Parts[idx+int(newMarker)]
+		pt := partsResult.Parts[idx+2]
 		require.Equal(t, pt.ID, p.ID)
 		require.Equal(t, pt.MD5, p.MD5)
 	}
 
-	_, _, _, err = v.ListMultiPart(ctx, filePath, uploadId, count, uint64(len(partsResult.Parts)))
-	require.Equal(t, err, sdk.ErrBadRequest)
+	parts, next, trunc, err = v.ListMultiPart(ctx, filePath, uploadId, count, 100)
+	require.True(t, next == 0 && !trunc && len(parts) == 0 && err == nil)
+
+	parts, next, trunc, err = v.ListMultiPart(ctx, filePath, uploadId, 10001, 100)
+	require.True(t, err == sdk.ErrBadRequest)
+
+	parts, next, trunc, err = v.ListMultiPart(ctx, filePath, uploadId, 0, 1)
+	require.True(t, next == 1 && trunc && len(parts) == 0 && err == nil)
+
+	parts, next, trunc, err = v.ListMultiPart(ctx, filePath, uploadId, 0, 0)
+	require.True(t, next == 1 && trunc && len(parts) == 0 && err == nil)
 }
 
 func Test_volume_ListXAttr(t *testing.T) {

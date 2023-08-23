@@ -8,13 +8,15 @@ import (
 	"strings"
 	"time"
 
+	blog "github.com/cubefs/cubefs/blobstore/util/log"
+
+	"github.com/cubefs/cubefs/util/log"
+	"github.com/cubefs/cubefs/util/stat"
+
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/apinode/sdk/impl"
 	"github.com/cubefs/cubefs/blobstore/common/trace"
-	blog "github.com/cubefs/cubefs/blobstore/util/log"
 	"github.com/cubefs/cubefs/proto"
-	"github.com/cubefs/cubefs/util/log"
-	"github.com/cubefs/cubefs/util/stat"
 )
 
 const (
