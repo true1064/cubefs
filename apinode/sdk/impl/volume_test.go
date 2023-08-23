@@ -638,7 +638,7 @@ func Test_volume_ListMultiPart(t *testing.T) {
 	parts, next, trunc, err = v.ListMultiPart(ctx, filePath, uploadId, count, 100)
 	require.True(t, next == 0 && !trunc && len(parts) == 0 && err == nil)
 
-	parts, next, trunc, err = v.ListMultiPart(ctx, filePath, uploadId, 10001, 100)
+	_, _, _, err = v.ListMultiPart(ctx, filePath, uploadId, 10001, 100)
 	require.True(t, err == sdk.ErrBadRequest)
 
 	parts, next, trunc, err = v.ListMultiPart(ctx, filePath, uploadId, 0, 1)

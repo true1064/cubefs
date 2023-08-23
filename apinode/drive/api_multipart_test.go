@@ -122,7 +122,7 @@ func TestHandleMultipartUploads(t *testing.T) {
 		var parts []MPPart
 		var listp []*sdk.Part
 		for idx := range [10]struct{}{} {
-			parts = append(parts, MPPart{PartNumber: uint16(idx + 1), Size: int(crypto.BlockSize), MD5: fmt.Sprint(idx)})
+			parts = append(parts, MPPart{PartNumber: uint16(idx + 1), Size: int(crypto.BlockSize), Etag: fmt.Sprint(idx)})
 			listp = append(listp, &sdk.Part{ID: uint16(idx + 1), Size: crypto.BlockSize, MD5: fmt.Sprint(idx)})
 		}
 		buff, _ := json.Marshal(parts)
@@ -202,10 +202,10 @@ func TestHandleMultipartParts(t *testing.T) {
 	}
 	{
 		node.OnceGetUser()
-		node.Volume.EXPECT().UploadMultiPart(A, A, A, A, A).Return(&sdk.Part{MD5: "md5", Size: 64}, nil)
+		node.Volume.EXPECT().UploadMultiPart(A, A, A, A, A).Return(&sdk.Part{MD5: "etag", Size: 64}, nil)
 		var part MPPart
 		require.NoError(t, doRequest(newMockBody(0), &part, "path", "/a", "uploadId", uploadID, "partNumber", "1"))
-		require.Equal(t, "md5", part.MD5)
+		require.Equal(t, "etag", part.Etag)
 		require.Equal(t, 64, part.Size)
 	}
 }

@@ -31,7 +31,7 @@ import (
 type MPPart struct {
 	PartNumber uint16 `json:"partNumber"`
 	Size       int    `json:"size"`
-	MD5        string `json:"md5"`
+	Etag       string `json:"etag"`
 }
 
 // ArgsMPUploads multipart upload or complete argument.
@@ -135,9 +135,9 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 	for _, part := range parts {
 		sParts = append(sParts, sdk.Part{
 			ID:  part.PartNumber,
-			MD5: part.MD5,
+			MD5: part.Etag,
 		})
-		reqParts[part.PartNumber] = part.MD5
+		reqParts[part.PartNumber] = part.Etag
 	}
 
 	st := time.Now()
@@ -160,10 +160,10 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 				d.respError(c, sdk.ErrBadRequest.Extend("size not supported", part.ID, part.Size))
 				return
 			}
-			if md5, ok := reqParts[part.ID]; ok {
-				if md5 != part.MD5 {
-					span.Warn("multipart complete part md5 mismatch", part.ID, md5)
-					d.respError(c, sdk.ErrBadRequest.Extend("md5 mismatch", part.ID, md5))
+			if etag, ok := reqParts[part.ID]; ok {
+				if etag != part.MD5 {
+					span.Warn("multipart complete part etag mismatch", part.ID, etag)
+					d.respError(c, sdk.ErrBadRequest.Extend("etag mismatch", part.ID, etag))
 					return
 				}
 			}
@@ -233,7 +233,7 @@ func (d *DriveNode) handleMultipartPart(c *rpc.Context) {
 	span.Info("multipart upload", args)
 	d.respData(c, MPPart{
 		PartNumber: args.PartNumber,
-		MD5:        part.MD5,
+		Etag:       part.MD5,
 		Size:       int(part.Size),
 	})
 }
@@ -243,7 +243,7 @@ type ArgsMPList struct {
 	Path     FilePath `json:"path"`
 	UploadID string   `json:"uploadId"`
 	Marker   FileID   `json:"marker"`
-	Count    int      `json:"count,omitempty"`
+	Limit    int      `json:"limit,omitempty"`
 }
 
 // RespMPList response of list parts.
@@ -261,8 +261,11 @@ func (d *DriveNode) handleMultipartList(c *rpc.Context) {
 	if d.checkError(c, func(err error) { span.Info(args.Path, err) }, args.Path.Clean()) {
 		return
 	}
-	if args.Count <= 0 {
-		args.Count = 400
+	if args.Limit <= 0 {
+		args.Limit = 400
+	}
+	if args.Limit > maxMultipartNumber {
+		args.Limit = maxMultipartNumber
 	}
 
 	_, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c))
@@ -271,7 +274,7 @@ func (d *DriveNode) handleMultipartList(c *rpc.Context) {
 	}
 
 	fullPath := multipartFullPath(d.userID(c), args.Path)
-	sParts, next, _, err := vol.ListMultiPart(ctx, fullPath, args.UploadID, uint64(args.Count), args.Marker.Uint64())
+	sParts, next, _, err := vol.ListMultiPart(ctx, fullPath, args.UploadID, uint64(args.Limit), args.Marker.Uint64())
 	if d.checkError(c, func(err error) { span.Error("multipart list", args, err) }, err) {
 		return
 	}
@@ -281,7 +284,7 @@ func (d *DriveNode) handleMultipartList(c *rpc.Context) {
 		parts = append(parts, MPPart{
 			PartNumber: part.ID,
 			Size:       int(part.Size),
-			MD5:        part.MD5,
+			Etag:       part.MD5,
 		})
 	}
 	span.Info("multipart list", args, next, parts)
