@@ -86,6 +86,8 @@ func (s *sink) StartConsumer(h oplog.Handler) {
 		s.handler = h
 		go func() {
 			defer s.wg.Done()
+			timer := time.NewTimer(time.Minute)
+			defer timer.Stop()
 			for {
 				if err := s.group.Consume(s.stopCtx, []string{s.topic}, s); err != nil {
 					if err == sarama.ErrClosedConsumerGroup {
@@ -93,7 +95,7 @@ func (s *sink) StartConsumer(h oplog.Handler) {
 					}
 					log.Errorf("consume error: %v", err)
 					select {
-					case <-time.After(time.Minute):
+					case <-timer.C:
 					case <-s.stopCtx.Done():
 						return
 					}
