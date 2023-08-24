@@ -200,19 +200,18 @@ func (d *DriveNode) setUserRouteToFile(ctx context.Context, uid UserID, ur *User
 		if err != nil {
 			return err
 		}
-		return json.Unmarshal([]byte(val), ur)
+		if len(val) > 0 {
+			return json.Unmarshal([]byte(val), ur)
+		}
+	} else {
+		fileIno = inoInfo.Inode
 	}
 
-	fileIno = inoInfo.Inode
 	val, err := ur.Marshal()
 	if err != nil {
 		return err
 	}
-	err = d.vol.SetXAttr(ctx, fileIno, string(ur.Uid), string(val))
-	if err != nil {
-		return err
-	}
-	return nil
+	return d.vol.SetXAttr(ctx, fileIno, string(ur.Uid), string(val))
 }
 
 func (d *DriveNode) getUserRouteFromFile(ctx context.Context, uid UserID) (*UserRoute, error) {

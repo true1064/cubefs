@@ -66,7 +66,7 @@ func (m *authenticator) Handler(w http.ResponseWriter, req *http.Request, f func
 
 		if e, ok := err.(*sdk.Error); ok {
 			handleCounter("auth", req.Method, e.Status)
-			errStr := fmt.Sprintf("{\"code\":\"%s\", \"message\":\"%s\"}", e.Code, e.Message)
+			errStr := fmt.Sprintf("{\"code\":\"%s\", \"error\":\"%s\"}", e.Code, e.Message)
 			w.Header().Set(rpc.HeaderContentLength, fmt.Sprint(len(errStr)))
 			w.WriteHeader(e.Status)
 			w.Write([]byte(errStr))

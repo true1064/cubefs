@@ -43,7 +43,7 @@ func (m *testAuth) Handler(w http.ResponseWriter, req *http.Request, f func(http
 		w.Header().Set(rpc.HeaderContentType, rpc.MIMEJSON)
 
 		if e, ok := err.(*sdk.Error); ok {
-			errStr := fmt.Sprintf("{\"code\":\"%s\", \"message\":\"%s\"}", e.Code, e.Message)
+			errStr := fmt.Sprintf("{\"code\":\"%s\", \"error\":\"%s\"}", e.Code, e.Message)
 			w.Header().Set(rpc.HeaderContentLength, fmt.Sprint(len(errStr)))
 			w.WriteHeader(e.Status)
 			w.Write([]byte(errStr))
