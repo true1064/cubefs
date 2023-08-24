@@ -15,7 +15,9 @@
 package cli
 
 import (
+	"crypto/md5"
 	"encoding/hex"
+	"hash/crc32"
 	"io"
 	"os"
 	"path"
@@ -217,7 +219,25 @@ func registerUser(app *grumble.App) {
 			return nil
 		},
 	}
+	uidCommand := &grumble.Command{
+		Name: "uid",
+		Help: "encode uid root path",
+		Args: func(a *grumble.Args) {
+			a.String("str", "string")
+		},
+		Run: func(c *grumble.Context) error {
+			uid := c.Args.String("str")
+			const hashMask = 1024
+			data := md5.Sum([]byte(uid))
+			h1 := crc32.ChecksumIEEE(data[:])
+			data = md5.Sum([]byte(fmt.Sprintf("%d", h1)))
+			h2 := crc32.ChecksumIEEE(data[:])
+			fmt.Printf("/%d/%d/%s\n", h1%hashMask, h2%hashMask, uid)
+			return nil
+		},
+	}
 	app.AddCommand(userCommand)
 	app.AddCommand(hexCommand)
 	app.AddCommand(gcmCommand)
+	app.AddCommand(uidCommand)
 }

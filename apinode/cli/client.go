@@ -15,7 +15,9 @@
 package cli
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -129,11 +131,6 @@ func (c *client) DriveCreate() (r drive.CreateDriveResult, err error) {
 	return
 }
 
-func (c *client) DriveGet(uid string) (r drive.UserRoute, err error) {
-	err = c.requestWith(get, genURI("/v1/drive", "uid", uid), nil, &r)
-	return
-}
-
 func (c *client) MetaSet(path string, meta ...string) error {
 	return c.request(post, genURI("/v1/files/properties", "path", path), nil, meta...)
 }
@@ -220,6 +217,19 @@ func (c *client) FileDelete(path string, recursive bool) error {
 	return c.request(del, genURI("/v1/files", "path", path, "recursive", recursive), nil)
 }
 
+func (c *client) FileBatchDelete(paths []string) (r drive.BatchDeleteResult, err error) {
+	files := make([]drive.FilePath, 0, len(paths))
+	for idx := range paths {
+		files = append(files, drive.FilePath(paths[idx]))
+	}
+	b, err := json.Marshal(drive.ArgsBatchDelete{Paths: files})
+	if err != nil {
+		panic(err)
+	}
+	err = c.requestWith(del, genURI("/v1/files/batch"), bytes.NewReader(b), &r)
+	return
+}
+
 func (c *client) MPInit(path, fileID string, meta ...string) (r drive.RespMPuploads, err error) {
 	err = c.requestWith(post, genURI(_pmp, "path", path, "fileId", fileID), nil, &r, meta...)
 	return
@@ -235,8 +245,8 @@ func (c *client) MPPart(path, uploadID, partNumber string, body io.Reader) (r dr
 	return
 }
 
-func (c *client) MPList(path, uploadID, marker, count string) (r drive.RespMPList, err error) {
-	err = c.requestWith(get, genURI(_pmp, "path", path, "uploadId", uploadID, "marker", marker, "count", count), nil, &r)
+func (c *client) MPList(path, uploadID, marker, limit string) (r drive.RespMPList, err error) {
+	err = c.requestWith(get, genURI(_pmp, "path", path, "uploadId", uploadID, "marker", marker, "limit", limit), nil, &r)
 	return
 }
 

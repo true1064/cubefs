@@ -41,16 +41,6 @@ func addCmdDrive(cmd *grumble.Command) {
 			return show(cli.DriveCreate())
 		},
 	})
-	driveCommand.AddCommand(&grumble.Command{
-		Name: "get",
-		Help: "get user drive",
-		Args: func(a *grumble.Args) {
-			a.String("uid", "uid")
-		},
-		Run: func(c *grumble.Context) error {
-			return show(cli.DriveGet(c.Args.String("uid")))
-		},
-	})
 }
 
 func addCmdMeta(cmd *grumble.Command) {
@@ -167,6 +157,16 @@ func addCmdFile(cmd *grumble.Command) {
 		},
 		Run: func(c *grumble.Context) error {
 			return cli.FileDelete(c.Flags.String("path"), c.Flags.Bool("recursive"))
+		},
+	})
+	fileCommand.AddCommand(&grumble.Command{
+		Name: "batchdelete",
+		Help: "batch delete files",
+		Args: func(a *grumble.Args) {
+			a.StringList("paths", "file paths")
+		},
+		Run: func(c *grumble.Context) error {
+			return show(cli.FileBatchDelete(c.Args.StringList("paths")))
 		},
 	})
 	fileCommand.AddCommand(&grumble.Command{
