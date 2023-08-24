@@ -106,7 +106,7 @@ func (l *LcNode) startSnapshotScan(adminTask *proto.AdminTask) (err error) {
 }
 
 func (s *SnapshotScanner) getTaskVerSeq() uint64 {
-	return s.verDelReq.Task.VerSeq
+	return s.verDelReq.Task.VolVersionInfo.Ver
 }
 
 func (s *SnapshotScanner) Stop() {
