@@ -116,6 +116,18 @@ func (mp *metaPartition) Apply(command []byte, index uint64) (resp interface{}, 
 			return
 		}
 		resp = mp.fsmExtentsTruncateByDirVer(inodeDirVer)
+	case opFSMCreateDirSnap:
+		ifo := &proto.DirSnapShotInfo{}
+		if err = json.Unmarshal(msg.V, ifo); err != nil {
+			return
+		}
+		resp = mp.fsmCreateDirSnapshot(ifo)
+	case opFSMMarkDelDirSnap:
+		ifo := &proto.DirVerItem{}
+		if err = json.Unmarshal(msg.V, ifo); err != nil {
+			return
+		}
+		resp = mp.fsmDelDirSnap(ifo)
 	case opFSMUnlinkInodeBatch:
 		inodes, err := InodeBatchUnmarshal(msg.V)
 		if err != nil {
@@ -301,6 +313,7 @@ func (mp *metaPartition) Apply(command []byte, index uint64) (resp interface{}, 
 		quotaRebuild := mp.mqMgr.statisticRebuildStart()
 		uidRebuild := mp.acucumRebuildStart()
 		uniqChecker := mp.uniqChecker.clone()
+		dirVerTree := mp.dirVerTree.GetTree()
 		msg := &storeMsg{
 			command:        opFSMStoreTick,
 			applyIndex:     index,
@@ -315,6 +328,7 @@ func (mp *metaPartition) Apply(command []byte, index uint64) (resp interface{}, 
 			quotaRebuild:   quotaRebuild,
 			uidRebuild:     uidRebuild,
 			uniqChecker:    uniqChecker,
+			dirVerTree:     dirVerTree,
 			multiVerList:   mp.GetVerList(),
 		}
 		log.LogDebugf("opFSMStoreTick: quotaRebuild [%v] uidRebuild [%v]", quotaRebuild, uidRebuild)
@@ -667,6 +681,7 @@ func (mp *metaPartition) ApplySnapshot(peers []raftproto.Peer, iter raftproto.Sn
 		dentryTree     = NewBtree()
 		extendTree     = NewBtree()
 		multipartTree  = NewBtree()
+		dirVerTree    = NewBtree()
 		txTree         = NewBtree()
 		txRbInodeTree  = NewBtree()
 		txRbDentryTree = NewBtree()
@@ -721,6 +736,7 @@ func (mp *metaPartition) ApplySnapshot(peers []raftproto.Peer, iter raftproto.Sn
 			mp.dentryTree = dentryTree
 			mp.extendTree = extendTree
 			mp.multipartTree = multipartTree
+			mp.dirVerTree = dirVerTree
 			mp.config.Cursor = cursor
 			mp.txProcessor.txManager.txTree = txTree
 			mp.txProcessor.txResource.txRbInodeTree = txRbInodeTree
@@ -735,6 +751,7 @@ func (mp *metaPartition) ApplySnapshot(peers []raftproto.Peer, iter raftproto.Sn
 				txId:           mp.txProcessor.txManager.txIdAlloc.getTransactionID(),
 				inodeTree:      mp.inodeTree.GetTree(),
 				dentryTree:     mp.dentryTree.GetTree(),
+				dirVerTree:    mp.dirVerTree,
 				extendTree:     mp.extendTree.GetTree(),
 				multipartTree:  mp.multipartTree.GetTree(),
 				txTree:         mp.txProcessor.txManager.txTree.GetTree(),

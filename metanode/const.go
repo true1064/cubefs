@@ -200,6 +200,9 @@ const (
 	opCreateDentryEx = 10001
 	opSetInodeLock   = 10002
 	opFSMSetXAttrEx  = 10010
+	opFSMCreateDirSnap   = 11000
+	opFSMMarkDelDirSnap  = 11001
+	opFSMBatchDelDirSnap = 11002
 )
 
 var (

@@ -42,6 +42,7 @@ type storeMsg struct {
 	uniqId         uint64
 	uniqChecker    *uniqChecker
 	multiVerList []*proto.VersionInfo
+	dirVerTree   *BTree
 }
 
 func (mp *metaPartition) startSchedule(curIndex uint64) {

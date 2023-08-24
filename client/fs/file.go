@@ -673,6 +673,7 @@ func (f *File) Listxattr(ctx context.Context, req *fuse.ListxattrRequest, resp *
 		log.LogErrorf("ListXattr: ino(%v) err(%v)", ino, err)
 		return ParseError(err)
 	}
+
 	for _, key := range keys {
 		resp.Append(key)
 	}

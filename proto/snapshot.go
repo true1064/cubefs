@@ -58,3 +58,17 @@ type MasterBatchDelDirVersionReq struct {
 	PartitionId uint64
 	DirInfos    []DirVersionInfo
 }
+
+type CreateDirSnapShotReq struct {
+	VolName     string           `json:"vol"`
+	PartitionID uint64           `json:"pid"`
+	Info        *DirSnapShotInfo `json:"snapshot"`
+}
+
+type DirSnapShotInfo struct {
+	SnapshotDir   string `json:"snapshot_dir"`
+	SnapshotInode uint64 `json:"snapshot_ino"`
+	OutVer        string `json:"out_ver"`
+	Ver           uint64 `json:"ver"`
+	RootInode     uint64 `json:"rootInode"`
+}

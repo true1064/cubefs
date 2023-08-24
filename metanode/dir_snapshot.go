@@ -3,7 +3,10 @@ package metanode
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
+	"github.com/cubefs/cubefs/proto"
 	"reflect"
+	"sync"
 )
 
 type SnapshotVer struct {
@@ -13,11 +16,32 @@ type SnapshotVer struct {
 	Status  uint8 // building,normal,deleted,abnormal
 }
 
+func newSnapshotVer(outVer string, ver uint64) *SnapshotVer {
+	return &SnapshotVer{
+		OutVer:  outVer,
+		Ver:     ver,
+		DelTime: 0,
+		Status:  proto.VersionNormal,
+	}
+}
+
 type DirSnapshotItem struct {
+	sync.RWMutex
 	SnapshotInode uint64 // key for item
 	Dir           string
 	RootInode     uint64
 	Vers          []*SnapshotVer
+}
+
+func newDirSnapItem(dirIno uint64) *DirSnapshotItem {
+	return &DirSnapshotItem{
+		SnapshotInode: dirIno,
+	}
+}
+
+func (d *DirSnapshotItem) String() string {
+	return fmt.Sprintf("snapshotIno(%d)_snapDir(%s)_rootIno(%d)_verCnt(%d)",
+		d.SnapshotInode, d.Dir, d.RootInode, len(d.Vers))
 }
 
 func (d *DirSnapshotItem) equal(d1 *DirSnapshotItem) bool {
@@ -37,6 +61,29 @@ func (d *DirSnapshotItem) equal(d1 *DirSnapshotItem) bool {
 	}
 
 	return true
+}
+
+// This method is necessary fot B-Tree item implementation.
+func (d *DirSnapshotItem) Less(than BtreeItem) bool {
+	d1, ok := than.(*DirSnapshotItem)
+	return ok && d.SnapshotInode < d1.SnapshotInode
+}
+
+func (d *DirSnapshotItem) Copy() BtreeItem {
+	d1 := &DirSnapshotItem{}
+	d1.RLock()
+	d1.SnapshotInode = d.SnapshotInode
+	d1.Dir = d.Dir
+	d1.RootInode = d.RootInode
+	if len(d.Vers) > 0 {
+		d1.Vers = make([]*SnapshotVer, 0, len(d.Vers))
+		for _, v := range d.Vers {
+			tmpV := *v
+			d1.Vers = append(d1.Vers, &tmpV)
+		}
+	}
+	d1.RUnlock()
+	return d1
 }
 
 func (d *DirSnapshotItem) Marshal() (result []byte, err error) {
@@ -228,4 +275,9 @@ func (d *DirSnapshotItem) UnmarshalValue(val []byte) (err error) {
 	}
 
 	return
+}
+
+type BatchDelDirSnapInfo struct {
+	Status int                `json:"status"`
+	Items  []proto.DirVerItem `json:"items"`
 }

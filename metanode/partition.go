@@ -482,6 +482,7 @@ type metaPartition struct {
 	inodeTree              *BTree                // btree for inodes
 	extendTree             *BTree                // btree for inode extend (XAttr) management
 	multipartTree          *BTree                // collection for multipart management
+	dirVerTree             *BTree                // collection for dir snapshot version
 	txProcessor            *TransactionProcessor // transction processor
 	raftPartition          raftstore.Partition
 	stopC                  chan bool
@@ -868,6 +869,7 @@ func NewMetaPartition(conf *MetaPartitionConfig, manager *metadataManager) MetaP
 		inodeTree:        NewBtree(),
 		extendTree:       NewBtree(),
 		multipartTree:    NewBtree(),
+		dirVerTree:    NewBtree(),
 		stopC:            make(chan bool),
 		storeChan:        make(chan *storeMsg, 100),
 		freeList:         newFreeList(),

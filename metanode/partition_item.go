@@ -147,6 +147,7 @@ type MetaItemIterator struct {
 	txTree            *BTree
 	txRbInodeTree     *BTree
 	txRbDentryTree    *BTree
+	dirVerTree *BTree
 	uniqChecker       *uniqChecker
 
 	filenames []string
@@ -197,6 +198,7 @@ func newMetaItemIterator(mp *metaPartition) (si *MetaItemIterator, err error) {
 	si.dentryTree = mp.dentryTree.GetTree()
 	si.extendTree = mp.extendTree.GetTree()
 	si.multipartTree = mp.multipartTree.GetTree()
+	si.dirVerTree = mp.dirVerTree.GetTree()
 	si.txTree = mp.txProcessor.txManager.txTree.GetTree()
 	si.txRbInodeTree = mp.txProcessor.txResource.txRbInodeTree.GetTree()
 	si.txRbDentryTree = mp.txProcessor.txResource.txRbDentryTree.GetTree()

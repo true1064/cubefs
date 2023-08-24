@@ -564,9 +564,9 @@ type DirVerItem struct {
 }
 
 type DirVerDelReq struct {
-	VolName     string `json:"vol"`
-	PartitionID uint64 `json:"pid"`
-	DirVerItem
+	VolName     string     `json:"vol"`
+	PartitionID uint64     `json:"pid"`
+	Item        DirVerItem `json:"item"`
 }
 
 type MetaBatchDelVerReq struct {

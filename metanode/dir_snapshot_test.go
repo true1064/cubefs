@@ -55,5 +55,29 @@ func TestDirSnapshotItem_Marshal(t *testing.T) {
 		err = nds.Unmarshal(data)
 		require.NoError(t, err)
 		require.True(t, ds.equal(nds))
+		cds := ds.Copy()
+		require.True(t, ds.equal(cds.(*DirSnapshotItem)))
+	}
+}
+
+func TestDirSnapshotItem_Less(t *testing.T) {
+	tcases := []struct {
+		a      uint64
+		b      uint64
+		expect bool
+	}{
+		{0, 10, true},
+		{10, 10, false},
+		{11, 1, false},
+	}
+
+	for _, c := range tcases {
+		d1 := &DirSnapshotItem{
+			SnapshotInode: c.a,
+		}
+		d2 := &DirSnapshotItem{
+			SnapshotInode: c.b,
+		}
+		require.Equal(t, d1.Less(d2), c.expect)
 	}
 }
