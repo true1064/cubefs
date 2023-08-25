@@ -933,6 +933,7 @@ func (api *AdminAPI) SetBucketLifecycle(req *proto.LcConfiguration) (err error) 
 	}
 	return
 }
+
 func (api *AdminAPI) GetBucketLifecycle(volume string) (lcConf *proto.LcConfiguration, err error) {
 	var request = newAPIRequest(http.MethodGet, proto.GetBucketLifecycle)
 	request.addParam("name", volume)
@@ -946,6 +947,7 @@ func (api *AdminAPI) GetBucketLifecycle(volume string) (lcConf *proto.LcConfigur
 	}
 	return
 }
+
 func (api *AdminAPI) DelBucketLifecycle(volume string) (err error) {
 	var request = newAPIRequest(http.MethodGet, proto.DeleteBucketLifecycle)
 	request.addParam("name", volume)
@@ -958,6 +960,33 @@ func (api *AdminAPI) DelBucketLifecycle(volume string) (err error) {
 func (api *AdminAPI) GetS3QoSInfo() (data []byte, err error) {
 	var request = newAPIRequest(http.MethodGet, proto.S3QoSGet)
 	if data, err = api.mc.serveRequest(request); err != nil {
+		return
+	}
+	return
+}
+
+func (api *AdminAPI) AllocDirSnapshotVersion(volName string) (dirSnapVerInfo *proto.DirSnapshotVersionInfo, err error) {
+	var request = newAPIRequest(http.MethodGet, proto.AdminDirSnapshotAllocVersion)
+	request.addParam("name", volName)
+	var buf []byte
+	if buf, err = api.mc.serveRequest(request); err != nil {
+		return
+	}
+	dirSnapVerInfo = &proto.DirSnapshotVersionInfo{}
+	if err = json.Unmarshal(buf, &dirSnapVerInfo); err != nil {
+		return
+	}
+	return
+}
+
+func (api *AdminAPI) BatchDelDirSnapshotVersion(req proto.MasterBatchDelDirVersionReq) (err error) {
+	var request = newAPIRequest(http.MethodGet, proto.AdminDirSnapshotBatchDeleteVersion)
+	var encoded []byte
+	if encoded, err = json.Marshal(req); err != nil {
+		return
+	}
+	request.addBody(encoded)
+	if _, err = api.mc.serveRequest(request); err != nil {
 		return
 	}
 	return

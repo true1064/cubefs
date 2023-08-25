@@ -44,19 +44,24 @@ type SnapshotVerDelTaskResponse struct {
 }
 
 type DelVer struct {
-	DelVel uint64
-	Vers   []VersionInfo
+	DelVer     uint64        // the snapshot version to delete
+	SubRootIno uint64        // CFA-user's root directory
+	Vers       []VersionInfo //Info of all snapshots of a directory
 }
 
-type DirVersionInfo struct {
+type DelDirVersionInfo struct {
 	DirIno  uint64
 	DelVers []DelVer
 }
 
 type MasterBatchDelDirVersionReq struct {
-	Vol         string
-	PartitionId uint64
-	DirInfos    []DirVersionInfo
+	Vol             string
+	MetaPartitionId uint64
+	DirInfos        []DelDirVersionInfo
+}
+
+type DirSnapshotVersionInfo struct {
+	SnapVersion uint64
 }
 
 type CreateDirSnapShotReq struct {

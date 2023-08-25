@@ -66,10 +66,12 @@ func newVersionMgr(vol *Vol) *VolVersionManager {
 		},
 	}
 }
+
 func (verMgr *VolVersionManager) String() string {
 	return fmt.Sprintf("mgr:{vol[%v],status[%v] verSeq [%v], prepareinfo [%v]}",
 		verMgr.vol.Name, verMgr.status, verMgr.verSeq, verMgr.prepareCommit)
 }
+
 func (verMgr *VolVersionManager) Persist() (err error) {
 	persistInfo := &VolVersionPersist{
 		MultiVersionList: verMgr.multiVersionList,
