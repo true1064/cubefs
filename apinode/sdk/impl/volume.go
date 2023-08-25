@@ -169,37 +169,12 @@ func (v *volume) Readdir(ctx context.Context, parIno uint64, marker string, coun
 		return nil, sdk.ErrBadRequest
 	}
 
-	if marker != "" {
-		count++
-	}
-
 	dirs, err := v.mw.ReadDirLimit_ll(parIno, marker, uint64(count))
 	if err != nil {
 		span.Errorf("readdir failed, parentIno: %d, marker %s, count %s, err %s", parIno, marker, count, err.Error())
 		return nil, syscallToErr(err)
 	}
 
-	cnt := len(dirs)
-	if cnt == 0 {
-		return []sdk.DirInfo{}, nil
-	}
-
-	if marker == "" {
-		return dirs[:cnt], nil
-	}
-
-	if dirs[0].Name == marker && cnt == 1 {
-		return []sdk.DirInfo{}, nil
-	}
-
-	if dirs[0].Name == marker {
-		return dirs[1:], nil
-	}
-
-	// all dirs bigger than marker
-	if cnt == int(count) {
-		return dirs[:cnt-1], nil
-	}
 	return dirs, nil
 }
 
