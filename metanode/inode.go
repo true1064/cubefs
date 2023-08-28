@@ -66,7 +66,7 @@ type InodeMultiSnap struct {
 }
 
 type InodeDirVer struct {
-	Ino *Inode
+	Ino        *Inode
 	DirVerList []*proto.VersionInfo
 }
 
@@ -565,7 +565,7 @@ func (i *InodeDirVer) Marshal() (result []byte, err error) {
 		return nil, err
 	}
 	if len(i.DirVerList) > 0 {
-		if err = binary.Write(buff, binary.BigEndian, uint32(len(i.DirVerList)* proto.VersionSimpleSize)); err != nil {
+		if err = binary.Write(buff, binary.BigEndian, uint32(len(i.DirVerList)*proto.VersionSimpleSize)); err != nil {
 			return nil, err
 		}
 		if err = binary.Write(buff, binary.BigEndian, i.DirVerList); err != nil {
@@ -1209,7 +1209,7 @@ func (inode *Inode) dirUnlinkVerInlist(ino *Inode, verlist []*proto.VersionInfo)
 		inode.Inode, mIdx, dIno.getVer(), endSeq)
 
 	doWork := func() bool {
-			for vidx, info := range verlist {
+		for vidx, info := range verlist {
 			if info.Ver >= dIno.getVer() && info.Ver < endSeq {
 				log.LogDebugf("action[dirUnlinkVerInlist] inode %v dir layer idx %v still have effective snapshot seq %v.so don't drop", inode.Inode, mIdx, info.Ver)
 				return false

@@ -43,19 +43,19 @@ import (
 //  | bytes |     4     |   KeyLength  |     4     |   ValLength  |
 //  +-------+-----------+--------------+-----------+--------------+
 
-const(
+const (
 	DirSnapshot = 1
 	VolSnapshot = 2
 )
 
 type DentryMultiSnap struct {
-	VerSeq     uint64
-	dentryList DentryBatch
-	VerList    []*proto.VersionInfo // for dir snapshot and no need to marshal and persist
-	SnapshotType  int8
+	VerSeq       uint64
+	dentryList   DentryBatch
+	VerList      []*proto.VersionInfo // for dir snapshot and no need to marshal and persist
+	SnapshotType int8
 }
 
-type  DirVerDentry struct {
+type DirVerDentry struct {
 	Dentry  *Dentry
 	VerList []*proto.VersionInfo
 }
@@ -351,7 +351,7 @@ func (vd *DirVerDentry) Marshal() (result []byte, err error) {
 		return nil, err
 	}
 	if len(vd.VerList) > 0 {
-		if err = binary.Write(buff, binary.BigEndian, uint32(len(vd.VerList)* proto.VersionSimpleSize)); err != nil {
+		if err = binary.Write(buff, binary.BigEndian, uint32(len(vd.VerList)*proto.VersionSimpleSize)); err != nil {
 			return nil, err
 		}
 		if err = binary.Write(buff, binary.BigEndian, vd.VerList); err != nil {
