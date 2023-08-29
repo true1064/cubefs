@@ -71,14 +71,15 @@ var (
 	ErrForbidden    = &Error{Status: 403, Code: "Forbidden", Message: "forbidden"}
 	ErrNotFound     = &Error{Status: 404, Code: "NotFound", Message: "not found"}
 
-	ErrNotDir       = &Error{Status: 452, Code: "ENOTDIR", Message: "not a directory"}
-	ErrNotEmpty     = &Error{Status: 453, Code: "ENOTEMPTY", Message: "directory not empty"}
-	ErrNoUser       = &Error{Status: 454, Code: "NotFoundUser", Message: "not found user"}
-	ErrTokenExpires = &Error{Status: 455, Code: "TokenExpires", Message: "token expires"}
-	ErrNotFile      = &Error{Status: 456, Code: "ENOTFILE", Message: "not a file"}
-	ErrAppExit      = &Error{Status: 457, Code: "4042", Message: "all tokens expires"}
-	ErrAccExit      = &Error{Status: 458, Code: "4043", Message: "account already exit"}
-	ErrTokenVerify  = &Error{Status: 401, Code: "InvalidToken", Message: "invalid token"}
+	ErrNotDir   = &Error{Status: 452, Code: "NotDir", Message: "not a directory"}
+	ErrNotEmpty = &Error{Status: 453, Code: "NotEmpty", Message: "directory not empty"}
+	ErrNoUser   = &Error{Status: 454, Code: "NotFoundUser", Message: "not found user"}
+	ErrNotFile  = &Error{Status: 456, Code: "NotFile", Message: "not a file"}
+
+	ErrTokenVerify  = &Error{Status: 481, Code: "InvalidToken", Message: "invalid token"}
+	ErrTokenExpires = &Error{Status: 482, Code: "TokenExpires", Message: "token expires"}
+	ErrAppExit      = &Error{Status: 483, Code: "4042", Message: "all tokens expires"}
+	ErrAccExit      = &Error{Status: 484, Code: "4043", Message: "account already exit"}
 
 	ErrInvalidPath      = &Error{Status: 400, Code: "BadRequest", Message: "invalid path"}
 	ErrMismatchChecksum = &Error{Status: 461, Code: "MismatchChecksum", Message: "mismatch checksum"}

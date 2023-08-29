@@ -67,40 +67,24 @@ func (s *auth) VerifyToken(ctx context.Context, token string) (string, error) {
 	data, err := json.Marshal(args)
 	if err != nil {
 		span.Errorf("json marshal error: %v, origin str is %s", err, signStr)
-		return "", &sdk.Error{
-			Status:  sdk.ErrTokenVerify.Status,
-			Code:    sdk.ErrTokenVerify.Code,
-			Message: "marshal token request body error",
-		}
+		return "", sdk.ErrTokenVerify.Extend("marshal token request body error")
 	}
 	req, err := http.NewRequest(http.MethodPost, s.url, bytes.NewReader(data))
 	if err != nil {
 		span.Errorf("new request error: %v, origin str is %s", err, signStr)
-		return "", &sdk.Error{
-			Status:  sdk.ErrTokenVerify.Status,
-			Code:    sdk.ErrTokenVerify.Code,
-			Message: "new http request error",
-		}
+		return "", sdk.ErrTokenVerify.Extend("new http request error")
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Length", strconv.FormatInt(int64(len(data)), 10))
 	resp, err := s.client.Do(req)
 	if err != nil {
 		span.Errorf("http post error: %v, origin str is %s", err, signStr)
-		return "", &sdk.Error{
-			Status:  sdk.ErrTokenVerify.Status,
-			Code:    sdk.ErrTokenVerify.Code,
-			Message: "remote invoke error",
-		}
+		return "", sdk.ErrTokenVerify.Extend("remote invoke error")
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		span.Errorf("verify token return %d, origin str is %s", resp.StatusCode, signStr)
-		return "", &sdk.Error{
-			Status:  sdk.ErrTokenVerify.Status,
-			Code:    sdk.ErrTokenVerify.Code,
-			Message: fmt.Sprintf("verify token return %d", resp.StatusCode),
-		}
+		return "", sdk.ErrTokenVerify.Extendf("verify token status %d", resp.StatusCode)
 	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil || len(body) == 0 {
@@ -111,30 +95,18 @@ func (s *auth) VerifyToken(ctx context.Context, token string) (string, error) {
 			errStr = "read body error: empty body"
 		}
 		span.Error(errStr, "origin str is ", signStr)
-		return "", &sdk.Error{
-			Status:  sdk.ErrTokenVerify.Status,
-			Code:    sdk.ErrTokenVerify.Code,
-			Message: "verify token error",
-		}
+		return "", sdk.ErrTokenVerify.Extend("verify token error")
 	}
 	res := &verifyTokenResponse{}
 	if err = json.Unmarshal(body, res); err != nil {
 		span.Errorf("unmarshal resp body error: %v, body: %s, origin str is %s", err, string(body), signStr)
-		return "", &sdk.Error{
-			Status:  sdk.ErrTokenVerify.Status,
-			Code:    sdk.ErrTokenVerify.Code,
-			Message: err.Error(),
-		}
+		return "", sdk.ErrTokenVerify.Extend(err.Error())
 	}
 	switch res.Code {
 	case 200:
 		if len(res.Data.Ssoid) == 0 {
 			span.Errorf("recv response: %s", string(body))
-			err = &sdk.Error{
-				Status:  sdk.ErrTokenVerify.Status,
-				Code:    sdk.ErrTokenVerify.Code,
-				Message: "ssoid is empty",
-			}
+			err = sdk.ErrTokenVerify.Extend("ssoid is empty")
 		}
 	case 3040:
 		err = &sdk.Error{
@@ -148,7 +120,7 @@ func (s *auth) VerifyToken(ctx context.Context, token string) (string, error) {
 		err = sdk.ErrAppExit
 	case 4043:
 		err = sdk.ErrAccExit
-	default:
+	default: // 4040
 		err = &sdk.Error{
 			Status:  sdk.ErrTokenVerify.Status,
 			Code:    sdk.ErrTokenVerify.Code,

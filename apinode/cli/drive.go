@@ -425,11 +425,11 @@ func addCmdMultipart(cmd *grumble.Command) {
 		Name: "list",
 		Help: "multipart list parts",
 		Flags: func(f *grumble.Flags) {
-			flagsStrings(f, "path", "uploadid", "marker", "count")
+			flagsStrings(f, "path", "uploadid", "marker", "limit")
 		},
 		Run: func(c *grumble.Context) error {
 			f := c.Flags.String
-			return show(cli.MPList(f("path"), f("uploadid"), f("marker"), f("count")))
+			return show(cli.MPList(f("path"), f("uploadid"), f("marker"), f("limit")))
 		},
 	})
 	mpCommand.AddCommand(&grumble.Command{
