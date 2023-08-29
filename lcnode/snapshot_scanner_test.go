@@ -37,7 +37,8 @@ func TestSnapshotScanner(t *testing.T) {
 		},
 		verDelReq: &proto.SnapshotVerDelTaskRequest{
 			Task: &proto.SnapshotVerDelTask{
-				VolVersionInfo: &proto.VolVersionInfo{
+				Mode: proto.ModeVol,
+				VolVersionInfo: &proto.VersionInfo{
 					Ver: 0,
 				},
 			},

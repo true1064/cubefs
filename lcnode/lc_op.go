@@ -74,7 +74,8 @@ func (l *LcNode) opMasterHeartbeat(conn net.Conn, p *proto.Packet, remoteAddr st
 		}
 		for _, scanner := range l.snapshotScanners {
 			info := &proto.SnapshotVerDelTaskResponse{
-				ID: scanner.ID,
+				ID:                 scanner.ID,
+				SnapshotVerDelTask: scanner.verDelReq.Task,
 				SnapshotStatistics: proto.SnapshotStatistics{
 					VolName:         scanner.Volume,
 					VerSeq:          scanner.getTaskVerSeq(),

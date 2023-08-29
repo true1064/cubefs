@@ -125,10 +125,23 @@ func (vs *lcSnapshotVerStatus) GetOneTask() (taskId string) {
 		return
 	}
 
-	for _, i := range vs.VerInfos {
-		if i.VolVersionInfo.DelTime < min {
-			min = i.VolVersionInfo.DelTime
-			taskId = i.Id
+	//try to get vol snapshot task
+	for _, task := range vs.VerInfos {
+		if task.Mode == proto.ModeVol && task.VolVersionInfo.DelTime < min {
+			min = task.VolVersionInfo.DelTime
+			taskId = task.Id
+		}
+	}
+
+	//try to get dir snapshot task
+	if taskId == "" {
+		for _, task := range vs.VerInfos {
+			taskId = task.Id
+			info := vs.VerInfos[taskId]
+			delete(vs.VerInfos, taskId)
+			info.UpdateTime = time.Now().UnixMicro()
+			vs.ProcessingVerInfos[taskId] = info
+			return
 		}
 	}
 

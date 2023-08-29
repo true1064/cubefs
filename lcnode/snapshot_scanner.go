@@ -106,7 +106,17 @@ func (l *LcNode) startSnapshotScan(adminTask *proto.AdminTask) (err error) {
 }
 
 func (s *SnapshotScanner) getTaskVerSeq() uint64 {
-	return s.verDelReq.Task.VolVersionInfo.Ver
+	if s.verDelReq.Task.Mode == proto.ModeVol {
+		return s.verDelReq.Task.VolVersionInfo.Ver
+	}
+	return s.verDelReq.Task.DirVersionInfo.DelVer.DelVer
+}
+
+func (s *SnapshotScanner) getTaskFirstInode() uint64 {
+	if s.verDelReq.Task.Mode == proto.ModeVol {
+		return proto.RootIno
+	}
+	return s.verDelReq.Task.DirVersionInfo.DirIno
 }
 
 func (s *SnapshotScanner) Stop() {
@@ -126,7 +136,7 @@ func (s *SnapshotScanner) Start() {
 	s.scanType = SnapScanTypeOnlyFile
 	go s.scan()
 	prefixDentry := &proto.ScanDentry{
-		Inode: proto.RootIno,
+		Inode: s.getTaskFirstInode(),
 		Type:  proto.Mode(os.ModeDir),
 	}
 	log.LogDebugf("snapshot startScan: scan type(%v), first dir entry(%v) in!", s.scanType, prefixDentry)
@@ -253,7 +263,13 @@ func (s *SnapshotScanner) handlVerDelDepthFirst(dentry *proto.ScanDentry) {
 			}
 
 			for _, file := range files {
-				if ino, err = s.mw.Delete_Ver_ll(file.ParentId, file.Name, false, s.getTaskVerSeq()); err != nil {
+				if s.verDelReq.Task.Mode == proto.ModeVol {
+					ino, err = s.mw.Delete_Ver_ll(file.ParentId, file.Name, false, s.getTaskVerSeq())
+				} else {
+					ino, err = s.mw.DeleteVerEx_ll(file.ParentId, file.Name, false, &s.verDelReq.Task.DirVersionInfo.DelVer)
+				}
+
+				if err != nil {
 					log.LogErrorf("action[handlVerDelDepthFirst] Delete_Ver_ll failed, file(parent[%v] child name[%v]) verSeq[%v] err[%v]",
 						file.ParentId, file.Name, s.getTaskVerSeq(), err)
 					atomic.AddInt64(&s.currentStat.ErrorSkippedNum, 1)
@@ -283,7 +299,13 @@ func (s *SnapshotScanner) handlVerDelDepthFirst(dentry *proto.ScanDentry) {
 	}
 
 	if onlyDir {
-		if ino, err = s.mw.Delete_Ver_ll(dentry.ParentId, dentry.Name, os.FileMode(dentry.Type).IsDir(), s.getTaskVerSeq()); err != nil {
+		if s.verDelReq.Task.Mode == proto.ModeVol {
+			ino, err = s.mw.Delete_Ver_ll(dentry.ParentId, dentry.Name, os.FileMode(dentry.Type).IsDir(), s.getTaskVerSeq())
+		} else {
+			ino, err = s.mw.DeleteVerEx_ll(dentry.ParentId, dentry.Name, os.FileMode(dentry.Type).IsDir(), &s.verDelReq.Task.DirVersionInfo.DelVer)
+		}
+
+		if err != nil {
 			if dentry.ParentId >= 1 {
 				log.LogErrorf("action[handlVerDelDepthFirst] Delete_Ver_ll failed, dir(parent[%v] child name[%v]) verSeq[%v] err[%v]",
 					dentry.ParentId, dentry.Name, s.getTaskVerSeq(), err)
@@ -367,7 +389,13 @@ func (s *SnapshotScanner) handlVerDelBreadthFirst(dentry *proto.ScanDentry) {
 		}
 
 		for _, file := range scanDentries {
-			if ino, err = s.mw.Delete_Ver_ll(file.ParentId, file.Name, false, s.getTaskVerSeq()); err != nil {
+			if s.verDelReq.Task.Mode == proto.ModeVol {
+				ino, err = s.mw.Delete_Ver_ll(file.ParentId, file.Name, false, s.getTaskVerSeq())
+			} else {
+				ino, err = s.mw.DeleteVerEx_ll(file.ParentId, file.Name, false, &s.verDelReq.Task.DirVersionInfo.DelVer)
+			}
+
+			if err != nil {
 				log.LogErrorf("action[handlVerDelBreadthFirst] Delete_Ver_ll failed, file(parent[%v] child name[%v]) verSeq[%v] err[%v]",
 					file.ParentId, file.Name, s.getTaskVerSeq(), err)
 				atomic.AddInt64(&s.currentStat.ErrorSkippedNum, 1)
@@ -417,6 +445,7 @@ func (s *SnapshotScanner) checkScanning(report bool) {
 					response.Status = proto.TaskSucceeds
 					response.Done = true
 					response.ID = s.ID
+					response.SnapshotVerDelTask = s.verDelReq.Task
 					response.VolName = s.Volume
 					response.VerSeq = s.getTaskVerSeq()
 					response.FileNum = s.currentStat.FileNum

@@ -147,15 +147,7 @@ func (c *Cluster) handleLcNodeHeartbeatResp(nodeAddr string, resp *proto.LcNodeH
 				log.LogDebugf("action[handleLcNodeHeartbeatResp], snapshot scan taskid(%v) update time",
 					taskRsp.ID)
 			} else {
-				c.snapshotMgr.lcSnapshotTaskStatus.ProcessingVerInfos[taskRsp.ID] = &proto.SnapshotVerDelTask{
-					Id:         fmt.Sprintf("%s:%d", taskRsp.VolName, taskRsp.VerSeq),
-					VolName:    taskRsp.VolName,
-					UpdateTime: time.Now().UnixMicro(),
-					VolVersionInfo: &proto.VolVersionInfo{
-						Ver:    taskRsp.VerSeq,
-						Status: proto.VersionDeleting,
-					},
-				}
+				c.snapshotMgr.lcSnapshotTaskStatus.ProcessingVerInfos[taskRsp.ID] = taskRsp.SnapshotVerDelTask
 				log.LogWarnf("action[handleLcNodeHeartbeatResp], snapshot scan taskid(%v) not in processing, add it",
 					taskRsp.ID)
 			}
@@ -197,7 +189,12 @@ func (c *Cluster) handleLcNodeSnapshotScanResp(nodeAddr string, resp *proto.Snap
 				resp.ID, nodeAddr, resp, resp.VolName)
 			return
 		} else {
-			_ = vol.VersionMgr.DelVer(resp.VerSeq)
+			switch resp.SnapshotVerDelTask.Mode {
+			case proto.ModeVol:
+				_ = vol.VersionMgr.DelVer(resp.VerSeq)
+			case proto.ModeDir:
+				_ = vol.DirSnapVersionMgr.DelVer(resp.SnapshotVerDelTask.DirVersionInfo.MetaPartitionId, resp.SnapshotVerDelTask.DirVersionInfo.DirIno, resp.VerSeq)
+			}
 		}
 
 		//2. mark done for snapshotMgr

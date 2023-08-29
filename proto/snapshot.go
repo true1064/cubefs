@@ -4,6 +4,14 @@ import (
 	"time"
 )
 
+type SnapshotMode uint8
+
+const (
+	_ SnapshotMode = iota
+	ModeVol
+	ModeDir
+)
+
 type SnapshotVerDelTaskRequest struct {
 	MasterAddr string
 	LcNodeAddr string
@@ -11,19 +19,22 @@ type SnapshotVerDelTaskRequest struct {
 }
 
 type SnapshotVerDelTask struct {
+	Mode           SnapshotMode
 	Id             string
 	VolName        string
 	UpdateTime     int64
-	VolVersionInfo *VolVersionInfo
+	VolVersionInfo *VersionInfo
+	DirVersionInfo *DirVersionInfoTask
 }
 
 type SnapshotVerDelTaskResponse struct {
-	ID        string
-	StartTime *time.Time
-	EndTime   *time.Time
-	Done      bool
-	Status    uint8
-	Result    string
+	ID                 string
+	StartTime          *time.Time
+	EndTime            *time.Time
+	Done               bool
+	Status             uint8
+	Result             string
+	SnapshotVerDelTask *SnapshotVerDelTask
 	SnapshotStatistics
 }
 
@@ -34,6 +45,12 @@ type SnapshotStatistics struct {
 	FileNum         int64
 	DirNum          int64
 	ErrorSkippedNum int64
+}
+
+type DirVersionInfoTask struct {
+	MetaPartitionId uint64
+	DirIno          uint64
+	DelVer          DelVer
 }
 
 type DelVer struct {
