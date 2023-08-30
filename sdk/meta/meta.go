@@ -166,9 +166,10 @@ type MetaWrapper struct {
 
 	qc *QuotaCache
 
-	VerReadSeq uint64
-	LastVerSeq uint64
-	Client     wrapper.SimpleClientInfo
+	VerReadSeq       uint64
+	LastVerSeq       uint64
+	Client           wrapper.SimpleClientInfo
+	DefaultMediaType uint32
 }
 
 type uniqidRange struct {

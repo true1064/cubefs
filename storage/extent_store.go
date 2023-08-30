@@ -1147,7 +1147,7 @@ func (s *ExtentStore) autoComputeExtentCrc() {
 
 			e, err := s.extentWithHeader(ei)
 			if err != nil {
-				log.LogWarnf("[autoComputeExtentCrc] get extent error", err)
+				log.LogWarnf("[autoComputeExtentCrc] get extent error: %v", err.Error())
 				s.ApplyIdMutex.RUnlock()
 				continue
 			}

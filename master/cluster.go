@@ -2166,7 +2166,7 @@ func (c *Cluster) decommissionSingleDp(dp *DataPartition, newAddr, offlineAddr s
 				log.LogInfof("action[decommissionSingleDp] dp %v replica[%v] status %v",
 					dp.PartitionID, newReplica.Addr, newReplica.Status)
 				if len(liveReplicas) > int(dp.ReplicaNum+1) {
-					log.LogInfof("action[decommissionSingleDp] dp %v replica[%v] has excess replicas",
+					log.LogInfof("action[decommissionSingleDp] dp %v replica[%v] status(%v) has excess replicas",
 						dp.PartitionID, newReplica.Addr, newReplica.Status)
 				}
 				if newReplica.isRepairing() { // wait for repair

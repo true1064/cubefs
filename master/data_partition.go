@@ -1644,7 +1644,7 @@ func (partition *DataPartition) TryAcquireDecommissionToken(c *Cluster) bool {
 			goto errHandler
 		}
 		if partition.isSpecialReplicaCnt() && ns.HasDecommissionToken(partition.PartitionID) {
-			log.LogDebugf("action[TryAcquireDecommissionToken]dp %v has token when reloading meta from nodeset",
+			log.LogDebugf("action[TryAcquireDecommissionToken] dp[%v] ns[%v] has token when reloading meta from nodeset",
 				partition.PartitionID, ns.ID)
 			return true
 		}
