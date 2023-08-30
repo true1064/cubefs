@@ -1,7 +1,6 @@
 package apinode
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -40,13 +39,8 @@ func (m *testAuth) Handler(w http.ResponseWriter, req *http.Request, f func(http
 		}
 
 		w.Header().Set(trace.GetTraceIDKey(), span.TraceID())
-		w.Header().Set(rpc.HeaderContentType, rpc.MIMEJSON)
-
-		if e, ok := err.(*sdk.Error); ok {
-			errStr := fmt.Sprintf("{\"code\":\"%s\", \"error\":\"%s\"}", e.Code, e.Message)
-			w.Header().Set(rpc.HeaderContentLength, fmt.Sprint(len(errStr)))
-			w.WriteHeader(e.Status)
-			w.Write([]byte(errStr))
+		if _, ok := err.(*sdk.Error); ok {
+			replyWithError(w, err)
 		} else {
 			w.WriteHeader(sdk.ErrUnauthorized.Status)
 		}

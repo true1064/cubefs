@@ -15,7 +15,6 @@
 package apinode
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -31,9 +30,9 @@ import (
 const metaHeaderLen = len(drive.UserPropertyPrefix)
 
 var (
-	errNew    = []byte(`{"code":"TransCipher","error":"trans new cipher"}`)
-	errQuery  = []byte(`{"code":"TransCipher","error":"trans decode query"}`)
-	errHeader = []byte(`{"code":"TransCipher","error":"trans decode header"}`)
+	errNew    = sdk.ErrTransCipher.Extend("new cipher")
+	errQuery  = sdk.ErrTransCipher.Extend("decode query")
+	errHeader = sdk.ErrTransCipher.Extend("decode header")
 )
 
 type requestBody struct {
@@ -62,31 +61,25 @@ func (c cryptor) Handler(w http.ResponseWriter, req *http.Request, f func(http.R
 	bodyMaterial := req.Header.Get(drive.HeaderCipherBody)
 
 	var err error
-	var errBuff []byte
 	defer func() {
 		if err == nil {
 			return
 		}
 
-		span.Warn(err)
 		span.Warn(drive.HeaderCipherMeta, metaMaterial)
 		span.Warn(drive.HeaderCipherBody, bodyMaterial)
 		handleCounter("crypto", req.Method, sdk.ErrTransCipher.Status)
 
 		w.Header().Set(trace.GetTraceIDKey(), span.TraceID())
-		w.Header().Set(rpc.HeaderContentType, rpc.MIMEJSON)
-		w.Header().Set(rpc.HeaderContentLength, fmt.Sprint(len(errBuff)))
-
-		w.WriteHeader(sdk.ErrTransCipher.Status)
-		w.Write(errBuff)
+		replyWithError(w, err)
 	}()
 
 	st := time.Now()
 	if bodyMaterial != "" {
 		var decryptBody io.Reader
 		if decryptBody, err = c.cryptor.TransDecryptor(bodyMaterial, req.Body); err != nil {
-			err = fmt.Errorf("new request trans: %s", err.Error())
-			errBuff = errNew[:]
+			span.Warn("new request trans:", err.Error())
+			err = errNew
 			return
 		}
 		span.AppendTrackLog("tnb", st, nil)
@@ -100,8 +93,8 @@ func (c cryptor) Handler(w http.ResponseWriter, req *http.Request, f func(http.R
 	st = time.Now()
 	var t crypto.Transmitter
 	if t, err = c.cryptor.Transmitter(metaMaterial); err != nil {
-		err = fmt.Errorf("new trans: %s", err.Error())
-		errBuff = errNew[:]
+		span.Warn("new trans:", err.Error())
+		err = errNew
 		return
 	}
 	span.AppendTrackLog("tnq", st, nil)
@@ -116,8 +109,8 @@ func (c cryptor) Handler(w http.ResponseWriter, req *http.Request, f func(http.R
 
 		var val string
 		if val, err = t.Decrypt(value, true); err != nil {
-			err = fmt.Errorf("decode query %s %s: %s", key, value, err.Error())
-			errBuff = errQuery[:]
+			span.Warnf("decode query %s %s: %s", key, value, err.Error())
+			err = errQuery
 			return
 		}
 		querys.Set(key, val)
@@ -135,13 +128,13 @@ func (c cryptor) Handler(w http.ResponseWriter, req *http.Request, f func(http.R
 	for _, key := range metas {
 		var k, v string
 		if k, err = t.Decrypt(key[metaHeaderLen:], true); err != nil {
-			err = fmt.Errorf("decode header key %s: %s", key, err.Error())
-			errBuff = errHeader[:]
+			span.Warnf("decode header key %s: %s", key, err.Error())
+			err = errHeader
 			return
 		}
 		if v, err = t.Decrypt(req.Header.Get(key), true); err != nil {
-			err = fmt.Errorf("decode header val %s %s: %s", k, req.Header.Get(key), err.Error())
-			errBuff = errHeader[:]
+			span.Warnf("decode header val %s %s: %s", k, req.Header.Get(key), err.Error())
+			err = errHeader
 			return
 		}
 		req.Header.Del(key)

@@ -1,9 +1,10 @@
 package apinode
 
 import (
-	"fmt"
+	"encoding/json"
 	"net/http"
 	"runtime/debug"
+	"strconv"
 	"time"
 
 	"github.com/cubefs/cubefs/apinode/drive"
@@ -49,14 +50,8 @@ func (m *limiter) Handler(w http.ResponseWriter, req *http.Request, f func(http.
 		if err == nil {
 			return
 		}
-
 		w.Header().Set(trace.GetTraceIDKey(), span.TraceID())
-		w.Header().Set(rpc.HeaderContentType, rpc.MIMEJSON)
-
-		errStr := fmt.Sprintf("{\"code\":\"%s\", \"error\":\"%s\"}", err.Code, err.Message)
-		w.Header().Set(rpc.HeaderContentLength, fmt.Sprint(len(errStr)))
-		w.WriteHeader(err.Status)
-		w.Write([]byte(errStr))
+		replyWithError(w, err)
 	}()
 
 	if !m.limiter.Allow() {
@@ -67,4 +62,27 @@ func (m *limiter) Handler(w http.ResponseWriter, req *http.Request, f func(http.
 
 	f(w, req)
 	span.Debug("request spent", time.Since(st))
+}
+
+type errorResponse struct {
+	Error string `json:"error"`
+	Code  string `json:"code,omitempty"`
+}
+
+func replyWithError(w http.ResponseWriter, err error) {
+	httpErr := rpc.Error2HTTPError(err)
+	data, e := json.Marshal(errorResponse{
+		Error: httpErr.Error(),
+		Code:  httpErr.ErrorCode(),
+	})
+	if e != nil {
+		w.WriteHeader(httpErr.StatusCode())
+		return
+	}
+
+	h := w.Header()
+	h.Set(rpc.HeaderContentLength, strconv.Itoa(len(data)))
+	h.Set(rpc.HeaderContentType, rpc.MIMEJSON)
+	w.WriteHeader(httpErr.StatusCode())
+	w.Write(data)
 }

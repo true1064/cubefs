@@ -62,14 +62,9 @@ func (m *authenticator) Handler(w http.ResponseWriter, req *http.Request, f func
 		}
 
 		w.Header().Set(trace.GetTraceIDKey(), span.TraceID())
-		w.Header().Set(rpc.HeaderContentType, rpc.MIMEJSON)
-
 		if e, ok := err.(*sdk.Error); ok {
 			handleCounter("auth", req.Method, e.Status)
-			errStr := fmt.Sprintf("{\"code\":\"%s\", \"error\":\"%s\"}", e.Code, e.Message)
-			w.Header().Set(rpc.HeaderContentLength, fmt.Sprint(len(errStr)))
-			w.WriteHeader(e.Status)
-			w.Write([]byte(errStr))
+			replyWithError(w, err)
 		} else {
 			handleCounter("auth", req.Method, sdk.ErrUnauthorized.Status)
 			w.WriteHeader(sdk.ErrUnauthorized.Status)
