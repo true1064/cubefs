@@ -259,6 +259,9 @@ const (
 	// io speed limit
 	OpLimitedIoErr uint8 = 0xB1
 	OpStoreClosed  uint8 = 0xB2
+
+	//hybirdCloud
+	OpDismatchMediaType uint8 = 0xD8
 )
 
 const (
