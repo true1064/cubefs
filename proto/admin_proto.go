@@ -781,6 +781,7 @@ type MetaPartitionReport struct {
 	FreeListLen      uint64
 	UidInfo          []*UidReportSpaceInfo
 	QuotaReportInfos []*QuotaReportInfo
+	StorageTypes     []uint32
 }
 
 // MetaNodeHeartbeatResponse defines the response to the meta node heartbeat request.
@@ -1122,6 +1123,9 @@ type SimpleVolView struct {
 	DeleteExecTime         time.Time
 	DpRepairBlockSize      uint64
 	EnableAutoDpMetaRepair bool
+
+	// hybrid cloud
+	DefaultMediaType uint32
 }
 
 type NodeSetInfo struct {
@@ -1281,17 +1285,19 @@ type RecoverBackupDataReplicaRequest struct {
 	Disk        string
 }
 
-//data node hardware media type
+// data node hardware media type
 const (
 	MediaType_Unspecified uint32 = 0
 	MediaType_SSD         uint32 = 1
 	MediaType_HDD         uint32 = 2
+	MediaType_EBS         uint32 = 3
 )
 
 var mediaTypeStringMap = map[uint32]string{
 	MediaType_Unspecified: "Unspecified",
 	MediaType_SSD:         "SSD",
 	MediaType_HDD:         "HDD",
+	MediaType_EBS:         "EBS",
 }
 
 func MediaTypeString(mediaType uint32) (value string) {
