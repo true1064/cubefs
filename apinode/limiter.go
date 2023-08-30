@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"runtime/debug"
+	"time"
 
 	"github.com/cubefs/cubefs/apinode/drive"
 	"github.com/cubefs/cubefs/apinode/sdk"
@@ -25,6 +26,7 @@ func newLimiter(l *rate.Limiter) rpc.ProgressHandler {
 
 func (m *limiter) Handler(w http.ResponseWriter, req *http.Request, f func(http.ResponseWriter, *http.Request)) {
 	var (
+		st   = time.Now()
 		span trace.Span
 		err  *sdk.Error
 	)
@@ -51,7 +53,7 @@ func (m *limiter) Handler(w http.ResponseWriter, req *http.Request, f func(http.
 		w.Header().Set(trace.GetTraceIDKey(), span.TraceID())
 		w.Header().Set(rpc.HeaderContentType, rpc.MIMEJSON)
 
-		errStr := fmt.Sprintf("{\"code\":\"%s\", \"message\":\"%s\"}", err.Code, err.Message)
+		errStr := fmt.Sprintf("{\"code\":\"%s\", \"error\":\"%s\"}", err.Code, err.Message)
 		w.Header().Set(rpc.HeaderContentLength, fmt.Sprint(len(errStr)))
 		w.WriteHeader(err.Status)
 		w.Write([]byte(errStr))
@@ -59,13 +61,10 @@ func (m *limiter) Handler(w http.ResponseWriter, req *http.Request, f func(http.
 
 	if !m.limiter.Allow() {
 		span.Error("too many requests")
-		err = &sdk.Error{
-			Status:  http.StatusTooManyRequests,
-			Code:    "TooManyRequests",
-			Message: "too many requests",
-		}
+		err = sdk.ErrLimitExceed
 		return
 	}
 
 	f(w, req)
+	span.Debug("request spent", time.Since(st))
 }

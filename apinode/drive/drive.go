@@ -43,6 +43,7 @@ import (
 // const vaules.
 const (
 	headerRange = "Range"
+	contextSpan = "context-span"
 
 	HeaderRequestID = "x-cfa-trace-id"
 	HeaderUserID    = "x-cfa-user-id"

@@ -85,7 +85,15 @@ func (d *DriveNode) setHeaders(c *rpc.Context) {
 	rid := c.Request.Header.Get(HeaderRequestID)
 	c.Set(HeaderRequestID, rid)
 
-	_, span := d.ctxSpan(c)
+	ctx := c.Request.Context()
+	var span trace.Span
+	if rid != "" {
+		span, _ = trace.StartSpanFromContextWithTraceID(ctx, "", rid)
+	} else {
+		span = trace.SpanFromContextSafe(ctx)
+	}
+	c.Set(contextSpan, span)
+
 	uid := UserID(c.Request.Header.Get(HeaderUserID))
 	span.Debug("user id:", uid)
 	if !uid.Valid() {
@@ -121,14 +129,11 @@ func (d *DriveNode) encryptResponse(c *rpc.Context, body io.Reader) (io.Reader, 
 
 // span carry with request id firstly.
 func (d *DriveNode) ctxSpan(c *rpc.Context) (context.Context, trace.Span) {
-	ctx := c.Request.Context()
-	var span trace.Span
-	if rid := d.requestID(c); rid != "" {
-		span, _ = trace.StartSpanFromContextWithTraceID(ctx, "", rid)
-	} else {
-		span = trace.SpanFromContextSafe(ctx)
+	span, ok := c.Get(contextSpan)
+	if !ok {
+		panic("NOT set context span")
 	}
-	return ctx, span
+	return c.Request.Context(), span.(trace.Span)
 }
 
 func (d *DriveNode) getProperties(c *rpc.Context) (map[string]string, error) {

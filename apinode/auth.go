@@ -110,6 +110,11 @@ func (m *authenticator) Handler(w http.ResponseWriter, req *http.Request, f func
 	req.Header.Set(drive.HeaderUserID, ssoid)
 	span.Debugf("set %s: %s", drive.HeaderUserID, ssoid)
 
+	traceLogs := span.TrackLog()
+	for i := range traceLogs {
+		w.Header().Add(rpc.HeaderTraceLog, traceLogs[i])
+	}
+
 	f(w, req)
 }
 
