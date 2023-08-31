@@ -10,6 +10,7 @@ import (
 	"github.com/cubefs/cubefs/apinode/drive"
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
+	"github.com/cubefs/cubefs/blobstore/common/rpc/auditlog"
 	"github.com/cubefs/cubefs/blobstore/common/trace"
 	"github.com/cubefs/cubefs/blobstore/util/log"
 	"golang.org/x/time/rate"
@@ -32,6 +33,7 @@ func (m *limiter) Handler(w http.ResponseWriter, req *http.Request, f func(http.
 		err  *sdk.Error
 	)
 	ctx := req.Context()
+	req = req.WithContext(auditlog.ContextWithStartTime(ctx, st))
 	if rid := req.Header.Get(drive.HeaderRequestID); rid != "" {
 		span, _ = trace.StartSpanFromContextWithTraceID(ctx, "", rid)
 	} else {

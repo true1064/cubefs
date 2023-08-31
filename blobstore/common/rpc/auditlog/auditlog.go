@@ -16,6 +16,7 @@ package auditlog
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -47,6 +48,27 @@ func (reqBody *reqBodyReadCloser) Read(p []byte) (n int, err error) {
 	n, err = reqBody.ReadCloser.Read(p)
 	reqBody.bodyRead += int64(n)
 	return
+}
+
+type contextKey struct{}
+
+var startTimeKey = contextKey{}
+
+// ContextWithStartTime carry start time to context.
+func ContextWithStartTime(ctx context.Context, t time.Time) context.Context {
+	return context.WithValue(ctx, startTimeKey, t)
+}
+
+// StartTimeFromContext returns the time.time previously associated with `ctx`, or
+// time.Now() if no such time could be found.
+func StartTimeFromContext(ctx context.Context) time.Time {
+	val := ctx.Value(startTimeKey)
+	if val != nil {
+		if t, ok := val.(time.Time); ok {
+			return t
+		}
+	}
+	return time.Now()
 }
 
 type jsonAuditlog struct {
@@ -164,6 +186,7 @@ func (j *jsonAuditlog) Handler(w http.ResponseWriter, req *http.Request, f func(
 		err      error
 	)
 	startTime := time.Now().UnixNano()
+	ctxStartTime := StartTimeFromContext(req.Context())
 
 	span, ctx := trace.StartSpanFromHTTPHeaderSafe(req, j.module)
 	defer span.Finish()
@@ -172,7 +195,7 @@ func (j *jsonAuditlog) Handler(w http.ResponseWriter, req *http.Request, f func(
 		body:           j.bodyPool.Get().([]byte),
 		bodyLimit:      j.cfg.BodyLimit,
 		span:           span,
-		startTime:      time.Now(),
+		startTime:      ctxStartTime,
 		ResponseWriter: w,
 	}
 	req = req.WithContext(ctx)
