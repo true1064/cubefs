@@ -221,7 +221,7 @@ func (d *DriveNode) handleMultipartPart(c *rpc.Context) {
 	var reader io.Reader = c.Request.Body
 	if d.checkFunc(c, func(err error) { span.Warn(err) },
 		func() error { reader, err = newCrc32Reader(c.Request.Header, reader, span.Warnf); return err },
-		func() error { reader, err = d.cryptor.FileEncryptor(ur.CipherKey, reader); return err }) {
+		func() error { reader, err = d.getFileEncryptor(ctx, ur.CipherKey, reader); return err }) {
 		return
 	}
 

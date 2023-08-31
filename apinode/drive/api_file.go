@@ -68,7 +68,7 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 	var reader io.Reader = io.TeeReader(c.Request.Body, hasher)
 	if d.checkFunc(c, func(err error) { span.Warn(err) },
 		func() error { reader, err = newCrc32Reader(c.Request.Header, reader, span.Warnf); return err },
-		func() error { reader, err = d.cryptor.FileEncryptor(ur.CipherKey, reader); return err }) {
+		func() error { reader, err = d.getFileEncryptor(ctx, ur.CipherKey, reader); return err }) {
 		return
 	}
 
@@ -176,7 +176,7 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 	}
 	span.Infof("to write first(%d) size(%d) last(%d) with range[%d-]", firstN, size, lastN, ranged.Start)
 
-	reader, err = d.cryptor.FileEncryptor(ur.CipherKey, io.MultiReader(first, reader, last))
+	reader, err = d.getFileEncryptor(ctx, ur.CipherKey, io.MultiReader(first, reader, last))
 	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
@@ -517,7 +517,7 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 		return
 	}
 	reader = newFixedReader(io.TeeReader(reader, hasher), int64(inode.Size))
-	reader, err = d.cryptor.FileEncryptor(ur.CipherKey, reader)
+	reader, err = d.getFileEncryptor(ctx, ur.CipherKey, reader)
 	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}

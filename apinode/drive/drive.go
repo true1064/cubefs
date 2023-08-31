@@ -267,6 +267,22 @@ func (d *DriveNode) GetUserRouteInfo(ctx context.Context, uid UserID) (*UserRout
 	return ur, nil
 }
 
+func (d *DriveNode) getFileEncryptor(ctx context.Context, key []byte, r io.Reader) (io.Reader, error) {
+	span := trace.SpanFromContextSafe(ctx)
+	st := time.Now()
+	er, err := d.cryptor.FileEncryptor(key, r)
+	span.AppendTrackLog("ccfe", st, err)
+	return er, err
+}
+
+func (d *DriveNode) getFileDecryptor(ctx context.Context, key []byte, r io.Reader) (io.Reader, error) {
+	span := trace.SpanFromContextSafe(ctx)
+	st := time.Now()
+	er, err := d.cryptor.FileDecryptor(key, r)
+	span.AppendTrackLog("ccfd", st, err)
+	return er, err
+}
+
 // get full path and volume by uid
 // filePath is an absolute of client
 func (d *DriveNode) getUserRouterAndVolume(ctx context.Context, uid UserID) (*UserRoute, sdk.IVolume, error) {

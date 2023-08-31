@@ -21,6 +21,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
@@ -115,9 +116,11 @@ func (*DriveNode) userID(c *rpc.Context) UserID {
 }
 
 func (d *DriveNode) encryptResponse(c *rpc.Context, body io.Reader) (io.Reader, error) {
+	st := time.Now()
+	_, span := d.ctxSpan(c)
 	r, respMaterial, err := d.cryptor.TransEncryptor(c.Request.Header.Get(HeaderCipherBody), body)
+	span.AppendTrackLog("ctnb", st, err)
 	if err != nil {
-		_, span := d.ctxSpan(c)
 		span.Warn("make encrypt transmitter", err)
 		return nil, sdk.ErrTransCipher
 	}

@@ -56,7 +56,7 @@ func (d *DriveNode) makeBlockedReader(ctx context.Context, vol sdk.IVolume, ino,
 	remain := off % crypto.BlockSize
 	off = off - remain
 	var r io.Reader = &downReader{ctx: ctx, vol: vol, inode: ino, offset: off}
-	r, err := d.cryptor.FileDecryptor(cipherKey, r)
+	r, err := d.getFileDecryptor(ctx, cipherKey, r)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +81,7 @@ func (d *DriveNode) blockReaderFirst(ctx context.Context, vol sdk.IVolume, inode
 		return newFixedReader(nil, 0), 0, nil
 	}
 
-	r, err := d.cryptor.FileDecryptor(cipherKey, makeFileReader(ctx, vol, inode.Inode, off))
+	r, err := d.getFileDecryptor(ctx, cipherKey, makeFileReader(ctx, vol, inode.Inode, off))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -95,7 +95,7 @@ func (d *DriveNode) blockReaderLast(ctx context.Context, vol sdk.IVolume, inode 
 	}
 	remain := off % crypto.BlockSize
 	off = off - remain
-	r, err := d.cryptor.FileDecryptor(cipherKey, makeFileReader(ctx, vol, inode.Inode, off))
+	r, err := d.getFileDecryptor(ctx, cipherKey, makeFileReader(ctx, vol, inode.Inode, off))
 	if err != nil {
 		return nil, 0, err
 	}
