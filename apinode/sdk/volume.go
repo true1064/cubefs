@@ -21,6 +21,7 @@ type IVolume interface {
 	// SetAttr set file mode, uid, gid, atime, mtime,
 	SetAttr(ctx context.Context, req *SetAttrReq) error
 	SetXAttr(ctx context.Context, ino uint64, key string, val string) error
+	SetXAttrNX(ctx context.Context, ino uint64, key string, val string) error
 	BatchSetXAttr(ctx context.Context, ino uint64, attrs map[string]string) error
 	GetXAttr(ctx context.Context, ino uint64, key string) (string, error)
 	ListXAttr(ctx context.Context, ino uint64) ([]string, error)

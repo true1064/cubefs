@@ -545,18 +545,18 @@ func (mr *MockMetaOpMockRecorder) XAttrGet_ll(arg0, arg1 interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "XAttrGet_ll", reflect.TypeOf((*MockMetaOp)(nil).XAttrGet_ll), arg0, arg1)
 }
 
-// XAttrSet_ll mocks base method.
-func (m *MockMetaOp) XAttrSet_ll(arg0 uint64, arg1, arg2 []byte) error {
+// XAttrSetEx_ll mocks base method.
+func (m *MockMetaOp) XAttrSetEx_ll(arg0 uint64, arg1, arg2 []byte, arg3 bool) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "XAttrSet_ll", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "XAttrSetEx_ll", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// XAttrSet_ll indicates an expected call of XAttrSet_ll.
-func (mr *MockMetaOpMockRecorder) XAttrSet_ll(arg0, arg1, arg2 interface{}) *gomock.Call {
+// XAttrSetEx_ll indicates an expected call of XAttrSetEx_ll.
+func (mr *MockMetaOpMockRecorder) XAttrSetEx_ll(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "XAttrSet_ll", reflect.TypeOf((*MockMetaOp)(nil).XAttrSet_ll), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "XAttrSetEx_ll", reflect.TypeOf((*MockMetaOp)(nil).XAttrSetEx_ll), arg0, arg1, arg2, arg3)
 }
 
 // XAttrsList_ll mocks base method.

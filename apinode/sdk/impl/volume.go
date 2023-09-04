@@ -281,12 +281,23 @@ func (v *volume) SetAttr(ctx context.Context, req *sdk.SetAttrReq) error {
 func (v *volume) SetXAttr(ctx context.Context, ino uint64, key string, val string) error {
 	span := trace.SpanFromContextSafe(ctx)
 
-	err := v.mw.XAttrSet_ll(ino, []byte(key), []byte(val))
+	err := v.mw.XAttrSetEx_ll(ino, []byte(key), []byte(val), false)
 	if err != nil {
 		span.Errorf("xSetAttr failed, ino %d, key %s, err %s", ino, key, err.Error())
 		return syscallToErr(err)
 	}
 
+	return nil
+}
+
+func (v *volume) SetXAttrNX(ctx context.Context, ino uint64, key string, val string) error {
+	span := trace.SpanFromContextSafe(ctx)
+
+	err := v.mw.XAttrSetEx_ll(ino, []byte(key), []byte(val), true)
+	if err != nil {
+		span.Errorf("xSetAttr failed, ino %d, key %s, err %s", ino, key, err.Error())
+		return syscallToErr(err)
+	}
 	return nil
 }
 

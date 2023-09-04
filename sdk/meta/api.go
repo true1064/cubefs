@@ -2192,7 +2192,24 @@ func (mw *MetaWrapper) XAttrSet_ll(inode uint64, name, value []byte) error {
 		return syscall.ENOENT
 	}
 	var status int
-	status, err = mw.setXAttr(mp, inode, name, value)
+	status, err = mw.setXAttr(mp, inode, name, value, false)
+	if err != nil || status != statusOK {
+		return statusToErrno(status)
+	}
+	log.LogDebugf("XAttrSet_ll: set xattr: volume(%v) inode(%v) name(%v) value(%v) status(%v)",
+		mw.volname, inode, name, value, status)
+	return nil
+}
+
+func (mw *MetaWrapper) XAttrSetEx_ll(inode uint64, name, value []byte, overWrite bool) error {
+	var err error
+	mp := mw.getPartitionByInode(inode)
+	if mp == nil {
+		log.LogErrorf("XAttrSet_ll: no such partition, inode(%v)", inode)
+		return syscall.ENOENT
+	}
+	var status int
+	status, err = mw.setXAttr(mp, inode, name, value, overWrite)
 	if err != nil || status != statusOK {
 		return statusToErrno(status)
 	}

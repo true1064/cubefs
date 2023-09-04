@@ -37,7 +37,7 @@ type MetaOp interface {
 	BatchSetXAttr_ll(inode uint64, attrs map[string]string) error
 	XAttrGetAll_ll(inode uint64) (*proto.XAttrInfo, error)
 	SetInodeLock_ll(inode uint64, req *proto.InodeLockReq) error
-	XAttrSet_ll(inode uint64, name, value []byte) error
+	XAttrSetEx_ll(inode uint64, name, value []byte, overWrite bool) error
 	XAttrGet_ll(inode uint64, name string) (*proto.XAttrInfo, error)
 	XAttrDel_ll(inode uint64, name string) error
 	XBatchDelAttr_ll(ino uint64, keys []string) error

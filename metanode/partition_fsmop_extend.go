@@ -49,6 +49,32 @@ func (mp *metaPartition) fsmSetXAttr(extend *Extend) (err error) {
 	return
 }
 
+func (mp *metaPartition) fsmSetXAttrEx(extend *Extend) (resp uint8, err error) {
+	log.LogDebugf("start execute fsmSetXAttrEx, ino %d", extend.inode)
+	resp = proto.OpOk
+	treeItem := mp.extendTree.Get(extend)
+	var e *Extend
+	if treeItem == nil {
+		log.LogDebugf("fsmSetXAttrEx not exist, set it directly, ino %d", extend.inode)
+		err = mp.fsmSetXAttr(extend)
+		return
+	}
+	// attr multi-ver copy all attr for simplify management
+	e = treeItem.(*Extend)
+	for key, v := range extend.dataMap {
+		if oldV, exist := e.Get([]byte(key)); exist {
+			log.LogWarnf("fsmSetXAttrEx: target key is already exist, ino %d, key %s, val %s, old %s",
+				extend.inode, key, string(v), string(oldV))
+			resp = proto.OpExistErr
+			return
+		}
+	}
+
+	err = mp.fsmSetXAttr(extend)
+	log.LogDebugf("fsmSetXAttrEx, set xAttr success, ino %d", extend.inode)
+	return
+}
+
 // TODO support snap
 func (mp *metaPartition) fsmSetInodeLock(req *proto.InodeLockReq) (status uint8) {
 	if req.LockType == proto.InodeLockStatus {

@@ -143,16 +143,17 @@ func testDirOp(ctx context.Context, vol sdk.IVolume) {
 	totalItems := make([]sdk.DirInfo, 0)
 	var tmpItems []sdk.DirInfo
 	for {
-		tmpItems, err = vol.Readdir(ctx, dirIfo.Inode, marker, 1)
+		tmpItems, err = vol.Readdir(ctx, dirIfo.Inode, marker, 2)
 		if err != nil {
 			span.Fatalf("readdir failed, ino %d, err %s", dirIfo.Inode, err.Error())
 		}
-		if len(tmpItems) == 0 {
+		span.Infof("read limit, marker %v, items %v, total %d", marker, tmpItems, len(totalItems))
+		if len(tmpItems) <= 1 {
+			totalItems = append(totalItems, tmpItems[0])
 			break
 		}
-		totalItems = append(totalItems, tmpItems...)
-		marker = tmpItems[0].Name
-		span.Infof("read limit, marker %v, items %v, total %d", marker, tmpItems, len(totalItems))
+		totalItems = append(totalItems, tmpItems[0])
+		marker = tmpItems[1].Name
 	}
 
 	for _, t := range cases {
@@ -392,6 +393,11 @@ func testXAttrOp(ctx context.Context, vol sdk.IVolume) {
 	err = vol.SetXAttr(ctx, ino, key, val)
 	if err != nil {
 		span.Fatalf("setXAttr failed, ino %d, err %s", ino, err.Error())
+	}
+
+	err = vol.SetXAttrNX(ctx, ino, key, val)
+	if err != sdk.ErrExist {
+		span.Fatalf("setXAttr failed, ino %d, err %v", ino)
 	}
 
 	var newVal string

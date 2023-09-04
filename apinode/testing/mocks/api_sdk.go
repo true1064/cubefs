@@ -392,6 +392,20 @@ func (mr *MockIVolumeMockRecorder) SetXAttr(arg0, arg1, arg2, arg3 interface{}) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetXAttr", reflect.TypeOf((*MockIVolume)(nil).SetXAttr), arg0, arg1, arg2, arg3)
 }
 
+// SetXAttrNX mocks base method.
+func (m *MockIVolume) SetXAttrNX(arg0 context.Context, arg1 uint64, arg2, arg3 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetXAttrNX", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetXAttrNX indicates an expected call of SetXAttrNX.
+func (mr *MockIVolumeMockRecorder) SetXAttrNX(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetXAttrNX", reflect.TypeOf((*MockIVolume)(nil).SetXAttrNX), arg0, arg1, arg2, arg3)
+}
+
 // StatFs mocks base method.
 func (m *MockIVolume) StatFs(arg0 context.Context, arg1 uint64) (*sdk.StatFs, error) {
 	m.ctrl.T.Helper()
