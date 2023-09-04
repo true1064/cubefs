@@ -6332,6 +6332,11 @@ func (m *Server) BatchDeleteDirSnapshotVersion(w http.ResponseWriter, r *http.Re
 		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
+	if len(req.DirInfos) == 0 {
+		log.LogErrorf("[BatchDeleteDirSnapshotVersion]: len(req.DirInfos) is 0, vol:%v, mpId:%v",
+			req.Vol, req.MetaPartitionId)
+		sendErrReply(w, r, newErrHTTPReply(proto.ErrParamError))
+	}
 
 	volName = req.Vol
 	if vol, err = m.cluster.getVol(volName); err != nil {
@@ -6339,7 +6344,7 @@ func (m *Server) BatchDeleteDirSnapshotVersion(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if err = vol.DirSnapVersionMgr.AddToDelDirVerInfos(req.MetaPartitionId, req.DirInfos); err != nil {
+	if err = vol.DirSnapVersionMgr.AddDirToDelVerInfos(req.MetaPartitionId, req.DirInfos); err != nil {
 		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeVersionOpError, Msg: err.Error()})
 		return
 	}

@@ -1397,6 +1397,11 @@ func (c *Cluster) loadVols() (err error) {
 			continue
 		}
 
+		if err = c.loadDirSnapVersionMgr(vol); err != nil {
+			log.LogInfof("action[loadVols], vol[%v] load dir ver manager error %v", vol.Name, err)
+			continue
+		}
+
 		c.putVol(vol)
 		log.LogInfof("action[loadVols],vol[%v]", vol.Name)
 	}
@@ -1731,4 +1736,32 @@ func (c *Cluster) loadLcConfs() (err error) {
 		log.LogInfof("action[loadLcConfs],vol[%v]", lcConf.VolName)
 	}
 	return
+}
+
+func (c *Cluster) loadDirSnapVersionMgr(vol *Vol) (err error) {
+	key := DirVerPrefix + strconv.FormatUint(vol.ID, 10)
+	result, err := c.fsm.store.SeekForPrefix([]byte(key))
+	if err != nil {
+		log.LogErrorf("action[loadDirSnapVersionMgr] err %v", err)
+		return vol.DirSnapVersionMgr.init(c)
+	}
+
+	if len(result) == 0 {
+		log.LogInfo("action[loadDirSnapVersionMgr] not record, init it")
+		return vol.DirSnapVersionMgr.init(c)
+	}
+
+	for _, value := range result {
+		return vol.DirSnapVersionMgr.loadDirVersion(c, value)
+	}
+	return
+}
+
+func (c *Cluster) syncDirVersion(vol *Vol, val []byte) (err error) {
+	metadata := new(RaftCmd)
+	metadata.Op = opSyncDirVersion
+	metadata.K = MultiVerPrefix + strconv.FormatUint(vol.ID, 10)
+	metadata.V = val
+
+	return c.submit(metadata)
 }

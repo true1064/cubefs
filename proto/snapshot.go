@@ -56,9 +56,8 @@ type DirVersionInfoTask struct {
 }
 
 type DelVer struct {
-	DelVel uint64
-	SubRootIno uint64
-	Vers   []*VersionInfo
+	DelVel uint64         // the snapshot version to delete
+	Vers   []*VersionInfo //Info of all snapshots of a directory
 }
 
 func (d *DelVer) Newest() bool {
@@ -93,8 +92,9 @@ func (d *DelVer) String() string {
 }
 
 type DelDirVersionInfo struct {
-	DirIno  uint64
-	DelVers []DelVer
+	DirIno     uint64 // inodeId of the directory which has versions to delete
+	SubRootIno uint64 // CFA-user's root directory
+	DelVers    []DelVer
 }
 
 type MasterBatchDelDirVersionReq struct {

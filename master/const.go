@@ -283,6 +283,7 @@ const (
 	opSyncAllocFileId  uint32 = 0x43
 
 	opSyncMulitVersion uint32 = 0x53
+	opSyncDirVersion   uint32 = 0x54
 
 	opSyncS3QosSet    uint32 = 0x60
 	opSyncS3QosDelete uint32 = 0x61
@@ -339,6 +340,7 @@ const (
 	quotaPrefix      = keySeparator + "quota" + keySeparator
 	lcNodePrefix     = keySeparator + lcNodeAcronym + keySeparator
 	lcConfPrefix     = keySeparator + lcConfigurationAcronym + keySeparator
+	DirVerPrefix     = keySeparator + "dirVer" + keySeparator
 	S3QoSPrefix      = keySeparator + S3QoS + keySeparator
 )
 

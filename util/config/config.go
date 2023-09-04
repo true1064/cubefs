@@ -258,7 +258,7 @@ func CheckOrStoreConstCfg(fileDir, fileName string, cfg *ConstConfig) (ok bool, 
 		return false, fmt.Errorf("read config file %v failed: %v", filePath, err)
 	}
 	if os.IsNotExist(err) || len(buf) == 0 {
-		// Persist configuration to disk
+		// PersistDirDelVerInfo configuration to disk
 		if buf, err = json.Marshal(cfg); err != nil {
 			return false, fmt.Errorf("marshal const config failed: %v", err)
 		}

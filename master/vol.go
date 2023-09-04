@@ -123,7 +123,7 @@ func newVol(vv volValue) (vol *Vol) {
 
 	vol.dataPartitions = newDataPartitionMap(vv.Name)
 	vol.VersionMgr = newVersionMgr(vol)
-	vol.DirSnapVersionMgr = newDirSnapVerManager(vol)
+	vol.DirSnapVersionMgr = newSnapVersionManager(vol)
 	vol.dpReplicaNum = vv.DpReplicaNum
 	vol.mpReplicaNum = vv.ReplicaNum
 	vol.Owner = vv.Owner

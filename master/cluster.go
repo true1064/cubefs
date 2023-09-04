@@ -3087,7 +3087,10 @@ func (c *Cluster) createVol(req *createVolReq) (vol *Vol, err error) {
 	vol.initUidSpaceManager(c)
 	vol.initQuotaManager(c)
 	if err = vol.VersionMgr.init(c); err != nil {
-		log.LogError("init dataPartition error in verMgr init", err.Error())
+		log.LogError("init VersionMgr error", err.Error())
+	}
+	if err = vol.DirSnapVersionMgr.init(c); err != nil {
+		log.LogError("init DirSnapVersionMgr error", err.Error())
 	}
 
 	if err = vol.initMetaPartitions(c, req.mpCount); err != nil {
