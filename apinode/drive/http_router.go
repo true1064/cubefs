@@ -48,6 +48,7 @@ func (d *DriveNode) RegisterAPIRouters() *rpc.Router {
 	rpc.RegisterArgsParser(&ArgsMPUpload{}, "json")
 	rpc.RegisterArgsParser(&ArgsMPList{}, "json")
 	rpc.RegisterArgsParser(&ArgsMPAbort{}, "json")
+	rpc.RegisterArgsParser(&ArgsSnapshot{}, "json")
 
 	r := rpc.New()
 
@@ -78,6 +79,9 @@ func (d *DriveNode) RegisterAPIRouters() *rpc.Router {
 	r.Handle(http.MethodPut, "/v1/files/properties", d.handleSetProperties, rpc.OptArgsQuery())
 	r.Handle(http.MethodDelete, "/v1/files/properties", d.handleDelProperties, rpc.OptArgsQuery())
 	r.Handle(http.MethodGet, "/v1/files/properties", d.handleGetProperties, rpc.OptArgsQuery())
+
+	r.Handle(http.MethodPost, "/v1/snapshot", d.handleCreateSnapshot, rpc.OptArgsQuery())
+	r.Handle(http.MethodDelete, "/v1/snapshot", d.handleDeleteSnapshot, rpc.OptArgsQuery())
 
 	return r
 }
