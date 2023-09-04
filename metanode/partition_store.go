@@ -1038,7 +1038,7 @@ func (mp *metaPartition) storeDirVer(rootDir string, sm *storeMsg) (crc uint32, 
 	sign := crc32.NewIEEE()
 
 	sm.dirVerTree.Ascend(func(i BtreeItem) bool {
-		tx := i.(*DirSnapshotItem)
+		tx := i.(*dirSnapshotItem)
 		if data, err = tx.Marshal(); err != nil {
 			return false
 		}

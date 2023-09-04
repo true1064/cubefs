@@ -40,6 +40,12 @@ const (
 	MaxPoolSize     = 10
 )
 
+type DirSnapshotList struct {
+	Items []proto.DirSnapshotInfo
+}
+
+const SnapShotPre = ".cfa_snapshot_"
+
 type DirInfo = proto.Dentry
 
 type Part = proto.MultipartPartInfo

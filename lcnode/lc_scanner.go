@@ -372,7 +372,7 @@ func (s *LcScanner) handleDirLimitDepthFirst(dentry *proto.ScanDentry) {
 		children, err := s.mw.ReadDirLimit_ll(dentry.Inode, marker, uint64(defaultReadDirLimit))
 		if err != nil && err != syscall.ENOENT {
 			atomic.AddInt64(&s.currentStat.ErrorSkippedNum, 1)
-			log.LogErrorf("handleDirLimitDepthFirst ReadDirLimit_ll err %v, dentry %v, marker %v", err, dentry, marker)
+			log.LogErrorf("handleDirLimitDepthFirst ReadDirLimit err %v, dentry %v, marker %v", err, dentry, marker)
 			return
 		}
 
@@ -441,7 +441,7 @@ func (s *LcScanner) handleDirLimitBreadthFirst(dentry *proto.ScanDentry) {
 		children, err := s.mw.ReadDirLimit_ll(dentry.Inode, marker, uint64(defaultReadDirLimit))
 		if err != nil && err != syscall.ENOENT {
 			atomic.AddInt64(&s.currentStat.ErrorSkippedNum, 1)
-			log.LogErrorf("handleDirLimitBreadthFirst ReadDirLimit_ll err %v, dentry %v, marker %v", err, dentry, marker)
+			log.LogErrorf("handleDirLimitBreadthFirst ReadDirLimit err %v, dentry %v, marker %v", err, dentry, marker)
 			return
 		}
 

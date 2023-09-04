@@ -11,7 +11,7 @@ func TestSnapshotVer_marshal(t *testing.T) {
 	tcases := []string{
 		"", "testxxx", "1212",
 	}
-	sv := &SnapshotVer{
+	sv := &snapshotVer{
 		Ver:     1010,
 		DelTime: 1020,
 		Status:  proto.VersionDeleting,
@@ -20,7 +20,7 @@ func TestSnapshotVer_marshal(t *testing.T) {
 	for _, s := range tcases {
 		sv.OutVer = s
 		k := sv.Marshal()
-		nsv := &SnapshotVer{}
+		nsv := &snapshotVer{}
 		err := nsv.Unmarshal(k)
 		require.NoError(t, err)
 		require.True(t, reflect.DeepEqual(sv, nsv))
@@ -28,19 +28,19 @@ func TestSnapshotVer_marshal(t *testing.T) {
 }
 
 func TestDirSnapshotItem_Marshal(t *testing.T) {
-	ds := &DirSnapshotItem{
+	ds := &dirSnapshotItem{
 		SnapshotInode: 10,
 		RootInode:     1024,
 	}
 
 	tcases := []struct {
 		s  string
-		vs []*SnapshotVer
+		vs []*snapshotVer
 	}{
-		{s: "/", vs: []*SnapshotVer{}},
-		{s: "", vs: []*SnapshotVer{}},
-		{s: "/test/txx/name", vs: []*SnapshotVer{}},
-		{s: "/test/txx/name", vs: []*SnapshotVer{
+		{s: "/", vs: []*snapshotVer{}},
+		{s: "", vs: []*snapshotVer{}},
+		{s: "/test/txx/name", vs: []*snapshotVer{}},
+		{s: "/test/txx/name", vs: []*snapshotVer{
 			{DelTime: 10, Status: proto.VersionNormal},
 			{Ver: 102, Status: proto.VersionDeleted},
 		}},
@@ -51,12 +51,12 @@ func TestDirSnapshotItem_Marshal(t *testing.T) {
 		ds.Vers = c.vs
 		data, err := ds.Marshal()
 		require.NoError(t, err)
-		nds := &DirSnapshotItem{}
+		nds := &dirSnapshotItem{}
 		err = nds.Unmarshal(data)
 		require.NoError(t, err)
 		require.True(t, ds.equal(nds))
 		cds := ds.Copy()
-		require.True(t, ds.equal(cds.(*DirSnapshotItem)))
+		require.True(t, ds.equal(cds.(*dirSnapshotItem)))
 	}
 }
 
@@ -72,10 +72,10 @@ func TestDirSnapshotItem_Less(t *testing.T) {
 	}
 
 	for _, c := range tcases {
-		d1 := &DirSnapshotItem{
+		d1 := &dirSnapshotItem{
 			SnapshotInode: c.a,
 		}
-		d2 := &DirSnapshotItem{
+		d2 := &dirSnapshotItem{
 			SnapshotInode: c.b,
 		}
 		require.Equal(t, d1.Less(d2), c.expect)

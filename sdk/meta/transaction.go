@@ -105,7 +105,7 @@ func (tx *Transaction) SetOnRollback(job func()) {
 	//tx.onRollback = job
 }
 
-func (tx *Transaction) OnDone(err error, mw *MetaWrapper) (newErr error) {
+func (tx *Transaction) OnDone(err error, mw *SnapShotMetaWrapper) (newErr error) {
 	//commit or rollback depending on status
 	newErr = err
 	if !tx.Started {
@@ -123,7 +123,7 @@ func (tx *Transaction) OnDone(err error, mw *MetaWrapper) (newErr error) {
 
 // Commit will notify all the RM(related metapartitions) that transaction is completed successfully,
 // and corresponding transaction items can be removed
-func (tx *Transaction) Commit(mw *MetaWrapper) (err error) {
+func (tx *Transaction) Commit(mw *SnapShotMetaWrapper) (err error) {
 	tmMP := mw.getPartitionByID(uint64(tx.txInfo.TmID))
 	if tmMP == nil {
 		log.LogErrorf("Transaction commit: No TM partition, TmID(%v), txID(%v)", tx.txInfo.TmID, tx.txInfo.TxID)
@@ -185,7 +185,8 @@ func (tx *Transaction) Commit(mw *MetaWrapper) (err error) {
 
 // Rollback will notify all the RM(related metapartitions) that transaction is cancelled,
 // and corresponding transaction items should be rolled back to previous state(before transaction)
-func (tx *Transaction) Rollback(mw *MetaWrapper) {
+func (tx *Transaction) Rollback(mw *SnapShotMetaWrapper) {
+	//todo_tx: if transaction info in TM is missing, should try to rollback each item
 	tmMP := mw.getPartitionByID(uint64(tx.txInfo.TmID))
 	if tmMP == nil {
 		log.LogWarnf("Transaction Rollback: No TM partition, TmID(%v), txID(%v)", tx.txInfo.TmID, tx.txInfo.TxID)

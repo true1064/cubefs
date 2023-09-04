@@ -494,7 +494,7 @@ func (d *Dir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 		metric.SetWithLabels(err, map[string]string{exporter.Vol: d.super.volname})
 	}()
 
-	// transform ReadDirAll to ReadDirLimit_ll
+	// transform ReadDirAll to ReadDirLimit
 	var noMore = false
 	var from = ""
 	var children []proto.Dentry

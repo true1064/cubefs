@@ -11,7 +11,7 @@ type MasterApi struct {
 	*master.ClientAPI
 }
 
-func newSdkMasterCli(addr string) sdk.IMaster {
+func newSdkMasterCli(addr string) IMaster {
 	masterCli := master.NewMasterClientFromString(addr, false)
 	m := &MasterApi{
 		AdminAPI:  masterCli.AdminAPI(),

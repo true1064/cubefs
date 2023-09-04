@@ -94,6 +94,8 @@ var (
 	ErrConflict         = newErr(http.StatusConflict, "operation conflict")
 	ErrExist            = newErr(http.StatusConflict, "file already exist")
 	ErrTooLarge         = newErr(http.StatusRequestEntityTooLarge, "request entity too large")
+	ErrWriteSnapshot    = newErr(http.StatusForbidden, "can't write on snapshot dir")
+	ErrSnapshotName     = newErr(http.StatusBadRequest, "name is conflict with snapshot")
 
 	ErrInternalServerError = &Error{Status: 500, Code: "InternalServerError", Message: "internal server error"}
 	ErrBadGateway          = &Error{Status: 502, Code: "BadGateway", Message: "bad gateway"}

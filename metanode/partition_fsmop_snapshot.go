@@ -7,20 +7,20 @@ import (
 	"time"
 )
 
-func (mp *metaPartition) fsmCreateDirSnapshot(ifo *proto.DirSnapShotInfo) (resp uint8) {
-	oldItem := mp.dirVerTree.CopyGet(newDirSnapItem(ifo.SnapshotInode))
+func (mp *metaPartition) fsmCreateDirSnapshot(ifo *proto.CreateDirSnapShotInfo) (resp uint8) {
+	oldItem := mp.dirVerTree.CopyGet(newDirSnapItem(ifo.SnapshotInode, ifo.RootInode))
 	if oldItem == nil {
-		oldItem = &DirSnapshotItem{
+		oldItem = &dirSnapshotItem{
 			SnapshotInode: ifo.SnapshotInode,
 			Dir:           ifo.SnapshotDir,
 			RootInode:     ifo.RootInode,
-			Vers:          []*SnapshotVer{},
+			Vers:          []*snapshotVer{},
 		}
 		mp.dirVerTree.ReplaceOrInsert(oldItem, true)
 	}
 
-	oldDirSnap := oldItem.(*DirSnapshotItem)
-	if ifo.RootInode != oldDirSnap.RootInode || ifo.SnapshotDir != oldDirSnap.Dir {
+	oldDirSnap := oldItem.(*dirSnapshotItem)
+	if ifo.SnapshotDir != oldDirSnap.Dir {
 		log.LogWarnf("fsmCreateDirSnapshot: root inode is conflict with before, req %v, before %v", ifo, oldItem)
 		return proto.OpArgMismatchErr
 	}
@@ -28,12 +28,19 @@ func (mp *metaPartition) fsmCreateDirSnapshot(ifo *proto.DirSnapShotInfo) (resp 
 	oldDirSnap.Lock()
 	defer oldDirSnap.Unlock()
 
+	log.LogDebugf("fsmCreateDirSnapshot: update version, old %d, new %d", oldDirSnap.MaxVer, ifo.Ver)
+	if ifo.Ver < oldDirSnap.MaxVer {
+		log.LogErrorf("fsmCreateDirSnapshot: request version can't be smaller max before, max %d, req %v",
+			oldDirSnap.MaxVer, ifo.Ver)
+		return proto.OpArgMismatchErr
+	}
+
 	// check if conflict witch before
 	for _, v := range oldDirSnap.Vers {
 		if ifo.Ver == v.Ver && ifo.OutVer == v.OutVer {
 			return proto.OpOk
 		}
-		if ifo.Ver == v.Ver || ifo.OutVer == v.OutVer {
+		if ifo.Ver == v.Ver || ifo.OutVer == v.OutVer || ifo.Ver < v.Ver {
 			log.LogWarnf("fsmCreateDirSnapshot: req is conflict with before, ifo %v, v %v", ifo, v)
 			return proto.OpArgMismatchErr
 		}
@@ -52,13 +59,13 @@ func (mp *metaPartition) fsmDelDirSnap(e *proto.DirVerItem) (resp uint8) {
 		log.LogDebugf("fsmDelDirSnap: start delete dir snapshot, e%v", e)
 	}
 
-	item := mp.dirVerTree.CopyGet(newDirSnapItem(e.DirSnapIno))
+	item := mp.dirVerTree.CopyGet(newDirSnapItem(e.DirSnapIno, e.RootIno))
 	if item == nil {
 		log.LogWarnf("fsmDelDirSnap: target dir snapshot is not exist, req %v", e)
 		return proto.OpNotExistErr
 	}
 
-	oldDirItem := item.(*DirSnapshotItem)
+	oldDirItem := item.(*dirSnapshotItem)
 	for _, v := range oldDirItem.Vers {
 		if v.Ver == e.Ver {
 			if log.EnableDebug() {
@@ -96,10 +103,10 @@ func (mp *metaPartition) fsmBatchDelDirSnapshot(ifo *BatchDelDirSnapInfo) (resp 
 		inoMap[e.DirSnapIno] = struct{}{}
 	}
 
-	delInoSlice := make([]*DirSnapshotItem, 0)
+	delInoSlice := make([]*dirSnapshotItem, 0)
 
-	delVer := func(dir *DirSnapshotItem) bool {
-		verItems := make([]*SnapshotVer, 0, len(dir.Vers))
+	delVer := func(dir *dirSnapshotItem) bool {
+		verItems := make([]*snapshotVer, 0, len(dir.Vers))
 		for _, v := range dir.Vers {
 			key := getKey(dir.SnapshotInode, v.Ver)
 			if _, ok := verMap[key]; !ok {
@@ -127,7 +134,7 @@ func (mp *metaPartition) fsmBatchDelDirSnapshot(ifo *BatchDelDirSnapInfo) (resp 
 		return true
 	}
 
-	updateVer := func(dir *DirSnapshotItem) bool {
+	updateVer := func(dir *dirSnapshotItem) bool {
 		for _, v := range dir.Vers {
 			key := getKey(dir.SnapshotInode, v.Ver)
 			if _, ok := verMap[key]; !ok {
@@ -151,7 +158,7 @@ func (mp *metaPartition) fsmBatchDelDirSnapshot(ifo *BatchDelDirSnapInfo) (resp 
 	}
 
 	mp.dirVerTree.Ascend(func(i BtreeItem) bool {
-		dir := i.(*DirSnapshotItem)
+		dir := i.(*dirSnapshotItem)
 
 		if _, ok := inoMap[dir.SnapshotInode]; !ok {
 			return true
@@ -182,10 +189,10 @@ func (mp *metaPartition) fsmBatchDelDirSnapshot(ifo *BatchDelDirSnapInfo) (resp 
 	return proto.OpOk
 }
 
-func (mp *metaPartition) getDirSnapItem(dirIno uint64) *DirSnapshotItem {
-	oldItem := mp.dirVerTree.Get(newDirSnapItem(dirIno))
+func (mp *metaPartition) getDirSnapItem(dirIno, rootIno uint64) *dirSnapshotItem {
+	oldItem := mp.dirVerTree.Get(newDirSnapItem(dirIno, rootIno))
 	if oldItem != nil {
-		return oldItem.(*DirSnapshotItem)
+		return oldItem.(*dirSnapshotItem)
 	}
 	return nil
 }

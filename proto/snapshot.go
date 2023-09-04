@@ -1,6 +1,8 @@
 package proto
 
 import (
+	"bytes"
+	"fmt"
 	"time"
 )
 
@@ -54,9 +56,40 @@ type DirVersionInfoTask struct {
 }
 
 type DelVer struct {
-	DelVer     uint64        // the snapshot version to delete
-	SubRootIno uint64        // CFA-user's root directory
-	Vers       []VersionInfo //Info of all snapshots of a directory
+	DelVel uint64
+	SubRootIno uint64
+	Vers   []*VersionInfo
+}
+
+func (d *DelVer) Newest() bool {
+	if len(d.Vers) == 0 {
+		return false
+	}
+
+	lastV := d.Vers[len(d.Vers)-1]
+	if lastV.Ver == d.DelVel {
+		return true
+	}
+
+	return false
+}
+
+func (d *DelVer) String() string {
+	buf := bytes.NewBuffer(make([]byte, 8))
+	buf.WriteString(fmt.Sprintf("[ver %d", d.DelVel))
+
+	if len(d.Vers) == 0 {
+		buf.WriteString("]")
+		return buf.String()
+	}
+
+	buf.WriteString(", vers: ")
+	for _, v := range d.Vers {
+		buf.WriteString(fmt.Sprintf("[v %d, status %d, del %d]", v.Ver, v.Status, v.DelTime))
+	}
+
+	buf.WriteString("]")
+	return buf.String()
 }
 
 type DelDirVersionInfo struct {
@@ -75,12 +108,12 @@ type DirSnapshotVersionInfo struct {
 }
 
 type CreateDirSnapShotReq struct {
-	VolName     string           `json:"vol"`
-	PartitionID uint64           `json:"pid"`
-	Info        *DirSnapShotInfo `json:"snapshot"`
+	VolName     string                 `json:"vol"`
+	PartitionID uint64                 `json:"pid"`
+	Info        *CreateDirSnapShotInfo `json:"snapshot"`
 }
 
-type DirSnapShotInfo struct {
+type CreateDirSnapShotInfo struct {
 	SnapshotDir   string `json:"snapshot_dir"`
 	SnapshotInode uint64 `json:"snapshot_ino"`
 	OutVer        string `json:"out_ver"`

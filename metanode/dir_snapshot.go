@@ -9,15 +9,15 @@ import (
 	"sync"
 )
 
-type SnapshotVer struct {
+type snapshotVer struct {
 	OutVer  string
 	Ver     uint64 // unixMicro of createTime used as version
 	DelTime int64
 	Status  uint8 // building,normal,deleted,abnormal
 }
 
-func newSnapshotVer(outVer string, ver uint64) *SnapshotVer {
-	return &SnapshotVer{
+func newSnapshotVer(outVer string, ver uint64) *snapshotVer {
+	return &snapshotVer{
 		OutVer:  outVer,
 		Ver:     ver,
 		DelTime: 0,
@@ -25,26 +25,56 @@ func newSnapshotVer(outVer string, ver uint64) *SnapshotVer {
 	}
 }
 
-type DirSnapshotItem struct {
+func (s *snapshotVer) buildVerInfo() *proto.VersionInfo {
+	ifo := &proto.VersionInfo{
+		Ver:     s.Ver,
+		DelTime: s.DelTime,
+		Status:  s.Status,
+	}
+	return ifo
+}
+
+type dirSnapshotItem struct {
 	sync.RWMutex
 	SnapshotInode uint64 // key for item
 	Dir           string
 	RootInode     uint64
-	Vers          []*SnapshotVer
+	MaxVer        uint64
+	Vers          []*snapshotVer
 }
 
-func newDirSnapItem(dirIno uint64) *DirSnapshotItem {
-	return &DirSnapshotItem{
+func newDirSnapItem(dirIno, rootIno uint64) *dirSnapshotItem {
+	return &dirSnapshotItem{
 		SnapshotInode: dirIno,
+		RootInode:     rootIno,
 	}
 }
 
-func (d *DirSnapshotItem) String() string {
+func (d *dirSnapshotItem) buildDirSnapshotIfo() *proto.DirSnapshotInfo {
+	ifo := &proto.DirSnapshotInfo{
+		SnapshotDir:   d.Dir,
+		MaxVer:        d.MaxVer,
+		SnapshotInode: d.SnapshotInode,
+	}
+
+	d.RLock()
+	defer d.RUnlock()
+	for _, v := range d.Vers {
+		ifo.Vers = append(ifo.Vers, &proto.ClientDirVer{
+			OutVer: v.OutVer,
+			Ver:    v.buildVerInfo(),
+		})
+	}
+
+	return ifo
+}
+
+func (d *dirSnapshotItem) String() string {
 	return fmt.Sprintf("snapshotIno(%d)_snapDir(%s)_rootIno(%d)_verCnt(%d)",
 		d.SnapshotInode, d.Dir, d.RootInode, len(d.Vers))
 }
 
-func (d *DirSnapshotItem) equal(d1 *DirSnapshotItem) bool {
+func (d *dirSnapshotItem) equal(d1 *dirSnapshotItem) bool {
 	if d.SnapshotInode != d1.SnapshotInode || d.Dir != d1.Dir || d.RootInode != d1.RootInode {
 		return false
 	}
@@ -63,20 +93,27 @@ func (d *DirSnapshotItem) equal(d1 *DirSnapshotItem) bool {
 	return true
 }
 
-// This method is necessary fot B-Tree item implementation.
-func (d *DirSnapshotItem) Less(than BtreeItem) bool {
-	d1, ok := than.(*DirSnapshotItem)
-	return ok && d.SnapshotInode < d1.SnapshotInode
+// Less This method is necessary fot B-Tree item implementation.
+func (d *dirSnapshotItem) Less(than BtreeItem) bool {
+	d1, ok := than.(*dirSnapshotItem)
+	if !ok {
+		return false
+	}
+
+	if d.RootInode != d1.RootInode {
+		return d.RootInode < d1.RootInode
+	}
+	return d.SnapshotInode < d1.SnapshotInode
 }
 
-func (d *DirSnapshotItem) Copy() BtreeItem {
-	d1 := &DirSnapshotItem{}
+func (d *dirSnapshotItem) Copy() BtreeItem {
+	d1 := &dirSnapshotItem{}
 	d1.RLock()
 	d1.SnapshotInode = d.SnapshotInode
 	d1.Dir = d.Dir
 	d1.RootInode = d.RootInode
 	if len(d.Vers) > 0 {
-		d1.Vers = make([]*SnapshotVer, 0, len(d.Vers))
+		d1.Vers = make([]*snapshotVer, 0, len(d.Vers))
 		for _, v := range d.Vers {
 			tmpV := *v
 			d1.Vers = append(d1.Vers, &tmpV)
@@ -86,7 +123,7 @@ func (d *DirSnapshotItem) Copy() BtreeItem {
 	return d1
 }
 
-func (d *DirSnapshotItem) Marshal() (result []byte, err error) {
+func (d *dirSnapshotItem) Marshal() (result []byte, err error) {
 	keyBytes := d.MarshalKey()
 	valBytes := d.MarshalValue()
 	keyLen := uint32(len(keyBytes))
@@ -109,7 +146,7 @@ func (d *DirSnapshotItem) Marshal() (result []byte, err error) {
 	return
 }
 
-func (d *DirSnapshotItem) Unmarshal(raw []byte) (err error) {
+func (d *dirSnapshotItem) Unmarshal(raw []byte) (err error) {
 	var (
 		keyLen uint32
 		valLen uint32
@@ -136,18 +173,18 @@ func (d *DirSnapshotItem) Unmarshal(raw []byte) (err error) {
 	return
 }
 
-func (d *DirSnapshotItem) MarshalKey() (k []byte) {
+func (d *dirSnapshotItem) MarshalKey() (k []byte) {
 	k = make([]byte, 8)
 	binary.BigEndian.PutUint64(k, d.SnapshotInode)
 	return
 }
 
-func (d *DirSnapshotItem) UnmarshalKey(k []byte) (err error) {
+func (d *dirSnapshotItem) UnmarshalKey(k []byte) (err error) {
 	d.SnapshotInode = binary.BigEndian.Uint64(k)
 	return
 }
 
-func (s *SnapshotVer) Marshal() (k []byte) {
+func (s *snapshotVer) Marshal() (k []byte) {
 	buff := bytes.NewBuffer(make([]byte, 0))
 	buff.Grow(30)
 
@@ -170,7 +207,7 @@ func (s *SnapshotVer) Marshal() (k []byte) {
 	return buff.Bytes()
 }
 
-func (s *SnapshotVer) Unmarshal(val []byte) (err error) {
+func (s *snapshotVer) Unmarshal(val []byte) (err error) {
 	buff := bytes.NewBuffer(val)
 
 	strSize := uint16(0)
@@ -196,7 +233,7 @@ func (s *SnapshotVer) Unmarshal(val []byte) (err error) {
 	return
 }
 
-func (d *DirSnapshotItem) MarshalValue() (k []byte) {
+func (d *dirSnapshotItem) MarshalValue() (k []byte) {
 
 	buff := bytes.NewBuffer(make([]byte, 0))
 	buff.Grow(32)
@@ -231,7 +268,7 @@ func (d *DirSnapshotItem) MarshalValue() (k []byte) {
 	return
 }
 
-func (d *DirSnapshotItem) UnmarshalValue(val []byte) (err error) {
+func (d *dirSnapshotItem) UnmarshalValue(val []byte) (err error) {
 	buff := bytes.NewBuffer(val)
 
 	dirSize := uint16(0)
@@ -255,7 +292,7 @@ func (d *DirSnapshotItem) UnmarshalValue(val []byte) (err error) {
 	}
 
 	if verCnt > 0 {
-		d.Vers = make([]*SnapshotVer, 0, verCnt)
+		d.Vers = make([]*snapshotVer, 0, verCnt)
 		for idx := 0; idx < int(verCnt); idx++ {
 			vSize := uint16(0)
 			if err = binary.Read(buff, binary.BigEndian, &vSize); err != nil {
@@ -265,7 +302,7 @@ func (d *DirSnapshotItem) UnmarshalValue(val []byte) (err error) {
 			if err = binary.Read(buff, binary.BigEndian, vData); err != nil {
 				return
 			}
-			v := &SnapshotVer{}
+			v := &snapshotVer{}
 			err = v.Unmarshal(vData)
 			if err != nil {
 				return err

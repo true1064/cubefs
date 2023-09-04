@@ -117,7 +117,7 @@ func (mp *metaPartition) Apply(command []byte, index uint64) (resp interface{}, 
 		}
 		resp = mp.fsmExtentsTruncateByDirVer(inodeDirVer)
 	case opFSMCreateDirSnap:
-		ifo := &proto.DirSnapShotInfo{}
+		ifo := &proto.CreateDirSnapShotInfo{}
 		if err = json.Unmarshal(msg.V, ifo); err != nil {
 			return
 		}

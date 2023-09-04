@@ -54,6 +54,7 @@ type Streamer struct {
 	pendingCache         chan bcacheKey
 	verSeq               uint64
 	needUpdateVer        int32
+	isDirVer             bool
 }
 
 type bcacheKey struct {
@@ -78,6 +79,11 @@ func NewStreamer(client *ExtentClient, inode uint64) *Streamer {
 	go s.server()
 	go s.asyncBlockCache()
 	return s
+}
+
+func (s *Streamer) SetDirVer(ver uint64) {
+	s.verSeq = ver
+	s.isDirVer = true
 }
 
 func (s *Streamer) SetParentInode(inode uint64) {

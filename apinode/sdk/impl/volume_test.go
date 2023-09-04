@@ -40,14 +40,14 @@ func Test_newVolume(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	newExtentClient = func(cfg *stream.ExtentConfig) (op sdk.DataOp, err error) {
+	newExtentClient = func(cfg *stream.ExtentConfig) (op DataOp, err error) {
 		if cfg.Volume == "v1" {
 			return nil, master.ErrNoValidMaster
 		}
 		return mocks.NewMockDataOp(ctrl), nil
 	}
 
-	newMetaWrapper = func(config *meta.MetaConfig) (op sdk.MetaOp, err error) {
+	newMetaWrapper = func(config *meta.MetaConfig) (op MetaOp, err error) {
 		if config.Volume == "v2" {
 			return nil, fmt.Errorf("no vaild volume")
 		}
@@ -410,7 +410,7 @@ func Test_volume_Delete(t *testing.T) {
 	parIno := uint64(10)
 
 	{
-		// delete failed Delete_ll(parentID uint64, name string, isDir bool) (*proto.InodeInfo, error)
+		// delete failed Delete(parentID uint64, name string, isDir bool) (*proto.InodeInfo, error)
 		mockMeta.EXPECT().Delete_ll(parIno, fileName, false).Return(nil, syscall.ENOENT)
 		err = v.Delete(ctx, parIno, fileName, false)
 		require.Equal(t, err, syscallToErr(syscall.ENOENT))
@@ -521,7 +521,7 @@ func Test_volume_GetXAttrMap(t *testing.T) {
 	parIno := uint64(10)
 	key, val := "k1", "v1"
 	{
-		// XAttrGetAll_ll failed XAttrGetAll_ll(inode uint64) (*proto.XAttrInfo, error)
+		// XAttrGetAll failed XAttrGetAll(inode uint64) (*proto.XAttrInfo, error)
 		mockMeta.EXPECT().XAttrGetAll_ll(parIno).Return(nil, syscall.ENOENT)
 		_, err = v.GetXAttrMap(ctx, parIno)
 		require.Equal(t, err, syscallToErr(syscall.ENOENT))
@@ -767,7 +767,7 @@ func Test_volume_ReadDirAll(t *testing.T) {
 	var err error
 	parIno := uint64(10)
 	{
-		// failed // ReadDirLimit_ll(parentID uint64, from string, limit uint64) ([]proto.Dentry, error)
+		// failed // ReadDirLimit(parentID uint64, from string, limit uint64) ([]proto.Dentry, error)
 		mockMeta.EXPECT().ReadDirLimit_ll(parIno, any, any).Return(nil, syscall.ENOENT)
 		_, err = v.ReadDirAll(ctx, parIno)
 		require.Equal(t, err, syscallToErr(syscall.ENOENT))
@@ -840,7 +840,7 @@ func Test_volume_Readdir(t *testing.T) {
 		require.Equal(t, err, sdk.ErrBadRequest)
 	}
 	{
-		// failed // ReadDirLimit_ll(parentID uint64, from string, limit uint64) ([]proto.Dentry, error)
+		// failed // ReadDirLimit(parentID uint64, from string, limit uint64) ([]proto.Dentry, error)
 		mockMeta.EXPECT().ReadDirLimit_ll(parIno, any, any).Return(nil, syscall.ENOENT)
 		_, err = v.Readdir(ctx, parIno, "", 2)
 		require.Equal(t, err, syscallToErr(syscall.ENOENT))
@@ -925,8 +925,8 @@ func Test_volume_SetXAttr(t *testing.T) {
 	ino := uint64(10)
 	key, val := "k1", "v1"
 	{
-		// XAttrSet_ll(inode uint64, name, value []byte) error
-		mockMeta.EXPECT().XAttrSetEx_ll(ino, []byte(key), []byte(val), false).Return(syscall.ENOENT)
+		// XAttrSet(inode uint64, name, value []byte) error
+		mockMeta.EXPECT().XAttrSet_ll(ino, []byte(key), []byte(val)).Return(syscall.ENOENT)
 		err = v.SetXAttr(ctx, ino, key, val)
 		require.Equal(t, err, syscallToErr(syscall.ENOENT))
 	}
@@ -1024,7 +1024,7 @@ func Test_volume_UploadFile(t *testing.T) {
 		require.Equal(t, err, syscallToErr(syscall.ENOENT))
 	}
 	mockMeta.EXPECT().InodeGet_ll(ifo.Inode).Return(ifo, nil).AnyTimes()
-	// BatchSetXAttr_ll(inode uint64, attrs map[string]string) error
+	// BatchSetXAttr(inode uint64, attrs map[string]string) error
 	{
 		mockMeta.EXPECT().BatchSetXAttr_ll(ifo.Inode, any).Return(syscall.ENOENT)
 		_, _, err = v.UploadFile(ctx, req)
@@ -1183,7 +1183,7 @@ func Test_volume_getStatByIno(t *testing.T) {
 	var err error
 	var st *sdk.StatFs
 	{
-		// failed ReadDirLimit_ll(parentID uint64, from string, limit uint64) ([]proto.Dentry, error)
+		// failed ReadDirLimit(parentID uint64, from string, limit uint64) ([]proto.Dentry, error)
 		mockMeta.EXPECT().ReadDirLimit_ll(ino, any, any).Return(nil, syscall.ENOENT)
 		_, err = v.getStatByIno(ctx, ino)
 		require.Equal(t, err, syscallToErr(syscall.ENOENT))

@@ -2,11 +2,10 @@ package impl
 
 import (
 	"context"
-	"syscall"
-
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/trace"
 	"github.com/cubefs/cubefs/proto"
+	"syscall"
 )
 
 type InodeLock struct {

@@ -53,7 +53,7 @@ type OSSSecure struct {
 
 type VolStatInfo = proto.VolStatInfo
 
-func (mw *MetaWrapper) fetchVolumeView() (view *VolumeView, err error) {
+func (mw *metaWrapper) fetchVolumeView() (view *VolumeView, err error) {
 	var vv *proto.VolView
 	if mw.ownerValidation {
 		var authKey string
@@ -121,7 +121,7 @@ func (mw *MetaWrapper) fetchVolumeView() (view *VolumeView, err error) {
 }
 
 // fetch and update cluster info if successful
-func (mw *MetaWrapper) updateClusterInfo() (err error) {
+func (mw *metaWrapper) updateClusterInfo() (err error) {
 	var info *proto.ClusterInfo
 	if info, err = mw.mc.AdminAPI().GetClusterInfo(); err != nil {
 		log.LogWarnf("updateClusterInfo: get cluster info fail: err(%v) volume(%v)", err, mw.volname)
@@ -134,7 +134,7 @@ func (mw *MetaWrapper) updateClusterInfo() (err error) {
 	return
 }
 
-func (mw *MetaWrapper) updateDirChildrenNumLimit() (err error) {
+func (mw *metaWrapper) updateDirChildrenNumLimit() (err error) {
 	var clusterInfo *proto.ClusterInfo
 	clusterInfo, err = mw.mc.AdminAPI().GetClusterInfo()
 	if err != nil {
@@ -153,7 +153,7 @@ func (mw *MetaWrapper) updateDirChildrenNumLimit() (err error) {
 	return
 }
 
-func (mw *MetaWrapper) updateVolStatInfo() (err error) {
+func (mw *metaWrapper) updateVolStatInfo() (err error) {
 
 	var info *proto.VolStatInfo
 	if info, err = mw.mc.ClientAPI().GetVolumeStat(mw.volname); err != nil {
@@ -167,7 +167,7 @@ func (mw *MetaWrapper) updateVolStatInfo() (err error) {
 	return
 }
 
-func (mw *MetaWrapper) updateMetaPartitions() error {
+func (mw *metaWrapper) updateMetaPartitions() error {
 	view, err := mw.fetchVolumeView()
 	if err != nil {
 		log.LogInfof("updateMetaPartition volume(%v) error: %v", mw.volname, err.Error())
@@ -214,7 +214,7 @@ func (mw *MetaWrapper) updateMetaPartitions() error {
 	return nil
 }
 
-func (mw *MetaWrapper) forceUpdateMetaPartitions() error {
+func (mw *metaWrapper) forceUpdateMetaPartitions() error {
 	// Only one forceUpdateMetaPartition is allowed in a specific period of time.
 	if ok := mw.forceUpdateLimit.AllowN(time.Now(), MinForceUpdateMetaPartitionsInterval); !ok {
 		return errors.New("Force update meta partitions throttled!")
@@ -224,7 +224,7 @@ func (mw *MetaWrapper) forceUpdateMetaPartitions() error {
 }
 
 // Should be protected by partMutex, otherwise the caller might not be signaled.
-func (mw *MetaWrapper) triggerAndWaitForceUpdate() {
+func (mw *metaWrapper) triggerAndWaitForceUpdate() {
 	mw.partMutex.Lock()
 	select {
 	case mw.forceUpdate <- struct{}{}:
@@ -234,7 +234,7 @@ func (mw *MetaWrapper) triggerAndWaitForceUpdate() {
 	mw.partMutex.Unlock()
 }
 
-func (mw *MetaWrapper) refresh() {
+func (mw *metaWrapper) refresh() {
 	var err error
 
 	t := time.NewTimer(RefreshMetaPartitionsInterval)
@@ -306,7 +306,7 @@ func genMasterToken(req proto.APIAccessReq, key string) (message string, ts int6
 	return
 }
 
-func (mw *MetaWrapper) updateTicket() error {
+func (mw *metaWrapper) updateTicket() error {
 	ticket, err := mw.ac.API().GetTicket(mw.owner, mw.ticketMess.ClientKey, proto.MasterServiceID)
 	if err != nil {
 		return errors.Trace(err, "Update ticket from authnode failed!")
@@ -316,7 +316,7 @@ func (mw *MetaWrapper) updateTicket() error {
 	return nil
 }
 
-func (mw *MetaWrapper) parseAndVerifyResp(body []byte, ts int64) (dataBody []byte, err error) {
+func (mw *metaWrapper) parseAndVerifyResp(body []byte, ts int64) (dataBody []byte, err error) {
 	var resp proto.MasterAPIAccessResp
 	if resp, err = mw.parseRespWithAuth(body); err != nil {
 		log.LogWarnf("fetchVolumeView parse response failed: err(%v) body(%v)", err, string(body))
@@ -341,7 +341,7 @@ func (mw *MetaWrapper) parseAndVerifyResp(body []byte, ts int64) (dataBody []byt
 	return viewBody.Data, err
 }
 
-func (mw *MetaWrapper) parseRespWithAuth(body []byte) (resp proto.MasterAPIAccessResp, err error) {
+func (mw *metaWrapper) parseRespWithAuth(body []byte) (resp proto.MasterAPIAccessResp, err error) {
 	var (
 		message    string
 		sessionKey []byte
@@ -367,7 +367,7 @@ func (mw *MetaWrapper) parseRespWithAuth(body []byte) (resp proto.MasterAPIAcces
 	return
 }
 
-func (mw *MetaWrapper) updateQuotaInfoTick() {
+func (mw *metaWrapper) updateQuotaInfoTick() {
 	mw.updateQuotaInfo()
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
@@ -383,7 +383,7 @@ func (mw *MetaWrapper) updateQuotaInfoTick() {
 	}
 }
 
-func (mw *MetaWrapper) updateQuotaInfo() {
+func (mw *metaWrapper) updateQuotaInfo() {
 	var volumeInfo *proto.SimpleVolView
 	volumeInfo, err := mw.mc.AdminAPI().GetVolumeSimpleInfo(mw.volname)
 	if err != nil {
@@ -408,7 +408,7 @@ func (mw *MetaWrapper) updateQuotaInfo() {
 	}
 }
 
-func (mw *MetaWrapper) IsQuotaLimited(quotaIds []uint32) bool {
+func (mw *metaWrapper) IsQuotaLimited(quotaIds []uint32) bool {
 	mw.QuotaLock.RLock()
 	defer mw.QuotaLock.RUnlock()
 	for _, quotaId := range quotaIds {

@@ -21,7 +21,7 @@ type cluster struct {
 	lock       sync.RWMutex
 	fileId     *proto.FileId
 
-	cli sdk.IMaster
+	cli IMaster
 
 	volLk  sync.RWMutex
 	volMap map[string]sdk.IVolume
@@ -138,7 +138,7 @@ func (c *cluster) UpdateAddr(ctx context.Context, addr string) error {
 	return nil
 }
 
-func initMasterCli(ctx context.Context, cId, addr string) (sdk.IMaster, error) {
+func initMasterCli(ctx context.Context, cId, addr string) (IMaster, error) {
 	span := trace.SpanFromContextSafe(ctx)
 	cli := newMaster(addr)
 	info, err := cli.GetClusterIP()
@@ -190,7 +190,7 @@ func (c *cluster) updateVols(ctx context.Context) error {
 		}
 
 		if v, ok := newVol.(*volume); ok {
-			v.setAllocFunc(c.allocFileId)
+			v.allocId = c.allocFileId
 		}
 
 		c.putVol(vol.Name, newVol)

@@ -30,9 +30,6 @@ import (
 	masterSDK "github.com/cubefs/cubefs/sdk/master"
 	"github.com/cubefs/cubefs/util"
 	"github.com/cubefs/cubefs/util/auth"
-	"github.com/cubefs/cubefs/util/btree"
-	"github.com/cubefs/cubefs/util/errors"
-	"github.com/cubefs/cubefs/util/log"
 )
 
 const (
@@ -97,85 +94,7 @@ type MetaConfig struct {
 	VerReadSeq uint64
 }
 
-type MetaWrapper struct {
-	sync.RWMutex
-	cluster           string
-	localIP           string
-	volname           string
-	ossSecure         *OSSSecure
-	volCreateTime     int64
-	volDeleteLockTime int64
-	owner             string
-	ownerValidation   bool
-	mc                *masterSDK.MasterClient
-	ac                *authSDK.AuthClient
-	conns             *util.ConnectPool
-
-	// Callback handler for handling asynchronous task errors.
-	onAsyncTaskError AsyncTaskErrorFunc
-
-	// Partitions and ranges should be modified together. So do not
-	// use partitions and ranges directly. Use the helper functions instead.
-
-	// Partition map indexed by ID
-	partitions map[uint64]*MetaPartition
-
-	// Partition tree indexed by Start, in order to find a partition in which
-	// a specific inode locate.
-	ranges *btree.BTree
-
-	rwPartitions []*MetaPartition
-	epoch        uint64
-
-	totalSize  uint64
-	usedSize   uint64
-	inodeCount uint64
-
-	authenticate bool
-	Ticket       auth.Ticket
-	accessToken  proto.APIAccessReq
-	sessionKey   string
-	ticketMess   auth.TicketMess
-
-	closeCh   chan struct{}
-	closeOnce sync.Once
-
-	// Allocated to signal the go routines which are waiting for partition view update
-	partMutex sync.Mutex
-	partCond  *sync.Cond
-
-	// Allocated to trigger and throttle instant partition updates
-	forceUpdate             chan struct{}
-	forceUpdateLimit        *rate.Limiter
-	singleflight            singleflight.Group
-	EnableSummary           bool
-	metaSendTimeout         int64
-	DirChildrenNumLimit     uint32
-	EnableTransaction       proto.TxOpMask
-	TxTimeout               int64
-	TxConflictRetryNum      int64
-	TxConflictRetryInterval int64
-	EnableQuota             bool
-	QuotaInfoMap            map[uint32]*proto.QuotaInfo
-	QuotaLock               sync.RWMutex
-
-	// uniqidRange for request dedup
-	uniqidRangeMap   map[uint64]*uniqidRange
-	uniqidRangeMutex sync.Mutex
-
-	qc *QuotaCache
-
-	VerReadSeq uint64
-	LastVerSeq uint64
-	Client     wrapper.SimpleClientInfo
-}
-
-type uniqidRange struct {
-	cur uint64
-	end uint64
-}
-
-// the ticket from authnode
+// Ticket the ticket from authnode
 type Ticket struct {
 	ID         string `json:"client_id"`
 	SessionKey string `json:"session_key"`
@@ -184,80 +103,16 @@ type Ticket struct {
 }
 
 func NewMetaWrapper(config *MetaConfig) (*MetaWrapper, error) {
-	var err error
-	mw := new(MetaWrapper)
-	mw.closeCh = make(chan struct{}, 1)
-
-	if config.Authenticate {
-		var ticketMess = config.TicketMess
-		mw.ac = authSDK.NewAuthClient(ticketMess.TicketHosts, ticketMess.EnableHTTPS, ticketMess.CertFile)
-		ticket, err := mw.ac.API().GetTicket(config.Owner, ticketMess.ClientKey, proto.MasterServiceID)
-		if err != nil {
-			return nil, errors.Trace(err, "Get ticket from authnode failed!")
-		}
-		mw.authenticate = config.Authenticate
-		mw.accessToken.Ticket = ticket.Ticket
-		mw.accessToken.ClientID = config.Owner
-		mw.accessToken.ServiceID = proto.MasterServiceID
-		mw.sessionKey = ticket.SessionKey
-		mw.ticketMess = ticketMess
-	}
-
-	mw.volname = config.Volume
-	mw.owner = config.Owner
-	mw.ownerValidation = config.ValidateOwner
-	mw.mc = masterSDK.NewMasterClient(config.Masters, false)
-	mw.onAsyncTaskError = config.OnAsyncTaskError
-	mw.metaSendTimeout = config.MetaSendTimeout
-	mw.conns = util.NewConnectPool()
-	mw.partitions = make(map[uint64]*MetaPartition)
-	mw.ranges = btree.New(32)
-	mw.rwPartitions = make([]*MetaPartition, 0)
-	mw.partCond = sync.NewCond(&mw.partMutex)
-	mw.forceUpdate = make(chan struct{}, 1)
-	mw.forceUpdateLimit = rate.NewLimiter(1, MinForceUpdateMetaPartitionsInterval)
-	mw.EnableSummary = config.EnableSummary
-	mw.DirChildrenNumLimit = proto.DefaultDirChildrenNumLimit
-	//mw.EnableTransaction = config.EnableTransaction
-	mw.uniqidRangeMap = make(map[uint64]*uniqidRange, 0)
-	mw.qc = NewQuotaCache(DefaultQuotaExpiration, MaxQuotaCache)
-	mw.VerReadSeq = config.VerReadSeq
-
-	limit := 0
-
-	for limit < MaxMountRetryLimit {
-		err = mw.initMetaWrapper()
-		// When initializing the volume, if the master explicitly responds that the specified
-		// volume does not exist, it will not retry.
-		if err != nil {
-			if strings.Contains(err.Error(), "auth key do not match") {
-				limit = 0
-				break
-			}
-			log.LogErrorf("NewMetaWrapper: init meta wrapper failed: volume(%v) err(%v)", mw.volname, err)
-		}
-		if err == proto.ErrVolNotExists {
-			return nil, err
-		}
-		if err != nil {
-			limit++
-			time.Sleep(MountRetryInterval * time.Duration(limit))
-			continue
-		}
-		break
-	}
-
-	if limit <= 0 && err != nil {
+	sm, err := NewSnapshotMetaWrapper(config)
+	if err != nil {
 		return nil, err
 	}
 
-	go mw.updateQuotaInfoTick()
-	go mw.refresh()
-	return mw, nil
-}
+	mw := &MetaWrapper{
+		SnapShotMetaWrapper: sm,
+	}
 
-func (mw *MetaWrapper) UpdateMasterAddr(addrs string) {
-	mw.mc = masterSDK.NewMasterClientFromString(addrs, false)
+	return mw, nil
 }
 
 func (mw *MetaWrapper) SetTxConfig(txMaskStr string, timeout int64, retryNum int64, retryInterval int64) {
@@ -287,7 +142,7 @@ func (mw *MetaWrapper) SetTxConfig(txMaskStr string, timeout int64, retryNum int
 		mask, txMaskStr, timeout, retryNum, retryInterval)
 }
 
-func (mw *MetaWrapper) initMetaWrapper() (err error) {
+func (mw *metaWrapper) initMetaWrapper() (err error) {
 	if err = mw.updateClusterInfo(); err != nil {
 		return err
 	}
@@ -307,7 +162,7 @@ func (mw *MetaWrapper) initMetaWrapper() (err error) {
 	return nil
 }
 
-func (mw *MetaWrapper) Owner() string {
+func (mw *metaWrapper) Owner() string {
 	return mw.owner
 }
 
@@ -315,15 +170,15 @@ func (mw *MetaWrapper) enableTx(mask proto.TxOpMask) bool {
 	return mw.EnableTransaction != proto.TxPause && mw.EnableTransaction&mask > 0
 }
 
-func (mw *MetaWrapper) OSSSecure() (accessKey, secretKey string) {
+func (mw *metaWrapper) OSSSecure() (accessKey, secretKey string) {
 	return mw.ossSecure.AccessKey, mw.ossSecure.SecretKey
 }
 
-func (mw *MetaWrapper) VolCreateTime() int64 {
+func (mw *metaWrapper) VolCreateTime() int64 {
 	return mw.volCreateTime
 }
 
-func (mw *MetaWrapper) Close() error {
+func (mw *metaWrapper) Close() error {
 	mw.closeOnce.Do(func() {
 		close(mw.closeCh)
 		mw.conns.Close()
@@ -331,15 +186,15 @@ func (mw *MetaWrapper) Close() error {
 	return nil
 }
 
-func (mw *MetaWrapper) Cluster() string {
+func (mw *metaWrapper) Cluster() string {
 	return mw.cluster
 }
 
-func (mw *MetaWrapper) LocalIP() string {
+func (mw *metaWrapper) LocalIP() string {
 	return mw.localIP
 }
 
-func (mw *MetaWrapper) exporterKey(act string) string {
+func (mw *metaWrapper) exporterKey(act string) string {
 	return fmt.Sprintf("%s_sdk_meta_%s", mw.cluster, act)
 }
 

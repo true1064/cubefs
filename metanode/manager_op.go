@@ -2566,3 +2566,84 @@ end:
 
 	return
 }
+
+func (m *metadataManager) opDirSnapshotList(conn net.Conn, p *Packet, remote string) (err error) {
+	req := &proto.ListDirSnapshotReq{}
+	if err = json.Unmarshal(p.Data, req); err != nil {
+		p.PacketErrorWithBody(proto.OpErr, ([]byte)(err.Error()))
+		m.respondToClient(conn, p)
+		err = errors.NewErrorf("[opDirSnapshotList] req: %v, resp: %v", req, err.Error())
+		return
+	}
+
+	mp, err := m.getPartition(req.PartitionID)
+	if err != nil {
+		p.PacketErrorWithBody(proto.OpErr, ([]byte)(err.Error()))
+		m.respondToClient(conn, p)
+		err = errors.NewErrorf("[opGetMultipart] req: %v, resp: %v", req, err.Error())
+		return
+	}
+
+	if !m.serveProxy(conn, mp, p) {
+		return
+	}
+
+	err = mp.ListAllDirSnapshot(req.RootIno, p)
+	_ = m.respondToClient(conn, p)
+	log.LogInfof("[opDirSnapshotList] rootIno [%d] success, remote %s", req.RootIno, remote)
+	return
+}
+
+func (m *metadataManager) opDirSnapshotCreate(conn net.Conn, p *Packet, remote string) (err error) {
+	req := &proto.CreateDirSnapShotReq{}
+	if err = json.Unmarshal(p.Data, req); err != nil {
+		p.PacketErrorWithBody(proto.OpErr, ([]byte)(err.Error()))
+		m.respondToClient(conn, p)
+		err = errors.NewErrorf("[opDirSnapshotCreate] req: %v, resp: %v", req, err.Error())
+		return
+	}
+
+	mp, err := m.getPartition(req.PartitionID)
+	if err != nil {
+		p.PacketErrorWithBody(proto.OpErr, ([]byte)(err.Error()))
+		m.respondToClient(conn, p)
+		err = errors.NewErrorf("[opDirSnapshotCreate] req: %v, resp: %v", req, err.Error())
+		return
+	}
+
+	if !m.serveProxy(conn, mp, p) {
+		return
+	}
+
+	err = mp.CreateDirSnapshot(req.Info, p)
+	_ = m.respondToClient(conn, p)
+	log.LogInfof("[opDirSnapshotCreate] info [%v] success, remote %s", req.Info, remote)
+	return
+}
+
+func (m *metadataManager) opDirSnapshotDel(conn net.Conn, p *Packet, remote string) (err error) {
+	req := &proto.DirVerDelReq{}
+	if err = json.Unmarshal(p.Data, req); err != nil {
+		p.PacketErrorWithBody(proto.OpErr, ([]byte)(err.Error()))
+		m.respondToClient(conn, p)
+		err = errors.NewErrorf("[opDirSnapshotDel] req: %v, resp: %v", req, err.Error())
+		return
+	}
+
+	mp, err := m.getPartition(req.PartitionID)
+	if err != nil {
+		p.PacketErrorWithBody(proto.OpErr, ([]byte)(err.Error()))
+		m.respondToClient(conn, p)
+		err = errors.NewErrorf("[opDirSnapshotDel] req: %v, resp: %v", req, err.Error())
+		return
+	}
+
+	if !m.serveProxy(conn, mp, p) {
+		return
+	}
+
+	err = mp.DelDirSnapshot(req.Item, p)
+	_ = m.respondToClient(conn, p)
+	log.LogInfof("[opDirSnapshotDel] info [%v] success, remote %s", req.Item, remote)
+	return
+}

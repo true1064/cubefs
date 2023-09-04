@@ -44,17 +44,17 @@ func (mp *MetaPartition) String() string {
 // Meta partition managements
 //
 
-func (mw *MetaWrapper) addPartition(mp *MetaPartition) {
+func (mw *metaWrapper) addPartition(mp *MetaPartition) {
 	mw.partitions[mp.PartitionID] = mp
 	mw.ranges.ReplaceOrInsert(mp)
 }
 
-func (mw *MetaWrapper) deletePartition(mp *MetaPartition) {
+func (mw *metaWrapper) deletePartition(mp *MetaPartition) {
 	delete(mw.partitions, mp.PartitionID)
 	mw.ranges.Delete(mp)
 }
 
-func (mw *MetaWrapper) replaceOrInsertPartition(mp *MetaPartition) {
+func (mw *metaWrapper) replaceOrInsertPartition(mp *MetaPartition) {
 	mw.Lock()
 	defer mw.Unlock()
 
@@ -67,7 +67,7 @@ func (mw *MetaWrapper) replaceOrInsertPartition(mp *MetaPartition) {
 	return
 }
 
-func (mw *MetaWrapper) getPartitionByID(id uint64) *MetaPartition {
+func (mw *metaWrapper) getPartitionByID(id uint64) *MetaPartition {
 	mw.RLock()
 	defer mw.RUnlock()
 	mp, ok := mw.partitions[id]
@@ -77,7 +77,7 @@ func (mw *MetaWrapper) getPartitionByID(id uint64) *MetaPartition {
 	return mp
 }
 
-func (mw *MetaWrapper) getPartitionByInode(ino uint64) *MetaPartition {
+func (mw *metaWrapper) getPartitionByInode(ino uint64) *MetaPartition {
 	var mp *MetaPartition
 	mw.RLock()
 	defer mw.RUnlock()
@@ -95,7 +95,7 @@ func (mw *MetaWrapper) getPartitionByInode(ino uint64) *MetaPartition {
 	return mp
 }
 
-//func (mw *MetaWrapper) getRWPartitions() []*MetaPartition {
+//func (mw *metaWrapper) getRWPartitions() []*MetaPartition {
 //	rwPartitions := make([]*MetaPartition, 0)
 //	mw.RLock()
 //	defer mw.RUnlock()
@@ -107,7 +107,7 @@ func (mw *MetaWrapper) getPartitionByInode(ino uint64) *MetaPartition {
 //	return rwPartitions
 //}
 
-func (mw *MetaWrapper) getRWPartitions() []*MetaPartition {
+func (mw *metaWrapper) getRWPartitions() []*MetaPartition {
 	mw.RLock()
 	defer mw.RUnlock()
 	rwPartitions := mw.rwPartitions
@@ -122,7 +122,7 @@ func (mw *MetaWrapper) getRWPartitions() []*MetaPartition {
 
 // GetConnect the partition whose Start is Larger than ino.
 // Return nil if no successive partition.
-func (mw *MetaWrapper) getNextPartition(ino uint64) *MetaPartition {
+func (mw *metaWrapper) getNextPartition(ino uint64) *MetaPartition {
 	var mp *MetaPartition
 	mw.RLock()
 	defer mw.RUnlock()
@@ -136,7 +136,7 @@ func (mw *MetaWrapper) getNextPartition(ino uint64) *MetaPartition {
 	return mp
 }
 
-func (mw *MetaWrapper) getLatestPartition() *MetaPartition {
+func (mw *metaWrapper) getLatestPartition() *MetaPartition {
 	mw.RLock()
 	defer mw.RUnlock()
 	return mw.ranges.Max().(*MetaPartition)

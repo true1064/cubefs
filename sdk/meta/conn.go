@@ -44,7 +44,7 @@ func (mc *MetaConn) String() string {
 	return fmt.Sprintf("partitionID(%v) addr(%v)", mc.id, mc.addr)
 }
 
-func (mw *MetaWrapper) getConn(partitionID uint64, addr string) (*MetaConn, error) {
+func (mw *SnapShotMetaWrapper) getConn(partitionID uint64, addr string) (*MetaConn, error) {
 	conn, err := mw.conns.GetConnect(addr)
 	if err != nil {
 		return nil, err
@@ -53,11 +53,11 @@ func (mw *MetaWrapper) getConn(partitionID uint64, addr string) (*MetaConn, erro
 	return mc, nil
 }
 
-func (mw *MetaWrapper) putConn(mc *MetaConn, err error) {
+func (mw *SnapShotMetaWrapper) putConn(mc *MetaConn, err error) {
 	mw.conns.PutConnect(mc.conn, err != nil)
 }
 
-func (mw *MetaWrapper) sendToMetaPartition(mp *MetaPartition, req *proto.Packet) (*proto.Packet, error) {
+func (mw *SnapShotMetaWrapper) sendToMetaPartition(mp *MetaPartition, req *proto.Packet) (*proto.Packet, error) {
 	var (
 		resp    *proto.Packet
 		err     error
@@ -73,10 +73,16 @@ func (mw *MetaWrapper) sendToMetaPartition(mp *MetaPartition, req *proto.Packet)
 		sendTimeLimit = int(mw.metaSendTimeout) * 1000 // ms
 	}
 
+	if mw.verInfo != nil {
+		req.SetVerInfo(mw.verInfo)
+		log.LogDebugf("sendToMetaPartition: set ver info on pkt, ifo %v, op %s", mw.verInfo, req.GetOpMsg())
+		req.ExtentType |= proto.DirVersionFlag
+	} else {
+		req.ExtentType |= proto.MultiVersionFlag
+	}
+
 	delta := (sendTimeLimit*2/SendRetryLimit - SendRetryInterval*2) / SendRetryLimit // ms
 	log.LogDebugf("mw.metaSendTimeout: %v s, sendTimeLimit: %v ms, delta: %v ms", mw.metaSendTimeout, sendTimeLimit, delta)
-
-	req.ExtentType |= proto.MultiVersionFlag
 
 	errs := make(map[int]error, len(mp.Members))
 	var j int

@@ -1,13 +1,12 @@
-package sdk
+package impl
 
 import (
-	"context"
-
 	"github.com/cubefs/cubefs/proto"
 )
 
 type DataOp interface {
 	OpenStream(inode uint64) error
+	OpenStreamVer(inode, seq uint64) error
 	Write(inode uint64, offset int, data []byte, flags int) (write int, err error)
 	Read(inode uint64, data []byte, offset int, size int) (read int, err error)
 	Flush(inode uint64) error
@@ -15,20 +14,19 @@ type DataOp interface {
 }
 
 type MetaOp interface {
-	CreateInode(mode uint32) (*proto.InodeInfo, error)
-	CreateFileEx(ctx context.Context, parentID uint64, name string, mode uint32) (*InodeInfo, uint64, error)
+	InodeCreate_ll(mode, uid, gid uint32, target []byte, quotaIds []uint64) (*proto.InodeInfo, error)
 	Delete_ll(parentID uint64, name string, isDir bool) (*proto.InodeInfo, error)
 	Truncate(inode, size uint64) error
 	InodeUnlink_ll(inode uint64) (*proto.InodeInfo, error)
 	Evict(inode uint64) error
-	CreateDentryEx(ctx context.Context, req *CreateDentryReq) (uint64, error)
+	DentryCreateEx_ll(req *proto.CreateDentryRequest) error
 	Setattr(inode uint64, valid, mode, uid, gid uint32, atime, mtime int64) error
 	InodeDelete_ll(inode uint64) error
 	LookupPath(subdir string) (uint64, error)
 	ReadDirLimit_ll(parentID uint64, from string, limit uint64) ([]proto.Dentry, error)
 	BatchInodeGetWith(inodes []uint64) (batchInfos []*proto.InodeInfo, err error)
-	LookupEx(parentId uint64, name string) (den *proto.Dentry, err error)
 	GetExtents(inode uint64) (gen uint64, size uint64, extents []proto.ExtentKey, err error)
+	LookupEx_ll(parentId uint64, name string) (den *proto.Dentry, err error)
 	InodeGet_ll(inode uint64) (*proto.InodeInfo, error)
 	ReadDir_ll(parentID uint64) ([]proto.Dentry, error)
 	// Link(parentID uint64, name string, ino uint64) (*proto.InodeInfo, error)
@@ -47,13 +45,24 @@ type MetaOp interface {
 	AddMultipartPart_ll(path, multipartId string, partId uint16, size uint64, md5 string, inodeInfo *proto.InodeInfo) (oldInode uint64, updated bool, err error)
 	RemoveMultipart_ll(path, multipartID string) (err error)
 	ListMultipart_ll(prefix, delimiter, keyMarker string, multipartIdMarker string, maxUploads uint64) (sessionResponse []*proto.MultipartInfo, err error)
+	DirSnapshot
+}
+
+type DirSnapshot interface {
+	SetVerInfo(info *proto.DelVer)
+	SetRenameVerInfo(src, dst *proto.DelVer)
+	GetVerInfo() *proto.DelVer
+
+	ListAllDirSnapshot(dirIno uint64) ([]*proto.DirSnapshotInfo, error)
+	CreateDirSnapshot(ifo *proto.CreateDirSnapShotInfo) (err error)
+	DeleteDirSnapshot(ifo *proto.DirVerItem) (err error)
 }
 
 type IMaster interface {
-	MasterApi
+	IMasterApi
 }
 
-type MasterApi interface {
+type IMasterApi interface {
 	GetClusterIP() (cp *proto.ClusterIP, err error)
 	ListVols(keywords string) (volsInfo []*proto.VolInfo, err error)
 	AllocFileId() (info *proto.FileId, err error)

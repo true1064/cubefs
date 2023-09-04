@@ -33,7 +33,7 @@ func TestCluster_initMasterCli(t *testing.T) {
 	_, ctx := trace.StartSpanFromContext(context.TODO(), "")
 
 	for _, tc := range testCases {
-		newMaster = func(addr string) sdk.IMaster {
+		newMaster = func(addr string) IMaster {
 			m := mocks.NewMockMaster(ctrl)
 			m.EXPECT().GetClusterIP().Return(tc.cIp, tc.returnErr)
 			m.EXPECT().AllocFileId().Return(nil, nil).AnyTimes()
@@ -53,7 +53,7 @@ func TestCluster_updateVols(t *testing.T) {
 	m.EXPECT().GetClusterIP().Return(&proto.ClusterIP{Cluster: "cid1"}, nil)
 	m.EXPECT().AllocFileId().Return(nil, nil).AnyTimes()
 
-	newMaster = func(addr string) sdk.IMaster {
+	newMaster = func(addr string) IMaster {
 		return m
 	}
 
@@ -92,7 +92,7 @@ func TestCluster_AllocFileId(t *testing.T) {
 	defer ctrl.Finish()
 
 	m := mocks.NewMockMaster(ctrl)
-	newMaster = func(addr string) sdk.IMaster {
+	newMaster = func(addr string) IMaster {
 		return m
 	}
 

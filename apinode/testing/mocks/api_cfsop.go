@@ -179,7 +179,7 @@ func (mr *MockMetaOpMockRecorder) BatchInodeGetWith(arg0 interface{}) *gomock.Ca
 // BatchSetXAttr_ll mocks base method.
 func (m *MockMetaOp) BatchSetXAttr_ll(arg0 uint64, arg1 map[string]string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BatchSetXAttr_ll", arg0, arg1)
+	ret := m.ctrl.Call(m, "BatchSetXAttr", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
@@ -187,7 +187,7 @@ func (m *MockMetaOp) BatchSetXAttr_ll(arg0 uint64, arg1 map[string]string) error
 // BatchSetXAttr_ll indicates an expected call of BatchSetXAttr_ll.
 func (mr *MockMetaOpMockRecorder) BatchSetXAttr_ll(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BatchSetXAttr_ll", reflect.TypeOf((*MockMetaOp)(nil).BatchSetXAttr_ll), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BatchSetXAttr", reflect.TypeOf((*MockMetaOp)(nil).BatchSetXAttr_ll), arg0, arg1)
 }
 
 // CreateDentryEx mocks base method.
@@ -206,13 +206,12 @@ func (mr *MockMetaOpMockRecorder) CreateDentryEx(arg0, arg1 interface{}) *gomock
 }
 
 // CreateFileEx mocks base method.
-func (m *MockMetaOp) CreateFileEx(arg0 context.Context, arg1 uint64, arg2 string, arg3 uint32) (*proto.InodeInfo, uint64, error) {
+func (m *MockMetaOp) CreateFileEx(arg0 context.Context, arg1 uint64, arg2 string, arg3 uint32) (*sdk.InodeInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateFileEx", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(*proto.InodeInfo)
-	ret1, _ := ret[1].(uint64)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret0, _ := ret[0].(*sdk.InodeInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // CreateFileEx indicates an expected call of CreateFileEx.
@@ -239,7 +238,7 @@ func (mr *MockMetaOpMockRecorder) CreateInode(arg0 interface{}) *gomock.Call {
 // Delete_ll mocks base method.
 func (m *MockMetaOp) Delete_ll(arg0 uint64, arg1 string, arg2 bool) (*proto.InodeInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Delete_ll", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "Delete", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*proto.InodeInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -248,7 +247,7 @@ func (m *MockMetaOp) Delete_ll(arg0 uint64, arg1 string, arg2 bool) (*proto.Inod
 // Delete_ll indicates an expected call of Delete_ll.
 func (mr *MockMetaOpMockRecorder) Delete_ll(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete_ll", reflect.TypeOf((*MockMetaOp)(nil).Delete_ll), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockMetaOp)(nil).Delete_ll), arg0, arg1, arg2)
 }
 
 // Evict mocks base method.
@@ -315,7 +314,7 @@ func (mr *MockMetaOpMockRecorder) InitMultipart_ll(arg0, arg1 interface{}) *gomo
 // InodeDelete_ll mocks base method.
 func (m *MockMetaOp) InodeDelete_ll(arg0 uint64) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InodeDelete_ll", arg0)
+	ret := m.ctrl.Call(m, "InodeDelete", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
@@ -323,7 +322,7 @@ func (m *MockMetaOp) InodeDelete_ll(arg0 uint64) error {
 // InodeDelete_ll indicates an expected call of InodeDelete_ll.
 func (mr *MockMetaOpMockRecorder) InodeDelete_ll(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InodeDelete_ll", reflect.TypeOf((*MockMetaOp)(nil).InodeDelete_ll), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InodeDelete", reflect.TypeOf((*MockMetaOp)(nil).InodeDelete_ll), arg0)
 }
 
 // InodeGet_ll mocks base method.
@@ -344,7 +343,7 @@ func (mr *MockMetaOpMockRecorder) InodeGet_ll(arg0 interface{}) *gomock.Call {
 // InodeUnlink_ll mocks base method.
 func (m *MockMetaOp) InodeUnlink_ll(arg0 uint64) (*proto.InodeInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InodeUnlink_ll", arg0)
+	ret := m.ctrl.Call(m, "InodeUnlink", arg0)
 	ret0, _ := ret[0].(*proto.InodeInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -353,7 +352,7 @@ func (m *MockMetaOp) InodeUnlink_ll(arg0 uint64) (*proto.InodeInfo, error) {
 // InodeUnlink_ll indicates an expected call of InodeUnlink_ll.
 func (mr *MockMetaOpMockRecorder) InodeUnlink_ll(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InodeUnlink_ll", reflect.TypeOf((*MockMetaOp)(nil).InodeUnlink_ll), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InodeUnlink", reflect.TypeOf((*MockMetaOp)(nil).InodeUnlink_ll), arg0)
 }
 
 // ListMultipart_ll mocks base method.
@@ -404,7 +403,7 @@ func (mr *MockMetaOpMockRecorder) LookupPath(arg0 interface{}) *gomock.Call {
 // ReadDirLimit_ll mocks base method.
 func (m *MockMetaOp) ReadDirLimit_ll(arg0 uint64, arg1 string, arg2 uint64) ([]proto.Dentry, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReadDirLimit_ll", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "ReadDirLimit", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]proto.Dentry)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -413,7 +412,7 @@ func (m *MockMetaOp) ReadDirLimit_ll(arg0 uint64, arg1 string, arg2 uint64) ([]p
 // ReadDirLimit_ll indicates an expected call of ReadDirLimit_ll.
 func (mr *MockMetaOpMockRecorder) ReadDirLimit_ll(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadDirLimit_ll", reflect.TypeOf((*MockMetaOp)(nil).ReadDirLimit_ll), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadDirLimit", reflect.TypeOf((*MockMetaOp)(nil).ReadDirLimit_ll), arg0, arg1, arg2)
 }
 
 // ReadDir_ll mocks base method.
@@ -462,7 +461,7 @@ func (mr *MockMetaOpMockRecorder) Rename_ll(arg0, arg1, arg2, arg3, arg4 interfa
 // SetInodeLock_ll mocks base method.
 func (m *MockMetaOp) SetInodeLock_ll(arg0 uint64, arg1 *proto.InodeLockReq) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetInodeLock_ll", arg0, arg1)
+	ret := m.ctrl.Call(m, "SetInodeLock", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
@@ -470,7 +469,7 @@ func (m *MockMetaOp) SetInodeLock_ll(arg0 uint64, arg1 *proto.InodeLockReq) erro
 // SetInodeLock_ll indicates an expected call of SetInodeLock_ll.
 func (mr *MockMetaOpMockRecorder) SetInodeLock_ll(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetInodeLock_ll", reflect.TypeOf((*MockMetaOp)(nil).SetInodeLock_ll), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetInodeLock", reflect.TypeOf((*MockMetaOp)(nil).SetInodeLock_ll), arg0, arg1)
 }
 
 // Setattr mocks base method.
@@ -518,7 +517,7 @@ func (mr *MockMetaOpMockRecorder) XAttrDel_ll(arg0, arg1 interface{}) *gomock.Ca
 // XAttrGetAll_ll mocks base method.
 func (m *MockMetaOp) XAttrGetAll_ll(arg0 uint64) (*proto.XAttrInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "XAttrGetAll_ll", arg0)
+	ret := m.ctrl.Call(m, "XAttrGetAll", arg0)
 	ret0, _ := ret[0].(*proto.XAttrInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -527,7 +526,7 @@ func (m *MockMetaOp) XAttrGetAll_ll(arg0 uint64) (*proto.XAttrInfo, error) {
 // XAttrGetAll_ll indicates an expected call of XAttrGetAll_ll.
 func (mr *MockMetaOpMockRecorder) XAttrGetAll_ll(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "XAttrGetAll_ll", reflect.TypeOf((*MockMetaOp)(nil).XAttrGetAll_ll), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "XAttrGetAll", reflect.TypeOf((*MockMetaOp)(nil).XAttrGetAll_ll), arg0)
 }
 
 // XAttrGet_ll mocks base method.
@@ -545,18 +544,18 @@ func (mr *MockMetaOpMockRecorder) XAttrGet_ll(arg0, arg1 interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "XAttrGet_ll", reflect.TypeOf((*MockMetaOp)(nil).XAttrGet_ll), arg0, arg1)
 }
 
-// XAttrSetEx_ll mocks base method.
-func (m *MockMetaOp) XAttrSetEx_ll(arg0 uint64, arg1, arg2 []byte, arg3 bool) error {
+// XAttrSet_ll mocks base method.
+func (m *MockMetaOp) XAttrSet_ll(arg0 uint64, arg1, arg2 []byte) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "XAttrSetEx_ll", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "XAttrSet", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// XAttrSetEx_ll indicates an expected call of XAttrSetEx_ll.
-func (mr *MockMetaOpMockRecorder) XAttrSetEx_ll(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+// XAttrSet_ll indicates an expected call of XAttrSet_ll.
+func (mr *MockMetaOpMockRecorder) XAttrSet_ll(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "XAttrSetEx_ll", reflect.TypeOf((*MockMetaOp)(nil).XAttrSetEx_ll), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "XAttrSet", reflect.TypeOf((*MockMetaOp)(nil).XAttrSet_ll), arg0, arg1, arg2)
 }
 
 // XAttrsList_ll mocks base method.

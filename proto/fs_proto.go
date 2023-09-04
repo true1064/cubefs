@@ -560,13 +560,36 @@ type LayerInfo struct {
 
 type DirVerItem struct {
 	DirSnapIno uint64 `json:"ino"`
+	RootIno    uint64 `json:"rootIno"`
 	Ver        uint64 `json:"ver"`
 }
 
 type DirVerDelReq struct {
-	VolName     string     `json:"vol"`
-	PartitionID uint64     `json:"pid"`
-	Item        DirVerItem `json:"item"`
+	VolName     string      `json:"vol"`
+	PartitionID uint64      `json:"pid"`
+	Item        *DirVerItem `json:"item"`
+}
+
+type ListDirSnapshotReq struct {
+	VolName     string `json:"vol"`
+	PartitionID uint64 `json:"pid"`
+	RootIno     uint64 `json:"rootIno"`
+}
+
+type ListDirSnapshotResp struct {
+	Items []*DirSnapshotInfo `json:"items"`
+}
+
+type DirSnapshotInfo struct {
+	SnapshotDir   string          `json:"snapshot_dir"`
+	SnapshotInode uint64          `json:"snapshot_ino"`
+	MaxVer        uint64          `json:"max_ver"`
+	Vers          []*ClientDirVer `json:"vers"`
+}
+
+type ClientDirVer struct {
+	OutVer string       `json:"out_ver"`
+	Ver    *VersionInfo `json:"ver"`
 }
 
 type MetaBatchDelVerReq struct {

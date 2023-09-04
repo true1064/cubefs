@@ -366,7 +366,7 @@ func (client *ExtentClient) UpdateLatestVer(verList *proto.VolVersionInfoList) (
 	client.streamerLock.Lock()
 	defer client.streamerLock.Unlock()
 	for _, streamer := range client.streamers {
-		if streamer.verSeq != verSeq {
+		if streamer.verSeq != verSeq && !streamer.isDirVer {
 			log.LogDebugf("action[ExtentClient.UpdateLatestVer] stream inode %v ver %v try update to %v", streamer.inode, streamer.verSeq, verSeq)
 
 			streamer.verSeq = verSeq
@@ -385,6 +385,18 @@ func (client *ExtentClient) OpenStream(inode uint64) error {
 	if !ok {
 		s = NewStreamer(client, inode)
 		client.streamers[inode] = s
+	}
+	return s.IssueOpenRequest()
+}
+
+func (client *ExtentClient) OpenStreamVer(inode, seq uint64) error {
+	client.streamerLock.Lock()
+	s, ok := client.streamers[inode]
+	if !ok {
+		s = NewStreamer(client, inode)
+		client.streamers[inode] = s
+		s.isDirVer = true
+		s.verSeq = seq
 	}
 	return s.IssueOpenRequest()
 }
