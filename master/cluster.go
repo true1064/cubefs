@@ -4374,7 +4374,7 @@ func (c *Cluster) getSnapshotDelVer() {
 				for _, ver := range info.DelVers {
 					task := &proto.SnapshotVerDelTask{
 						Mode:    proto.ModeDir,
-						Id:      fmt.Sprintf("dir:%s:%d:%d", volName, info.DirIno, ver.DelVer),
+						Id:      fmt.Sprintf("dir:%s:%d:%d", volName, info.DirIno, ver.DelVel),
 						VolName: volName,
 						DirVersionInfo: &proto.DirVersionInfoTask{
 							MetaPartitionId: dirVerInfo.MetaPartitionId,

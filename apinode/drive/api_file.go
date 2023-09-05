@@ -456,7 +456,9 @@ func (d *DriveNode) handleFileRename(c *rpc.Context) {
 		return
 	}
 
-	err = vol.Rename(ctx, srcParentIno.Uint64(), dstParentIno.Uint64(), srcName, dstName)
+	span.Infof("src parIno %d, dstIno %d", srcParentIno, dstParentIno)
+	// TODO update args
+	err = vol.Rename(ctx, srcName, dstName)
 	if d.checkError(c, func(err error) { span.Error("rename error", args, err) }, err) {
 		return
 	}

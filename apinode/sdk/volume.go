@@ -7,10 +7,6 @@ import (
 )
 
 type IVolume interface {
-	// Info get vol simple info
-	Info() *VolInfo
-	// GetDirSnapshot should be invoked when every rpc request from client.
-	GetDirSnapshot(ctx context.Context, rootIno uint64) (IDirSnapshot, error)
 	IDirSnapshot
 }
 
@@ -22,6 +18,10 @@ type InodeLockApi interface {
 }
 
 type IDirSnapshot interface {
+	Info() *VolInfo
+	// GetDirSnapshot should be invoked when every rpc request from client.
+	GetDirSnapshot(ctx context.Context, rootIno uint64) (IDirSnapshot, error)
+
 	CreateDirSnapshot(ctx context.Context, ver, filePath string) error
 	DeleteDirSnapshot(ctx context.Context, ver, filePath string) error
 
