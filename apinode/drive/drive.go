@@ -158,15 +158,7 @@ type ArgsListDir struct {
 	Filter string   `json:"filter,omitempty"`
 }
 
-type ArgsGetProperties struct {
-	Path FilePath `json:"path"`
-}
-
-type ArgsSetProperties struct {
-	Path FilePath `json:"path"`
-}
-
-type ArgsDelProperties struct {
+type ArgsProperties struct {
 	Path FilePath `json:"path"`
 }
 
@@ -252,7 +244,7 @@ func (d *DriveNode) GetUserRouteInfo(ctx context.Context, uid UserID) (*UserRout
 	if ur == nil {
 		// query file and set cache
 		r, err, _ := d.groupRouter.Do(string(uid), func() (interface{}, error) {
-			r, err := d.getUserRouteFromFile(ctx, uid)
+			r, err := d.getOrCreateUserRoute(ctx, uid)
 			if err != nil {
 				return nil, err
 			}

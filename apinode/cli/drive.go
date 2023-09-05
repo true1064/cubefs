@@ -27,22 +27,6 @@ import (
 	"github.com/cubefs/cubefs/blobstore/cli/common/fmt"
 )
 
-func addCmdDrive(cmd *grumble.Command) {
-	driveCommand := &grumble.Command{
-		Name: "drive",
-		Help: "drive api",
-	}
-	cmd.AddCommand(driveCommand)
-
-	driveCommand.AddCommand(&grumble.Command{
-		Name: "create",
-		Help: "create user drive",
-		Run: func(c *grumble.Context) error {
-			return show(cli.DriveCreate())
-		},
-	})
-}
-
 func addCmdMeta(cmd *grumble.Command) {
 	metaCommand := &grumble.Command{
 		Name: "meta",
@@ -466,7 +450,6 @@ func registerDrive(app *grumble.App) {
 	}
 	app.AddCommand(driveCommand)
 
-	addCmdDrive(driveCommand)
 	addCmdMeta(driveCommand)
 	addCmdDir(driveCommand)
 	addCmdFile(driveCommand)

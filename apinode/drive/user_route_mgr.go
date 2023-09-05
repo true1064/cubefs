@@ -96,26 +96,26 @@ func NewUserRouteMgr() (*userRouteMgr, error) {
 	return m, nil
 }
 
-func (d *DriveNode) CreateUserRoute(ctx context.Context, uid UserID) (string, error) {
+func (d *DriveNode) createUserRoute(ctx context.Context, uid UserID) error {
 	// Assign clusters and volumes
 	cluster, clusterid, volumeid, err := d.assignVolume(ctx, uid)
 	if err != nil {
-		return "", err
+		return err
 	}
 	vol := cluster.GetVol(volumeid)
 	if vol == nil {
-		return "", sdk.ErrNoVolume
+		return sdk.ErrNoVolume
 	}
 
 	rootPath := getRootPath(uid)
 	// create user root path
 	ino, _, err := d.createDir(ctx, vol, volumeRootIno, rootPath, true)
 	if err != nil {
-		return "", err
+		return err
 	}
 	cipherKey, err := d.cryptor.GenKey()
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	// Locate the user file of the default cluster according to the hash of uid
@@ -131,16 +131,8 @@ func (d *DriveNode) CreateUserRoute(ctx context.Context, uid UserID) (string, er
 		ReadOnly:    false,
 		Ctime:       time.Now().Unix(),
 	}
-
 	// 4.Write mappings to extended attributes
-	err = d.setUserRouteToFile(ctx, uid, ur)
-	if err != nil {
-		return "", err
-	}
-	// 5.update cache
-	d.userRouter.Set(uid, ur)
-
-	return ur.DriveID, nil
+	return d.setUserRouteToFile(ctx, uid, ur)
 }
 
 // There may be a problem of inaccurate count here. cfs does not support distributed file locking.
@@ -211,7 +203,26 @@ func (d *DriveNode) setUserRouteToFile(ctx context.Context, uid UserID, ur *User
 	if err != nil {
 		return err
 	}
-	return d.vol.SetXAttr(ctx, fileIno, string(ur.Uid), string(val))
+
+	err = d.vol.SetXAttrNX(ctx, fileIno, string(ur.Uid), string(val))
+	if err == sdk.ErrExist {
+		return nil
+	}
+	return err
+}
+
+func (d *DriveNode) getOrCreateUserRoute(ctx context.Context, uid UserID) (*UserRoute, error) {
+	ur, err := d.getUserRouteFromFile(ctx, uid)
+	if err == sdk.ErrNoUser {
+		span := trace.SpanFromContextSafe(ctx)
+		span.Info("to create new user:", uid)
+		if err = d.createUserRoute(ctx, uid); err != nil {
+			span.Error("create new user:", uid, err.Error())
+			return nil, err
+		}
+		ur, err = d.getUserRouteFromFile(ctx, uid)
+	}
+	return ur, err
 }
 
 func (d *DriveNode) getUserRouteFromFile(ctx context.Context, uid UserID) (*UserRoute, error) {
@@ -232,7 +243,7 @@ func (d *DriveNode) getUserRouteFromFile(ctx context.Context, uid UserID) (*User
 	}
 	ur := &UserRoute{}
 	if err = ur.Unmarshal([]byte(data)); err != nil {
-		return nil, err
+		return nil, sdk.ErrInternalServerError.Extend(err)
 	}
 	return ur, nil
 }

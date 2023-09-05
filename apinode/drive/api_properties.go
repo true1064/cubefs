@@ -31,7 +31,7 @@ func (d *DriveNode) handleSetProperties(c *rpc.Context) {
 	ctx, span := d.ctxSpan(c)
 	uid := d.userID(c)
 
-	args := new(ArgsSetProperties)
+	args := new(ArgsProperties)
 	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args)) {
 		return
 	}
@@ -73,7 +73,7 @@ func (d *DriveNode) handleDelProperties(c *rpc.Context) {
 	ctx, span := d.ctxSpan(c)
 	uid := d.userID(c)
 
-	args := new(ArgsDelProperties)
+	args := new(ArgsProperties)
 	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args)) {
 		return
 	}
@@ -120,7 +120,7 @@ func (d *DriveNode) handleGetProperties(c *rpc.Context) {
 	ctx, span := d.ctxSpan(c)
 	uid := d.userID(c)
 
-	args := new(ArgsGetProperties)
+	args := new(ArgsProperties)
 	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args)) {
 		return
 	}

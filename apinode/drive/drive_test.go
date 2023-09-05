@@ -278,6 +278,86 @@ func newMockBody(size int) *mockBody {
 	}
 }
 
+func TestCreateUserRouteInfo(t *testing.T) {
+	node := newMockNode(t)
+	d := node.DriveNode
+	uid := UserID("create-user-id")
+
+	{
+		require.ErrorIs(t, d.createUserRoute(Ctx, uid), sdk.ErrNoCluster)
+	}
+
+	d.clusters = []string{"1", "2"}
+	{
+		node.ClusterMgr.EXPECT().GetCluster(A).Return(nil)
+		require.ErrorIs(t, d.createUserRoute(Ctx, uid), sdk.ErrNoCluster)
+	}
+
+	node.ClusterMgr.EXPECT().GetCluster(A).Return(node.Cluster).AnyTimes()
+	{
+		node.Cluster.EXPECT().ListVols().Return(nil)
+		require.ErrorIs(t, d.createUserRoute(Ctx, uid), sdk.ErrNoVolume)
+	}
+
+	node.Cluster.EXPECT().ListVols().Return([]*sdk.VolInfo{
+		{Name: "1", Weight: 10},
+		{Name: "2", Weight: 90},
+	}).AnyTimes()
+	{
+		node.Cluster.EXPECT().GetVol(A).Return(nil)
+		require.ErrorIs(t, d.createUserRoute(Ctx, uid), sdk.ErrNoVolume)
+	}
+
+	node.Cluster.EXPECT().GetVol(A).Return(node.Volume).AnyTimes()
+	{
+		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e1)
+		require.ErrorIs(t, d.createUserRoute(Ctx, uid), e1)
+	}
+
+	node.Volume.EXPECT().Lookup(A, A, A).DoAndReturn(
+		func(_ context.Context, _ uint64, name string) (*sdk.DirInfo, error) {
+			return &sdk.DirInfo{
+				Name:  name,
+				Type:  uint32(fs.ModeDir),
+				Inode: node.GenInode(),
+			}, nil
+		}).AnyTimes()
+	{
+		node.Volume.EXPECT().CreateFile(A, A, A).Return(nil, uint64(0), e2)
+		require.ErrorIs(t, d.createUserRoute(Ctx, uid), e2)
+	}
+	{
+		node.Volume.EXPECT().CreateFile(A, A, A).Return(nil, uint64(0), sdk.ErrExist)
+		node.Volume.EXPECT().GetXAttr(A, A, A).Return("", e3)
+		require.ErrorIs(t, d.createUserRoute(Ctx, uid), e3)
+	}
+	{
+		node.Volume.EXPECT().CreateFile(A, A, A).Return(nil, uint64(0), sdk.ErrExist)
+		node.Volume.EXPECT().GetXAttr(A, A, A).Return("{json", nil)
+		require.Error(t, d.createUserRoute(Ctx, uid), "json unmarshal")
+	}
+
+	node.Volume.EXPECT().CreateFile(A, A, A).DoAndReturn(
+		func(_ context.Context, parentIno uint64, name string) (*sdk.InodeInfo, uint64, error) {
+			return &sdk.InodeInfo{
+				Inode: parentIno + 1,
+				Mode:  uint32(os.ModeIrregular),
+			}, 0, nil
+		}).Times(3)
+	{
+		node.Volume.EXPECT().SetXAttrNX(A, A, A, A).Return(e4)
+		require.ErrorIs(t, d.createUserRoute(Ctx, uid), e4)
+	}
+	{
+		node.Volume.EXPECT().SetXAttrNX(A, A, A, A).Return(sdk.ErrExist)
+		require.NoError(t, d.createUserRoute(Ctx, uid))
+	}
+	{
+		node.Volume.EXPECT().SetXAttrNX(A, A, A, A).Return(nil)
+		require.NoError(t, d.createUserRoute(Ctx, uid))
+	}
+}
+
 func TestGetUserRouteInfo(t *testing.T) {
 	node := newMockNode(t)
 	d := node.DriveNode
@@ -288,16 +368,20 @@ func TestGetUserRouteInfo(t *testing.T) {
 
 	node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotFound)
 	_, err = d.GetUserRouteInfo(Ctx, testUserID)
-	require.ErrorIs(t, err, sdk.ErrNoUser)
+	require.ErrorIs(t, err, sdk.ErrNoCluster)
 
 	node.AnyLookup()
 	node.Volume.EXPECT().GetXAttr(A, A, A).Return("", sdk.ErrNotFound)
 	_, err = d.GetUserRouteInfo(Ctx, testUserID)
 	require.ErrorIs(t, err, sdk.ErrNotFound)
 
+	node.Volume.EXPECT().GetXAttr(A, A, A).Return("", nil)
+	_, err = d.GetUserRouteInfo(Ctx, testUserID)
+	require.ErrorIs(t, err, sdk.ErrNoCluster)
+
 	node.Volume.EXPECT().GetXAttr(A, A, A).Return("{", nil)
 	_, err = d.GetUserRouteInfo(Ctx, testUserID)
-	require.Equal(t, err.Error(), "unexpected end of JSON input")
+	require.Equal(t, err.Error(), "internal server error : unexpected end of JSON input")
 
 	ur := UserRoute{
 		Uid:         "test1",

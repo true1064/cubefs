@@ -397,7 +397,7 @@ func testXAttrOp(ctx context.Context, vol sdk.IVolume) {
 
 	err = vol.SetXAttrNX(ctx, ino, key, val)
 	if err != sdk.ErrExist {
-		span.Fatalf("setXAttr failed, ino %d, err %v", ino)
+		span.Fatalf("setXAttr failed, ino %d, err %v", ino, err)
 	}
 
 	var newVal string

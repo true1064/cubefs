@@ -918,12 +918,12 @@ func Test_volume_SetXAttr(t *testing.T) {
 	key, val := "k1", "v1"
 	{
 		// XAttrSet_ll(inode uint64, name, value []byte) error
-		mockMeta.EXPECT().XAttrSet_ll(ino, []byte(key), []byte(val)).Return(syscall.ENOENT)
+		mockMeta.EXPECT().XAttrSetEx_ll(ino, []byte(key), []byte(val), false).Return(syscall.ENOENT)
 		err = v.SetXAttr(ctx, ino, key, val)
 		require.Equal(t, err, syscallToErr(syscall.ENOENT))
 	}
 	{
-		mockMeta.EXPECT().XAttrSet_ll(ino, []byte(key), []byte(val)).Return(nil)
+		mockMeta.EXPECT().XAttrSetEx_ll(ino, []byte(key), []byte(val), false).Return(nil)
 		err = v.SetXAttr(ctx, ino, key, val)
 		require.NoError(t, err)
 	}

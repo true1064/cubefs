@@ -126,11 +126,6 @@ func newStatusError(err error, request string) error {
 	return &statusError{request: request, err: err}
 }
 
-func (c *client) DriveCreate() (r drive.CreateDriveResult, err error) {
-	err = c.requestWith(put, "/v1/drive", nil, &r)
-	return
-}
-
 func (c *client) MetaSet(path string, meta ...string) error {
 	return c.request(post, genURI("/v1/files/properties", "path", path), nil, meta...)
 }
