@@ -284,6 +284,7 @@ const (
 
 	opSyncMulitVersion uint32 = 0x53
 	opSyncDirVersion   uint32 = 0x54
+	opSyncDirDelVerInfo uint32 = 0x55
 
 	opSyncS3QosSet    uint32 = 0x60
 	opSyncS3QosDelete uint32 = 0x61
@@ -341,6 +342,7 @@ const (
 	lcNodePrefix     = keySeparator + lcNodeAcronym + keySeparator
 	lcConfPrefix     = keySeparator + lcConfigurationAcronym + keySeparator
 	DirVerPrefix     = keySeparator + "dirVer" + keySeparator
+	DirVerDelInfoPrefix = keySeparator + "dirVerDel" + keySeparator
 	S3QoSPrefix      = keySeparator + S3QoS + keySeparator
 )
 

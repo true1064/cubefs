@@ -1398,7 +1398,7 @@ func (c *Cluster) loadVols() (err error) {
 		}
 
 		if err = c.loadDirSnapVersionMgr(vol); err != nil {
-			log.LogInfof("action[loadVols], vol[%v] load dir ver manager error %v", vol.Name, err)
+			log.LogErrorf("action[loadVols], vol[%v] load dir ver manager error %v", vol.Name, err)
 			continue
 		}
 
@@ -1738,29 +1738,68 @@ func (c *Cluster) loadLcConfs() (err error) {
 	return
 }
 
-func (c *Cluster) loadDirSnapVersionMgr(vol *Vol) (err error) {
+func (c *Cluster) loadDirSnapVersionAllocator(vol *Vol) (err error) {
+	vol.DirSnapVersionMgr.SetCluster(c)
+
 	key := DirVerPrefix + strconv.FormatUint(vol.ID, 10)
 	result, err := c.fsm.store.SeekForPrefix([]byte(key))
 	if err != nil {
-		log.LogErrorf("action[loadDirSnapVersionMgr] err %v", err)
-		return vol.DirSnapVersionMgr.init(c)
+		err = fmt.Errorf("action[loadDirSnapVersionAllocator] load key DirVerPrefix err: %v", err.Error())
+		return err
 	}
 
 	if len(result) == 0 {
-		log.LogInfo("action[loadDirSnapVersionMgr] not record, init it")
+		log.LogInfo("action[loadDirSnapVersionAllocator] not record, init it")
 		return vol.DirSnapVersionMgr.init(c)
 	}
 
 	for _, value := range result {
-		return vol.DirSnapVersionMgr.loadDirVersion(c, value)
+		return vol.DirSnapVersionMgr.loadDirVersionAllocator(value)
 	}
+
 	return
+}
+
+func (c *Cluster) loadDirDelSnapVerInfo(vol *Vol) (err error) {
+	vol.DirSnapVersionMgr.SetCluster(c)
+
+	key := DirVerDelInfoPrefix + strconv.FormatUint(vol.ID, 10)
+	result, err := c.fsm.store.SeekForPrefix([]byte(key))
+	if err != nil {
+		err = fmt.Errorf("action[loadDirDelSnapVerInfo] load key DirVerPrefix err: %v", err.Error())
+		return err
+	}
+
+	for _, value := range result {
+		return vol.DirSnapVersionMgr.loadDirDelVerInfo(value)
+	}
+
+	return
+}
+
+func (c *Cluster) loadDirSnapVersionMgr(vol *Vol) (err error) {
+	vol.DirSnapVersionMgr.SetCluster(c)
+
+	if err = c.loadDirSnapVersionAllocator(vol); err != nil {
+		return
+	}
+
+	return c.loadDirDelSnapVerInfo(vol)
 }
 
 func (c *Cluster) syncDirVersion(vol *Vol, val []byte) (err error) {
 	metadata := new(RaftCmd)
 	metadata.Op = opSyncDirVersion
-	metadata.K = MultiVerPrefix + strconv.FormatUint(vol.ID, 10)
+	metadata.K = DirVerPrefix + strconv.FormatUint(vol.ID, 10)
+	metadata.V = val
+
+	return c.submit(metadata)
+}
+
+func (c *Cluster) syncDirDelVersionInfo(vol *Vol, val []byte) (err error) {
+	metadata := new(RaftCmd)
+	metadata.Op = opSyncDirDelVerInfo
+	metadata.K = DirVerDelInfoPrefix + strconv.FormatUint(vol.ID, 10)
 	metadata.V = val
 
 	return c.submit(metadata)
