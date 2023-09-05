@@ -38,7 +38,7 @@ func (d *dataOpVerImp) OpenStream(inode uint64) error {
 	if ver == nil {
 		return d.OpenStream(inode)
 	}
-	return d.OpenStreamVer(inode, ver.DelVel)
+	return d.OpenStreamVer(inode, ver.DelVer)
 }
 
 func newDataVerOp(d DataOp, mw *snapMetaOpImp) DataOp {

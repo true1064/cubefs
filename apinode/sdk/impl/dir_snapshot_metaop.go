@@ -102,7 +102,7 @@ func (m *snapMetaOpImp) isSnapshotDir(ctx context.Context, parentId uint64, name
 
 	buildVer := func(idx uint64, vers []*proto.ClientDirVer) {
 		ver = &proto.DelVer{
-			DelVel: idx,
+			DelVer: idx,
 		}
 
 		for _, v := range vers {
@@ -166,7 +166,7 @@ func (m *snapMetaOpImp) checkSnapshotIno(dirIno uint64) {
 			continue
 		}
 		ver := &proto.DelVer{
-			DelVel: e.MaxVer,
+			DelVer: e.MaxVer,
 			Vers:   buildFromClientVers(e.MaxVer, e.Vers),
 		}
 
@@ -186,7 +186,7 @@ func (m *snapMetaOpImp) isSnapshotInode(dirIno uint64) (bool, *proto.DelVer) {
 	for _, e := range m.snapShotItems {
 		if e.SnapshotInode == dirIno {
 			ver := &proto.DelVer{
-				DelVel: e.MaxVer,
+				DelVer: e.MaxVer,
 				Vers:   buildFromClientVers(e.MaxVer, e.Vers),
 			}
 			return true, ver

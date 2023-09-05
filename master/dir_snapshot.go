@@ -29,13 +29,13 @@ func newDirToDelVerInfos(dirInode, subRootIno uint64) *DirToDelVerInfosByIno {
 
 func (d *DirToDelVerInfosByIno) AddDirToDelVers(delVers []proto.DelVer) {
 	for _, delVer := range delVers {
-		if _, ok := d.ToDelVerSet[delVer.DelVel]; !ok {
-			d.ToDelVerSet[delVer.DelVel] = struct{}{}
+		if _, ok := d.ToDelVerSet[delVer.DelVer]; !ok {
+			d.ToDelVerSet[delVer.DelVer] = struct{}{}
 			log.LogInfof("[AddDirToDelVers] add DelVer:%v, DirInode:%v, SubRootIno:%v",
-				delVer.DelVel, d.DirInode, d.SubRootIno)
+				delVer.DelVer, d.DirInode, d.SubRootIno)
 		} else {
-			log.LogInfof("[AddDirToDelVers] DelVel:%v already exists, DirInode:%v, SubRootIno:%v",
-				delVer.DelVel, d.DirInode, d.SubRootIno)
+			log.LogInfof("[AddDirToDelVers] DelVer:%v already exists, DirInode:%v, SubRootIno:%v",
+				delVer.DelVer, d.DirInode, d.SubRootIno)
 		}
 
 		//TODO:如果同一个dir收到多次请求，需要把每个请求里的Vers合并吗？
@@ -260,14 +260,14 @@ func (dirVerMgr *DirSnapVersionManager) getToDelDirVersionInfoList() (toDelDirVe
 
 			for verToDel := range dirToDelVerInfos.ToDelVerSet {
 				delVer := proto.DelVer{
-					DelVel: verToDel,
+					DelVer: verToDel,
 					Vers:   make([]*proto.VersionInfo, len(dirToDelVerInfos.Vers)),
 				}
 				copy(delVer.Vers, dirToDelVerInfos.Vers) //TODO: use ptr?
 
 				delDirVersionInfo.DelVers = append(delDirVersionInfo.DelVers, delVer)
 				sort.SliceStable(delDirVersionInfo.DelVers, func(i, j int) bool {
-					return delDirVersionInfo.DelVers[i].DelVel < delDirVersionInfo.DelVers[j].DelVel
+					return delDirVersionInfo.DelVers[i].DelVer < delDirVersionInfo.DelVers[j].DelVer
 				})
 			}
 

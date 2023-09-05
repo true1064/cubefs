@@ -348,7 +348,7 @@ func NewPacketReqID() *Packet {
 }
 
 func (p *Packet) SetVerInfo(ifo *DelVer) {
-	p.VerSeq = ifo.DelVel
+	p.VerSeq = ifo.DelVer
 	p.DirVerList = ifo.Vers
 	return
 }

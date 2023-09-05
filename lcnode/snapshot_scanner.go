@@ -109,7 +109,7 @@ func (s *SnapshotScanner) getTaskVerSeq() uint64 {
 	if s.verDelReq.Task.Mode == proto.ModeVol {
 		return s.verDelReq.Task.VolVersionInfo.Ver
 	}
-	return s.verDelReq.Task.DirVersionInfo.DelVer.DelVel
+	return s.verDelReq.Task.DirVersionInfo.DelVer.DelVer
 }
 
 func (s *SnapshotScanner) getTaskFirstInode() uint64 {

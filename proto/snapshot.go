@@ -56,7 +56,7 @@ type DirVersionInfoTask struct {
 }
 
 type DelVer struct {
-	DelVel uint64         // the snapshot version to delete
+	DelVer uint64         // the snapshot version to delete
 	Vers   []*VersionInfo //Info of all snapshots of a directory
 }
 
@@ -66,7 +66,7 @@ func (d *DelVer) Newest() bool {
 	}
 
 	lastV := d.Vers[len(d.Vers)-1]
-	if lastV.Ver == d.DelVel {
+	if lastV.Ver == d.DelVer {
 		return true
 	}
 
@@ -75,7 +75,7 @@ func (d *DelVer) Newest() bool {
 
 func (d *DelVer) String() string {
 	buf := bytes.NewBuffer(make([]byte, 8))
-	buf.WriteString(fmt.Sprintf("[ver %d", d.DelVel))
+	buf.WriteString(fmt.Sprintf("[ver %d", d.DelVer))
 
 	if len(d.Vers) == 0 {
 		buf.WriteString("]")
