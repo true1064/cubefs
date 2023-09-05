@@ -126,7 +126,7 @@ func (mp *metaPartition) CreateInode(req *CreateInoReq, p *Packet) (err error) {
 	if p.IsDirSnapshotOperate() {
 		verSeq = p.VerSeq
 	}
-	ino.setVolVer(verSeq)
+	ino.setVer(verSeq)
 	ino.LinkTarget = req.Target
 
 	val, err := ino.Marshal()
@@ -327,7 +327,7 @@ func (mp *metaPartition) UnlinkInode(req *UnlinkInoReq, p *Packet) (err error) {
 		p.PacketErrorWithBody(status, reply)
 	}
 	ino := NewInode(req.Inode, 0)
-	ino.setVolVer(req.VerSeq)
+	ino.setVer(req.VerSeq)
 	log.LogDebugf("action[UnlinkInode] verseq %v ino %v", ino.getVer(), ino)
 	item := mp.inodeTree.Get(ino)
 	if item == nil {
@@ -416,7 +416,7 @@ func (mp *metaPartition) UnlinkInodeBatch(req *BatchUnlinkInoReq, p *Packet) (er
 // InodeGet executes the inodeGet command from the client.
 func (mp *metaPartition) InodeGetSplitEk(req *InodeGetSplitReq, p *Packet) (err error) {
 	ino := NewInode(req.Inode, 0)
-	ino.setVolVer(req.VerSeq)
+	ino.setVer(req.VerSeq)
 
 	getAllVerInfo := req.VerAll
 	retMsg := mp.getInode(ino, getAllVerInfo)
@@ -471,7 +471,7 @@ func (mp *metaPartition) InodeGetSplitEk(req *InodeGetSplitReq, p *Packet) (err 
 func (mp *metaPartition) InodeGet(req *InodeGetReq, p *Packet) (err error) {
 
 	ino := NewInode(req.Inode, 0)
-	ino.setVolVer(req.VerSeq)
+	ino.setVer(req.VerSeq)
 	getAllVerInfo := req.VerAll
 	retMsg := mp.getInode(ino, getAllVerInfo)
 
@@ -535,7 +535,7 @@ func (mp *metaPartition) InodeGetBatch(req *InodeGetReqBatch, p *Packet) (err er
 	for _, inoId := range req.Inodes {
 		var quotaInfos map[uint32]*proto.MetaQuotaInfo
 		ino.Inode = inoId
-		ino.setVolVer(req.VerSeq)
+		ino.setVer(req.VerSeq)
 		retMsg := mp.getInode(ino, false)
 		if mp.mqMgr.EnableQuota() {
 			quotaInfos, err = mp.getInodeQuotaInfos(inoId)
@@ -616,7 +616,11 @@ func (mp *metaPartition) CreateInodeLink(req *LinkInodeReq, p *Packet) (err erro
 		r, err = mp.submit(opFSMCreateLinkInodeOnce, val)
 	} else {
 		ino := NewInode(req.Inode, 0)
-		ino.setVer(mp.verSeq)
+		verSeq := mp.GetVerSeq()
+		if p.IsDirSnapshotOperate() {
+			verSeq = p.VerSeq
+		}
+		ino.setVer(verSeq)
 		val, err = ino.Marshal()
 		if err != nil {
 			p.PacketErrorWithBody(proto.OpErr, []byte(err.Error()))

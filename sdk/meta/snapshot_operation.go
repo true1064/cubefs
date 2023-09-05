@@ -84,7 +84,7 @@ func (mw *SnapShotMetaWrapper) sendToMeta(mp *MetaPartition, opCode uint8, req, 
 	status := parseStatus(pkt.ResultCode)
 	if status != statusOK {
 		err = statusToErrno(status)
-		log.LogErrorf("%s: pkt(%v) mp(%v) req(%v) result(%v), status (%s)",
+		log.LogErrorf("%s: pkt(%v) mp(%v) req(%v) result(%v), status (%v)",
 			pkt.GetOpMsg(), pkt, mp, req, pkt.GetResultMsg(), status)
 		return
 	}

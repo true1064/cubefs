@@ -347,17 +347,24 @@ func (vd *DirVerDentry) Marshal() (result []byte, err error) {
 	if _, err := buff.Write(bs); err != nil {
 		return nil, err
 	}
-	if err = binary.Write(buff, binary.BigEndian, uint32(len(vd.VerList))); err != nil {
+
+	if err = binary.Write(buff, binary.BigEndian, uint32(len(vd.VerList)*proto.VersionSimpleSize)); err != nil {
 		return nil, err
 	}
 	if len(vd.VerList) > 0 {
-		if err = binary.Write(buff, binary.BigEndian, uint32(len(vd.VerList)*proto.VersionSimpleSize)); err != nil {
-			return nil, err
-		}
-		if err = binary.Write(buff, binary.BigEndian, vd.VerList); err != nil {
-			return nil, err
+		for n := 0; n < len(vd.VerList); n++ {
+			if err = binary.Write(buff, binary.BigEndian, vd.VerList[n].Ver); err != nil {
+				return nil, err
+			}
+			if err = binary.Write(buff, binary.BigEndian, vd.VerList[n].Status); err != nil {
+				return nil, err
+			}
+			if err = binary.Write(buff, binary.BigEndian, vd.VerList[n].DelTime); err != nil {
+				return nil, err
+			}
 		}
 	}
+
 	result = buff.Bytes()
 	return
 }
@@ -382,19 +389,19 @@ func (vd *DirVerDentry) Unmarshal(raw []byte) (err error) {
 	if err = binary.Read(buff, binary.BigEndian, &dataLen); err != nil {
 		return
 	}
-	vd.VerList = make([]*proto.VersionInfo, dataLen/uint32(proto.VersionSimpleSize))
-	if err = binary.Read(buff, binary.BigEndian, &vd.VerList); err != nil {
-		return
+	for n := 0; n < int(dataLen)/proto.VersionSimpleSize; n++ {
+		verInfo := &proto.VersionInfo{}
+		if err = binary.Read(buff, binary.BigEndian, &verInfo.Ver); err != nil {
+			return
+		}
+		if err = binary.Read(buff, binary.BigEndian, &verInfo.DelTime); err != nil {
+			return
+		}
+		if err = binary.Read(buff, binary.BigEndian, &verInfo.Status); err != nil {
+			return
+		}
+		vd.VerList = append(vd.VerList, verInfo)
 	}
-
-	//data = make([]byte, int(dataLen))
-	//var i uint32 = 0
-	//for i < dataLen/uint32(proto.VersionSimpleSize) {
-	//	info := new(proto.VersionInfo)
-	//	binary.Read(buff, binary.BigEndian, info)
-	//	vd.VerList = append(vd.VerList, info)
-	//	log.LogDebugf("action[DirVerDentry] unmarshal,dentry %v seq %v", vd.Dentry, info)
-	//}
 
 	return
 }

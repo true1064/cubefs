@@ -162,9 +162,9 @@ func (mp *metaPartition) ExtentAppendWithCheck(req *proto.AppendExtentKeyWithChe
 	// use inode verSeq instead
 
 	if p.IsDirSnapshotOperate() {
-		inoParm.setVolVer(req.VerSeq)
+		ino.setVer(req.VerSeq)
 	} else {
-		inoParm.setVolVer(mp.GetVerSeq())
+		ino.setVer(mp.GetVerSeq())
 	}
 
 	inoParm.Extents.Append(ext)
@@ -401,7 +401,7 @@ func (mp *metaPartition) ExtentsList(req *proto.GetExtentsRequest, p *Packet) (e
 		if req.VerSeq > 0 && ino.getVer() > 0 && (req.VerSeq < ino.getVer() || isInitSnapVer(req.VerSeq)) {
 			mp.GetExtentByVer(ino, req, resp)
 			vIno := ino.Copy().(*Inode)
-			vIno.setVolVer(req.VerSeq)
+			vIno.setVer(req.VerSeq)
 			if vIno = mp.getInodeByVer(vIno); vIno != nil {
 				resp.Generation = vIno.Generation
 				resp.Size = vIno.Size
@@ -433,7 +433,7 @@ func (mp *metaPartition) ExtentsList(req *proto.GetExtentsRequest, p *Packet) (e
 // ObjExtentsList returns the list of obj extents and extents.
 func (mp *metaPartition) ObjExtentsList(req *proto.GetExtentsRequest, p *Packet) (err error) {
 	ino := NewInode(req.Inode, 0)
-	ino.setVolVer(req.VerSeq)
+	ino.setVer(req.VerSeq)
 	retMsg := mp.getInode(ino, false)
 	ino = retMsg.Msg
 	var (
@@ -492,9 +492,9 @@ func (mp *metaPartition) ExtentsTruncate(req *ExtentsTruncateReq, p *Packet) (er
 
 	ino.Size = req.Size
 	if p.IsDirSnapshotOperate() {
-		ino.setVolVer(p.VerSeq)
+		ino.setVer(p.VerSeq)
 	} else {
-		ino.setVolVer(mp.GetVerSeq())
+		ino.setVer(mp.GetVerSeq())
 	}
 
 	resp, err := mp.buildAndSubmitInoPacket(ino, opFSMExtentTruncate, opFSMExtentTruncateByDirVer, p)

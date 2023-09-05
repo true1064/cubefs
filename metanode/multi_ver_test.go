@@ -202,7 +202,7 @@ func testCreateInode(t *testing.T, mode uint32) *Inode {
 	}
 
 	ino := NewInode(inoID, mode)
-	ino.setVolVer(mp.verSeq)
+	ino.setVer(mp.verSeq)
 	if t != nil {
 		t.Logf("testCreateInode ino %v", ino)
 	}
@@ -652,7 +652,7 @@ func testDelDirSnapshotVersion(t *testing.T, verSeq uint64, dirIno *Inode, dirDe
 	//testPrintAllDentry(t)
 
 	rDirIno := dirIno.Copy().(*Inode)
-	rDirIno.setVolVer(verSeq)
+	rDirIno.setVer(verSeq)
 
 	rspDelIno := mp.fsmUnlinkInode(rDirIno, 0)
 
@@ -890,6 +890,7 @@ func TestTruncateAndDel(t *testing.T) {
 		Size:       500,
 		ModifyTime: time.Now().Unix(),
 	}
+	ino.setVer(mp.verSeq) // fsm operation should set verSeq because there's no handle process to set ino's seq
 	mp.fsmExtentsTruncate(ino)
 	log.LogDebugf("TestTruncate start")
 	t.Logf("TestTruncate. create new snapshot seq %v,%v,file verlist size %v [%v]", seq1, seq2, len(fileIno.multiSnap.multiVersions), fileIno.multiSnap.multiVersions)
@@ -912,6 +913,9 @@ func TestTruncateAndDel(t *testing.T) {
 	testCreateVer() // seq2 IS commited, seq3 not
 	mp.fsmUnlinkInode(ino, 0)
 
+	log.LogDebugf("TestTruncate start")
+	ino.setVer(0) // unlink top layer
+	mp.fsmUnlinkInode(ino)
 	log.LogDebugf("TestTruncate start")
 	assert.True(t, 3 == len(fileIno.multiSnap.multiVersions))
 	rsp = testGetExtList(t, fileIno, 0)
@@ -1427,4 +1431,36 @@ func TestXAttrOperation(t *testing.T) {
 	err = packRsp.UnmarshalData(resp)
 	assert.True(t, err == nil)
 	assert.True(t, resp.Value == "value1")
+}
+
+func TestMarshalInodeDirVer(t *testing.T) {
+	inoVer := &InodeDirVer{
+		Ino:        NewInode(10, 2),
+		DirVerList: []*proto.VersionInfo{{Ver: 10}, {Ver: 11}},
+	}
+	val, err := inoVer.Marshal()
+	assert.True(t, err == nil)
+	assert.True(t, len(val) > 0)
+
+	inoVer2 := &InodeDirVer{}
+	err = inoVer2.Unmarshal(val)
+	assert.True(t, err == nil)
+	assert.True(t, reflect.DeepEqual(inoVer, inoVer2))
+}
+
+func TestMarshalDentryDirVer(t *testing.T) {
+	denVer := &DirVerDentry{
+		Dentry: &Dentry{
+			Inode: 10,
+		},
+		VerList: []*proto.VersionInfo{{Ver: 10}, {Ver: 11}},
+	}
+	val, err := denVer.Marshal()
+	assert.True(t, err == nil)
+	assert.True(t, len(val) > 0)
+
+	denVer2 := &DirVerDentry{}
+	err = denVer2.Unmarshal(val)
+	assert.True(t, err == nil)
+	assert.True(t, reflect.DeepEqual(denVer, denVer2))
 }
