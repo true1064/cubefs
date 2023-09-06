@@ -7,6 +7,7 @@ import (
 	"github.com/cubefs/cubefs/util/log"
 	"sort"
 	"sync"
+	"time"
 )
 
 type DirToDelVerInfosByIno struct {
@@ -75,35 +76,44 @@ type DirDeletedVerInfoByMpId struct {
 	DirDeletedVerInfoByIno map[uint64]*DirDeletedVerInfoByIno //key: inodes of dirs which have versions deleted.
 }
 
-//TODO:
-//func newDirDeletedVerInfoByMpId(mpId uint64) *DirDeletedVerInfoByMpId {
-//	return &DirDeletedVerInfoByMpId{
-//		MetaPartitionId:        mpId,
-//		DirDeletedVerInfoByIno: make(map[uint64]*DirDeletedVerInfoByIno),
-//	}
-//}
-
 const (
-	PreAllocSnapVerCount uint64 = 1000
+	PreAllocSnapVerCount uint64 = 1000 * 1000
 )
 
 type DirSnapVerAllocator struct {
-	PreAllocSnapVer uint64
-	CurSnapVer      uint64
+	PreAllocMaxVer uint64
+	CurSnapVer     uint64
 	sync.RWMutex
 }
 
 func newDirSnapVerAllocator() *DirSnapVerAllocator {
 	return &DirSnapVerAllocator{
-		PreAllocSnapVer: 0,
-		CurSnapVer:      0,
+		PreAllocMaxVer: 0,
+		CurSnapVer:     0,
 	}
 }
 
 //PreAllocVersion :
 // caller must handle the lock properly
-func (dirVerAlloc *DirSnapVerAllocator) PreAllocVersion(vol *Vol, c *Cluster) (err error) {
-	dirVerAlloc.PreAllocSnapVer = dirVerAlloc.PreAllocSnapVer + PreAllocSnapVerCount
+func (dirVerAlloc *DirSnapVerAllocator) PreAllocVersion(vol *Vol, c *Cluster, nowMicroSec uint64) (err error) {
+	if nowMicroSec <= dirVerAlloc.CurSnapVer {
+		return fmt.Errorf("[PreAllocVersion] vol(%v) not allow pre alloc for nowMicroSec(%v ) <= CurSnapVer(%v)",
+			vol.Name, nowMicroSec, dirVerAlloc.CurSnapVer)
+	}
+
+	if nowMicroSec <= dirVerAlloc.PreAllocMaxVer {
+		return fmt.Errorf("[PreAllocVersion] vol(%v) not allow pre alloc for nowMicroSec(%v ) <= PreAllocMaxVer(%v)",
+			vol.Name, nowMicroSec, dirVerAlloc.PreAllocMaxVer)
+	}
+
+	oldPreAllocMaxVer := dirVerAlloc.PreAllocMaxVer
+	oldCurSnapVer := dirVerAlloc.CurSnapVer
+
+	dirVerAlloc.PreAllocMaxVer = nowMicroSec + PreAllocSnapVerCount
+	dirVerAlloc.CurSnapVer = nowMicroSec
+	log.LogDebugf("[PreAllocVersion] vol(%v), alloc{CurSnapVer(%v), PreAllocMaxVer(%v)}, old{CurSnapVer(%v), PreAllocMaxVer(%v)}",
+		vol.Name, dirVerAlloc.CurSnapVer, dirVerAlloc.PreAllocMaxVer, oldCurSnapVer, oldPreAllocMaxVer)
+
 	return dirVerAlloc.Persist(vol, c)
 }
 
@@ -111,27 +121,49 @@ func (dirVerAlloc *DirSnapVerAllocator) AllocVersion(vol *Vol, c *Cluster) (verI
 	dirVerAlloc.Lock()
 	defer dirVerAlloc.Unlock()
 
-	if dirVerAlloc.CurSnapVer == dirVerAlloc.PreAllocSnapVer {
-		if err = dirVerAlloc.PreAllocVersion(vol, c); err != nil {
+	nowMicroSec := uint64(time.Now().UnixMicro())
+
+	if dirVerAlloc.CurSnapVer >= dirVerAlloc.PreAllocMaxVer {
+		if err = dirVerAlloc.PreAllocVersion(vol, c, nowMicroSec); err != nil {
 			return nil, err
 		}
 	}
-	dirVerAlloc.CurSnapVer = dirVerAlloc.CurSnapVer + 1
 
+	allocVer := uint64(0)
+
+	if nowMicroSec < dirVerAlloc.CurSnapVer {
+		allocVer = dirVerAlloc.CurSnapVer + 1
+	} else {
+		dirVerAlloc.CurSnapVer = nowMicroSec
+	}
+
+	if dirVerAlloc.CurSnapVer < nowMicroSec && nowMicroSec < dirVerAlloc.PreAllocMaxVer {
+		allocVer = nowMicroSec
+	} else {
+		if dirVerAlloc.CurSnapVer >= nowMicroSec {
+			allocVer = dirVerAlloc.CurSnapVer + 1
+		} else if nowMicroSec >= dirVerAlloc.PreAllocMaxVer {
+			if err = dirVerAlloc.PreAllocVersion(vol, c, nowMicroSec); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	dirVerAlloc.CurSnapVer = allocVer
 	return &proto.DirSnapshotVersionInfo{
-		SnapVersion: dirVerAlloc.CurSnapVer,
+		SnapVersion: allocVer,
 	}, nil
 }
 
 type DirSnapVerAllocatorPersist struct {
-	PreAllocSnapVer uint64
+	PreAllocMaxVer uint64
 }
 
 //Persist :
 // caller must handle the lock properly
 func (dirVerAlloc *DirSnapVerAllocator) Persist(vol *Vol, c *Cluster) (err error) {
 	persist := &DirSnapVerAllocatorPersist{
-		PreAllocSnapVer: dirVerAlloc.PreAllocSnapVer,
+		PreAllocMaxVer: dirVerAlloc.PreAllocMaxVer,
 	}
 	var val []byte
 	if val, err = json.Marshal(persist); err != nil {
@@ -148,8 +180,8 @@ func (dirVerAlloc *DirSnapVerAllocator) load(val []byte) (err error) {
 		return
 	}
 
-	dirVerAlloc.PreAllocSnapVer = persistVer.PreAllocSnapVer
-	dirVerAlloc.CurSnapVer = persistVer.PreAllocSnapVer
+	dirVerAlloc.PreAllocMaxVer = persistVer.PreAllocMaxVer
+	dirVerAlloc.CurSnapVer = persistVer.PreAllocMaxVer
 	return nil
 }
 
@@ -157,7 +189,7 @@ func (dirVerAlloc *DirSnapVerAllocator) init() {
 	dirVerAlloc.Lock()
 	defer dirVerAlloc.Unlock()
 
-	dirVerAlloc.PreAllocSnapVer = 0
+	dirVerAlloc.PreAllocMaxVer = 0
 	dirVerAlloc.CurSnapVer = 0
 	return
 }
@@ -166,8 +198,8 @@ func (dirVerAlloc *DirSnapVerAllocator) String() string {
 	dirVerAlloc.RLock()
 	defer dirVerAlloc.RUnlock()
 
-	return fmt.Sprintf("DirSnapVerAllocator:{ CurSnapVer[%v], PreAllocSnapVer[%v]}",
-		dirVerAlloc.CurSnapVer, dirVerAlloc.PreAllocSnapVer)
+	return fmt.Sprintf("DirSnapVerAllocator:{ CurSnapVer[%v], PreAllocMaxVer[%v]}",
+		dirVerAlloc.CurSnapVer, dirVerAlloc.PreAllocMaxVer)
 }
 
 type DirSnapVersionManager struct {
@@ -293,6 +325,7 @@ func (direrMgr *DirSnapVersionManager) PersistDirDelVerInfo() (err error) {
 		toDelDirVersionInfoList: direrMgr.GetDirToDelVerInfoByMpIdPersist(),
 		deletedDirVerInfoList:   direrMgr.GetDirDeletedVerInfoByMpIdPersist(),
 	}
+
 	var val []byte
 	if val, err = json.Marshal(persist); err != nil {
 		err = fmt.Errorf("[PersistDirDelVerInfo]: Marshal failed, vol: %v, err: %v", direrMgr.vol.Name, err)

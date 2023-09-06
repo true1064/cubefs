@@ -1749,7 +1749,7 @@ func (c *Cluster) loadDirSnapVersionAllocator(vol *Vol) (err error) {
 	}
 
 	if len(result) == 0 {
-		log.LogInfo("action[loadDirSnapVersionAllocator] not record, init it")
+		log.LogInfo("action[loadDirSnapVersionAllocator] vol(%v) has no record, init it", vol.Name)
 		return vol.DirSnapVersionMgr.init(c)
 	}
 
@@ -1757,6 +1757,7 @@ func (c *Cluster) loadDirSnapVersionAllocator(vol *Vol) (err error) {
 		return vol.DirSnapVersionMgr.loadDirVersionAllocator(value)
 	}
 
+	log.LogInfof("action[loadDirSnapVersionAllocator] vol(%v), load ok", vol.Name)
 	return
 }
 
