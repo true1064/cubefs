@@ -33,7 +33,7 @@ import (
 // One inode corresponds to one streamer. All the requests to the same inode will be queued.
 // TODO rename streamer here is not a good name as it also handles overwrites, not just stream write.
 type Streamer struct {
-	client               *ExtentClient
+	client               *ExtentClientVer
 	inode                uint64
 	parentInode          uint64
 	status               int32
@@ -63,7 +63,7 @@ type bcacheKey struct {
 }
 
 // NewStreamer returns a new streamer.
-func NewStreamer(client *ExtentClient, inode uint64) *Streamer {
+func NewStreamer(client *ExtentClientVer, inode uint64) *Streamer {
 	s := new(Streamer)
 	s.client = client
 	s.inode = inode

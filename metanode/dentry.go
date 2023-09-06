@@ -303,8 +303,8 @@ func (d *Dentry) deleteVerSnapshot(delVerSeq uint64, mpVerSeq uint64, verlist []
 }
 
 func (d *Dentry) String() string {
-	str := fmt.Sprintf("dentry(name:[%v],parentId:[%v],inode:[%v],type:[%v],seq:[%v],isDeleted:[%v],dentryList_len[%v])",
-		d.Name, d.ParentId, d.Inode, d.Type, d.getVerSeq(), d.isDeleted(), d.getSnapListLen())
+	str := fmt.Sprintf("dentry(name:[%v],parentId:[%v],inode:[%v],fileId[%d],type:[%v],seq:[%v],isDeleted:[%v],dentryList_len[%v])",
+		d.Name, d.ParentId, d.Inode, d.FileId, d.Type, d.getVerSeq(), d.isDeleted(), d.getSnapListLen())
 	if d.getSnapListLen() > 0 {
 		for idx, den := range d.multiSnap.dentryList {
 			str += fmt.Sprintf("idx:%v,content(%v))", idx, den)
@@ -750,9 +750,6 @@ func (d *Dentry) MarshalValue() []byte {
 	writeBinary(&d.FileId)
 
 	seq := d.getSeqFiled()
-	if seq == 0 {
-		return buff.Bytes()
-	}
 	writeBinary(&seq)
 
 	verCnt := uint32(d.getSnapListLen())

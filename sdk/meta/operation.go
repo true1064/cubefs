@@ -1112,7 +1112,8 @@ func (mw *SnapShotMetaWrapper) lookupEx(mp *MetaPartition, parentId uint64, name
 		errMetric.AddWithLabels(1, map[string]string{exporter.Vol: mw.volname, exporter.Err: "EIO"})
 		return
 	}
-	log.LogDebugf("lookup exit: packet(%v) mp(%v) req(%v) ino(%v) mode(%v)", packet, mp, *req, resp.Inode, resp.Mode)
+	log.LogDebugf("lookup exit: packet(%v) mp(%v) req(%v) ino(%v) mode(%v), fileId (%d)",
+		packet, mp, *req, resp.Inode, resp.Mode, resp.FileId)
 	den = &proto.Dentry{
 		Inode:  resp.Inode,
 		Name:   name,

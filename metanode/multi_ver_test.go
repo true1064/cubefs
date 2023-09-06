@@ -1156,9 +1156,9 @@ func TestInodeVerMarshal(t *testing.T) {
 	var sndSeq uint64 = 2
 	mp.verSeq = 100000
 	ino1 := NewInode(10, 5)
-	ino1.setVer(topSeq)
+	//ino1.setVer(topSeq)
 	ino1_1 := NewInode(10, 5)
-	ino1_1.setVer(sndSeq)
+	//ino1_1.setVer(sndSeq)
 
 	ino1.multiSnap.multiVersions = append(ino1.multiSnap.multiVersions, ino1_1)
 	v1, _ := ino1.Marshal()

@@ -732,8 +732,7 @@ const verInfoCnt = 17
 func (p *Packet) MarshalVersionSlice() (data []byte, err error) {
 	items := p.DirVerList
 	cnt := len(items)
-	buff := bytes.NewBuffer(make([]byte, cnt*verInfoCnt+2))
-
+	buff := bytes.NewBuffer(make([]byte, 0, 2*cnt*verInfoCnt))
 	if err := binary.Write(buff, binary.BigEndian, uint16(cnt)); err != nil {
 		return nil, err
 	}
@@ -778,7 +777,7 @@ func (p *Packet) isVersionPkt() bool {
 	return false
 }
 
-func (p *Packet) isDirVersion() bool {
+func (p *Packet) IsDirVersion() bool {
 	if p.ExtentType&DirVersionFlag == DirVersionFlag {
 		return true
 	}
@@ -907,12 +906,12 @@ func (p *Packet) UnmarshalData(v interface{}) error {
 // WriteToConn writes through the given connection.
 func (p *Packet) WriteToConn(c net.Conn) (err error) {
 	headSize := util.PacketHeaderSize
-	if p.Opcode == OpRandomWriteVer || p.ExtentType&MultiVersionFlag > 0 {
+	if p.Opcode == OpRandomWriteVer || p.isVersionPkt() {
 		headSize = util.PacketHeaderVerSize
 	}
 	//log.LogDebugf("packet opcode %v header size %v extentype %v conn %v", p.Opcode, headSize, p.ExtentType, c)
 
-	log.LogDebugf("packet opcode %v header size %v extentype %v conn %v", p.Opcode, headSize, p.ExtentType, c)
+	log.LogDebugf("packet opcode %v header size %v extentype %v conn %v", p.GetOpMsg(), headSize, p.ExtentType, c.RemoteAddr())
 	header, err := Buffers.Get(headSize)
 	if err != nil {
 		header = make([]byte, headSize)
@@ -1196,10 +1195,7 @@ func (p *Packet) setPacketPrefix() {
 
 // IsForwardPkt returns if the packet is the forward packet (a packet that will be forwarded to the followers).
 func (p *Packet) IsDirSnapshotOperate() bool {
-	if p.VerSeq > 0 && len(p.DirVerList) > 0 {
-		return true
-	}
-	return false
+	return p.IsDirVersion()
 }
 
 // IsForwardPkt returns if the packet is the forward packet (a packet that will be forwarded to the followers).

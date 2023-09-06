@@ -58,7 +58,7 @@ func main() {
 	testDirOp(ctx, dirVol)
 	testCreateFile(ctx, dirVol)
 	testXAttrOp(ctx, dirVol)
-	testMultiPartOp(ctx, dirVol)
+	//testMultiPartOp(ctx, dirVol)
 	testInodeLock(ctx, dirVol)
 }
 

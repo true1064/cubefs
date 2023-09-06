@@ -32,6 +32,20 @@ type MetaOp interface {
 	// Link(parentID uint64, name string, ino uint64) (*proto.InodeInfo, error)
 	Rename_ll(srcParentID uint64, srcName string, dstParentID uint64, dstName string, overwritten bool) (err error)
 	AppendExtentKeys(inode uint64, eks []proto.ExtentKey) error
+	MultiPart
+	DirSnapshot
+	IXAttr
+}
+
+type MultiPart interface {
+	InitMultipart_ll(path string, extend map[string]string) (multipartId string, err error)
+	GetMultipart_ll(path, multipartId string) (info *proto.MultipartInfo, err error)
+	AddMultipartPart_ll(path, multipartId string, partId uint16, size uint64, md5 string, inodeInfo *proto.InodeInfo) (oldInode uint64, updated bool, err error)
+	RemoveMultipart_ll(path, multipartID string) (err error)
+	ListMultipart_ll(prefix, delimiter, keyMarker string, multipartIdMarker string, maxUploads uint64) (sessionResponse []*proto.MultipartInfo, err error)
+}
+
+type IXAttr interface {
 	BatchSetXAttr_ll(inode uint64, attrs map[string]string) error
 	XAttrGetAll_ll(inode uint64) (*proto.XAttrInfo, error)
 	SetInodeLock_ll(inode uint64, req *proto.InodeLockReq) error
@@ -40,12 +54,6 @@ type MetaOp interface {
 	XAttrDel_ll(inode uint64, name string) error
 	XBatchDelAttr_ll(ino uint64, keys []string) error
 	XAttrsList_ll(inode uint64) ([]string, error)
-	InitMultipart_ll(path string, extend map[string]string) (multipartId string, err error)
-	GetMultipart_ll(path, multipartId string) (info *proto.MultipartInfo, err error)
-	AddMultipartPart_ll(path, multipartId string, partId uint16, size uint64, md5 string, inodeInfo *proto.InodeInfo) (oldInode uint64, updated bool, err error)
-	RemoveMultipart_ll(path, multipartID string) (err error)
-	ListMultipart_ll(prefix, delimiter, keyMarker string, multipartIdMarker string, maxUploads uint64) (sessionResponse []*proto.MultipartInfo, err error)
-	DirSnapshot
 }
 
 type DirSnapshot interface {

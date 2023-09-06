@@ -27,6 +27,7 @@ func newSnapMetaOp(mop MetaOp, items []*proto.DirSnapshotInfo, rootIno uint64) *
 	sm := mop
 	if ok {
 		sm = meta.NewSnapshotMetaWrapperWith(nmw.MetaWrapper)
+		sm.SetVerInfo(&proto.DelVer{DelVer: 0})
 	}
 
 	smw := &snapMetaOpImp{

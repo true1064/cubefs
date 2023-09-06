@@ -29,17 +29,17 @@ type metaOpImp struct {
 	*meta.MetaWrapper
 }
 
-type DataOpImp struct {
+type dataOpImp struct {
 	*stream.ExtentClient
 }
 
 func newDataOp(cfg *stream.ExtentConfig) (DataOp, error) {
 	ec, err := stream.NewExtentClient(cfg)
-	if ec != nil {
+	if err != nil {
 		return nil, err
 	}
 
-	dop := &DataOpImp{
+	dop := &dataOpImp{
 		ExtentClient: ec,
 	}
 	return dop, nil
@@ -90,7 +90,7 @@ func newVolume(ctx context.Context, name, owner, addr string) (sdk.IVolume, erro
 	}
 
 	if mw1, ok := mw.(*metaOpImp); ok {
-		mw1.Client = ec.(*stream.ExtentClient)
+		mw1.Client = ec.(*dataOpImp)
 	}
 
 	v := &volume{

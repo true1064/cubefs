@@ -75,7 +75,7 @@ func (mw *SnapShotMetaWrapper) sendToMetaPartition(mp *MetaPartition, req *proto
 
 	if mw.verInfo != nil {
 		req.SetVerInfo(mw.verInfo)
-		log.LogDebugf("sendToMetaPartition: set ver info on pkt, ifo %v, op %s", mw.verInfo, req.GetOpMsg())
+		log.LogDebugf("sendToMetaPartition: set ver info on pkt, ifo %v, op %s", mw.verInfo.String(), req.GetOpMsg())
 		req.ExtentType |= proto.DirVersionFlag
 	} else {
 		req.ExtentType |= proto.MultiVersionFlag
@@ -165,9 +165,10 @@ out:
 }
 
 func (mc *MetaConn) send(req *proto.Packet, verSeq uint64) (resp *proto.Packet, err error) {
-	req.ExtentType |= proto.MultiVersionFlag
-	req.VerSeq = verSeq
-
+	if !req.IsDirVersion() {
+		req.ExtentType |= proto.MultiVersionFlag
+		req.VerSeq = verSeq
+	}
 	err = req.WriteToConn(mc.conn)
 	if err != nil {
 		return nil, errors.Trace(err, "Failed to write to conn, req(%v)", req)

@@ -15,17 +15,14 @@
 package stream
 
 import (
-	"container/list"
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
 
 	"github.com/cubefs/cubefs/proto"
-	"github.com/cubefs/cubefs/sdk/data/manager"
 	"github.com/cubefs/cubefs/sdk/data/wrapper"
 	"github.com/cubefs/cubefs/sdk/meta"
 	"github.com/cubefs/cubefs/util"
@@ -130,35 +127,10 @@ type MultiVerMgr struct {
 
 // ExtentClient defines the struct of the extent client.
 type ExtentClient struct {
-	streamers          map[uint64]*Streamer
-	streamerList       *list.List
-	streamerLock       sync.Mutex
-	maxStreamerLimit   int
-	readLimiter        *rate.Limiter
-	writeLimiter       *rate.Limiter
-	disableMetaCache   bool
-	volumeType         int
-	volumeName         string
-	bcacheEnable       bool
-	bcacheDir          string
-	BcacheHealth       bool
-	preload            bool
-	LimitManager       *manager.LimitManager
-	dataWrapper        *wrapper.Wrapper
-	appendExtentKey    AppendExtentKeyFunc
-	splitExtentKey     SplitExtentKeyFunc
-	getExtents         GetExtentsFunc
-	truncate           TruncateFunc
-	evictIcache        EvictIcacheFunc //May be null, must check before using
-	loadBcache         LoadBcacheFunc
-	cacheBcache        CacheBcacheFunc
-	evictBcache        EvictBacheFunc
-	inflightL1cache    sync.Map
-	inflightL1BigBlock int32
-	multiVerMgr        *MultiVerMgr
+	*ExtentClientVer
 }
 
-func (client *ExtentClient) UidIsLimited(uid uint32) bool {
+func (client *ExtentClientVer) UidIsLimited(uid uint32) bool {
 	client.dataWrapper.UidLock.RLock()
 	defer client.dataWrapper.UidLock.RUnlock()
 	if uInfo, ok := client.dataWrapper.Uids[uid]; ok {
@@ -171,12 +143,7 @@ func (client *ExtentClient) UidIsLimited(uid uint32) bool {
 	return false
 }
 
-func (client *ExtentClient) UpdateMasterAddr(addr string) {
-	client.dataWrapper.UpdateMasterAddr(addr)
-
-}
-
-func (client *ExtentClient) evictStreamer() bool {
+func (client *extentClient) evictStreamer() bool {
 	// remove from list
 	item := client.streamerList.Back()
 	if item == nil {
@@ -200,7 +167,7 @@ func (client *ExtentClient) evictStreamer() bool {
 	return true
 }
 
-func (client *ExtentClient) batchEvictStramer(batchCnt int) {
+func (client *extentClient) batchEvictStramer(batchCnt int) {
 	client.streamerLock.Lock()
 	defer client.streamerLock.Unlock()
 
@@ -213,7 +180,7 @@ func (client *ExtentClient) batchEvictStramer(batchCnt int) {
 
 }
 
-func (client *ExtentClient) backgroundEvictStream() {
+func (client *extentClient) backgroundEvictStream() {
 	t := time.NewTicker(2 * time.Second)
 	for range t.C {
 		start := time.Now()
@@ -235,120 +202,51 @@ func (client *ExtentClient) backgroundEvictStream() {
 
 // NewExtentClient returns a new extent client.
 func NewExtentClient(config *ExtentConfig) (client *ExtentClient, err error) {
-	client = new(ExtentClient)
-	client.LimitManager = manager.NewLimitManager(client)
-	client.LimitManager.WrapperUpdate = client.UploadFlowInfo
-	limit := 0
-retry:
-
-	client.dataWrapper, err = wrapper.NewDataPartitionWrapper(client, config.Volume, config.Masters, config.Preload, config.MinWriteAbleDataPartitionCnt, config.VerReadSeq)
+	clientVer, err := NewExtentClientVer(config)
 	if err != nil {
-		log.LogErrorf("NewExtentClient: new data partition wrapper failed: volume(%v) mayRetry(%v) err(%v)",
-			config.Volume, limit, err)
-		if strings.Contains(err.Error(), proto.ErrVolNotExists.Error()) {
-			return nil, proto.ErrVolNotExists
-		}
-		if limit >= MaxMountRetryLimit {
-			return nil, errors.Trace(err, "Init data wrapper failed!")
-		} else {
-			limit++
-			time.Sleep(MountRetryInterval * time.Duration(limit))
-			goto retry
-		}
+		return nil, err
 	}
 
-	client.streamers = make(map[uint64]*Streamer)
-	client.multiVerMgr = &MultiVerMgr{verList: &proto.VolVersionInfoList{}}
-
-	client.appendExtentKey = config.OnAppendExtentKey
-	client.splitExtentKey = config.OnSplitExtentKey
-	client.getExtents = config.OnGetExtents
-	client.truncate = config.OnTruncate
-	client.evictIcache = config.OnEvictIcache
-	client.dataWrapper.InitFollowerRead(config.FollowerRead)
-	client.dataWrapper.SetNearRead(config.NearRead)
-	client.loadBcache = config.OnLoadBcache
-	client.cacheBcache = config.OnCacheBcache
-	client.evictBcache = config.OnEvictBcache
-	client.volumeType = config.VolumeType
-	client.volumeName = config.Volume
-	client.bcacheEnable = config.BcacheEnable
-	client.bcacheDir = config.BcacheDir
-	client.multiVerMgr.verReadSeq = client.dataWrapper.GetReadVerSeq()
-	client.BcacheHealth = true
-	client.preload = config.Preload
-	client.disableMetaCache = config.DisableMetaCache
-
-	var readLimit, writeLimit rate.Limit
-	if config.ReadRate <= 0 {
-		readLimit = defaultReadLimitRate
-	} else {
-		readLimit = rate.Limit(config.ReadRate)
+	client = &ExtentClient{
+		ExtentClientVer: clientVer,
 	}
-	if config.WriteRate <= 0 {
-		writeLimit = defaultWriteLimitRate
-	} else {
-		writeLimit = rate.Limit(config.WriteRate)
-	}
-	client.readLimiter = rate.NewLimiter(readLimit, defaultReadLimitBurst)
-	client.writeLimiter = rate.NewLimiter(writeLimit, defaultWriteLimitBurst)
-
-	if config.MaxStreamerLimit <= 0 {
-		client.disableMetaCache = true
-		return
-	}
-
-	if config.MaxStreamerLimit <= defaultStreamerLimit {
-		client.maxStreamerLimit = defaultStreamerLimit
-	} else if config.MaxStreamerLimit > defMaxStreamerLimit {
-		client.maxStreamerLimit = defMaxStreamerLimit
-	} else {
-		client.maxStreamerLimit = int(config.MaxStreamerLimit)
-	}
-
-	client.maxStreamerLimit += fastStreamerEvictNum
-
-	log.LogInfof("max streamer limit %d", client.maxStreamerLimit)
-	client.streamerList = list.New()
-	go client.backgroundEvictStream()
-
-	return
+	return client, nil
 }
 
-func (client *ExtentClient) GetEnablePosixAcl() bool {
+func (client *ExtentClientVer) GetEnablePosixAcl() bool {
 	return client.dataWrapper.EnablePosixAcl
 }
 
-func (client *ExtentClient) GetFlowInfo() (*proto.ClientReportLimitInfo, bool) {
+func (client *extentClient) GetFlowInfo() (*proto.ClientReportLimitInfo, bool) {
 	log.LogInfof("action[ExtentClient.GetFlowInfo]")
 	return client.LimitManager.GetFlowInfo()
 }
 
-func (client *ExtentClient) UpdateFlowInfo(limit *proto.LimitRsp2Client) {
+func (client *extentClient) UpdateFlowInfo(limit *proto.LimitRsp2Client) {
 	log.LogInfof("action[UpdateFlowInfo.UpdateFlowInfo]")
 	client.LimitManager.SetClientLimit(limit)
 	return
 }
 
-func (client *ExtentClient) SetClientID(id uint64) (err error) {
+func (client *extentClient) SetClientID(id uint64) (err error) {
 	client.LimitManager.ID = id
 	return
 }
 
-func (client *ExtentClient) GetVolumeName() string {
+func (client *ExtentClientVer) GetVolumeName() string {
 	return client.volumeName
 }
 
-func (client *ExtentClient) GetLatestVer() uint64 {
+func (client *extentClient) GetLatestVer() uint64 {
 	return atomic.LoadUint64(&client.multiVerMgr.latestVerSeq)
 }
-func (client *ExtentClient) GetReadVer() uint64 {
+func (client *extentClient) GetReadVer() uint64 {
 	return atomic.LoadUint64(&client.multiVerMgr.verReadSeq)
 }
 func (client *ExtentClient) GetVerMgr() *proto.VolVersionInfoList {
 	return client.multiVerMgr.verList
 }
-func (client *ExtentClient) UpdateLatestVer(verList *proto.VolVersionInfoList) (err error) {
+func (client *extentClient) UpdateLatestVer(verList *proto.VolVersionInfoList) (err error) {
 	verSeq := verList.GetLastVer()
 	if verSeq == 0 || verSeq <= atomic.LoadUint64(&client.multiVerMgr.latestVerSeq) {
 		return
@@ -379,7 +277,7 @@ func (client *ExtentClient) UpdateLatestVer(verList *proto.VolVersionInfoList) (
 }
 
 // Open request shall grab the lock until request is sent to the request channel
-func (client *ExtentClient) OpenStream(inode uint64) error {
+func (client *ExtentClientVer) OpenStream(inode uint64) error {
 	client.streamerLock.Lock()
 	s, ok := client.streamers[inode]
 	if !ok {
@@ -389,7 +287,7 @@ func (client *ExtentClient) OpenStream(inode uint64) error {
 	return s.IssueOpenRequest()
 }
 
-func (client *ExtentClient) OpenStreamVer(inode, seq uint64) error {
+func (client *ExtentClientVer) OpenStreamVer(inode, seq uint64) error {
 	client.streamerLock.Lock()
 	s, ok := client.streamers[inode]
 	if !ok {
@@ -402,7 +300,7 @@ func (client *ExtentClient) OpenStreamVer(inode, seq uint64) error {
 }
 
 // Open request shall grab the lock until request is sent to the request channel
-func (client *ExtentClient) OpenStreamWithCache(inode uint64, needBCache bool) error {
+func (client *ExtentClientVer) OpenStreamWithCache(inode uint64, needBCache bool) error {
 	client.streamerLock.Lock()
 	s, ok := client.streamers[inode]
 	if !ok {
@@ -425,7 +323,7 @@ func (client *ExtentClient) OpenStreamWithCache(inode uint64, needBCache bool) e
 }
 
 // Release request shall grab the lock until request is sent to the request channel
-func (client *ExtentClient) CloseStream(inode uint64) error {
+func (client *ExtentClientVer) CloseStream(inode uint64) error {
 	client.streamerLock.Lock()
 	s, ok := client.streamers[inode]
 	if !ok {
@@ -436,7 +334,7 @@ func (client *ExtentClient) CloseStream(inode uint64) error {
 }
 
 // Evict request shall grab the lock until request is sent to the request channel
-func (client *ExtentClient) EvictStream(inode uint64) error {
+func (client *ExtentClientVer) EvictStream(inode uint64) error {
 	client.streamerLock.Lock()
 	s, ok := client.streamers[inode]
 	if !ok {
@@ -459,7 +357,7 @@ func (client *ExtentClient) EvictStream(inode uint64) error {
 }
 
 // RefreshExtentsCache refreshes the extent cache.
-func (client *ExtentClient) RefreshExtentsCache(inode uint64) error {
+func (client *ExtentClientVer) RefreshExtentsCache(inode uint64) error {
 	s := client.GetStreamer(inode)
 	if s == nil {
 		return nil
@@ -467,7 +365,7 @@ func (client *ExtentClient) RefreshExtentsCache(inode uint64) error {
 	return s.GetExtents()
 }
 
-func (client *ExtentClient) ForceRefreshExtentsCache(inode uint64) error {
+func (client *ExtentClientVer) ForceRefreshExtentsCache(inode uint64) error {
 	s := client.GetStreamer(inode)
 	if s == nil {
 		return nil
@@ -476,7 +374,7 @@ func (client *ExtentClient) ForceRefreshExtentsCache(inode uint64) error {
 }
 
 // GetExtentCacheGen return extent generation
-func (client *ExtentClient) GetExtentCacheGen(inode uint64) uint64 {
+func (client *ExtentClientVer) GetExtentCacheGen(inode uint64) uint64 {
 	s := client.GetStreamer(inode)
 	if s == nil {
 		return 0
@@ -484,7 +382,7 @@ func (client *ExtentClient) GetExtentCacheGen(inode uint64) uint64 {
 	return s.extents.gen
 }
 
-func (client *ExtentClient) GetExtents(inode uint64) []*proto.ExtentKey {
+func (client *ExtentClientVer) GetExtents(inode uint64) []*proto.ExtentKey {
 	s := client.GetStreamer(inode)
 	if s == nil {
 		return nil
@@ -493,7 +391,7 @@ func (client *ExtentClient) GetExtents(inode uint64) []*proto.ExtentKey {
 }
 
 // FileSize returns the file size.
-func (client *ExtentClient) FileSize(inode uint64) (size int, gen uint64, valid bool) {
+func (client *ExtentClientVer) FileSize(inode uint64) (size int, gen uint64, valid bool) {
 	s := client.GetStreamer(inode)
 	if s == nil {
 		return
@@ -504,7 +402,7 @@ func (client *ExtentClient) FileSize(inode uint64) (size int, gen uint64, valid 
 }
 
 // SetFileSize set the file size.
-func (client *ExtentClient) SetFileSize(inode uint64, size int) {
+func (client *ExtentClientVer) SetFileSize(inode uint64, size int) {
 	s := client.GetStreamer(inode)
 	if s != nil {
 		log.LogDebugf("SetFileSize: ino(%v) size(%v)", inode, size)
@@ -513,7 +411,7 @@ func (client *ExtentClient) SetFileSize(inode uint64, size int) {
 }
 
 // Write writes the data.
-func (client *ExtentClient) Write(inode uint64, offset int, data []byte, flags int, checkFunc func() error) (write int, err error) {
+func (client *ExtentClientVer) Write(inode uint64, offset int, data []byte, flags int, checkFunc func() error) (write int, err error) {
 	prefix := fmt.Sprintf("Write{ino(%v)offset(%v)size(%v)}", inode, offset, len(data))
 	s := client.GetStreamer(inode)
 	if s == nil {
@@ -534,7 +432,7 @@ func (client *ExtentClient) Write(inode uint64, offset int, data []byte, flags i
 	return
 }
 
-func (client *ExtentClient) Truncate(mw *meta.MetaWrapper, parentIno uint64, inode uint64, size int) error {
+func (client *ExtentClientVer) Truncate(mw *meta.MetaWrapper, parentIno uint64, inode uint64, size int) error {
 	prefix := fmt.Sprintf("Truncate{ino(%v)size(%v)}", inode, size)
 	s := client.GetStreamer(inode)
 	if s == nil {
@@ -560,7 +458,7 @@ func (client *ExtentClient) Truncate(mw *meta.MetaWrapper, parentIno uint64, ino
 	return err
 }
 
-func (client *ExtentClient) Flush(inode uint64) error {
+func (client *ExtentClientVer) Flush(inode uint64) error {
 	s := client.GetStreamer(inode)
 	if s == nil {
 		log.LogErrorf("Flush: stream is not opened yet, ino(%v)", inode)
@@ -569,7 +467,7 @@ func (client *ExtentClient) Flush(inode uint64) error {
 	return s.IssueFlushRequest()
 }
 
-func (client *ExtentClient) Read(inode uint64, data []byte, offset int, size int) (read int, err error) {
+func (client *ExtentClientVer) Read(inode uint64, data []byte, offset int, size int) (read int, err error) {
 	//log.LogErrorf("======> ExtentClient Read Enter, inode(%v), len(data)=(%v), offset(%v), size(%v).", inode, len(data), offset, size)
 	//t1 := time.Now()
 	if size == 0 {
@@ -596,7 +494,7 @@ func (client *ExtentClient) Read(inode uint64, data []byte, offset int, size int
 	return
 }
 
-func (client *ExtentClient) ReadExtent(inode uint64, ek *proto.ExtentKey, data []byte, offset int, size int) (read int, err error, isStream bool) {
+func (client *ExtentClientVer) ReadExtent(inode uint64, ek *proto.ExtentKey, data []byte, offset int, size int) (read int, err error, isStream bool) {
 	bgTime := stat.BeginStat()
 	defer func() {
 		stat.EndStat("read-extent", err, bgTime, 1)
@@ -671,7 +569,7 @@ func (client *ExtentClient) ReadExtent(inode uint64, ek *proto.ExtentKey, data [
 }
 
 // GetStreamer returns the streamer.
-func (client *ExtentClient) GetStreamer(inode uint64) *Streamer {
+func (client *ExtentClientVer) GetStreamer(inode uint64) *Streamer {
 	client.streamerLock.Lock()
 	defer client.streamerLock.Unlock()
 	s, ok := client.streamers[inode]
@@ -688,11 +586,11 @@ func (client *ExtentClient) GetStreamer(inode uint64) *Streamer {
 	return s
 }
 
-func (client *ExtentClient) GetRate() string {
+func (client *ExtentClientVer) GetRate() string {
 	return fmt.Sprintf("read: %v\nwrite: %v\n", getRate(client.readLimiter), getRate(client.writeLimiter))
 }
 
-func (client *ExtentClient) shouldBcache() bool {
+func (client *ExtentClientVer) shouldBcache() bool {
 	return client.bcacheEnable && client.BcacheHealth
 }
 
@@ -704,11 +602,11 @@ func getRate(lim *rate.Limiter) string {
 	return "unlimited"
 }
 
-func (client *ExtentClient) SetReadRate(val int) string {
+func (client *ExtentClientVer) SetReadRate(val int) string {
 	return setRate(client.readLimiter, val)
 }
 
-func (client *ExtentClient) SetWriteRate(val int) string {
+func (client *ExtentClientVer) SetWriteRate(val int) string {
 	return setRate(client.writeLimiter, val)
 }
 
@@ -721,7 +619,7 @@ func setRate(lim *rate.Limiter, val int) string {
 	return "unlimited"
 }
 
-func (client *ExtentClient) Close() error {
+func (client *ExtentClientVer) Close() error {
 	// release streamers
 	var inodes []uint64
 	client.streamerLock.Lock()
@@ -737,29 +635,29 @@ func (client *ExtentClient) Close() error {
 	return nil
 }
 
-func (client *ExtentClient) AllocatePreLoadDataPartition(volName string, count int, capacity, ttl uint64, zones string) (err error) {
+func (client *ExtentClientVer) AllocatePreLoadDataPartition(volName string, count int, capacity, ttl uint64, zones string) (err error) {
 	return client.dataWrapper.AllocatePreLoadDataPartition(volName, count, capacity, ttl, zones)
 }
 
-func (client *ExtentClient) CheckDataPartitionExsit(partitionID uint64) error {
+func (client *ExtentClientVer) CheckDataPartitionExsit(partitionID uint64) error {
 	_, err := client.dataWrapper.GetDataPartition(partitionID)
 	return err
 }
 
-func (client *ExtentClient) GetDataPartitionForWrite() error {
+func (client *ExtentClientVer) GetDataPartitionForWrite() error {
 	exclude := make(map[string]struct{})
 	_, err := client.dataWrapper.GetDataPartitionForWrite(exclude)
 	return err
 }
 
-func (client *ExtentClient) UpdateDataPartitionForColdVolume() error {
+func (client *ExtentClientVer) UpdateDataPartitionForColdVolume() error {
 	return client.dataWrapper.UpdateDataPartition()
 }
 
-func (client *ExtentClient) IsPreloadMode() bool {
+func (client *ExtentClientVer) IsPreloadMode() bool {
 	return client.preload
 }
 
-func (client *ExtentClient) UploadFlowInfo(clientInfo wrapper.SimpleClientInfo) error {
+func (client *extentClient) UploadFlowInfo(clientInfo wrapper.SimpleClientInfo) error {
 	return client.dataWrapper.UploadFlowInfo(clientInfo, false)
 }

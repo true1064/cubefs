@@ -21,9 +21,17 @@ func TestDentry_Marshal(t *testing.T) {
 			{Inode: 10, Type: 0x655, multiSnap: NewDentrySnap(10), Name: dentry.Name, ParentId: dentry.ParentId},
 		},
 	}
-	dentry.multiSnap = snap
 
 	data, err := dentry.Marshal()
+	require.NoError(t, err)
+	d1 := &Dentry{}
+	err = d1.Unmarshal(data)
+	require.NoError(t, err)
+	require.True(t, reflect.DeepEqual(dentry, d1))
+
+	dentry.multiSnap = snap
+
+	data, err = dentry.Marshal()
 	require.NoError(t, err)
 
 	newDentry := &Dentry{}

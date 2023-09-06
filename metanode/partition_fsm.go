@@ -985,7 +985,9 @@ func (mp *metaPartition) submit(op uint32, data []byte) (resp interface{}, err e
 
 	// submit to the raft store
 	resp, err = mp.raftPartition.Submit(cmd)
-	log.LogDebugf("submit. op %v done", op)
+	if log.EnableDebug() {
+		log.LogDebugf("submit. op %v, resp %v, err %v done", op, resp, err)
+	}
 	return
 }
 

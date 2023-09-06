@@ -184,7 +184,7 @@ func (mp *metaPartition) ExtentAppendWithCheck(req *proto.AppendExtentKeyWithChe
 		opFlag = opFSMExtentSplit
 	}
 	var resp interface{}
-	if resp, err = mp.buildAndSubmitInoPacket(inoParm, uint32(opDirFlag), uint32(opFlag), p); err != nil {
+	if resp, err = mp.buildAndSubmitInoPacket(ino, opFlag, opDirFlag, p); err != nil {
 		return
 	}
 
