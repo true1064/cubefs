@@ -162,15 +162,11 @@ type DirSnapVerAllocatorPersist struct {
 //Persist :
 // caller must handle the lock properly
 func (dirVerAlloc *DirSnapVerAllocator) Persist(vol *Vol, c *Cluster) (err error) {
-	persist := &DirSnapVerAllocatorPersist{
+	persist := DirSnapVerAllocatorPersist{
 		PreAllocMaxVer: dirVerAlloc.PreAllocMaxVer,
 	}
-	var val []byte
-	if val, err = json.Marshal(persist); err != nil {
-		return
-	}
 
-	err = c.syncDirVersion(vol, val)
+	err = c.syncDirVersion(vol, persist)
 	return
 }
 
@@ -366,10 +362,12 @@ func (dirVerMgr *DirSnapVersionManager) loadDirDelVerInfo(val []byte) (err error
 
 func (dirVerMgr *DirSnapVersionManager) init(cluster *Cluster) error {
 	log.LogWarnf("action[DirSnapVersionManager.init] vol %v", dirVerMgr.vol.Name)
+	dirVerMgr.SetCluster(cluster)
+
 	dirVerMgr.dirVerAllocator.init()
 
 	if cluster.partition.IsRaftLeader() {
-		return dirVerMgr.dirVerAllocator.Persist(dirVerMgr.vol, dirVerMgr.c)
+		return dirVerMgr.dirVerAllocator.Persist(dirVerMgr.vol, cluster)
 	}
 	return nil
 }

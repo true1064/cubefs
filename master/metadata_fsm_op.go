@@ -1739,8 +1739,6 @@ func (c *Cluster) loadLcConfs() (err error) {
 }
 
 func (c *Cluster) loadDirSnapVersionAllocator(vol *Vol) (err error) {
-	vol.DirSnapVersionMgr.SetCluster(c)
-
 	key := DirVerPrefix + strconv.FormatUint(vol.ID, 10)
 	result, err := c.fsm.store.SeekForPrefix([]byte(key))
 	if err != nil {
@@ -1788,11 +1786,14 @@ func (c *Cluster) loadDirSnapVersionMgr(vol *Vol) (err error) {
 	return c.loadDirDelSnapVerInfo(vol)
 }
 
-func (c *Cluster) syncDirVersion(vol *Vol, val []byte) (err error) {
+func (c *Cluster) syncDirVersion(vol *Vol, persistVer DirSnapVerAllocatorPersist) (err error) {
 	metadata := new(RaftCmd)
 	metadata.Op = opSyncDirVersion
 	metadata.K = DirVerPrefix + strconv.FormatUint(vol.ID, 10)
-	metadata.V = val
+	metadata.V, err = json.Marshal(persistVer)
+	if err != nil {
+		return fmt.Errorf("[syncDirVersion] Marshal failed, err: %v", err.Error())
+	}
 
 	return c.submit(metadata)
 }
