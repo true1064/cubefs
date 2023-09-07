@@ -715,6 +715,9 @@ func (c *Cluster) handleMetaNodeTaskResponse(nodeAddr string, task *proto.AdminT
 	case proto.OpVersionOperation:
 		response := task.Response.(*proto.MultiVersionOpResponse)
 		err = c.dealOpMetaNodeMultiVerResp(task.OperatorAddr, response)
+	case proto.OpMetaBatchDelDirVer:
+		response := task.Response.(*proto.MultiVersionOpResponse)
+		err = c.dealOpMetaNodeDirSnapVerBatchDelResp(task.OperatorAddr, response)
 	default:
 		err := fmt.Errorf("unknown operate code %v", task.OpCode)
 		log.LogError(err)
@@ -1172,5 +1175,127 @@ func (c *Cluster) updateInodeIDUpperBound(mp *MetaPartition, mr *proto.MetaParti
 	if err = vol.splitMetaPartition(c, mp, end, metaPartitionInodeIdStep); err != nil {
 		log.LogError(err)
 	}
+	return
+}
+
+func (c *Cluster) dealSetMetaserverQuotaResponse(nodeAddr string, resp *proto.BatchSetMetaserverQuotaResponse) (err error) {
+	var (
+		mp        *MetaPartition
+		vol       *Vol
+		quotaInfo *proto.QuotaInfo
+		value     []byte
+	)
+	log.LogInfof("action[dealSetMetaserverQuotaResponse] resp [%v] start.", resp)
+	if resp.Status == proto.TaskFailed {
+		msg := fmt.Sprintf("action[dealSetMetaserverQuotaResponse],clusterID[%v] nodeAddr %v set meta quota failed,err %v",
+			c.Name, nodeAddr, resp.Result)
+		log.LogError(msg)
+		Warn(c.Name, msg)
+		return
+	}
+
+	if mp, err = c.getMetaPartitionByID(resp.PartitionId); err != nil {
+		msg := fmt.Sprintf("action[dealSetMetaserverQuotaResponse],clusterID[%v] get meta partition [%v] failed,err %v",
+			c.Name, resp.PartitionId, err)
+		log.LogError(msg)
+		Warn(c.Name, msg)
+		return
+	}
+
+	if vol, err = c.getVol(mp.volName); err != nil {
+		msg := fmt.Sprintf("action[dealSetMetaserverQuotaResponse],clusterID[%v] get vol [%v] failed,err %v",
+			c.Name, mp.volName, err)
+		log.LogError(msg)
+		Warn(c.Name, msg)
+		return
+	}
+
+	if quotaInfo, err = vol.quotaManager.getQuotaInfoById(resp.QuotaId); err != nil {
+		msg := fmt.Sprintf("action[dealSetMetaserverQuotaResponse],clusterID[%v] get vol [%v] failed,err %v",
+			c.Name, mp.volName, err)
+		log.LogError(msg)
+		Warn(c.Name, msg)
+		return
+	}
+
+	quotaInfo.Status = proto.QuotaComplete
+	if value, err = json.Marshal(quotaInfo); err != nil {
+		log.LogErrorf("set quota [%v] marsha1 fail [%v].", quotaInfo, err)
+		return
+	}
+
+	metadata := new(RaftCmd)
+	metadata.Op = opSyncSetQuota
+	metadata.K = quotaPrefix + strconv.FormatUint(vol.ID, 10) + keySeparator + strconv.FormatUint(uint64(resp.QuotaId), 10)
+	metadata.V = value
+
+	if err = c.submit(metadata); err != nil {
+		log.LogErrorf("set quota [%v] submit fail [%v].", quotaInfo, err)
+		return
+	}
+
+	log.LogInfof("action[dealSetMetaserverQuotaResponse] resp [%v] success.", resp)
+	return
+}
+
+func (c *Cluster) dealDeleteMetaserverQuotaResponse(nodeAddr string, resp *proto.BatchDeleteMetaserverQuotaResponse) (err error) {
+	var (
+		mp        *MetaPartition
+		vol       *Vol
+		quotaInfo *proto.QuotaInfo
+		value     []byte
+	)
+	log.LogInfof("action[dealDeleteMetaserverQuotaResponse] resp [%v] start.", resp)
+	if resp.Status == proto.TaskFailed {
+		msg := fmt.Sprintf("action[dealDeleteMetaserverQuotaResponse],clusterID[%v] nodeAddr %v set meta quota failed,err %v",
+			c.Name, nodeAddr, resp.Result)
+		log.LogError(msg)
+		Warn(c.Name, msg)
+		return
+	}
+
+	if mp, err = c.getMetaPartitionByID(resp.PartitionId); err != nil {
+		msg := fmt.Sprintf("action[dealDeleteMetaserverQuotaResponse],clusterID[%v] get meta partition [%v] failed,err %v",
+			c.Name, resp.PartitionId, err)
+		log.LogError(msg)
+		Warn(c.Name, msg)
+		return
+	}
+
+	if vol, err = c.getVol(mp.volName); err != nil {
+		msg := fmt.Sprintf("action[dealDeleteMetaserverQuotaResponse],clusterID[%v] get vol [%v] failed,err %v",
+			c.Name, mp.volName, err)
+		log.LogError(msg)
+		Warn(c.Name, msg)
+		return
+	}
+
+	metadata := new(RaftCmd)
+	metadata.Op = opSyncDeleteQuota
+	metadata.K = quotaPrefix + strconv.FormatUint(vol.ID, 10) + keySeparator + strconv.FormatUint(uint64(resp.QuotaId), 10)
+	metadata.V = value
+
+	if err = c.submit(metadata); err != nil {
+		log.LogErrorf("delete quota [%v] submit fail [%v].", quotaInfo, err)
+		return
+	}
+	vol.quotaManager.DeleteQuotaInfoById(resp.QuotaId)
+
+	log.LogInfof("action[dealDeleteMetaserverQuotaResponse] resp [%v] success.", resp)
+	return
+}
+
+func (c *Cluster) dealOpMetaNodeDirSnapVerBatchDelResp(nodeAddr string, resp *proto.MultiVersionOpResponse) (err error) {
+	if resp.Status == proto.TaskFailed {
+		msg := fmt.Sprintf("action[dealOpMetaNodeMultiVerResp],clusterID[%v] volume [%v] nodeAddr %v operate meta partition snapshot version,err %v",
+			c.Name, resp.VolumeID, nodeAddr, resp.Result)
+		log.LogError(msg)
+		Warn(c.Name, msg)
+	}
+	var vol *Vol
+	if vol, err = c.getVol(resp.VolumeID); err != nil {
+		return
+	}
+	vol.VersionMgr.handleTaskRsp(resp, TypeMetaPartition)
 	return
 }

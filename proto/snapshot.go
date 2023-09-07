@@ -134,3 +134,7 @@ type CreateDirSnapShotInfo struct {
 	Ver           uint64 `json:"ver"`
 	RootInode     uint64 `json:"rootInode"`
 }
+
+type MetaDirSnapVerBatchDelTask struct {
+	DirVersionInfo *MetaBatchDelVerReq
+}

@@ -153,6 +153,18 @@ func (metaNode *MetaNode) createVersionTask(volume string, version uint64, op ui
 	return
 }
 
+func (metaNode *MetaNode) createDirVerDelTask(volume string, mpId uint64, deletedVers []proto.DirVerItem) (task *proto.AdminTask) {
+	request := &proto.MetaBatchDelVerReq{
+		VolName:     volume,
+		PartitionID: mpId,
+		Vers:        make([]proto.DirVerItem, len(deletedVers)),
+	}
+	copy(request.Vers, deletedVers)
+
+	task = proto.NewAdminTask(proto.OpMetaBatchDelDirVer, metaNode.Addr, request)
+	return
+}
+
 func (metaNode *MetaNode) checkHeartbeat() {
 	metaNode.Lock()
 	defer metaNode.Unlock()

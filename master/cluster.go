@@ -363,6 +363,7 @@ func (c *Cluster) scheduleTask() {
 	c.scheduleToLcScan()
 	c.scheduleToSnapshotDelVerScan()
 	c.scheduleToBadDisk()
+	c.scheduleToCheckDirSnapDeletedVer(
 }
 
 func (c *Cluster) masterAddr() (addr string) {
@@ -4453,6 +4454,32 @@ func (c *Cluster) DelBucketLifecycle(VolName string) {
 	log.LogInfof("action[DelS3BucketLifecycle],clusterID[%v] vol:%v", c.Name, VolName)
 	return
 }
+
+func (c *Cluster) checkDirSnapDeletedVer() {
+	vols := c.allVols()
+	for _, vol := range vols {
+		if !proto.IsHot(vol.VolType) {
+			continue
+		}
+
+		vol.DirSnapVersionMgr.CheckDirDeletedVer()
+	}
+}
+
+func (c *Cluster) scheduleToCheckDirSnapDeletedVer() {
+	waitTime := time.Second * defaultIntervalToCheck
+
+	go func() {
+		for {
+			if c.partition != nil && c.partition.IsRaftLeader() {
+				c.checkDirSnapDeletedVer()
+			}
+
+			time.Sleep(waitTime)
+		}
+	}()
+}
+
 
 func (c *Cluster) addDecommissionDiskToNodeset(dd *DecommissionDisk) (err error) {
 	var (
