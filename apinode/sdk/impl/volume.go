@@ -2,13 +2,11 @@ package impl
 
 import (
 	"context"
-	"strings"
-	"time"
-
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/trace"
 	"github.com/cubefs/cubefs/sdk/data/stream"
 	"github.com/cubefs/cubefs/sdk/meta"
+	"strings"
 )
 
 var (
@@ -17,41 +15,43 @@ var (
 )
 
 type volume struct {
-	mw      MetaOp
-	ec      DataOp
-	name    string
-	owner   string
-	allocId func(ctx context.Context) (id uint64, err error)
+	mw         MetaOp
+	ec         DataOp
+	name       string
+	owner      string
+	allocId    func(ctx context.Context) (id uint64, err error)
+	allocVerId func(ctx context.Context, name string) (id uint64, err error)
+	//allocVerId func(
 	sdk.IDirSnapshot
 }
 
 type metaOpImp struct {
-	*meta.MetaWrapper
+	*meta.SnapShotMetaWrapper
 }
 
 type dataOpImp struct {
-	*stream.ExtentClient
+	*stream.ExtentClientVer
 }
 
 func newDataOp(cfg *stream.ExtentConfig) (DataOp, error) {
-	ec, err := stream.NewExtentClient(cfg)
+	ec, err := stream.NewExtentClientVer(cfg)
 	if err != nil {
 		return nil, err
 	}
 
 	dop := &dataOpImp{
-		ExtentClient: ec,
+		ExtentClientVer: ec,
 	}
 	return dop, nil
 }
 
 func newMetaOp(config *meta.MetaConfig) (MetaOp, error) {
-	mw, err := meta.NewMetaWrapper(config)
+	mw, err := meta.NewSnapshotMetaWrapper(config)
 	if err != nil {
 		return nil, err
 	}
 
-	return &metaOpImp{MetaWrapper: mw}, nil
+	return &metaOpImp{SnapShotMetaWrapper: mw}, nil
 }
 
 func newVolume(ctx context.Context, name, owner, addr string) (sdk.IVolume, error) {
@@ -81,6 +81,7 @@ func newVolume(ctx context.Context, name, owner, addr string) (sdk.IVolume, erro
 
 	if mw1, ok := mw.(*metaOpImp); ok {
 		ecCfg.OnAppendExtentKey = mw1.AppendExtentKey
+		ecCfg.OnSplitExtentKey = mw1.SplitExtentKey
 	}
 
 	ec, err := newExtentClient(ecCfg)
@@ -103,11 +104,6 @@ func newVolume(ctx context.Context, name, owner, addr string) (sdk.IVolume, erro
 	return v, nil
 }
 
-// TODO invoke master api to get inner ver id
-func (v *volume) allocVerId() (uint64, error) {
-	return uint64(time.Now().UnixMicro()), nil
-}
-
 func (v *volume) GetDirSnapshot(ctx context.Context, rootIno uint64) (sdk.IDirSnapshot, error) {
 	span := trace.SpanFromContext(ctx)
 
@@ -117,14 +113,19 @@ func (v *volume) GetDirSnapshot(ctx context.Context, rootIno uint64) (sdk.IDirSn
 		return nil, syscallToErr(err)
 	}
 
+	//for _, e := range items {
+	//	span.Infof("get dir snapshot items, %v", e)
+	//}
+
 	nmw := newSnapMetaOp(v.mw, items, rootIno)
 	nmw.allocId = v.allocId
 	verEc := newExtentClientVer(v.ec, nmw)
 
 	dirSnap := &dirSnapshotOp{
-		v:  v,
-		mw: nmw,
-		ec: verEc,
+		v:       v,
+		mw:      nmw,
+		ec:      verEc,
+		rootIno: rootIno,
 	}
 	return dirSnap, nil
 }

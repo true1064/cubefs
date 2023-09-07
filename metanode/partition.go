@@ -180,6 +180,7 @@ type OpDirSnapshot interface {
 	ListAllDirSnapshot(rootIno uint64, p *Packet) (err error)
 	DelDirSnapshot(ifo *proto.DirVerItem, p *Packet) (err error)
 	CreateDirSnapshot(ifo *proto.CreateDirSnapShotInfo, p *Packet) (err error)
+	BatchDelDirSnapshot(items []proto.DirVerItem, p *Packet) (err error)
 }
 
 type OpTransaction interface {

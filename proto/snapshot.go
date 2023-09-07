@@ -2,6 +2,7 @@ package proto
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"time"
 )
@@ -74,7 +75,7 @@ func (d *DelVer) Newest() bool {
 }
 
 func (d *DelVer) String() string {
-	buf := bytes.NewBuffer(make([]byte, 8))
+	buf := bytes.NewBuffer(make([]byte, 0))
 	buf.WriteString(fmt.Sprintf("[ver %d", d.DelVer))
 
 	if len(d.Vers) == 0 {
@@ -89,6 +90,19 @@ func (d *DelVer) String() string {
 
 	buf.WriteString("]")
 	return buf.String()
+}
+
+type DirSnapshotInfo struct {
+	SnapshotDir   string          `json:"snapshot_dir"`
+	SnapshotInode uint64          `json:"snapshot_ino"`
+	MaxVer        uint64          `json:"max_ver"`
+	Deleted       bool            `json:"deleted"`
+	Vers          []*ClientDirVer `json:"vers"`
+}
+
+func (d *DirSnapshotInfo) String() string {
+	data, _ := json.Marshal(d)
+	return string(data)
 }
 
 type DelDirVersionInfo struct {

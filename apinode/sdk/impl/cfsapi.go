@@ -74,4 +74,5 @@ type IMasterApi interface {
 	GetClusterIP() (cp *proto.ClusterIP, err error)
 	ListVols(keywords string) (volsInfo []*proto.VolInfo, err error)
 	AllocFileId() (info *proto.FileId, err error)
+	AllocDirSnapshotVersion(volName string) (dirSnapVerInfo *proto.DirSnapshotVersionInfo, err error)
 }

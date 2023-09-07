@@ -305,6 +305,8 @@ func (m *metadataManager) HandleMetadataOperation(conn net.Conn, p *Packet, remo
 		err = m.opDirSnapshotList(conn, p, remoteAddr)
 	case proto.OpMetaCreateDirVer:
 		err = m.opDirSnapshotCreate(conn, p, remoteAddr)
+	case proto.OpMetaBatchDelDirVer:
+		err = m.opDirSnapshotBatchDel(conn, p, remoteAddr)
 	case proto.OpMetaDelDirVer:
 		err = m.opDirSnapshotDel(conn, p, remoteAddr)
 	default:

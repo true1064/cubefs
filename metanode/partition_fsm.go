@@ -128,6 +128,12 @@ func (mp *metaPartition) Apply(command []byte, index uint64) (resp interface{}, 
 			return
 		}
 		resp = mp.fsmDelDirSnap(ifo)
+	case opFSMBatchDelDirSnap:
+		ifo := &BatchDelDirSnapInfo{}
+		if err = json.Unmarshal(msg.V, ifo); err != nil {
+			return
+		}
+		resp = mp.fsmBatchDelDirSnapshot(ifo)
 	case opFSMUnlinkInodeBatch:
 		inodes, err := InodeBatchUnmarshal(msg.V)
 		if err != nil {

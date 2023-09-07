@@ -10,11 +10,11 @@ import (
 
 func Test_DelVerMarshal(t *testing.T) {
 	v := &proto.DelVer{
-		DelVel: 10,
+		DelVer: 10,
 		Vers: []*proto.VersionInfo{
-			{Ver: 10},
-			{Ver: 11},
-			{Ver: 12},
+			{Ver: 10, DelTime: 11, Status: proto.VersionInit},
+			{Ver: 11, DelTime: 12, Status: proto.VersionNormal},
+			{Ver: 12, DelTime: 13, Status: proto.VersionMarkDelete},
 		},
 	}
 

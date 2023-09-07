@@ -89,7 +89,8 @@ func (mp *metaPartition) ExtentAppend(req *proto.AppendExtentKeyRequest, p *Pack
 func (mp *metaPartition) buildAndSubmitInoPacket(ino *Inode, opCode uint32, dirOpCode uint32, p *Packet) (resp interface{}, err error) {
 	var val []byte
 	var opFlag uint32
-	if len(p.DirVerList) > 0 {
+	if p.IsDirVersion() {
+		ino.setVer(p.VerSeq)
 		dirInode := &InodeDirVer{
 			Ino:        ino,
 			DirVerList: p.DirVerList,

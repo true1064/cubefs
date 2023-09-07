@@ -11,6 +11,7 @@ import (
 	"github.com/cubefs/cubefs/util/errors"
 	"github.com/cubefs/cubefs/util/log"
 	"golang.org/x/time/rate"
+	"math"
 	"sync"
 	"time"
 )
@@ -171,7 +172,14 @@ func NewSnapshotMetaWrapperWith(mw *MetaWrapper) *SnapShotMetaWrapper {
 	return &SnapShotMetaWrapper{metaWrapper: nmw}
 }
 
+func (mw *SnapShotMetaWrapper) Clone() *SnapShotMetaWrapper {
+	return &SnapShotMetaWrapper{metaWrapper: mw.metaWrapper}
+}
+
 func (mw *SnapShotMetaWrapper) SetVerInfo(info *proto.DelVer) {
+	if info.DelVer == 0 {
+		info.DelVer = math.MaxUint64
+	}
 	mw.verInfo = info
 }
 

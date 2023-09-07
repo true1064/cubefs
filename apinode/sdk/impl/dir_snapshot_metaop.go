@@ -6,7 +6,6 @@ import (
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/trace"
 	"github.com/cubefs/cubefs/proto"
-	"github.com/cubefs/cubefs/sdk/meta"
 	"path"
 	"strings"
 )
@@ -26,8 +25,7 @@ func newSnapMetaOp(mop MetaOp, items []*proto.DirSnapshotInfo, rootIno uint64) *
 	nmw, ok := mop.(*metaOpImp)
 	sm := mop
 	if ok {
-		sm = meta.NewSnapshotMetaWrapperWith(nmw.MetaWrapper)
-		sm.SetVerInfo(&proto.DelVer{DelVer: 0})
+		sm = nmw.SnapShotMetaWrapper.Clone()
 	}
 
 	smw := &snapMetaOpImp{
@@ -47,7 +45,7 @@ func (m *snapMetaOpImp) getVerStr() string {
 }
 
 func versionName(ver string) string {
-	return fmt.Sprintf("%s_%s", sdk.SnapShotPre, ver)
+	return fmt.Sprintf("%s%s", sdk.SnapShotPre, ver)
 }
 
 func isSnapshotName(name string) bool {
@@ -63,7 +61,9 @@ func (m *snapMetaOpImp) getVersionNames(dirIno uint64) (names []string) {
 		}
 
 		for _, v := range e.Vers {
-			names = append(names, versionName(v.OutVer))
+			if v.Ver.IsNormal() {
+				names = append(names, versionName(v.OutVer))
+			}
 		}
 		break
 	}
@@ -260,7 +260,7 @@ func (m *snapMetaOpImp) CreateFileEx(ctx context.Context, parentID uint64, name 
 
 	fileId, err := m.CreateDentryEx(ctx, req)
 	if err != nil {
-		span.Errorf("create dentry failed, req %s, err %s", req, err.Error())
+		span.Errorf("create dentry failed, req %v, err %s", req, err.Error())
 		return nil, err
 	}
 
@@ -372,7 +372,7 @@ func (m *snapMetaOpImp) ReadDirLimit(parentID uint64, from string, limit uint64)
 
 	// insert version info to items
 	versionNames := m.getVersionNames(parentID)
-	vItems := make([]proto.Dentry, len(versionNames))
+	vItems := make([]proto.Dentry, 0, len(versionNames))
 	for _, v := range versionNames {
 		vItems = append(vItems, *newDirDentry(parentID, v))
 	}
@@ -393,6 +393,7 @@ func (m *snapMetaOpImp) ReadDirLimit(parentID uint64, from string, limit uint64)
 			result = append(result, v)
 		}
 		result = append(result, items[idx:]...)
+		break
 	}
 
 	for idx, d := range result {

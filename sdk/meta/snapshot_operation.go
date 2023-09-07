@@ -75,13 +75,13 @@ func (mw *SnapShotMetaWrapper) sendToMeta(mp *MetaPartition, opCode uint8, req, 
 		metric.SetWithLabels(err, map[string]string{exporter.Vol: mw.volname})
 	}()
 
-	pkt, err = mw.sendToMetaPartition(mp, pkt)
+	resultPkt, err := mw.sendToMetaPartition(mp, pkt)
 	if err != nil {
-		log.LogErrorf("%s: pkt(%v) mp(%v) req(%v) err(%v)", pkt.GetOpMsg(), pkt, mp, req, err)
+		log.LogErrorf("%s: pkt(%v) mp(%v) req(%v) err(%v)", resultPkt.GetOpMsg(), pkt, mp, req, err)
 		return
 	}
 
-	status := parseStatus(pkt.ResultCode)
+	status := parseStatus(resultPkt.ResultCode)
 	if status != statusOK {
 		err = statusToErrno(status)
 		log.LogErrorf("%s: pkt(%v) mp(%v) req(%v) result(%v), status (%v)",
@@ -90,16 +90,17 @@ func (mw *SnapShotMetaWrapper) sendToMeta(mp *MetaPartition, opCode uint8, req, 
 	}
 
 	if resp != nil {
-		err = pkt.UnmarshalData(resp)
+		err = resultPkt.UnmarshalData(resp)
 		if err != nil {
 			log.LogErrorf("%s: packet(%v) mp(%v) req(%v) err(%v) PacketData(%v)",
-				pkt.GetOpMsg(), pkt, mp, req, err, string(pkt.Data))
+				resultPkt.GetOpMsg(), resultPkt, mp, req, err, string(resultPkt.Data))
 			return
 		}
 	}
 
 	if log.EnableDebug() {
-		log.LogDebugf("%s: pkt(%v) mp(%v) req(%v) result(%v)", pkt.GetOpMsg(), pkt, mp, req, pkt.GetResultMsg())
+		log.LogDebugf("%s: pkt(%v) mp(%v) req(%v) result(%v)",
+			resultPkt.GetOpMsg(), resultPkt, mp, req, resultPkt.GetResultMsg())
 	}
 	return
 }

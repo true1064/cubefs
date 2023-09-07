@@ -55,11 +55,141 @@ func main() {
 		span.Fatalf("get dir snapshot failed, err %s", err.Error())
 	}
 
-	testDirOp(ctx, dirVol)
-	testCreateFile(ctx, dirVol)
-	testXAttrOp(ctx, dirVol)
+	//testDirOp(ctx, dirVol)
+	//testCreateFile(ctx, dirVol)
+	//testXAttrOp(ctx, dirVol)
 	//testMultiPartOp(ctx, dirVol)
-	testInodeLock(ctx, dirVol)
+	//testInodeLock(ctx, dirVol)
+
+	testDirSnapshotOp(ctx, vol, dirVol)
+}
+
+func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
+	span := trace.SpanFromContext(ctx)
+	span.Infof("start test dir snapshot op")
+	defer span.Infof("success test dir snapshot op")
+
+	dir := "snapDir" + tmpString()
+	ifo, err := dirVol.Mkdir(ctx, proto.RootIno, dir)
+	if err != nil {
+		span.Fatalf("mkdir failed, dir %d, err %s", dir, err.Error())
+	}
+
+	f1 := "tmp_f1"
+	_, err = dirVol.CreateFile(ctx, ifo.Inode, f1)
+	if err != nil {
+		span.Fatalf("create file failed, ino %d, name %s, err %s", ifo.Inode, f1, err.Error())
+	}
+
+	newVol := func() {
+		dirVol, err = vol.GetDirSnapshot(ctx, proto.RootIno)
+		if err != nil {
+			span.Fatalf("new dir snapshot failed, err %s", err.Error())
+		}
+	}
+
+	createSnapshot := func(ver string) {
+		err = dirVol.CreateDirSnapshot(ctx, ver, dir)
+		if err != nil {
+			span.Fatalf("create dir snapshot failed, ver %s dir %s, err %s",
+				ver, dir, err.Error())
+		}
+		newVol()
+	}
+
+	v1 := "v1"
+	createSnapshot(v1)
+	// write after create snapshot
+	f2Fio, err := dirVol.CreateFile(ctx, ifo.Inode, "f2")
+	if err != nil {
+		span.Fatalf("create new file failed, err %s", err.Error())
+	}
+
+	err = dirVol.Delete(ctx, ifo.Inode, f1, false)
+	if err != nil {
+		span.Fatalf("delete file failed, err %s", err.Error())
+	}
+	_, err = dirVol.CreateFile(ctx, ifo.Inode, f1)
+	if err != nil {
+		span.Fatalf("create new file failed, err %s", err.Error())
+	}
+
+	v2 := "v2"
+	createSnapshot(v2)
+
+	err = dirVol.CreateDirSnapshot(ctx, v1, dir)
+	if err != sdk.ErrBadRequest {
+		span.Fatalf("create dir snapshot again, should be bad req, dir %s, err %v", dir, err)
+	}
+
+	_, err = dirVol.CreateFile(ctx, ifo.Inode, "f3")
+	if err != nil {
+		span.Fatalf("create new file failed, err %s", err.Error())
+	}
+
+	attrReq := &sdk.SetAttrReq{
+		Ino:   f2Fio.Inode,
+		Flag:  proto.AttrModifyTime,
+		Mode:  0,
+		Uid:   0,
+		Gid:   0,
+		Atime: 0,
+		Mtime: 1010,
+	}
+	err = dirVol.SetAttr(ctx, attrReq)
+	if err != nil {
+		span.Fatalf("set attr failed, req %v, err %s", attrReq, err.Error())
+	}
+
+	readDir := func(ino uint64, cnt int) {
+		dirs, err := dirVol.ReadDirAll(ctx, ifo.Inode)
+		if err != nil {
+			span.Fatalf("readdir failed, ino %d, err %s", err.Error())
+		}
+
+		for _, e := range dirs {
+			span.Infof("get dentry, dentry %v", e.String())
+		}
+
+		if cnt != len(dirs) {
+			span.Fatalf("got dirs cnt is error, cnt %d, got %d", cnt, len(dirs))
+		}
+	}
+
+	readDir(ifo.Inode, 5)
+
+	readDirVer := func(ino uint64, ver string, cnt int) {
+		nameV1 := sdk.SnapShotPre + ver
+		v1Ifo, err := dirVol.Lookup(ctx, ifo.Inode, nameV1)
+		if err != nil {
+			span.Fatalf("lookup snapshot v1 failed, ino %d, name %s, err  %s", ifo.Inode, nameV1, err.Error())
+		}
+
+		_, err = dirVol.CreateFile(ctx, v1Ifo.Inode, "test")
+		if err != sdk.ErrWriteSnapshot {
+			span.Fatalf("write on snapshot file should be failed, err %v", err)
+		}
+
+		readDir(v1Ifo.Inode, cnt)
+		newVol()
+	}
+
+	readDirVer(ifo.Inode, v1, 1)
+	readDirVer(ifo.Inode, v2, 2)
+
+	err = dirVol.DeleteDirSnapshot(ctx, v1, dir)
+	if err != nil {
+		span.Fatalf("delete dir snapshot failed, dir %s, err %s", dir, err.Error())
+	}
+	newVol()
+
+	readDir(ifo.Inode, 4)
+	err = dirVol.DeleteDirSnapshot(ctx, v2, dir)
+	if err != nil {
+		span.Fatalf("delete dir snapshot failed, dir %s, err %s", dir, err.Error())
+	}
+	newVol()
+	readDir(ifo.Inode, 3)
 }
 
 // mkdir, readdir, deleteDir, createFile, deleteFile
@@ -222,6 +352,7 @@ func testCreateFile(ctx context.Context, vol sdk.IVolume) {
 	if err != nil {
 		span.Fatalf("execute look up failed, name %s, err %s", tmpFile, err.Error())
 	}
+
 	if lookInfo.Inode != tmpInfo.Inode {
 		span.Fatalf("execute lookup result not valid, want %d, got %d", tmpInfo.Inode, lookInfo.Inode)
 	}

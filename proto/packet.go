@@ -117,6 +117,7 @@ const (
 	OpMetaDelDirVer                 uint8 = 0x49
 	OpMetaListDirVer                uint8 = 0x4A
 	OpMetaCreateDirVer              uint8 = 0x4B
+	OpMetaBatchDelDirVer            uint8 = 0x4C
 
 	// Quota
 	OpMetaBatchSetInodeQuota    uint8 = 0x50
@@ -541,6 +542,8 @@ func (p *Packet) GetOpMsg() (m string) {
 		m = "OpMetaListDirVer"
 	case OpMetaCreateDirVer:
 		m = "OpMetaCreateDirVer"
+	case OpMetaBatchDelDirVer:
+		m = "OpMetaBatchDelDirVer"
 	case OpDataPartitionTryToLeader:
 		m = "OpDataPartitionTryToLeader"
 	case OpMetaDeleteInode:
@@ -754,13 +757,23 @@ func (p *Packet) MarshalVersionSlice() (data []byte, err error) {
 
 func (p *Packet) UnmarshalVersionSlice(cnt int, d []byte) error {
 	items := make([]*VersionInfo, 0)
+	buf := bytes.NewBuffer(d)
+	var err error
 
 	for idx := 0; idx < cnt; idx++ {
-		ti := idx * verInfoCnt
 		e := &VersionInfo{}
-		e.Ver = binary.BigEndian.Uint64(d[ti : ti+8])
-		e.Ver = binary.BigEndian.Uint64(d[ti+8 : ti+16])
-		e.Ver = binary.BigEndian.Uint64(d[ti+16:])
+		err = binary.Read(buf, binary.BigEndian, &e.Ver)
+		if err != nil {
+			return err
+		}
+		err = binary.Read(buf, binary.BigEndian, &e.DelTime)
+		if err != nil {
+			return err
+		}
+		err = binary.Read(buf, binary.BigEndian, &e.Status)
+		if err != nil {
+			return err
+		}
 		items = append(items, e)
 	}
 	p.DirVerList = items

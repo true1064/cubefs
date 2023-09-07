@@ -5,6 +5,7 @@ import (
 	"github.com/cubefs/cubefs/proto"
 	"github.com/cubefs/cubefs/sdk/data/manager"
 	"github.com/cubefs/cubefs/sdk/data/wrapper"
+	"github.com/cubefs/cubefs/sdk/meta"
 	"github.com/cubefs/cubefs/util/errors"
 	"github.com/cubefs/cubefs/util/log"
 	"golang.org/x/time/rate"
@@ -132,10 +133,22 @@ func NewExtentClientVer(config *ExtentConfig) (client *ExtentClientVer, err erro
 	client = &ExtentClientVer{
 		extentClient: cli,
 	}
+
 	client.appendExtentKey = config.OnAppendExtentKey
 	client.splitExtentKey = config.OnSplitExtentKey
 	client.getExtents = config.OnGetExtents
 	client.truncate = config.OnTruncate
 
 	return client, nil
+}
+
+func (client *ExtentClientVer) Clone() *ExtentClientVer {
+	return &ExtentClientVer{extentClient: client.extentClient}
+}
+
+func (client *ExtentClientVer) UpdateFunc(mw *meta.SnapShotMetaWrapper) {
+	client.appendExtentKey = mw.AppendExtentKey
+	client.splitExtentKey = mw.SplitExtentKey
+	client.getExtents = mw.GetExtents
+	client.truncate = mw.Truncate
 }

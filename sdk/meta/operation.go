@@ -1419,6 +1419,10 @@ func (mw *SnapShotMetaWrapper) readDirLimit(mp *MetaPartition, parentID uint64, 
 		VerOpt:      verOpt,
 	}
 
+	if mw.verInfo != nil {
+		req.VerSeq = mw.verInfo.DelVer
+	}
+
 	packet := proto.NewPacketReqID()
 	packet.Opcode = proto.OpMetaReadDirLimit
 	packet.PartitionID = mp.PartitionID

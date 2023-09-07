@@ -65,6 +65,33 @@ func (mp *metaPartition) DelDirSnapshot(ifo *proto.DirVerItem, p *Packet) (err e
 	return
 }
 
+func (mp *metaPartition) BatchDelDirSnapshot(items []proto.DirVerItem, p *Packet) (err error) {
+	if log.EnableDebug() {
+		for _, e := range items {
+			log.LogDebugf("DelDirSnapshot: start delete dir snapshot, ifo %v", e)
+		}
+	}
+
+	info := &BatchDelDirSnapInfo{}
+	info.Status = proto.VersionDeleted
+	val, err := json.Marshal(info)
+	if err != nil {
+		p.PacketErrorWithBody(proto.OpErr, []byte(err.Error()))
+		return
+	}
+
+	resp, err := mp.submit(opFSMBatchDelDirSnap, val)
+	if err != nil {
+		log.LogErrorf("DelDirSnapshot: submit create dir snapshot raft cmd failed, ifo %v, err %s", ifo, err.Error())
+		p.PacketErrorWithBody(proto.OpAgain, []byte(err.Error()))
+		return
+	}
+
+	p.ResultCode = resp.(uint8)
+	log.LogDebugf("DelDirSnapshot: delete dir snapshot success: ifo %v, status %d", ifo, p.ResultCode)
+	return
+}
+
 func (mp *metaPartition) CreateDirSnapshot(ifo *proto.CreateDirSnapShotInfo, p *Packet) (err error) {
 	log.LogDebugf("CreateDirSnapshot: start create dir snapshot, ifo %v", ifo)
 

@@ -580,13 +580,6 @@ type ListDirSnapshotResp struct {
 	Items []*DirSnapshotInfo `json:"items"`
 }
 
-type DirSnapshotInfo struct {
-	SnapshotDir   string          `json:"snapshot_dir"`
-	SnapshotInode uint64          `json:"snapshot_ino"`
-	MaxVer        uint64          `json:"max_ver"`
-	Vers          []*ClientDirVer `json:"vers"`
-}
-
 type ClientDirVer struct {
 	OutVer string       `json:"out_ver"`
 	Ver    *VersionInfo `json:"ver"`

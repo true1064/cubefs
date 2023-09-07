@@ -20,11 +20,7 @@ type InodeLockApi interface {
 type IDirSnapshot interface {
 	Info() *VolInfo
 	// GetDirSnapshot should be invoked when every rpc request from client.
-	GetDirSnapshot(ctx context.Context, rootIno uint64) (IDirSnapshot, error)
-
-	CreateDirSnapshot(ctx context.Context, ver, filePath string) error
-	DeleteDirSnapshot(ctx context.Context, ver, filePath string) error
-
+	DirSnapShot
 	NewInodeLock() InodeLockApi
 
 	// Lookup from target parentDir ino, parentIno 0 means lookup from root
@@ -35,16 +31,7 @@ type IDirSnapshot interface {
 	Readdir(ctx context.Context, parIno uint64, marker string, count uint32) ([]DirInfo, error)
 	ReadDirAll(ctx context.Context, ino uint64) ([]DirInfo, error)
 	StatFs(ctx context.Context, ino uint64) (*StatFs, error)
-	// SetAttr set file mode, uid, gid, atime, mtime,
 	SetAttr(ctx context.Context, req *SetAttrReq) error
-	SetXAttr(ctx context.Context, ino uint64, key string, val string) error
-	BatchSetXAttr(ctx context.Context, ino uint64, attrs map[string]string) error
-	GetXAttr(ctx context.Context, ino uint64, key string) (string, error)
-	ListXAttr(ctx context.Context, ino uint64) ([]string, error)
-	GetXAttrMap(ctx context.Context, ino uint64) (map[string]string, error)
-	DeleteXAttr(ctx context.Context, ino uint64, key string) error
-	BatchDeleteXAttr(ctx context.Context, ino uint64, keys []string) error
-
 	// Mkdir path
 	Mkdir(ctx context.Context, parIno uint64, name string) (*InodeInfo, error)
 	CreateFile(ctx context.Context, parentIno uint64, name string) (*InodeInfo, error)
@@ -57,9 +44,30 @@ type IDirSnapshot interface {
 	WriteFile(ctx context.Context, ino, off, size uint64, body io.Reader) error
 	// ReadFile read() will make a rpc request to server, if n less than len(data), it means no more data
 	ReadFile(ctx context.Context, ino, off uint64, data []byte) (n int, err error)
+	MultiPart
+	Xattr
+}
+
+type DirSnapShot interface {
+	GetDirSnapshot(ctx context.Context, rootIno uint64) (IDirSnapshot, error)
+	CreateDirSnapshot(ctx context.Context, ver, filePath string) error
+	DeleteDirSnapshot(ctx context.Context, ver, filePath string) error
+}
+
+type MultiPart interface {
 	InitMultiPart(ctx context.Context, path string, oldIno uint64, extend map[string]string) (string, error)
 	UploadMultiPart(ctx context.Context, filepath, uploadId string, partNum uint16, read io.Reader) (*Part, error)
 	ListMultiPart(ctx context.Context, filepath, uploadId string, count, marker uint64) (parts []*Part, next uint64, isTruncated bool, err error)
 	AbortMultiPart(ctx context.Context, filepath, uploadId string) error
 	CompleteMultiPart(ctx context.Context, filepath, uploadId string, oldIno uint64, parts []Part) (*InodeInfo, error)
+}
+
+type Xattr interface {
+	SetXAttr(ctx context.Context, ino uint64, key string, val string) error
+	BatchSetXAttr(ctx context.Context, ino uint64, attrs map[string]string) error
+	GetXAttr(ctx context.Context, ino uint64, key string) (string, error)
+	ListXAttr(ctx context.Context, ino uint64) ([]string, error)
+	GetXAttrMap(ctx context.Context, ino uint64) (map[string]string, error)
+	DeleteXAttr(ctx context.Context, ino uint64, key string) error
+	BatchDeleteXAttr(ctx context.Context, ino uint64, keys []string) error
 }

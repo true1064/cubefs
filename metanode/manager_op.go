@@ -2647,3 +2647,32 @@ func (m *metadataManager) opDirSnapshotDel(conn net.Conn, p *Packet, remote stri
 	log.LogInfof("[opDirSnapshotDel] info [%v] success, remote %s", req.Item, remote)
 	return
 }
+
+func (m *metadataManager) opDirSnapshotBatchDel(conn net.Conn, p *Packet, remote string) (err error) {
+	req := &proto.MetaBatchDelVerReq{}
+	if err = json.Unmarshal(p.Data, req); err != nil {
+		p.PacketErrorWithBody(proto.OpErr, ([]byte)(err.Error()))
+		m.respondToClient(conn, p)
+		err = errors.NewErrorf("[opDirSnapshotBatchDel] req: %v, resp: %v", req, err.Error())
+		return
+	}
+
+	mp, err := m.getPartition(req.PartitionID)
+	if err != nil {
+		p.PacketErrorWithBody(proto.OpErr, ([]byte)(err.Error()))
+		m.respondToClient(conn, p)
+		err = errors.NewErrorf("[opDirSnapshotBatchDel] req: %v, resp: %v", req, err.Error())
+		return
+	}
+
+	if !m.serveProxy(conn, mp, p) {
+		return
+	}
+
+	err = mp.BatchDelDirSnapshot(req.Vers, p)
+	_ = m.respondToClient(conn, p)
+	if log.EnableInfo() {
+		log.LogInfof("[opDirSnapshotBatchDel] info [%v] success, remote %s", string(p.Data), remote)
+	}
+	return
+}

@@ -7,6 +7,7 @@ import (
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/trace"
 	"github.com/cubefs/cubefs/proto"
+	"github.com/cubefs/cubefs/sdk/meta"
 	"github.com/cubefs/cubefs/util"
 	"github.com/google/uuid"
 	"io"
@@ -36,15 +37,24 @@ type dataOpVerImp struct {
 func (d *dataOpVerImp) OpenStream(inode uint64) error {
 	ver := d.mw.sm.GetVerInfo()
 	if ver == nil {
-		return d.OpenStream(inode)
+		return d.DataOp.OpenStream(inode)
 	}
 	return d.OpenStreamVer(inode, ver.DelVer)
 }
 
 func newDataVerOp(d DataOp, mw *snapMetaOpImp) DataOp {
+	dataOp := d
+	if ec, ok := d.(*dataOpImp); ok {
+		client := ec.ExtentClientVer.Clone()
+		if mw, ok := mw.sm.(*meta.SnapShotMetaWrapper); ok {
+			client.UpdateFunc(mw)
+		}
+		dataOp = client
+	}
+
 	dop := &dataOpVerImp{
 		mw:     mw,
-		DataOp: d,
+		DataOp: dataOp,
 	}
 	return dop
 }
@@ -64,9 +74,9 @@ func (d *dirSnapshotOp) CreateDirSnapshot(ctx context.Context, ver, subPath stri
 		return syscallToErr(err)
 	}
 
-	vId, err := d.v.allocVerId()
+	vId, err := d.v.allocVerId(ctx, d.v.name)
 	if err != nil {
-		span.Warnf("alloc version from master failed, err %s", err.Error())
+		span.Warnf("alloc version from master failed, name %s, err %s", d.v.name, err.Error())
 		return syscallToErr(err)
 	}
 
@@ -90,7 +100,7 @@ func (d *dirSnapshotOp) CreateDirSnapshot(ctx context.Context, ver, subPath stri
 
 func (d *dirSnapshotOp) DeleteDirSnapshot(ctx context.Context, ver, filePath string) error {
 	span := trace.SpanFromContext(ctx)
-	span.Info("start delete dir snapshot, ver %s, path %s, rootIno %s", ver, filePath, d.rootIno)
+	span.Infof("start delete dir snapshot, ver %s, path %s, rootIno %d", ver, filePath, d.rootIno)
 
 	dirIno, _, err := d.mw.lookupSubDirVer(d.rootIno, filePath)
 	if err != nil {
@@ -106,7 +116,7 @@ func (d *dirSnapshotOp) DeleteDirSnapshot(ctx context.Context, ver, filePath str
 
 	ifo := &proto.DirVerItem{
 		Ver:        verInfo.Ver,
-		RootIno:    dirIno,
+		RootIno:    d.rootIno,
 		DirSnapIno: dirIno,
 	}
 	err = d.mw.sm.DeleteDirSnapshot(ifo)
@@ -115,7 +125,7 @@ func (d *dirSnapshotOp) DeleteDirSnapshot(ctx context.Context, ver, filePath str
 		return syscallToErr(err)
 	}
 
-	span.Info("delete dir snapshot success, ver %s, path %s, rootIno %d", ver, filePath, d.rootIno)
+	span.Infof("delete dir snapshot success, ver %s, path %s, rootIno %d", ver, filePath, d.rootIno)
 	return nil
 }
 
@@ -163,37 +173,12 @@ func (d *dirSnapshotOp) Readdir(ctx context.Context, parIno uint64, marker strin
 		return nil, sdk.ErrBadRequest
 	}
 
-	if marker != "" {
-		count++
-	}
-
 	dirs, err := d.mw.ReadDirLimit(parIno, marker, uint64(count))
 	if err != nil {
 		span.Errorf("readdir failed, parentIno: %d, marker %s, count %s, err %s", parIno, marker, count, err.Error())
 		return nil, syscallToErr(err)
 	}
 
-	cnt := len(dirs)
-	if cnt == 0 {
-		return []sdk.DirInfo{}, nil
-	}
-
-	if marker == "" {
-		return dirs[:cnt], nil
-	}
-
-	if dirs[0].Name == marker && cnt == 1 {
-		return []sdk.DirInfo{}, nil
-	}
-
-	if dirs[0].Name == marker {
-		return dirs[1:], nil
-	}
-
-	// all dirs bigger than marker
-	if cnt == int(count) {
-		return dirs[:cnt-1], nil
-	}
 	return dirs, nil
 }
 
@@ -387,6 +372,7 @@ func (d *dirSnapshotOp) Mkdir(ctx context.Context, parIno uint64, name string) (
 		return nil, syscallToErr(err)
 	}
 
+	span.Debugf("mkdir success, parIno %d, name %s", parIno, name)
 	return info, err
 }
 
@@ -566,6 +552,7 @@ func (d *dirSnapshotOp) writeAt(ctx context.Context, ino uint64, off, size int, 
 func (d *dirSnapshotOp) WriteFile(ctx context.Context, ino, off, size uint64, body io.Reader) error {
 	span := trace.SpanFromContextSafe(ctx)
 
+	span.Debugf("start write file, ino %d, off %d, size %d", ino, off, size)
 	if err := d.ec.OpenStream(ino); err != nil {
 		span.Errorf("open stream failed, ino %d, off %s, err %s", ino, off, err.Error())
 		return syscallToErr(err)
@@ -983,18 +970,18 @@ func (d *dirSnapshotOp) mkdirByPath(ctx context.Context, dir string) (ino uint64
 	return
 }
 
-func (m *dirSnapshotOp) Info() *sdk.VolInfo {
-	return m.v.Info()
+func (d *dirSnapshotOp) Info() *sdk.VolInfo {
+	return d.v.Info()
 }
 
-func (m *dirSnapshotOp) NewInodeLock() sdk.InodeLockApi {
+func (d *dirSnapshotOp) NewInodeLock() sdk.InodeLockApi {
 	uidByte, _ := uuid.New().MarshalBinary()
 	m1 := md5.New()
 	m1.Write(uidByte)
 	md5Val := hex.EncodeToString(m1.Sum(nil))
 
 	lk := &InodeLock{
-		v:      m.v,
+		v:      d.v,
 		id:     md5Val,
 		status: 0,
 	}
@@ -1002,7 +989,7 @@ func (m *dirSnapshotOp) NewInodeLock() sdk.InodeLockApi {
 }
 
 // GetDirSnapshot should be invoked when every rpc request from client.
-func (m *dirSnapshotOp) GetDirSnapshot(ctx context.Context, rootIno uint64) (sdk.IDirSnapshot, error) {
+func (d *dirSnapshotOp) GetDirSnapshot(ctx context.Context, rootIno uint64) (sdk.IDirSnapshot, error) {
 	return nil, sdk.ErrBadRequest
 }
 

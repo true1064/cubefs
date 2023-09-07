@@ -96,6 +96,18 @@ func (c *cluster) allocFileId(ctx context.Context) (id uint64, err error) {
 	return c.fileId.Begin, nil
 }
 
+func (c *cluster) allocVerId(ctx context.Context, name string) (id uint64, err error) {
+	span := trace.SpanFromContext(ctx)
+
+	resp, err := c.cli.AllocDirSnapshotVersion(name)
+	if err != nil {
+		span.Errorf("alloc dir version id failed, name %s, err %s", name, err.Error())
+		return 0, err
+	}
+
+	return resp.SnapVersion, nil
+}
+
 func (c *cluster) GetVol(name string) sdk.IVolume {
 	c.volLk.RLock()
 	defer c.volLk.RUnlock()
@@ -191,6 +203,7 @@ func (c *cluster) updateVols(ctx context.Context) error {
 
 		if v, ok := newVol.(*volume); ok {
 			v.allocId = c.allocFileId
+			v.allocVerId = c.allocVerId
 		}
 
 		c.putVol(vol.Name, newVol)

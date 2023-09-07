@@ -358,6 +358,10 @@ type VersionInfo struct {
 	Status  uint8 // building,normal,deleted,abnormal
 }
 
+func (v *VersionInfo) IsNormal() bool {
+	return v.Status == VersionNormal
+}
+
 const VersionSimpleSize int = 17
 
 type VolVersionInfoList struct {
