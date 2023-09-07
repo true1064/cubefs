@@ -75,7 +75,7 @@ func (d *dirSnapshotItem) String() string {
 }
 
 func (d *dirSnapshotItem) equal(d1 *dirSnapshotItem) bool {
-	if d.SnapshotInode != d1.SnapshotInode || d.Dir != d1.Dir || d.RootInode != d1.RootInode {
+	if d.SnapshotInode != d1.SnapshotInode || d.Dir != d1.Dir || d.RootInode != d1.RootInode || d.MaxVer != d1.MaxVer {
 		return false
 	}
 
@@ -112,6 +112,8 @@ func (d *dirSnapshotItem) Copy() BtreeItem {
 	d1.SnapshotInode = d.SnapshotInode
 	d1.Dir = d.Dir
 	d1.RootInode = d.RootInode
+	d1.MaxVer = d.MaxVer
+
 	if len(d.Vers) > 0 {
 		d1.Vers = make([]*snapshotVer, 0, len(d.Vers))
 		for _, v := range d.Vers {
@@ -248,6 +250,9 @@ func (d *dirSnapshotItem) MarshalValue() (k []byte) {
 	if err := binary.Write(buff, binary.BigEndian, &d.RootInode); err != nil {
 		panic(err)
 	}
+	if err := binary.Write(buff, binary.BigEndian, &d.MaxVer); err != nil {
+		panic(err)
+	}
 
 	verCnt := len(d.Vers)
 	if err := binary.Write(buff, binary.BigEndian, uint16(verCnt)); err != nil {
@@ -283,6 +288,10 @@ func (d *dirSnapshotItem) UnmarshalValue(val []byte) (err error) {
 	d.Dir = string(dirData)
 
 	if err = binary.Read(buff, binary.BigEndian, &d.RootInode); err != nil {
+		return
+	}
+
+	if err = binary.Read(buff, binary.BigEndian, &d.MaxVer); err != nil {
 		return
 	}
 

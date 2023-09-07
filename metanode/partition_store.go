@@ -26,6 +26,7 @@ import (
 	"path"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/cubefs/cubefs/util/log"
 
@@ -54,6 +55,7 @@ const (
 	uniqIDFile      = "uniqID"
 	uniqCheckerFile = "uniqChecker"
 	verdataFile     = "multiVer"
+	dirSnapshotFile = "dirSnapshot"
 )
 
 func (mp *metaPartition) loadMetadata() (err error) {
@@ -171,6 +173,93 @@ func (mp *metaPartition) loadInode(rootDir string, crc uint32) (err error) {
 			mp.config.Cursor = ino.Inode
 		}
 		numInodes += 1
+	}
+
+}
+
+func (mp *metaPartition) loadDirSnapshot(rootDir string) (err error) {
+	msgStr := fmt.Sprintf("partitonID(%v) volume(%v)", mp.config.PartitionId, mp.config.VolName)
+	start := time.Now()
+	defer func() {
+		log.LogInfof("loadDirSnapshot: load complete: %s cnt(%v), err (%v), cost (%s)",
+			msgStr, mp.dirVerTree.Len(), err, time.Since(start).String())
+	}()
+
+	filename := path.Join(rootDir, dirSnapshotFile)
+	log.LogInfof("loadDirSnapshot: start load dirSnapshot, %s, path(%s)", msgStr, filename)
+
+	ifo, err := os.Stat(filename)
+	if err != nil {
+		err = nil
+		log.LogWarnf("[loadDirSnapshot] Stat: %s", err.Error())
+		return
+	}
+
+	fp, err := os.OpenFile(filename, os.O_RDONLY, 0644)
+	if err != nil {
+		err = errors.NewErrorf("[loadDirSnapshot] OpenFile: %s", err.Error())
+		return
+	}
+	defer fp.Close()
+
+	fileSize := ifo.Size()
+	reader := bufio.NewReaderSize(fp, 4*1024*1024)
+	dataBuf := make([]byte, 4)
+	crcCheck := crc32.NewIEEE()
+
+	readSize := 0
+	for {
+		dataBuf = dataBuf[:4]
+		readSize += 4
+		// first read length
+		_, err = io.ReadFull(reader, dataBuf)
+		if err != nil {
+			err = errors.NewErrorf("[loadDirSnapshot] ReadHeader: %s", err.Error())
+			log.LogErrorf("read dir snapshot file, unexpected error, %s, err %s", msgStr, err.Error())
+			return
+		}
+
+		if readSize == int(fileSize) {
+			crc := binary.BigEndian.Uint32(dataBuf)
+			res := crcCheck.Sum32()
+			if crc != res {
+				log.LogErrorf("[loadDirSnapshot]: check crc mismatch, expected[%d], actual[%d]", crc, res)
+				return ErrSnapshotCrcMismatch
+			}
+			return
+		}
+		// length crc
+		if _, err = crcCheck.Write(dataBuf); err != nil {
+			return err
+		}
+		length := binary.BigEndian.Uint32(dataBuf)
+
+		// next read body
+		if uint32(cap(dataBuf)) >= length {
+			dataBuf = dataBuf[:length]
+		} else {
+			dataBuf = make([]byte, length)
+		}
+
+		readSize += int(length)
+		_, err = io.ReadFull(reader, dataBuf)
+		if err != nil {
+			err = errors.NewErrorf("[loadDirSnapshot] ReadBody: %s", err.Error())
+			return
+		}
+
+		item := newDirSnapItem(0, 0)
+		if err = item.Unmarshal(dataBuf); err != nil {
+			err = errors.NewErrorf("[loadDirSnapshot] Unmarshal: %s", err.Error())
+			return
+		}
+
+		// data crc
+		if _, err = crcCheck.Write(dataBuf); err != nil {
+			return err
+		}
+
+		mp.dirVerTree.ReplaceOrInsert(item, true)
 	}
 
 }
@@ -1022,50 +1111,6 @@ func (mp *metaPartition) storeTxInfo(rootDir string, sm *storeMsg) (crc uint32, 
 	return
 }
 
-func (mp *metaPartition) storeDirVer(rootDir string, sm *storeMsg) (crc uint32, err error) {
-	filename := path.Join(rootDir, dirSnapVerFile)
-	fp, err := os.OpenFile(filename, os.O_RDWR|os.O_TRUNC|os.O_APPEND|os.O_CREATE, 0755)
-	if err != nil {
-		return
-	}
-	defer func() {
-		err = fp.Sync()
-		fp.Close()
-	}()
-
-	var data []byte
-	lenBuf := make([]byte, 4)
-	sign := crc32.NewIEEE()
-
-	sm.dirVerTree.Ascend(func(i BtreeItem) bool {
-		tx := i.(*dirSnapshotItem)
-		if data, err = tx.Marshal(); err != nil {
-			return false
-		}
-
-		binary.BigEndian.PutUint32(lenBuf, uint32(len(data)))
-		if _, err = fp.Write(lenBuf); err != nil {
-			return false
-		}
-		if _, err = sign.Write(lenBuf); err != nil {
-			return false
-		}
-
-		if _, err = fp.Write(data); err != nil {
-			return false
-		}
-		if _, err = sign.Write(data); err != nil {
-			return false
-		}
-		return true
-	})
-
-	crc = sign.Sum32()
-	log.LogInfof("storeTxInfo: store complete: partitoinID(%v) volume(%v) numTxs(%v) crc(%v)",
-		mp.config.PartitionId, mp.config.VolName, sm.txTree.Len(), crc)
-	return
-}
-
 func (mp *metaPartition) storeInode(rootDir string,
 	sm *storeMsg) (crc uint32, err error) {
 	filename := path.Join(rootDir, inodeFile)
@@ -1121,6 +1166,62 @@ func (mp *metaPartition) storeInode(rootDir string,
 
 	log.LogInfof("storeInode: store complete: partitoinID(%v) volume(%v) numInodes(%v) crc(%v), size (%d)",
 		mp.config.PartitionId, mp.config.VolName, sm.inodeTree.Len(), crc, size)
+
+	return
+}
+
+func (mp *metaPartition) storeDirSnapshot(rootDir string,
+	sm *storeMsg) (crc uint32, err error) {
+	filename := path.Join(rootDir, dirSnapshotFile)
+	fp, err := os.OpenFile(filename, os.O_RDWR|os.O_TRUNC|os.O_APPEND|os.
+		O_CREATE, 0755)
+	if err != nil {
+		return
+	}
+
+	log.LogInfof("storeDirSnapshot: start store dir snapshot: partitionID(%v) volume(%v) cnt (%d)",
+		mp.config.PartitionId, mp.config.VolName, sm.dirVerTree.Len())
+
+	defer func() {
+		err = fp.Sync()
+		// TODO Unhandled errors
+		fp.Close()
+	}()
+
+	var data []byte
+	lenBuf := make([]byte, 4)
+	sign := crc32.NewIEEE()
+	sm.dirVerTree.Ascend(func(i BtreeItem) bool {
+		dir := i.(*dirSnapshotItem)
+		if data, err = dir.Marshal(); err != nil {
+			return false
+		}
+
+		// set length
+		binary.BigEndian.PutUint32(lenBuf, uint32(len(data)))
+		if _, err = fp.Write(lenBuf); err != nil {
+			return false
+		}
+		if _, err = sign.Write(lenBuf); err != nil {
+			return false
+		}
+		// set body
+		if _, err = fp.Write(data); err != nil {
+			return false
+		}
+		if _, err = sign.Write(data); err != nil {
+			return false
+		}
+		return true
+	})
+
+	crc = sign.Sum32()
+	crcData := make([]byte, 4)
+	binary.BigEndian.PutUint32(crcData, crc)
+	fp.Write(crcData)
+
+	log.LogInfof("storeDirSnapshot: store dirSnapshot complete: partitionID(%v) volume(%v) cnt(%v) crc(%v)",
+		mp.config.PartitionId, mp.config.VolName, sm.dirVerTree.Len(), crc)
 
 	return
 }

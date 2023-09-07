@@ -55,7 +55,6 @@ func (m *metadataManager) respondToClientWithVer(conn net.Conn, p *Packet) (err 
 			}
 		}
 	}()
-
 	// process data and send reply though specified tcp connection.
 	if p.VerSeq > 0 && !p.IsDirVersion() {
 		p.ExtentType |= proto.MultiVersionFlag

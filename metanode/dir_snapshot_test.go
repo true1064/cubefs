@@ -31,6 +31,7 @@ func TestDirSnapshotItem_Marshal(t *testing.T) {
 	ds := &dirSnapshotItem{
 		SnapshotInode: 10,
 		RootInode:     1024,
+		MaxVer:        10,
 	}
 
 	tcases := []struct {

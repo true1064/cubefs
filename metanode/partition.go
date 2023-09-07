@@ -1094,6 +1094,11 @@ func (mp *metaPartition) LoadSnapshot(snapshotPath string) (err error) {
 		return
 	}
 	err = mp.loadMultiVer(snapshotPath)
+	if err != nil {
+		return
+	}
+
+	err = mp.loadDirSnapshot(snapshotPath)
 	return
 }
 
@@ -1155,6 +1160,7 @@ func (mp *metaPartition) store(sm *storeMsg) (err error) {
 		mp.storeUniqChecker,
 	}
 	mp.storeMultiversion(tmpDir, sm)
+	mp.storeDirSnapshot(tmpDir, sm)
 	for _, storeFunc := range storeFuncs {
 		var crc uint32
 		if crc, err = storeFunc(tmpDir, sm); err != nil {
@@ -1335,7 +1341,8 @@ func (mp *metaPartition) Reset() (err error) {
 	mp.txProcessor.Reset()
 
 	// remove files
-	filenames := []string{applyIDFile, dentryFile, inodeFile, extendFile, multipartFile, verdataFile, txInfoFile, txRbInodeFile, txRbDentryFile, TxIDFile}
+	filenames := []string{applyIDFile, dentryFile, inodeFile, extendFile, multipartFile, verdataFile, txInfoFile,
+		txRbInodeFile, txRbDentryFile, TxIDFile, dirSnapshotFile}
 	for _, filename := range filenames {
 		filepath := path.Join(mp.config.RootDir, filename)
 		if err = os.Remove(filepath); err != nil {
@@ -1596,6 +1603,7 @@ func (mp *metaPartition) storeSnapshotFiles() (err error) {
 		txRbDentryTree: NewBtree(),
 		uniqId:         mp.GetUniqId(),
 		uniqChecker:    newUniqChecker(),
+		dirVerTree:     NewBtree(),
 	}
 
 	return mp.store(msg)

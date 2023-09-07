@@ -46,6 +46,10 @@ func (mp *metaPartition) fsmCreateDirSnapshot(ifo *proto.CreateDirSnapShotInfo) 
 		}
 	}
 
+	tmpVer := ifo.Ver
+	ifo.Ver = oldDirSnap.MaxVer
+	oldDirSnap.MaxVer = tmpVer
+
 	oldDirSnap.Vers = append(oldDirSnap.Vers, newSnapshotVer(ifo.OutVer, ifo.Ver))
 	if log.EnableInfo() {
 		log.LogInfof("create dir snapshot success, ifo %v, oldDirSnap %s", ifo, oldDirSnap.String())
