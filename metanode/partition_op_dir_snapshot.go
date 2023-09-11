@@ -66,6 +66,10 @@ func (mp *metaPartition) DelDirSnapshot(ifo *proto.DirVerItem, p *Packet) (err e
 }
 
 func (mp *metaPartition) BatchDelDirSnapshot(items []proto.DirVerItem, p *Packet) (err error) {
+	return mp.batchDelDirSnapshot(items, p, proto.VersionDeleted)
+}
+
+func (mp *metaPartition) batchDelDirSnapshot(items []proto.DirVerItem, p *Packet, status int) (err error) {
 	if log.EnableDebug() {
 		for _, e := range items {
 			log.LogDebugf("DelDirSnapshot: start delete dir snapshot, ifo %v", e)
@@ -73,7 +77,7 @@ func (mp *metaPartition) BatchDelDirSnapshot(items []proto.DirVerItem, p *Packet
 	}
 
 	info := &BatchDelDirSnapInfo{}
-	info.Status = proto.VersionDeleted
+	info.Status = status
 	val, err := json.Marshal(info)
 	if err != nil {
 		p.PacketErrorWithBody(proto.OpErr, []byte(err.Error()))

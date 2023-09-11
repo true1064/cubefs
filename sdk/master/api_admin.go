@@ -979,7 +979,7 @@ func (api *AdminAPI) AllocDirSnapshotVersion(volName string) (dirSnapVerInfo *pr
 	return
 }
 
-func (api *AdminAPI) BatchDelDirSnapshotVersion(req proto.MasterBatchDelDirVersionReq) (err error) {
+func (api *AdminAPI) BatchDelDirSnapshotVersion(req *proto.MasterBatchDelDirVersionReq) (err error) {
 	var request = newAPIRequest(http.MethodGet, proto.AdminDirSnapshotBatchDeleteVersion)
 	var encoded []byte
 	if encoded, err = json.Marshal(req); err != nil {
