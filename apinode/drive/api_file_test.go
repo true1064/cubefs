@@ -24,11 +24,11 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/cubefs/cubefs/blobstore/common/rpc"
-	"github.com/cubefs/cubefs/proto"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
+	"github.com/cubefs/cubefs/blobstore/common/rpc"
+	"github.com/cubefs/cubefs/proto"
 )
 
 func TestHandleFileUpload(t *testing.T) {
@@ -660,6 +660,7 @@ func TestHandleFileCopy(t *testing.T) {
 	{
 		require.Equal(t, 400, doRequest("src", "/a").StatusCode())
 		require.Equal(t, 400, doRequest("src", "/a", "dst", "a/b/../../..").StatusCode())
+		require.Equal(t, 400, doRequest("src", "/a", "dst", "/").StatusCode())
 	}
 	{
 		node.TestGetUser(t, func() rpc.HTTPError {
@@ -678,48 +679,42 @@ func TestHandleFileCopy(t *testing.T) {
 	{
 		node.OnceGetUser()
 		node.LookupN(2)
+		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e1)
+		require.Equal(t, e1.Status, doRequest("src", "/dir/a", "dst", "/dir/b").StatusCode())
+	}
+	{
+		node.OnceGetUser()
+		node.LookupN(2)
 		node.OnceLookup(true)
 		require.Equal(t, sdk.ErrNotFile.Status, doRequest("src", "/dir/a", "dst", "/b").StatusCode())
 	}
 	{
 		node.OnceGetUser()
-		node.LookupN(4)
+		node.LookupN(3)
 		node.Volume.EXPECT().GetInode(A, A).Return(nil, e2)
-		require.Equal(t, e2.Status, doRequest("src", "/dir/a", "dst", "/dir/b").StatusCode())
+		require.Equal(t, e2.Status, doRequest("src", "/dir/a", "dst", "/b").StatusCode())
 	}
 	{
 		node.OnceGetUser()
-		node.LookupN(4)
+		node.LookupN(3)
 		node.OnceGetInode()
 		node.Volume.EXPECT().GetXAttrMap(A, A).Return(nil, e1)
-		require.Equal(t, e1.Status, doRequest("src", "/dir/a", "dst", "/dir/b", "meta", "1").StatusCode())
+		require.Equal(t, e1.Status, doRequest("src", "/dir/a", "dst", "/b", "meta", "1").StatusCode())
 	}
 	{
 		node.OnceGetUser()
-		node.LookupN(4)
+		node.LookupN(3)
 		node.OnceGetInode()
-		node.Volume.EXPECT().GetXAttrMap(A, A).Return(map[string]string{
-			internalMetaMD5: "err-md5", "key": "value",
-		}, nil)
-		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e3)
-		require.Equal(t, e3.Status, doRequest("src", "/dir/a", "dst", "/dir/b").StatusCode())
-	}
-	{
-		node.OnceGetUser()
-		node.LookupN(4)
-		node.OnceGetInode()
-		node.OnceLookup(true)
 		node.Volume.EXPECT().GetXAttrMap(A, A).Return(map[string]string{
 			internalMetaMD5: "err-md5", "key": "value",
 		}, nil)
 		node.Volume.EXPECT().UploadFile(A, A).Return(nil, uint64(0), e4)
-		require.Equal(t, e4.Status, doRequest("src", "/dir/a", "dst", "/dir/b").StatusCode())
+		require.Equal(t, e4.Status, doRequest("src", "/dir/a", "dst", "/b").StatusCode())
 	}
 	{
 		node.OnceGetUser()
-		node.LookupN(4)
+		node.LookupN(3)
 		node.OnceGetInode()
-		node.OnceLookup(true)
 		node.Volume.EXPECT().GetXAttrMap(A, A).Return(map[string]string{
 			internalMetaMD5: "err-md5", "key": "value",
 		}, nil)
@@ -728,28 +723,38 @@ func TestHandleFileCopy(t *testing.T) {
 				req.Callback()
 				return &sdk.InodeInfo{}, uint64(100), nil
 			})
-		require.NoError(t, doRequest("src", "/dir/a", "dst", "/dir/b"))
+		require.NoError(t, doRequest("src", "/dir/a", "dst", "/b"))
 	}
 	{
 		node.OnceGetUser()
-		node.LookupN(4)
+		node.LookupN(3)
 		node.OnceGetInode()
-		node.OnceLookup(true)
 		node.Volume.EXPECT().GetXAttrMap(A, A).Return(map[string]string{
 			internalMetaMD5: "err-md5", "key": "value",
 		}, nil)
 		node.Volume.EXPECT().UploadFile(A, A).Return(nil, uint64(0), e2)
-		require.Equal(t, e2.Status, doRequest("src", "/dir/a", "dst", "/dir/b").StatusCode())
+		require.Equal(t, e2.Status, doRequest("src", "/dir/a", "dst", "/b").StatusCode())
 	}
 	{
 		node.OnceGetUser()
-		node.LookupN(4)
-		node.OnceGetInode()
+		node.LookupN(2)
 		node.OnceLookup(true)
+		node.Volume.EXPECT().Lookup(A, A, A).Return(&sdk.DirInfo{Inode: 11111}, nil)
+		node.OnceGetInode()
 		node.Volume.EXPECT().GetXAttrMap(A, A).Return(map[string]string{
 			internalMetaMD5: "err-md5", "key": "value",
 		}, nil)
-		node.Volume.EXPECT().UploadFile(A, A).Return(&sdk.InodeInfo{}, uint64(0), nil)
+		node.Volume.EXPECT().UploadFile(A, A).DoAndReturn(
+			func(_ context.Context, req *sdk.UploadFileReq) (*sdk.InodeInfo, uint64, error) {
+				req.Callback()
+				fmt.Println(req)
+				if req.OldFileId != 11111 ||
+					req.Extend["internalMetaMD5"] == "err-md5" ||
+					req.Extend["key"] != "value" {
+					return nil, uint64(0), e3
+				}
+				return &sdk.InodeInfo{Inode: node.GenInode()}, uint64(0), nil
+			})
 		require.NoError(t, doRequest("src", "/dir/a", "dst", "/dir/b", "meta", "1"))
 	}
 }

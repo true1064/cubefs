@@ -469,7 +469,7 @@ func (d *DriveNode) handleFileRename(c *rpc.Context) {
 	c.Respond()
 }
 
-// ArgsFileCopy rename file or dir.
+// ArgsFileCopy copy file.
 type ArgsFileCopy struct {
 	Src  FilePath `json:"src"`
 	Dst  FilePath `json:"dst"`
@@ -488,6 +488,12 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 	}
 	span.Info("to copy", args)
 
+	dir, filename := args.Dst.Split()
+	if filename == "" {
+		d.respError(c, sdk.ErrBadRequest.Extend("invalid path"))
+		return
+	}
+
 	ur, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c))
 	if d.checkError(c, func(err error) { span.Warn(err) }, err, ur.CanWrite()) {
 		return
@@ -498,10 +504,19 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
-	dstFile, err := d.lookup(ctx, vol, root, args.Dst.String())
-	if err == nil && dstFile.IsDir() {
-		d.respError(c, sdk.ErrNotFile)
+	dstParent, _, err := d.createDir(ctx, vol, root, dir.String(), true)
+	if d.checkError(c, func(err error) { span.Warn(root, dir, err) }, err) {
 		return
+	}
+	var oldFileID uint64
+	dstFile, err := d.lookup(ctx, vol, dstParent, filename)
+	if err == nil {
+		if dstFile.IsDir() {
+			span.Warn("args dest is dir", args.Dst.String())
+			d.respError(c, sdk.ErrNotFile)
+			return
+		}
+		oldFileID = dstFile.Inode
 	}
 
 	st := time.Now()
@@ -535,12 +550,6 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 		}
 	}
 
-	dir, filename := args.Dst.Split()
-	dstParent, _, err := d.createDir(ctx, vol, root, dir.String(), true)
-	if d.checkError(c, func(err error) { span.Warn(root, dir, err) }, err) {
-		return
-	}
-
 	if err = d.out.Publish(ctx, makeOpLog(OpCopyFile, d.requestID(c), d.userID(c), string(args.Src), "dst", string(args.Dst))); err != nil {
 		d.respError(c, err)
 		return
@@ -548,7 +557,7 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 	_, _, err = vol.UploadFile(ctx, &sdk.UploadFileReq{
 		ParIno:    dstParent.Uint64(),
 		Name:      filename,
-		OldFileId: 0,
+		OldFileId: oldFileID,
 		Extend:    extend,
 		Body:      reader,
 		Callback: func() error {
