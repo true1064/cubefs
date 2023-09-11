@@ -240,14 +240,14 @@ func (m *snapMetaOpImp) CreateInode(mode uint32) (*proto.InodeInfo, error) {
 	return m.sm.InodeCreate_ll(mode, 0, 0, nil, nil)
 }
 
-func (m *snapMetaOpImp) CreateFileEx(ctx context.Context, parentID uint64, name string, mode uint32) (*sdk.InodeInfo, error) {
+func (m *snapMetaOpImp) CreateFileEx(ctx context.Context, parentID uint64, name string, mode uint32) (*sdk.InodeInfo, uint64, error) {
 	m.checkSnapshotIno(parentID)
 
 	span := trace.SpanFromContextSafe(ctx)
 	ifo, err := m.CreateInode(mode)
 	if err != nil {
 		span.Errorf("create inode failed, err %s", err.Error())
-		return nil, err
+		return nil, 0, err
 	}
 	span.Debugf("create inode success, %v", ifo.String())
 
@@ -262,10 +262,10 @@ func (m *snapMetaOpImp) CreateFileEx(ctx context.Context, parentID uint64, name 
 	fileId, err := m.CreateDentryEx(ctx, req)
 	if err != nil {
 		span.Errorf("create dentry failed, req %v, err %s", req, err.Error())
-		return nil, err
+		return nil, 0, err
 	}
 
-	return sdk.NewInode(ifo, fileId), nil
+	return ifo, fileId, nil
 }
 
 func (m *snapMetaOpImp) CreateDentryEx(ctx context.Context, req *sdk.CreateDentryReq) (uint64, error) {
@@ -526,12 +526,12 @@ func (m *snapMetaOpImp) InodeGet(inode uint64) (*proto.InodeInfo, error) {
 	return m.sm.InodeGet_ll(inode)
 }
 
-func (m *snapMetaOpImp) XAttrSet(inode uint64, name, value []byte) error {
+func (m *snapMetaOpImp) XAttrSet(inode uint64, name, value []byte, overwrite bool) error {
 	m.checkSnapshotIno(inode)
 	if !m.newestVer() {
 		return sdk.ErrWriteSnapshot
 	}
-	return m.sm.XAttrSet_ll(inode, name, value)
+	return m.sm.XAttrSetEx_ll(inode, name, value, overwrite)
 }
 
 func (m *snapMetaOpImp) XAttrGet_ll(inode uint64, name string) (*proto.XAttrInfo, error) {

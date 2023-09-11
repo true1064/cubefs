@@ -2309,7 +2309,7 @@ func (mw *SnapShotMetaWrapper) setInodeLock(mp *MetaPartition, req *proto.InodeL
 	return
 }
 
-func (mw *SnapShotMetaWrapper) setXAttr(mp *MetaPartition, inode uint64, name []byte, value []byte) (status int, err error) {
+func (mw *SnapShotMetaWrapper) setXAttr(mp *MetaPartition, inode uint64, name []byte, value []byte, overwrite bool) (status int, err error) {
 	bgTime := stat.BeginStat()
 	defer func() {
 		stat.EndStat("setXAttr", err, bgTime, 1)
@@ -2321,6 +2321,7 @@ func (mw *SnapShotMetaWrapper) setXAttr(mp *MetaPartition, inode uint64, name []
 		Inode:       inode,
 		Key:         string(name),
 		Value:       string(value),
+		OverWrite:   overwrite,
 	}
 
 	packet := proto.NewPacketReqID()

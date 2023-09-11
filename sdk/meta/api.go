@@ -2305,7 +2305,7 @@ func (mw *SnapShotMetaWrapper) XAttrSet_ll(inode uint64, name, value []byte) err
 	return nil
 }
 
-func (mw *MetaWrapper) XAttrSetEx_ll(inode uint64, name, value []byte, overWrite bool) error {
+func (mw *SnapShotMetaWrapper) XAttrSetEx_ll(inode uint64, name, value []byte, overWrite bool) error {
 	var err error
 	mp := mw.getPartitionByInode(inode)
 	if mp == nil {
