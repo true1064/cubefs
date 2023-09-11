@@ -6,7 +6,7 @@ import (
 
 type DataOp interface {
 	OpenStream(inode uint64) error
-	OpenStreamVer(inode, seq uint64) error
+	//OpenStreamVer(inode, seq uint64) error
 	Write(inode uint64, offset int, data []byte, flags int) (write int, err error)
 	Read(inode uint64, data []byte, offset int, size int) (read int, err error)
 	Flush(inode uint64) error

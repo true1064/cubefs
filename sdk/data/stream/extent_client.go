@@ -296,6 +296,7 @@ func (client *ExtentClientVer) OpenStreamVer(inode, seq uint64) error {
 		s.isDirVer = true
 		s.verSeq = seq
 	}
+	s.verSeq = seq
 	return s.IssueOpenRequest()
 }
 

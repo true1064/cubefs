@@ -7,6 +7,7 @@ import (
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/trace"
 	"github.com/cubefs/cubefs/proto"
+	"github.com/cubefs/cubefs/sdk/data/stream"
 	"github.com/cubefs/cubefs/sdk/meta"
 	"github.com/cubefs/cubefs/util"
 	"github.com/google/uuid"
@@ -39,7 +40,22 @@ func (d *dataOpVerImp) OpenStream(inode uint64) error {
 	if ver == nil {
 		return d.DataOp.OpenStream(inode)
 	}
-	return d.OpenStreamVer(inode, ver.DelVer)
+
+	if ec, ok := d.DataOp.(*stream.ExtentClientVer); ok {
+		return ec.OpenStreamVer(inode, ver.DelVer)
+	}
+	return d.DataOp.OpenStream(inode)
+}
+
+func (d *dataOpVerImp) CloseStream(inode uint64) error {
+	if ec, ok := d.DataOp.(*stream.ExtentClientVer); ok {
+		err := ec.CloseStream(inode)
+		if err != nil {
+			return err
+		}
+		return ec.EvictStream(inode)
+	}
+	return d.DataOp.OpenStream(inode)
 }
 
 func newDataVerOp(d DataOp, mw *snapMetaOpImp) DataOp {

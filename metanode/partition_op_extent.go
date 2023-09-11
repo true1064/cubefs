@@ -394,6 +394,11 @@ func (mp *metaPartition) ExtentsList(req *proto.GetExtentsRequest, p *Packet) (e
 		status = retMsg.Status
 	)
 
+	if p.IsDirVersion() {
+		req.VerSeq = p.VerSeq
+		log.LogDebugf("ExtentsList: set version info from pkt, ver %d", p.VerSeq)
+	}
+
 	if status == proto.OpOk {
 		resp := &proto.GetExtentsResponse{}
 		log.LogInfof("action[ExtentsList] inode %v request verseq %v ino ver %v extent size %v ino.Size %v ino %v hist len %v",

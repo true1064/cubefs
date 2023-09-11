@@ -134,6 +134,9 @@ func (mp *metaPartition) BatchSetXAttr(req *proto.BatchSetXAttrRequest, p *Packe
 }
 
 func (mp *metaPartition) GetXAttr(req *proto.GetXAttrRequest, p *Packet) (err error) {
+	if p.IsDirVersion() {
+		req.VerSeq = p.VerSeq
+	}
 	var response = &proto.GetXAttrResponse{
 		VolName:     req.VolName,
 		PartitionId: req.PartitionId,
@@ -190,6 +193,9 @@ func (mp *metaPartition) BatchGetXAttr(req *proto.BatchGetXAttrRequest, p *Packe
 		PartitionId: req.PartitionId,
 		XAttrs:      make([]*proto.XAttrInfo, 0, len(req.Inodes)),
 	}
+	if p.IsDirVersion() {
+		req.VerSeq = p.VerSeq
+	}
 	for _, inode := range req.Inodes {
 		treeItem := mp.extendTree.Get(NewExtend(inode))
 		if treeItem != nil {
@@ -236,6 +242,9 @@ func (mp *metaPartition) RemoveXAttr(req *proto.RemoveXAttrRequest, p *Packet) (
 }
 
 func (mp *metaPartition) ListXAttr(req *proto.ListXAttrRequest, p *Packet) (err error) {
+	if p.IsDirVersion() {
+		req.VerSeq = p.VerSeq
+	}
 	var response = &proto.ListXAttrResponse{
 		VolName:     req.VolName,
 		PartitionId: req.PartitionId,

@@ -7,12 +7,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cubefs/cubefs/util/log"
-
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/apinode/sdk/impl"
 	"github.com/cubefs/cubefs/blobstore/common/trace"
+	blog "github.com/cubefs/cubefs/blobstore/util/log"
 	"github.com/cubefs/cubefs/proto"
+	"github.com/cubefs/cubefs/util/log"
 )
 
 const (
@@ -104,6 +104,11 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 	if err != nil {
 		span.Fatalf("create new file failed, err %s", err.Error())
 	}
+	data1 := []byte("data1")
+	err = dirVol.WriteFile(ctx, f2Fio.Inode, 0, uint64(len(data1)), bytes.NewBuffer(data1))
+	if err != nil {
+		span.Fatalf("write file failed, ino %d, err %s", f2Fio.Inode, err.Error())
+	}
 
 	err = dirVol.Delete(ctx, ifo.Inode, f1, false)
 	if err != nil {
@@ -120,6 +125,17 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 	err = dirVol.CreateDirSnapshot(ctx, v1, dir)
 	if err != sdk.ErrBadRequest {
 		span.Fatalf("create dir snapshot again, should be bad req, dir %s, err %v", dir, err)
+	}
+
+	newVol()
+	data2 := []byte("da2")
+	_, err = dirVol.Lookup(ctx, ifo.Inode, "f2")
+	if err != nil {
+		span.Fatalf("look up f2 failed, err %s", err.Error())
+	}
+	err = dirVol.WriteFile(ctx, f2Fio.Inode, 0, uint64(len(data2)), bytes.NewBuffer(data2))
+	if err != nil {
+		span.Fatalf("write file failed, ino %d, err %s", f2Fio.Inode, err.Error())
 	}
 
 	_, err = dirVol.CreateFile(ctx, ifo.Inode, "f3")
@@ -157,6 +173,15 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 	}
 
 	readDir(ifo.Inode, 5)
+	result2 := make([]byte, len(data2))
+	_, err = dirVol.ReadFile(ctx, f2Fio.Inode, 0, result2)
+	if err != nil {
+		span.Fatalf("read file failed, ino %d, err %s", f2Fio.Inode, err.Error())
+	}
+
+	if !bytes.Equal(data2, result2) {
+		span.Fatalf("read data file, want %s, got %s", string(data2), string(result2))
+	}
 
 	readDirVer := func(ino uint64, ver string, cnt int) {
 		nameV1 := sdk.SnapShotPre + ver
@@ -170,6 +195,17 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 			span.Fatalf("write on snapshot file should be failed, err %v", err)
 		}
 
+		if ver == v2 {
+			result1 := make([]byte, len(data1))
+			_, err = dirVol.ReadFile(ctx, f2Fio.Inode, 0, result1)
+			if err != nil {
+				span.Fatalf("read file failed, ino %d, err %s", f2Fio.Inode, err.Error())
+			}
+
+			if !bytes.Equal(data1, result1) {
+				span.Fatalf("read data file, want %s, got %s", string(data1), string(result1))
+			}
+		}
 		readDir(v1Ifo.Inode, cnt)
 		newVol()
 	}

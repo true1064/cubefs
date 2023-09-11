@@ -216,6 +216,7 @@ func newDirDentry(dirIno uint64, name string) (den *proto.Dentry) {
 
 func (m *snapMetaOpImp) LookupEx(ctx context.Context, parentId uint64, name string) (den *proto.Dentry, err error) {
 	span := trace.SpanFromContextSafe(ctx)
+	m.checkSnapshotIno(parentId)
 
 	isSnapShot, err := m.isSnapshotDir(ctx, parentId, name)
 	if err != nil {

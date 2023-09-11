@@ -530,6 +530,9 @@ func (mp *metaPartition) UpdateDentry(req *UpdateDentryReq, p *Packet) (err erro
 }
 
 func (mp *metaPartition) ReadDirOnly(req *ReadDirOnlyReq, p *Packet) (err error) {
+	if p.IsDirVersion() {
+		req.VerSeq = p.VerSeq
+	}
 	resp := mp.readDirOnly(req)
 	reply, err := json.Marshal(resp)
 	if err != nil {
@@ -542,6 +545,9 @@ func (mp *metaPartition) ReadDirOnly(req *ReadDirOnlyReq, p *Packet) (err error)
 
 // ReadDir reads the directory based on the given request.
 func (mp *metaPartition) ReadDir(req *ReadDirReq, p *Packet) (err error) {
+	if p.IsDirVersion() {
+		req.VerSeq = p.VerSeq
+	}
 	resp := mp.readDir(req)
 	reply, err := json.Marshal(resp)
 	if err != nil {
@@ -553,6 +559,9 @@ func (mp *metaPartition) ReadDir(req *ReadDirReq, p *Packet) (err error) {
 }
 
 func (mp *metaPartition) ReadDirLimit(req *ReadDirLimitReq, p *Packet) (err error) {
+	if p.IsDirVersion() {
+		req.VerSeq = p.VerSeq
+	}
 	log.LogInfof("action[ReadDirLimit] read seq %v, request[%v]", req.VerSeq, req)
 	resp := mp.readDirLimit(req)
 	reply, err := json.Marshal(resp)

@@ -82,13 +82,13 @@ func (mp *metaPartition) BatchDelDirSnapshot(items []proto.DirVerItem, p *Packet
 
 	resp, err := mp.submit(opFSMBatchDelDirSnap, val)
 	if err != nil {
-		log.LogErrorf("DelDirSnapshot: submit create dir snapshot raft cmd failed, ifo %v, err %s", ifo, err.Error())
+		log.LogErrorf("DelDirSnapshot: submit create dir snapshot raft cmd failed, ifo %v, err %s", info, err.Error())
 		p.PacketErrorWithBody(proto.OpAgain, []byte(err.Error()))
 		return
 	}
 
 	p.ResultCode = resp.(uint8)
-	log.LogDebugf("DelDirSnapshot: delete dir snapshot success: ifo %v, status %d", ifo, p.ResultCode)
+	log.LogDebugf("DelDirSnapshot: delete dir snapshot success: ifo %v, status %d", info, p.ResultCode)
 	return
 }
 

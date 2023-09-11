@@ -11,6 +11,7 @@ import (
 func Test_MarshalVersionSlice(t *testing.T) {
 	pkt := &proto.Packet{}
 	pkt.VerSeq = 10
+	pkt.MarshalVersionSlice()
 	data, err := pkt.MarshalVersionSlice()
 	require.NoError(t, err)
 	require.Equal(t, len(data), 2)
