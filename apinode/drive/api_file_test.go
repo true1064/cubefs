@@ -747,7 +747,6 @@ func TestHandleFileCopy(t *testing.T) {
 		node.Volume.EXPECT().UploadFile(A, A).DoAndReturn(
 			func(_ context.Context, req *sdk.UploadFileReq) (*sdk.InodeInfo, uint64, error) {
 				req.Callback()
-				fmt.Println(req)
 				if req.OldFileId != 11111 ||
 					req.Extend["internalMetaMD5"] == "err-md5" ||
 					req.Extend["key"] != "value" {

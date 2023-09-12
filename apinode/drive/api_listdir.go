@@ -208,7 +208,7 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 		bs, err := makeFilterBuilders(args.Filter)
 		if err != nil {
 			span.Errorf("makeFilterBuilders error: %v, path=%s, filter=%s", err, path, args.Filter)
-			d.respError(c, &sdk.Error{Status: sdk.ErrBadFile.Status, Code: sdk.ErrBadRequest.Code, Message: err.Error()})
+			d.respError(c, &sdk.Error{Status: sdk.ErrBadRequest.Status, Code: sdk.ErrBadRequest.Code, Message: err.Error()})
 			return
 		}
 		builders = append(builders, bs...)
