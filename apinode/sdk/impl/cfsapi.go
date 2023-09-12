@@ -42,7 +42,7 @@ type MultiPart interface {
 	GetMultipart_ll(path, multipartId string) (info *proto.MultipartInfo, err error)
 	AddMultipartPart_ll(path, multipartId string, partId uint16, size uint64, md5 string, inodeInfo *proto.InodeInfo) (oldInode uint64, updated bool, err error)
 	RemoveMultipart_ll(path, multipartID string) (err error)
-	ListMultipart_ll(prefix, delimiter, keyMarker string, multipartIdMarker string, maxUploads uint64) (sessionResponse []*proto.MultipartInfo, err error)
+	//ListMultipart_ll(prefix, delimiter, keyMarker string, multipartIdMarker string, maxUploads uint64) (sessionResponse []*proto.MultipartInfo, err error)
 }
 
 type IXAttr interface {

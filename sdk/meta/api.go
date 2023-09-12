@@ -2296,7 +2296,7 @@ func (mw *SnapShotMetaWrapper) XAttrSet_ll(inode uint64, name, value []byte) err
 		return syscall.ENOENT
 	}
 	var status int
-	status, err = mw.setXAttr(mp, inode, name, value, false)
+	status, err = mw.setXAttr(mp, inode, name, value, true)
 	if err != nil || status != statusOK {
 		return statusToErrno(status)
 	}

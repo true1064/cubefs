@@ -83,7 +83,7 @@ func (mp *metaPartition) SetXAttr(req *proto.SetXAttrRequest, p *Packet) (err er
 	p.PacketOkReply()
 	extend.Put([]byte(req.Key), []byte(req.Value))
 
-	if !req.OverWrite {
+	if req.OverWrite {
 		if _, err = mp.putExtend(opFSMSetXAttr, extend); err != nil {
 			p.PacketErrorWithBody(proto.OpErr, []byte(err.Error()))
 			return

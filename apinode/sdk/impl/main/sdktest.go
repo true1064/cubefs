@@ -56,11 +56,11 @@ func main() {
 		span.Fatalf("get dir snapshot failed, err %s", err.Error())
 	}
 
-	//testDirOp(ctx, dirVol)
-	//testCreateFile(ctx, dirVol)
-	//testXAttrOp(ctx, dirVol)
-	//testMultiPartOp(ctx, dirVol)
-	//testInodeLock(ctx, dirVol)
+	testDirOp(ctx, dirVol)
+	testCreateFile(ctx, dirVol)
+	testXAttrOp(ctx, dirVol)
+	testMultiPartOp(ctx, dirVol)
+	testInodeLock(ctx, dirVol)
 
 	testDirSnapshotOp(ctx, vol, dirVol)
 }
@@ -569,7 +569,7 @@ func testCreateFile(ctx context.Context, vol sdk.IVolume) {
 
 func testXAttrOp(ctx context.Context, vol sdk.IVolume) {
 	span := trace.SpanFromContextSafe(ctx)
-	tmpFile := "testXAttrOp"
+	tmpFile := "testXAttrOp" + tmpString()
 
 	span.Info("start testXAttrOp =================")
 	defer span.Info("end testXAttrOp =================")
@@ -597,7 +597,7 @@ func testXAttrOp(ctx context.Context, vol sdk.IVolume) {
 
 	err = vol.SetXAttrNX(ctx, ino, key, val)
 	if err != sdk.ErrExist {
-		span.Fatalf("setXAttr failed, ino %d, err %v", ino)
+		span.Fatalf("setXAttr failed, ino %d, err %v", ino, err.Error())
 	}
 
 	var newVal string
@@ -808,7 +808,7 @@ func testMultiPartOp(ctx context.Context, vol sdk.IVolume) {
 		span.Fatalf("delete multipart failed, file %v, err %s", tmpFile, err.Error())
 	}
 
-	newTmp2File := tmpFile + tmpString()
+	newTmp2File := "/tmp2" + tmpString()
 	_, newName := path.Split(newTmp2File)
 	req := &sdk.UploadFileReq{
 		ParIno: proto.RootIno,
@@ -848,7 +848,7 @@ func testMultiPartOp(ctx context.Context, vol sdk.IVolume) {
 	cReq.Extend = map[string]string{"md5": val}
 	ifo, _, err := vol.CompleteMultiPart(ctx, cReq)
 	if err != nil {
-		span.Fatalf("complete multipart failed, file %s, err %s", tmpFile, err.Error())
+		span.Fatalf("complete multipart failed, file %s, err %s", newTmp2File, err.Error())
 	}
 
 	got, err := vol.GetXAttr(ctx, ifo.Inode, "md5")

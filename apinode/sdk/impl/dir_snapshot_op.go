@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/trace"
+	"github.com/cubefs/cubefs/blobstore/util/taskpool"
 	"github.com/cubefs/cubefs/proto"
 	"github.com/cubefs/cubefs/sdk/data/stream"
 	"github.com/cubefs/cubefs/sdk/meta"
@@ -16,6 +17,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync"
 	"syscall"
 )
 
@@ -623,6 +625,7 @@ func (d *dirSnapshotOp) InitMultiPart(ctx context.Context, filepath string, exte
 	if !startWithSlash(filepath) {
 		return "", sdk.ErrBadRequest
 	}
+
 	span := trace.SpanFromContextSafe(ctx)
 	if _, name := path.Split(filepath); name == "" {
 		span.Warnf("path is illegal, path %s", filepath)
@@ -646,6 +649,7 @@ func (d *dirSnapshotOp) UploadMultiPart(ctx context.Context, filepath, uploadId 
 		return
 	}
 
+	d.mw.resetDirVer(ctx)
 	tmpInfo, err := d.mw.CreateInode(defaultFileMode)
 	if err != nil {
 		span.Errorf("create ino failed", err.Error())
@@ -674,7 +678,7 @@ func (d *dirSnapshotOp) UploadMultiPart(ctx context.Context, filepath, uploadId 
 
 	defer func() {
 		if closeErr := d.ec.CloseStream(tmpIno); closeErr != nil {
-			span.Errorf("closeStream failed, ino %d, err %s", tmpIno, err.Error())
+			span.Errorf("closeStream failed, ino %d, err %s", tmpIno, closeErr.Error())
 		}
 	}()
 
@@ -709,7 +713,7 @@ func (d *dirSnapshotOp) UploadMultiPart(ctx context.Context, filepath, uploadId 
 		return
 	}
 
-	return
+	return part, nil
 }
 
 func (d *dirSnapshotOp) ListMultiPart(ctx context.Context, filepath, uploadId string, count, marker uint64) (parts []*sdk.Part, next uint64, isTruncated bool, err error) {
@@ -719,6 +723,11 @@ func (d *dirSnapshotOp) ListMultiPart(ctx context.Context, filepath, uploadId st
 	}
 
 	span := trace.SpanFromContextSafe(ctx)
+	if count > sdk.MaxMultiPartCnt {
+		err = sdk.ErrBadRequest
+		span.Warnf("invalid args, count %d", count)
+		return
+	}
 
 	info, err := d.mw.GetMultipart_ll(filepath, uploadId)
 	if err != nil {
@@ -727,19 +736,21 @@ func (d *dirSnapshotOp) ListMultiPart(ctx context.Context, filepath, uploadId st
 		return
 	}
 
-	sessParts := info.Parts
-	total := len(sessParts)
+	parts = make([]*sdk.Part, 0, count)
+	cnt := uint64(0)
+	for _, p := range info.Parts {
+		if uint64(p.ID) < marker {
+			continue
+		}
+		cnt++
+		if cnt > count {
+			next = uint64(p.ID)
+			isTruncated = true
+			break
+		}
 
-	next = marker + count
-	isTruncated = true
-
-	if uint64(total)-marker < count {
-		count = uint64(total) - marker
-		next = 0
-		isTruncated = false
+		parts = append(parts, p)
 	}
-
-	parts = sessParts[marker : marker+count]
 
 	return parts, next, isTruncated, nil
 }
@@ -761,6 +772,7 @@ func (d *dirSnapshotOp) AbortMultiPart(ctx context.Context, filepath, uploadId s
 		return syscallToErr(err)
 	}
 
+	d.mw.resetDirVer(ctx)
 	for _, part := range multipartInfo.Parts {
 		if _, err = d.mw.InodeUnlink(part.Inode); err != nil {
 			span.Errorf("execute inode unlink failed, ino %d, err %s", part.Inode, err.Error())
@@ -786,6 +798,39 @@ func (d *dirSnapshotOp) CompleteMultiPart(ctx context.Context, filepath, uploadI
 	}
 
 	span := trace.SpanFromContextSafe(ctx)
+
+	oldIno := uint64(0)
+	if oldFileId != 0 {
+		parDir, name := path.Split(filepath)
+		if name == "" {
+			span.Warnf("path is illegal, path %s", filepath)
+			return nil, 0, sdk.ErrBadRequest
+		}
+
+		parIno := uint64(0)
+		parIno, _, err = d.mw.lookupSubDirVer(proto.RootIno, parDir)
+		if err != nil {
+			span.Warnf("lookup path file failed, filepath %s, err %s", parDir, err.Error())
+			if err == syscall.ENOENT {
+				return nil, 0, sdk.ErrConflict
+			}
+			return nil, 0, syscallToErr(err)
+		}
+
+		var den *proto.Dentry
+		den, err = d.mw.LookupEx(ctx, parIno, name)
+		if err != nil && err != syscall.ENOENT {
+			span.Warnf("lookup path file failed, filepath %s, err %s", parDir, err.Error())
+			return nil, 0, syscallToErr(err)
+		}
+
+		if den == nil || den.FileId != oldFileId || proto.IsDir(den.Type) {
+			span.Warnf("target file already exist but conflict, path %s, den %v, reqOld %d", filepath, den, oldFileId)
+			return nil, 0, sdk.ErrConflict
+		}
+
+		oldIno = den.Inode
+	}
 
 	for idx, part := range partsArg {
 		if part.ID != uint16(idx+1) {
@@ -831,22 +876,49 @@ func (d *dirSnapshotOp) CompleteMultiPart(ctx context.Context, filepath, uploadI
 
 	totalExtents := make([]proto.ExtentKey, 0)
 	fileOffset := uint64(0)
-	size := uint64(0)
-	var eks []proto.ExtentKey
 
-	for _, part := range partArr {
-		_, _, eks, err = d.mw.sm.GetExtents(part.Inode)
-		if err != nil {
-			span.Errorf("get part extent failed, ino %d, err %s", part.Inode, err.Error())
-			return nil, 0, syscallToErr(err)
+	cnt := sdk.MaxPoolSize
+	if cnt > len(partArr) {
+		cnt = len(partArr)
+	}
+
+	pool := taskpool.New(cnt, len(partArr))
+	defer pool.Close()
+	type result struct {
+		eks []proto.ExtentKey
+		err error
+	}
+	resArr := make([]result, len(partArr))
+	lk := sync.Mutex{}
+	wg := sync.WaitGroup{}
+
+	for idx, part := range partArr {
+		ino := part.Inode
+		tmpIdx := idx
+		wg.Add(1)
+		pool.Run(func() {
+			defer wg.Done()
+			_, _, eks, newErr := d.mw.sm.GetExtents(ino)
+			if newErr != nil {
+				span.Errorf("get part extent failed, ino %d, err %s", ino, newErr.Error())
+			}
+			lk.Lock()
+			resArr[tmpIdx] = result{eks: eks, err: newErr}
+			lk.Unlock()
+		})
+	}
+	wg.Wait()
+
+	for _, r := range resArr {
+		if r.err != nil {
+			return nil, 0, syscallToErr(r.err)
 		}
 
-		for _, ek := range eks {
+		for _, ek := range r.eks {
 			ek.FileOffset = fileOffset
 			fileOffset += uint64(ek.Size)
 			totalExtents = append(totalExtents, ek)
 		}
-		size += part.Size
 	}
 
 	err = d.mw.AppendExtentKeys(cIno, totalExtents)
@@ -868,12 +940,14 @@ func (d *dirSnapshotOp) CompleteMultiPart(ctx context.Context, filepath, uploadI
 		return nil, 0, syscallToErr(err)
 	}
 
-	for _, part := range partArr {
-		err1 := d.mw.InodeDelete(part.Inode)
-		if err1 != nil {
-			span.Errorf("delete part ino failed, ino %d, err %s", part.Inode, err1.Error())
+	go func() {
+		for _, part := range partArr {
+			err1 := d.mw.InodeDeleteVer(part.Inode)
+			if err1 != nil {
+				span.Errorf("delete part ino failed, ino %d, err %s", part.Inode, err1.Error())
+			}
 		}
-	}
+	}()
 
 	extend := info.Extend
 	attrs := make(map[string]string)
@@ -882,7 +956,7 @@ func (d *dirSnapshotOp) CompleteMultiPart(ctx context.Context, filepath, uploadI
 			attrs[key] = value
 		}
 
-		if err = d.mw.BatchSetXAttr(cIno, attrs); err != nil {
+		if err = d.mw.sm.BatchSetXAttr_ll(cIno, attrs); err != nil {
 			span.Errorf("batch setXAttr failed, ino %d", cIno, err.Error())
 			return nil, 0, err
 		}
@@ -892,7 +966,7 @@ func (d *dirSnapshotOp) CompleteMultiPart(ctx context.Context, filepath, uploadI
 		ParentId: parIno,
 		Name:     name,
 		Inode:    cIno,
-		OldIno:   oldFileId,
+		OldIno:   oldIno,
 		Mode:     defaultFileMode,
 	}
 
@@ -918,14 +992,6 @@ func (d *dirSnapshotOp) mkdirByPath(ctx context.Context, dir string) (ino uint64
 
 	parIno := proto.RootIno
 	dir = strings.TrimSpace(dir)
-	var childIno uint64
-	var childMod uint32
-	var info *sdk.InodeInfo
-
-	defer func() {
-		ino = parIno
-	}()
-
 	dirs := strings.Split(dir, "/")
 	for _, name := range dirs {
 		if name == "" {
@@ -937,39 +1003,42 @@ func (d *dirSnapshotOp) mkdirByPath(ctx context.Context, dir string) (ino uint64
 			span.Errorf("lookup file failed, ino %d, name %s, err %s", parIno, name, err.Error())
 			return 0, err
 		}
-		childIno, childMod = childDen.Inode, childDen.Type
 
-		if err == syscall.ENOENT {
-			info, _, err = d.mw.CreateFileEx(ctx, parIno, name, uint32(defaultDirMod))
-			if err != nil && err == syscall.EEXIST {
-				existDen, e := d.mw.LookupEx(ctx, parIno, name)
-				if e != nil {
-					span.Errorf("lookup exist ino failed, ino %d, name %s, err %s", parIno, name, err.Error())
-					return 0, e
-				}
-
-				if proto.IsDir(existDen.Type) {
-					parIno, err = existDen.Inode, nil
-					continue
-				}
-			}
-			if err != nil {
-				span.Errorf("create dir failed, parent ino %d, name %s, err %s", parIno, name, err.Error())
+		if err == nil {
+			if !proto.IsDir(childDen.Type) {
+				span.Errorf("target file exist but not dir, ino %d, name %v", childDen.Inode, name)
+				err = syscall.EINVAL
 				return 0, err
 			}
-			childIno, childMod = info.Inode, info.Mode
+			parIno = childDen.Inode
+			continue
 		}
 
-		if !proto.IsDir(childMod) {
-			span.Errorf("target file exist but not dir, ino %d, name %v", childIno, name)
-			err = syscall.EINVAL
+		info, _, err := d.mw.CreateFileEx(ctx, parIno, name, uint32(defaultDirMod))
+		if err == syscall.EEXIST {
+			existDen, e := d.mw.LookupEx(ctx, parIno, name)
+			if e != nil {
+				span.Errorf("lookup exist ino failed, ino %d, name %s, err %s", parIno, name, err.Error())
+				return 0, e
+			}
+
+			if proto.IsDir(existDen.Type) {
+				span.Errorf("target is already exist, but not dir, parIno %d, name %s, type %s",
+					parIno, name, existDen.Type)
+				err = sdk.ErrNotDir
+				return 0, err
+			}
+			parIno = existDen.Inode
+			continue
+		}
+		if err != nil {
+			span.Errorf("create dir failed, parent ino %d, name %s, err %s", parIno, name, err.Error())
 			return 0, err
 		}
-
-		parIno = childIno
+		parIno = info.Inode
 	}
 
-	return
+	return parIno, nil
 }
 
 func (d *dirSnapshotOp) Info() *sdk.VolInfo {

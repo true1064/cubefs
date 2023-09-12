@@ -177,6 +177,11 @@ func (mw *SnapShotMetaWrapper) Clone() *SnapShotMetaWrapper {
 }
 
 func (mw *SnapShotMetaWrapper) SetVerInfo(info *proto.DelVer) {
+	if info == nil {
+		mw.verInfo = info
+		return
+	}
+
 	if info.DelVer == 0 {
 		info.DelVer = math.MaxUint64
 	}
