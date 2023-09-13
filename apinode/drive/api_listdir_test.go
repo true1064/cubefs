@@ -149,6 +149,7 @@ func TestHandleListDir(t *testing.T) {
 
 		mockClusterMgr.EXPECT().GetCluster(gomock.Any()).Return(mockCluster)
 		mockCluster.EXPECT().GetVol(gomock.Any()).Return(mockVol)
+		mockVol.EXPECT().GetDirSnapshot(A, A).Return(mockVol, nil)
 		mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 			func(ctx context.Context, parentIno uint64, name string) (*sdk.DirInfo, error) {
 				if name == "test" {
@@ -182,6 +183,7 @@ func TestHandleListDir(t *testing.T) {
 
 		mockClusterMgr.EXPECT().GetCluster(gomock.Any()).Return(mockCluster)
 		mockCluster.EXPECT().GetVol(gomock.Any()).Return(mockVol)
+		mockVol.EXPECT().GetDirSnapshot(A, A).Return(mockVol, nil)
 		mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 			func(ctx context.Context, parentIno uint64, name string) (*sdk.DirInfo, error) {
 				if name == "test" {
@@ -247,6 +249,7 @@ func TestHandleListDir(t *testing.T) {
 
 			mockClusterMgr.EXPECT().GetCluster(gomock.Any()).Return(mockCluster)
 			mockCluster.EXPECT().GetVol(gomock.Any()).Return(mockVol)
+			mockVol.EXPECT().GetDirSnapshot(A, A).Return(mockVol, nil)
 			mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 				func(ctx context.Context, parentIno uint64, name string) (*sdk.DirInfo, error) {
 					if name == "test" {

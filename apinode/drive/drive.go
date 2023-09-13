@@ -222,10 +222,16 @@ func (d *DriveNode) Start(cfg *config.Config) error {
 	if cluster == nil {
 		return fmt.Errorf("not get cluster clusterID: %s", d.clusterID)
 	}
-	d.vol = cluster.GetVol(d.volumeName)
-	if d.vol == nil {
+	vol := cluster.GetVol(d.volumeName)
+	if vol == nil {
 		return fmt.Errorf("not get volume volumeName: %s", d.volumeName)
 	}
+	vol, err := vol.GetDirSnapshot(ctx, 1)
+	if err != nil {
+		log.Errorf("get snapshot volume %s error: %v", d.volumeName, err)
+		return err
+	}
+	d.vol = vol
 
 	if err := d.initClusterConfig(); err != nil {
 		return err
@@ -293,6 +299,10 @@ func (d *DriveNode) getUserRouterAndVolume(ctx context.Context, uid UserID) (*Us
 	volume := cluster.GetVol(ur.VolumeID)
 	if volume == nil {
 		return nil, nil, sdk.ErrNoVolume
+	}
+	volume, err = volume.GetDirSnapshot(ctx, uint64(ur.RootFileID))
+	if err != nil {
+		return nil, nil, err
 	}
 	return ur, volume, nil
 }

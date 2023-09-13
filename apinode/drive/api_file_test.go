@@ -572,54 +572,49 @@ func TestHandleFileRename(t *testing.T) {
 		require.Equal(t, 400, doRequest("src", "/a", "dst", "a/b/../../..").StatusCode())
 	}
 	{
+		node.ClusterMgr.EXPECT().GetCluster(A).Return(nil)
 		node.TestGetUser(t, func() rpc.HTTPError {
 			return doRequest("src", "/dir/a", "dst", "/dir/b")
 		}, testUserID)
-		node.OnceGetUser()
+		node.GetUserN2()
 		require.Equal(t, 400, doRequest("src", "/dir/a", "dst", "/").StatusCode())
-		node.OnceGetUser()
+		node.GetUserN2()
 		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e1)
 		require.Equal(t, e1.Status, doRequest("src", "/dir/a", "dst", "/dir/b").StatusCode())
 	}
 	{
-		node.OnceGetUser()
+		node.GetUserN2()
 		node.OnceLookup(true)
 		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e2)
 		require.Equal(t, e2.Status, doRequest("src", "/dir/a", "dst", "/dir/b").StatusCode())
 	}
+	node.GetUserAny()
 	{
-		node.OnceGetUser()
-		node.OnceLookup(true)
-		node.OnceLookup(true)
-		node.OnceLookup(true)
+		node.LookupDirN(3)
 		require.Equal(t, sdk.ErrConflict.Status, doRequest("src", "/dir/a/", "dst", "/dir/b/").StatusCode())
 	}
 	{
-		node.OnceGetUser()
 		node.OnceLookup(true)
 		node.OnceLookup(true)
 		node.OnceLookup(false)
 		require.Equal(t, sdk.ErrConflict.Status, doRequest("src", "/dir/a/", "dst", "/dir/b/").StatusCode())
 	}
 	{
-		node.OnceGetUser()
 		node.OnceLookup(true)
 		node.OnceLookup(true)
 		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e1)
 		require.Equal(t, e1.Status, doRequest("src", "/dir/a/", "dst", "/dir/b/").StatusCode())
 	}
 	{
-		node.OnceGetUser()
 		node.Volume.EXPECT().Lookup(A, A, A).Return(&sdk.DirInfo{Inode: 11111}, nil).Times(2)
 		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotFound)
 		require.Equal(t, sdk.ErrForbidden.Status, doRequest("src", "/dir/a", "dst", "/dir/a").StatusCode())
 	}
 	{
-		node.OnceGetUser()
 		node.OnceLookup(true)
 		node.OnceLookup(true)
 		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotFound)
-		node.Volume.EXPECT().Rename(A, A, A, A, A).Return(e3)
+		node.Volume.EXPECT().Rename(A, A, A).Return(e3)
 		require.Equal(t, e3.Status, doRequest("src", "/dir/a/", "dst", "/dir/b/").StatusCode())
 	}
 	for _, cs := range []struct {
@@ -631,12 +626,11 @@ func TestHandleFileRename(t *testing.T) {
 		{lookup: 1, src: "/a", dst: "/dir/b"},
 		{lookup: 0, src: "/a", dst: "/b"},
 	} {
-		node.OnceGetUser()
 		for i := 0; i < cs.lookup; i++ {
 			node.OnceLookup(true)
 		}
 		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotFound)
-		node.Volume.EXPECT().Rename(A, A, A, A, A).Return(nil)
+		node.Volume.EXPECT().Rename(A, A, A).Return(nil)
 		require.NoError(t, doRequest("src", cs.src, "dst", cs.dst))
 	}
 }
@@ -663,46 +657,42 @@ func TestHandleFileCopy(t *testing.T) {
 		require.Equal(t, 400, doRequest("src", "/a", "dst", "/").StatusCode())
 	}
 	{
+		node.ClusterMgr.EXPECT().GetCluster(A).Return(nil)
 		node.TestGetUser(t, func() rpc.HTTPError {
 			return doRequest("src", "/dir/a", "dst", "/dir/b")
 		}, testUserID)
-		node.OnceGetUser()
+		node.GetUserN2()
 		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e1)
 		require.Equal(t, e1.Status, doRequest("src", "/dir/a", "dst", "/dir/b").StatusCode())
 	}
+	node.GetUserAny()
 	{
-		node.OnceGetUser()
 		node.OnceLookup(true)
 		node.OnceLookup(true)
 		require.Equal(t, sdk.ErrNotFile.Status, doRequest("src", "/dir/a", "dst", "/dir/b").StatusCode())
 	}
 	{
-		node.OnceGetUser()
 		node.LookupN(2)
 		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e1)
 		require.Equal(t, e1.Status, doRequest("src", "/dir/a", "dst", "/dir/b").StatusCode())
 	}
 	{
-		node.OnceGetUser()
 		node.LookupN(2)
 		node.OnceLookup(true)
 		require.Equal(t, sdk.ErrNotFile.Status, doRequest("src", "/dir/a", "dst", "/b").StatusCode())
 	}
 	{
-		node.OnceGetUser()
 		node.LookupN(3)
 		node.Volume.EXPECT().GetInode(A, A).Return(nil, e2)
 		require.Equal(t, e2.Status, doRequest("src", "/dir/a", "dst", "/b").StatusCode())
 	}
 	{
-		node.OnceGetUser()
 		node.LookupN(3)
 		node.OnceGetInode()
 		node.Volume.EXPECT().GetXAttrMap(A, A).Return(nil, e1)
 		require.Equal(t, e1.Status, doRequest("src", "/dir/a", "dst", "/b", "meta", "1").StatusCode())
 	}
 	{
-		node.OnceGetUser()
 		node.LookupN(3)
 		node.OnceGetInode()
 		node.Volume.EXPECT().GetXAttrMap(A, A).Return(map[string]string{
@@ -712,7 +702,6 @@ func TestHandleFileCopy(t *testing.T) {
 		require.Equal(t, e4.Status, doRequest("src", "/dir/a", "dst", "/b").StatusCode())
 	}
 	{
-		node.OnceGetUser()
 		node.LookupN(3)
 		node.OnceGetInode()
 		node.Volume.EXPECT().GetXAttrMap(A, A).Return(map[string]string{
@@ -726,7 +715,6 @@ func TestHandleFileCopy(t *testing.T) {
 		require.NoError(t, doRequest("src", "/dir/a", "dst", "/b"))
 	}
 	{
-		node.OnceGetUser()
 		node.LookupN(3)
 		node.OnceGetInode()
 		node.Volume.EXPECT().GetXAttrMap(A, A).Return(map[string]string{
@@ -736,7 +724,6 @@ func TestHandleFileCopy(t *testing.T) {
 		require.Equal(t, e2.Status, doRequest("src", "/dir/a", "dst", "/b").StatusCode())
 	}
 	{
-		node.OnceGetUser()
 		node.LookupN(2)
 		node.OnceLookup(true)
 		node.Volume.EXPECT().Lookup(A, A, A).Return(&sdk.DirInfo{Inode: 11111}, nil)

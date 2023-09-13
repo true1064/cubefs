@@ -106,6 +106,10 @@ func (d *DriveNode) createUserRoute(ctx context.Context, uid UserID) error {
 	if vol == nil {
 		return sdk.ErrNoVolume
 	}
+	vol, err = vol.GetDirSnapshot(ctx, 1)
+	if err != nil {
+		return err
+	}
 
 	rootPath := getRootPath(uid)
 	// create user root path

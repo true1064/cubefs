@@ -100,6 +100,7 @@ func (d *DriveNode) handleFilesDelete(c *rpc.Context) {
 type delDir struct {
 	parent Inode
 	name   string
+	ignore bool
 }
 
 func (d *DriveNode) recursivelyDelete(c *rpc.Context, path FilePath) {
@@ -125,7 +126,7 @@ func (d *DriveNode) recursivelyDelete(c *rpc.Context, path FilePath) {
 		ino = Inode(parent.Inode)
 	}
 
-	nextLayer := []delDir{{parent: ino, name: name}}
+	nextLayer := []delDir{{parent: ino, name: name, ignore: true}}
 	layerDirs := make([][]delDir, 0, 4)
 	layerDirs = append(layerDirs, nextLayer[:])
 
@@ -143,6 +144,13 @@ func (d *DriveNode) recursivelyDelete(c *rpc.Context, path FilePath) {
 				span.Info("sub name is file:", dir)
 				d.respError(c, sdk.ErrNotEmpty)
 				return
+			}
+			if !dir.ignore {
+				if vol.IsSnapshotInode(ctx, dirInfo.Inode) {
+					span.Info("sub name is snapshot:", dir)
+					d.respError(c, sdk.ErrNotEmpty.Extend("is snapshot dir"))
+					return
+				}
 			}
 
 			var files []FileInfo
@@ -208,13 +216,12 @@ type BatchDeleteResult struct {
 
 func (d *DriveNode) handleBatchDelete(c *rpc.Context) {
 	args := new(ArgsBatchDelete)
-	ctx, span := d.ctxSpan(c)
-	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args)) {
+	if d.checkError(c, nil, c.ParseArgs(args)) {
 		return
 	}
-
-	ur, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c))
-	if d.checkError(c, func(err error) { span.Warnf("get root inode and volume: %v", err) }, err, ur.CanWrite()) {
+	ctx, span := d.ctxSpan(c)
+	ur, _, err := d.getUserRouterAndVolume(ctx, d.userID(c))
+	if d.checkError(c, func(err error) { span.Warnf("get root inode and volume return error: %v", err) }, err, ur.CanWrite()) {
 		return
 	}
 	root := ur.RootFileID
@@ -239,7 +246,12 @@ func (d *DriveNode) handleBatchDelete(c *rpc.Context) {
 				ch <- result{arg, err}
 				return
 			}
-			_, err := deleteFile(ctx, vol, root, name.String())
+			_, volDel, err := d.getUserRouterAndVolume(ctx, d.userID(c))
+			if err != nil {
+				ch <- result{arg, err}
+				return
+			}
+			_, err = deleteFile(ctx, volDel, root, name.String())
 			if err == sdk.ErrNotFound {
 				span.Infof("delete file %s rootIno %d return error: not found, ignore this error", arg, root)
 				err = nil

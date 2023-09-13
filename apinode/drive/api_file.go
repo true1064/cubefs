@@ -410,7 +410,8 @@ func (d *DriveNode) handleFileRename(c *rpc.Context) {
 	span.Info("to rename", args)
 
 	ur, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c))
-	if d.checkError(c, func(err error) { span.Warn(err) }, err, ur.CanWrite()) {
+	_, volSrc, errSrc := d.getUserRouterAndVolume(ctx, d.userID(c))
+	if d.checkError(c, func(err error) { span.Warn(err) }, err, errSrc, ur.CanWrite()) {
 		return
 	}
 	root := ur.RootFileID
@@ -425,7 +426,7 @@ func (d *DriveNode) handleFileRename(c *rpc.Context) {
 	srcParentIno := root
 	if srcDir != "" && srcDir != "/" {
 		var srcParent *sdk.DirInfo
-		srcParent, err = d.lookup(ctx, vol, root, srcDir.String())
+		srcParent, err = d.lookup(ctx, volSrc, root, srcDir.String())
 		if d.checkError(c, func(err error) { span.Warn("lookup src", srcDir, err) }, err) {
 			return
 		}
@@ -456,9 +457,8 @@ func (d *DriveNode) handleFileRename(c *rpc.Context) {
 		return
 	}
 
-	span.Infof("src parIno %d, dstIno %d", srcParentIno, dstParentIno)
-	// TODO update args
-	err = vol.Rename(ctx, srcName, dstName)
+	span.Infof("parent ino of src(%d) dst(%d)", srcParentIno, dstParentIno)
+	err = vol.Rename(ctx, args.Src.String(), args.Dst.String())
 	if d.checkError(c, func(err error) { span.Error("rename error", args, err) }, err) {
 		return
 	}
@@ -490,12 +490,13 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 	}
 
 	ur, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c))
-	if d.checkError(c, func(err error) { span.Warn(err) }, err, ur.CanWrite()) {
+	_, volSrc, errSrc := d.getUserRouterAndVolume(ctx, d.userID(c))
+	if d.checkError(c, func(err error) { span.Warn(err) }, err, errSrc, ur.CanWrite()) {
 		return
 	}
 	root := ur.RootFileID
 
-	file, err := d.lookupFile(ctx, vol, root, args.Src.String())
+	file, err := d.lookupFile(ctx, volSrc, root, args.Src.String())
 	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
@@ -515,14 +516,14 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 	}
 
 	st := time.Now()
-	inode, err := vol.GetInode(ctx, file.Inode)
+	inode, err := volSrc.GetInode(ctx, file.Inode)
 	span.AppendTrackLog("cfci", st, err)
 	if d.checkError(c, func(err error) { span.Warn(file.Inode, err) }, err) {
 		return
 	}
 	hasher := md5.New()
 
-	reader, err := d.makeBlockedReader(ctx, vol, inode.Inode, 0, ur.CipherKey)
+	reader, err := d.makeBlockedReader(ctx, volSrc, inode.Inode, 0, ur.CipherKey)
 	if d.checkError(c, func(err error) { span.Warn(args.Src, file.Inode, err) }, err) {
 		return
 	}
@@ -533,7 +534,7 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 	}
 
 	st = time.Now()
-	extend, err := vol.GetXAttrMap(ctx, inode.Inode)
+	extend, err := volSrc.GetXAttrMap(ctx, inode.Inode)
 	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}

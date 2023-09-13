@@ -182,6 +182,15 @@ func TestHandleFilesDelete(t *testing.T) {
 		node.OnceGetUser()
 		node.LookupDirN(4)
 		node.ListDir(10, 0)
+		node.OnceLookup(true)
+		node.Volume.EXPECT().IsSnapshotInode(A, A).Return(true)
+		require.Equal(t, sdk.ErrNotEmpty.Status, doRecuDel().StatusCode())
+	}
+	node.Volume.EXPECT().IsSnapshotInode(A, A).Return(false).AnyTimes()
+	{
+		node.OnceGetUser()
+		node.LookupDirN(4)
+		node.ListDir(10, 0)
 		for range [10]struct{}{} {
 			node.OnceLookup(true)
 			node.ListDir(10, 0)
@@ -230,7 +239,7 @@ func TestHandleBatchDelete(t *testing.T) {
 	}
 
 	{
-		node.OnceGetUser(testUserID)
+		node.GetUserN(2, testUserID)
 		node.Volume.EXPECT().Lookup(A, A, A).Return(&sdk.DirInfo{}, nil).Times(2)
 		node.Volume.EXPECT().Delete(A, A, A, A).Return(nil)
 		args := ArgsBatchDelete{

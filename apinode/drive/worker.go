@@ -56,6 +56,11 @@ func (d *DriveNode) ConsumerEvent(ctx context.Context, e oplog.Event) {
 			span.Warnf("not found volume %v", item)
 			return true
 		}
+		volume, err = volume.GetDirSnapshot(sctx, 1)
+		if err != nil {
+			span.Warnf("get snapshot volume error: %v", err)
+			return false
+		}
 		// TODO: if path was renamed, origin path should be not found.
 		dInfo, err := d.lookup(sctx, volume, ur.RootFileID, item.Path)
 		if err != nil {

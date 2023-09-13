@@ -139,6 +139,25 @@ func (node *mockNode) OnceGetUser(uids ...string) {
 	node.AddUserRoute(uids...)
 	node.ClusterMgr.EXPECT().GetCluster(A).Return(node.Cluster)
 	node.Cluster.EXPECT().GetVol(A).Return(node.Volume)
+	node.Volume.EXPECT().GetDirSnapshot(A, A).Return(node.Volume, nil)
+}
+
+func (node *mockNode) GetUserN(n int, uids ...string) {
+	node.AddUserRoute(uids...)
+	node.ClusterMgr.EXPECT().GetCluster(A).Return(node.Cluster).Times(n)
+	node.Cluster.EXPECT().GetVol(A).Return(node.Volume).Times(n)
+	node.Volume.EXPECT().GetDirSnapshot(A, A).Return(node.Volume, nil).Times(n)
+}
+
+func (node *mockNode) GetUserN2(uids ...string) {
+	node.GetUserN(2, uids...)
+}
+
+func (node *mockNode) GetUserAny(uids ...string) {
+	node.AddUserRoute(uids...)
+	node.ClusterMgr.EXPECT().GetCluster(A).Return(node.Cluster).AnyTimes()
+	node.Cluster.EXPECT().GetVol(A).Return(node.Volume).AnyTimes()
+	node.Volume.EXPECT().GetDirSnapshot(A, A).Return(node.Volume, nil).AnyTimes()
 }
 
 func (node *mockNode) TestGetUser(tb testing.TB, request func() rpc.HTTPError, uids ...string) {
@@ -310,6 +329,12 @@ func TestCreateUserRouteInfo(t *testing.T) {
 
 	node.Cluster.EXPECT().GetVol(A).Return(node.Volume).AnyTimes()
 	{
+		node.Volume.EXPECT().GetDirSnapshot(A, A).Return(nil, e1)
+		require.ErrorIs(t, d.createUserRoute(Ctx, uid), e1)
+	}
+
+	node.Volume.EXPECT().GetDirSnapshot(A, A).Return(node.Volume, nil).AnyTimes()
+	{
 		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e1)
 		require.ErrorIs(t, d.createUserRoute(Ctx, uid), e1)
 	}
@@ -404,10 +429,12 @@ func TestGetUserRouterAndVolume(t *testing.T) {
 	node := newMockNode(t)
 	d := node.DriveNode
 
+	const uid = "test1"
+
 	node.AnyLookup()
 	node.Volume.EXPECT().GetXAttr(A, A, A).DoAndReturn(func(context.Context, uint64, string) (string, error) {
 		ur := UserRoute{
-			Uid:         "test1",
+			Uid:         UserID(uid),
 			ClusterType: 1,
 			ClusterID:   "cluster01",
 			VolumeID:    "volume01",
@@ -421,17 +448,21 @@ func TestGetUserRouterAndVolume(t *testing.T) {
 	}).AnyTimes()
 
 	node.ClusterMgr.EXPECT().GetCluster(A).Return(nil)
-	_, _, err := d.getUserRouterAndVolume(Ctx, "test1")
+	_, _, err := d.getUserRouterAndVolume(Ctx, uid)
 	require.ErrorIs(t, err, sdk.ErrNoCluster)
 
-	node.ClusterMgr.EXPECT().GetCluster(A).Return(node.Cluster)
+	node.ClusterMgr.EXPECT().GetCluster(A).Return(node.Cluster).AnyTimes()
 	node.Cluster.EXPECT().GetVol(A).Return(nil)
-	_, _, err = d.getUserRouterAndVolume(Ctx, "test1")
+	_, _, err = d.getUserRouterAndVolume(Ctx, uid)
 	require.ErrorIs(t, err, sdk.ErrNoVolume)
 
-	node.ClusterMgr.EXPECT().GetCluster(A).Return(node.Cluster)
-	node.Cluster.EXPECT().GetVol(A).Return(node.Volume)
-	ur, vol, err := d.getUserRouterAndVolume(Ctx, "test1")
+	node.Cluster.EXPECT().GetVol(A).Return(node.Volume).AnyTimes()
+	node.Volume.EXPECT().GetDirSnapshot(A, A).Return(nil, e1)
+	_, _, err = d.getUserRouterAndVolume(Ctx, uid)
+	require.ErrorIs(t, err, e1)
+
+	node.Volume.EXPECT().GetDirSnapshot(A, A).Return(node.Volume, nil)
+	ur, vol, err := d.getUserRouterAndVolume(Ctx, uid)
 	require.NoError(t, err)
 	require.Equal(t, ur.RootFileID, Inode(10))
 	require.Equal(t, vol, node.Volume)
