@@ -715,9 +715,6 @@ func (c *Cluster) handleMetaNodeTaskResponse(nodeAddr string, task *proto.AdminT
 	case proto.OpVersionOperation:
 		response := task.Response.(*proto.MultiVersionOpResponse)
 		err = c.dealOpMetaNodeMultiVerResp(task.OperatorAddr, response)
-	case proto.OpMetaBatchDelDirVer:
-		response := task.Response.(*proto.MultiVersionOpResponse)
-		err = c.dealOpMetaNodeDirSnapVerBatchDelResp(task.OperatorAddr, response)
 	default:
 		err := fmt.Errorf("unknown operate code %v", task.OpCode)
 		log.LogError(err)
@@ -1282,20 +1279,5 @@ func (c *Cluster) dealDeleteMetaserverQuotaResponse(nodeAddr string, resp *proto
 	vol.quotaManager.DeleteQuotaInfoById(resp.QuotaId)
 
 	log.LogInfof("action[dealDeleteMetaserverQuotaResponse] resp [%v] success.", resp)
-	return
-}
-
-func (c *Cluster) dealOpMetaNodeDirSnapVerBatchDelResp(nodeAddr string, resp *proto.MultiVersionOpResponse) (err error) {
-	if resp.Status == proto.TaskFailed {
-		msg := fmt.Sprintf("action[dealOpMetaNodeMultiVerResp],clusterID[%v] volume [%v] nodeAddr %v operate meta partition snapshot version,err %v",
-			c.Name, resp.VolumeID, nodeAddr, resp.Result)
-		log.LogError(msg)
-		Warn(c.Name, msg)
-	}
-	var vol *Vol
-	if vol, err = c.getVol(resp.VolumeID); err != nil {
-		return
-	}
-	vol.VersionMgr.handleTaskRsp(resp, TypeMetaPartition)
 	return
 }

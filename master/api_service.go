@@ -6314,7 +6314,6 @@ func (m *Server) BatchDeleteDirSnapshotVersion(w http.ResponseWriter, r *http.Re
 		err     error
 		volName string
 		vol     *Vol
-		verInfo *proto.DirSnapshotVersionInfo
 	)
 
 	metric := exporter.NewTPCnt(apiToMetricsName(proto.AdminDirSnapshotBatchDeleteVersion))
@@ -6349,6 +6348,7 @@ func (m *Server) BatchDeleteDirSnapshotVersion(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	log.LogInfof("[AllocDirSnapshotVersion] vol[%v] allocated version: %v", volName, verInfo.SnapVersion)
-	sendOkReply(w, r, newSuccessHTTPReply(verInfo))
+	log.LogInfof("[BatchDeleteDirSnapshotVersion] vol[%v] mpId[%v] add %v items",
+		volName, req.MetaPartitionId, len(req.DirInfos))
+	sendOkReply(w, r, newSuccessHTTPReply(fmt.Sprintf("%v", http.StatusOK)))
 }
