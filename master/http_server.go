@@ -752,7 +752,7 @@ func (m *Server) registerAPIRoutes(router *mux.Router) {
 	router.NewRoute().Methods(http.MethodGet).
 		Path(proto.AdminDirSnapshotAllocVersion).
 		HandlerFunc(m.AllocDirSnapshotVersion)
-	router.NewRoute().Methods(http.MethodGet).
+	router.NewRoute().Methods(http.MethodGet, http.MethodPost).
 		Path(proto.AdminDirSnapshotBatchDeleteVersion).
 		HandlerFunc(m.BatchDeleteDirSnapshotVersion)
 }

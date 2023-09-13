@@ -6328,17 +6328,21 @@ func (m *Server) BatchDeleteDirSnapshotVersion(w http.ResponseWriter, r *http.Re
 
 	var req = proto.MasterBatchDelDirVersionReq{}
 	if err = json.Unmarshal(bytes, &req); err != nil {
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		log.LogErrorf("[BatchDeleteDirSnapshotVersion]: parse request failed, err: %v", err.Error())
+		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: fmt.Sprintf("parse request failed, err: %v", err.Error())})
 		return
 	}
 	if len(req.DirInfos) == 0 {
 		log.LogErrorf("[BatchDeleteDirSnapshotVersion]: len(req.DirInfos) is 0, vol:%v, mpId:%v",
 			req.Vol, req.MetaPartitionId)
-		sendErrReply(w, r, newErrHTTPReply(proto.ErrParamError))
+		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: "len(req.DirInfos) is 0"})
+		return
 	}
 
 	volName = req.Vol
 	if vol, err = m.cluster.getVol(volName); err != nil {
+		log.LogErrorf("[BatchDeleteDirSnapshotVersion] vol[%v] not exist",
+			req.Vol, req.MetaPartitionId)
 		sendErrReply(w, r, newErrHTTPReply(proto.ErrVolNotExists))
 		return
 	}
