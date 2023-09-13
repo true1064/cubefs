@@ -55,6 +55,7 @@ const (
 	statusTxTimeout
 	statusUploadPartConflict
 	statusNotEmpty
+	statusSnapshotConflict
 )
 
 const (
@@ -215,6 +216,8 @@ func parseStatus(result uint8) (status int) {
 		status = statusInval
 	case proto.OpNotPerm:
 		status = statusNotPerm
+	case proto.OpSnapshotConflict:
+		status = statusSnapshotConflict
 	case proto.OpConflictExtentsErr:
 		status = statusConflictExtents
 	case proto.OpDirQuota:

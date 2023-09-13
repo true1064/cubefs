@@ -8,6 +8,11 @@ import (
 )
 
 func (mp *metaPartition) fsmCreateDirSnapshot(ifo *proto.CreateDirSnapShotInfo) (resp uint8) {
+	resp = mp.checkDirSnapshotCreateReq(ifo)
+	if resp != proto.OpOk {
+		return
+	}
+
 	oldItem := mp.dirVerTree.CopyGet(newDirSnapItem(ifo.SnapshotInode, ifo.RootInode))
 	if oldItem == nil {
 		oldItem = &dirSnapshotItem{
@@ -55,6 +60,37 @@ func (mp *metaPartition) fsmCreateDirSnapshot(ifo *proto.CreateDirSnapShotInfo) 
 		log.LogInfof("create dir snapshot success, ifo %v, oldDirSnap %s", ifo, oldDirSnap.String())
 	}
 	return proto.OpOk
+}
+
+func (mp *metaPartition) checkDirSnapshotCreateReq(ifo *proto.CreateDirSnapShotInfo) (resp uint8) {
+	resp = proto.OpOk
+	if len(ifo.DirInodeArr) == 0 {
+		return
+	}
+
+	reqInodeMap := make(map[uint64]struct{})
+	for _, ino := range ifo.DirInodeArr {
+		reqInodeMap[ino] = struct{}{}
+	}
+
+	rootIno := ifo.RootInode
+	startItem := newDirSnapItem(0, rootIno)
+	endItem := newDirSnapItem(0, rootIno+1)
+
+	mp.dirVerTree.AscendRange(startItem, endItem, func(i BtreeItem) bool {
+		dirVer := i.(*dirSnapshotItem)
+		ino := dirVer.SnapshotInode
+
+		if _, ok := reqInodeMap[ino]; ok {
+			return true
+		}
+
+		log.LogWarnf("checkDirSnapshotCreateReq: req ino is conflict with server, ino %d, req %v", ino, ifo)
+		resp = proto.OpSnapshotConflict
+		return false
+	})
+
+	return
 }
 
 // mark delete dir snapshot

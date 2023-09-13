@@ -625,3 +625,11 @@ func (m *snapMetaOpImp) conflict(ctx context.Context, filePath string) bool {
 	}
 	return false
 }
+
+func (m *snapMetaOpImp) getSnapshotInodes() []uint64 {
+	inodes := make([]uint64, 0, len(m.snapShotItems))
+	for _, e := range m.snapShotItems {
+		inodes = append(inodes, e.SnapshotInode)
+	}
+	return inodes
+}

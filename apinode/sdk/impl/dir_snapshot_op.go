@@ -104,6 +104,7 @@ func (d *dirSnapshotOp) CreateDirSnapshot(ctx context.Context, ver, subPath stri
 		SnapshotInode: dirIno,
 		RootInode:     d.rootIno,
 		Ver:           vId,
+		DirInodeArr:   d.mw.getSnapshotInodes(),
 	}
 
 	err = d.mw.sm.CreateDirSnapshot(ifo)

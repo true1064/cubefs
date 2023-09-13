@@ -128,11 +128,12 @@ type CreateDirSnapShotReq struct {
 }
 
 type CreateDirSnapShotInfo struct {
-	SnapshotDir   string `json:"snapshot_dir"`
-	SnapshotInode uint64 `json:"snapshot_ino"`
-	OutVer        string `json:"out_ver"`
-	Ver           uint64 `json:"ver"`
-	RootInode     uint64 `json:"rootInode"`
+	SnapshotDir   string   `json:"snapshot_dir"`
+	SnapshotInode uint64   `json:"snapshot_ino"`
+	OutVer        string   `json:"out_ver"`
+	Ver           uint64   `json:"ver"`
+	RootInode     uint64   `json:"rootInode"`
+	DirInodeArr   []uint64 `json:"dirInoArr"`
 }
 
 type MetaDirSnapVerBatchDelTask struct {
