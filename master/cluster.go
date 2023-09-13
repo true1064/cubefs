@@ -4436,11 +4436,13 @@ func (c *Cluster) SetBucketLifecycle(req *proto.LcConfiguration) error {
 	log.LogInfof("action[SetS3BucketLifecycle],clusterID[%v] vol:%v", c.Name, lcConf.VolName)
 	return nil
 }
+
 func (c *Cluster) GetBucketLifecycle(VolName string) (lcConf *proto.LcConfiguration) {
 	lcConf = c.lcMgr.GetS3BucketLifecycle(VolName)
 	log.LogInfof("action[GetS3BucketLifecycle],clusterID[%v] vol:%v", c.Name, VolName)
 	return
 }
+
 func (c *Cluster) DelBucketLifecycle(VolName string) {
 	lcConf := &proto.LcConfiguration{
 		VolName: VolName,
