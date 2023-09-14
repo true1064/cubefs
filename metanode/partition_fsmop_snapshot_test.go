@@ -61,7 +61,7 @@ func Test_fsmDelDirSnap(t *testing.T) {
 	resp = mp.fsmDelDirSnap(e)
 	require.Equal(t, resp, proto.OpNotExistErr)
 
-	e.Ver = 2
+	e.Ver = 1
 	resp = mp.fsmDelDirSnap(e)
 	require.Equal(t, resp, proto.OpNotExistErr)
 

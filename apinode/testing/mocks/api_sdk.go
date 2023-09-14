@@ -52,46 +52,46 @@ func (mr *MockIVolumeMockRecorder) AbortMultiPart(arg0, arg1, arg2 interface{}) 
 }
 
 // BatchDeleteXAttr mocks base method.
-func (m *MockIVolume) BatchDeleteXAttr(arg0 context.Context, arg1 uint64, arg2 []string) error {
+func (m *MockIVolume) BatchDeleteXAttr(arg0 context.Context, arg1 string, arg2 uint64, arg3 []string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BatchDeleteXAttr", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "BatchDeleteXAttr", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // BatchDeleteXAttr indicates an expected call of BatchDeleteXAttr.
-func (mr *MockIVolumeMockRecorder) BatchDeleteXAttr(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockIVolumeMockRecorder) BatchDeleteXAttr(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BatchDeleteXAttr", reflect.TypeOf((*MockIVolume)(nil).BatchDeleteXAttr), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BatchDeleteXAttr", reflect.TypeOf((*MockIVolume)(nil).BatchDeleteXAttr), arg0, arg1, arg2, arg3)
 }
 
 // BatchGetInodes mocks base method.
-func (m *MockIVolume) BatchGetInodes(arg0 context.Context, arg1 []uint64) ([]*proto.InodeInfo, error) {
+func (m *MockIVolume) BatchGetInodes(arg0 context.Context, arg1 string, arg2 uint64, arg3 []uint64) ([]*proto.InodeInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BatchGetInodes", arg0, arg1)
+	ret := m.ctrl.Call(m, "BatchGetInodes", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].([]*proto.InodeInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // BatchGetInodes indicates an expected call of BatchGetInodes.
-func (mr *MockIVolumeMockRecorder) BatchGetInodes(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockIVolumeMockRecorder) BatchGetInodes(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BatchGetInodes", reflect.TypeOf((*MockIVolume)(nil).BatchGetInodes), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BatchGetInodes", reflect.TypeOf((*MockIVolume)(nil).BatchGetInodes), arg0, arg1, arg2, arg3)
 }
 
 // BatchSetXAttr mocks base method.
-func (m *MockIVolume) BatchSetXAttr(arg0 context.Context, arg1 uint64, arg2 map[string]string) error {
+func (m *MockIVolume) BatchSetXAttr(arg0 context.Context, arg1 string, arg2 uint64, arg3 map[string]string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BatchSetXAttr", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "BatchSetXAttr", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // BatchSetXAttr indicates an expected call of BatchSetXAttr.
-func (mr *MockIVolumeMockRecorder) BatchSetXAttr(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockIVolumeMockRecorder) BatchSetXAttr(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BatchSetXAttr", reflect.TypeOf((*MockIVolume)(nil).BatchSetXAttr), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BatchSetXAttr", reflect.TypeOf((*MockIVolume)(nil).BatchSetXAttr), arg0, arg1, arg2, arg3)
 }
 
 // CompleteMultiPart mocks base method.
@@ -125,9 +125,9 @@ func (mr *MockIVolumeMockRecorder) CreateDirSnapshot(arg0, arg1, arg2 interface{
 }
 
 // CreateFile mocks base method.
-func (m *MockIVolume) CreateFile(arg0 context.Context, arg1 uint64, arg2 string) (*proto.InodeInfo, uint64, error) {
+func (m *MockIVolume) CreateFile(arg0 context.Context, arg1 string, arg2 uint64, arg3 string) (*proto.InodeInfo, uint64, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateFile", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "CreateFile", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(*proto.InodeInfo)
 	ret1, _ := ret[1].(uint64)
 	ret2, _ := ret[2].(error)
@@ -135,23 +135,23 @@ func (m *MockIVolume) CreateFile(arg0 context.Context, arg1 uint64, arg2 string)
 }
 
 // CreateFile indicates an expected call of CreateFile.
-func (mr *MockIVolumeMockRecorder) CreateFile(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockIVolumeMockRecorder) CreateFile(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateFile", reflect.TypeOf((*MockIVolume)(nil).CreateFile), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateFile", reflect.TypeOf((*MockIVolume)(nil).CreateFile), arg0, arg1, arg2, arg3)
 }
 
 // Delete mocks base method.
-func (m *MockIVolume) Delete(arg0 context.Context, arg1 uint64, arg2 string, arg3 bool) error {
+func (m *MockIVolume) Delete(arg0 context.Context, arg1 string, arg2 uint64, arg3 string, arg4 bool) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Delete", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "Delete", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Delete indicates an expected call of Delete.
-func (mr *MockIVolumeMockRecorder) Delete(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockIVolumeMockRecorder) Delete(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockIVolume)(nil).Delete), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockIVolume)(nil).Delete), arg0, arg1, arg2, arg3, arg4)
 }
 
 // DeleteDirSnapshot mocks base method.
@@ -169,77 +169,77 @@ func (mr *MockIVolumeMockRecorder) DeleteDirSnapshot(arg0, arg1, arg2 interface{
 }
 
 // DeleteXAttr mocks base method.
-func (m *MockIVolume) DeleteXAttr(arg0 context.Context, arg1 uint64, arg2 string) error {
+func (m *MockIVolume) DeleteXAttr(arg0 context.Context, arg1 string, arg2 uint64, arg3 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteXAttr", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "DeleteXAttr", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteXAttr indicates an expected call of DeleteXAttr.
-func (mr *MockIVolumeMockRecorder) DeleteXAttr(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockIVolumeMockRecorder) DeleteXAttr(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteXAttr", reflect.TypeOf((*MockIVolume)(nil).DeleteXAttr), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteXAttr", reflect.TypeOf((*MockIVolume)(nil).DeleteXAttr), arg0, arg1, arg2, arg3)
 }
 
 // GetDirSnapshot mocks base method.
-func (m *MockIVolume) GetDirSnapshot(arg0 context.Context, arg1 uint64) (sdk.IDirSnapshot, error) {
+func (m *MockIVolume) GetDirSnapshot(arg0 context.Context, arg1 uint64, arg2 bool) (sdk.IDirSnapshot, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetDirSnapshot", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetDirSnapshot", arg0, arg1, arg2)
 	ret0, _ := ret[0].(sdk.IDirSnapshot)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetDirSnapshot indicates an expected call of GetDirSnapshot.
-func (mr *MockIVolumeMockRecorder) GetDirSnapshot(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockIVolumeMockRecorder) GetDirSnapshot(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDirSnapshot", reflect.TypeOf((*MockIVolume)(nil).GetDirSnapshot), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDirSnapshot", reflect.TypeOf((*MockIVolume)(nil).GetDirSnapshot), arg0, arg1, arg2)
 }
 
 // GetInode mocks base method.
-func (m *MockIVolume) GetInode(arg0 context.Context, arg1 uint64) (*proto.InodeInfo, error) {
+func (m *MockIVolume) GetInode(arg0 context.Context, arg1 string, arg2 uint64) (*proto.InodeInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetInode", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetInode", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*proto.InodeInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetInode indicates an expected call of GetInode.
-func (mr *MockIVolumeMockRecorder) GetInode(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockIVolumeMockRecorder) GetInode(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInode", reflect.TypeOf((*MockIVolume)(nil).GetInode), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInode", reflect.TypeOf((*MockIVolume)(nil).GetInode), arg0, arg1, arg2)
 }
 
 // GetXAttr mocks base method.
-func (m *MockIVolume) GetXAttr(arg0 context.Context, arg1 uint64, arg2 string) (string, error) {
+func (m *MockIVolume) GetXAttr(arg0 context.Context, arg1 string, arg2 uint64, arg3 string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetXAttr", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "GetXAttr", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetXAttr indicates an expected call of GetXAttr.
-func (mr *MockIVolumeMockRecorder) GetXAttr(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockIVolumeMockRecorder) GetXAttr(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetXAttr", reflect.TypeOf((*MockIVolume)(nil).GetXAttr), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetXAttr", reflect.TypeOf((*MockIVolume)(nil).GetXAttr), arg0, arg1, arg2, arg3)
 }
 
 // GetXAttrMap mocks base method.
-func (m *MockIVolume) GetXAttrMap(arg0 context.Context, arg1 uint64) (map[string]string, error) {
+func (m *MockIVolume) GetXAttrMap(arg0 context.Context, arg1 string, arg2 uint64) (map[string]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetXAttrMap", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetXAttrMap", arg0, arg1, arg2)
 	ret0, _ := ret[0].(map[string]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetXAttrMap indicates an expected call of GetXAttrMap.
-func (mr *MockIVolumeMockRecorder) GetXAttrMap(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockIVolumeMockRecorder) GetXAttrMap(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetXAttrMap", reflect.TypeOf((*MockIVolume)(nil).GetXAttrMap), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetXAttrMap", reflect.TypeOf((*MockIVolume)(nil).GetXAttrMap), arg0, arg1, arg2)
 }
 
 // Info mocks base method.
@@ -289,39 +289,39 @@ func (mr *MockIVolumeMockRecorder) ListMultiPart(arg0, arg1, arg2, arg3, arg4 in
 }
 
 // ListXAttr mocks base method.
-func (m *MockIVolume) ListXAttr(arg0 context.Context, arg1 uint64) ([]string, error) {
+func (m *MockIVolume) ListXAttr(arg0 context.Context, arg1 string, arg2 uint64) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListXAttr", arg0, arg1)
+	ret := m.ctrl.Call(m, "ListXAttr", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ListXAttr indicates an expected call of ListXAttr.
-func (mr *MockIVolumeMockRecorder) ListXAttr(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockIVolumeMockRecorder) ListXAttr(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListXAttr", reflect.TypeOf((*MockIVolume)(nil).ListXAttr), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListXAttr", reflect.TypeOf((*MockIVolume)(nil).ListXAttr), arg0, arg1, arg2)
 }
 
 // Lookup mocks base method.
-func (m *MockIVolume) Lookup(arg0 context.Context, arg1 uint64, arg2 string) (*proto.Dentry, error) {
+func (m *MockIVolume) Lookup(arg0 context.Context, arg1 string, arg2 uint64, arg3 string) (*proto.Dentry, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Lookup", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "Lookup", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(*proto.Dentry)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Lookup indicates an expected call of Lookup.
-func (mr *MockIVolumeMockRecorder) Lookup(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockIVolumeMockRecorder) Lookup(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Lookup", reflect.TypeOf((*MockIVolume)(nil).Lookup), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Lookup", reflect.TypeOf((*MockIVolume)(nil).Lookup), arg0, arg1, arg2, arg3)
 }
 
 // Mkdir mocks base method.
-func (m *MockIVolume) Mkdir(arg0 context.Context, arg1 uint64, arg2 string) (*proto.InodeInfo, uint64, error) {
+func (m *MockIVolume) Mkdir(arg0 context.Context, arg1 string, arg2 uint64, arg3 string) (*proto.InodeInfo, uint64, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Mkdir", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "Mkdir", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(*proto.InodeInfo)
 	ret1, _ := ret[1].(uint64)
 	ret2, _ := ret[2].(error)
@@ -329,9 +329,9 @@ func (m *MockIVolume) Mkdir(arg0 context.Context, arg1 uint64, arg2 string) (*pr
 }
 
 // Mkdir indicates an expected call of Mkdir.
-func (mr *MockIVolumeMockRecorder) Mkdir(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockIVolumeMockRecorder) Mkdir(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Mkdir", reflect.TypeOf((*MockIVolume)(nil).Mkdir), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Mkdir", reflect.TypeOf((*MockIVolume)(nil).Mkdir), arg0, arg1, arg2, arg3)
 }
 
 // NewInodeLock mocks base method.
@@ -349,48 +349,48 @@ func (mr *MockIVolumeMockRecorder) NewInodeLock() *gomock.Call {
 }
 
 // ReadDirAll mocks base method.
-func (m *MockIVolume) ReadDirAll(arg0 context.Context, arg1 uint64) ([]proto.Dentry, error) {
+func (m *MockIVolume) ReadDirAll(arg0 context.Context, arg1 string, arg2 uint64) ([]proto.Dentry, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReadDirAll", arg0, arg1)
+	ret := m.ctrl.Call(m, "ReadDirAll", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]proto.Dentry)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ReadDirAll indicates an expected call of ReadDirAll.
-func (mr *MockIVolumeMockRecorder) ReadDirAll(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockIVolumeMockRecorder) ReadDirAll(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadDirAll", reflect.TypeOf((*MockIVolume)(nil).ReadDirAll), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadDirAll", reflect.TypeOf((*MockIVolume)(nil).ReadDirAll), arg0, arg1, arg2)
 }
 
 // ReadFile mocks base method.
-func (m *MockIVolume) ReadFile(arg0 context.Context, arg1, arg2 uint64, arg3 []byte) (int, error) {
+func (m *MockIVolume) ReadFile(arg0 context.Context, arg1 string, arg2, arg3 uint64, arg4 []byte) (int, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReadFile", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "ReadFile", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(int)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ReadFile indicates an expected call of ReadFile.
-func (mr *MockIVolumeMockRecorder) ReadFile(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockIVolumeMockRecorder) ReadFile(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadFile", reflect.TypeOf((*MockIVolume)(nil).ReadFile), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadFile", reflect.TypeOf((*MockIVolume)(nil).ReadFile), arg0, arg1, arg2, arg3, arg4)
 }
 
 // Readdir mocks base method.
-func (m *MockIVolume) Readdir(arg0 context.Context, arg1 uint64, arg2 string, arg3 uint32) ([]proto.Dentry, error) {
+func (m *MockIVolume) Readdir(arg0 context.Context, arg1 string, arg2 uint64, arg3 string, arg4 uint32) ([]proto.Dentry, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Readdir", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "Readdir", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].([]proto.Dentry)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Readdir indicates an expected call of Readdir.
-func (mr *MockIVolumeMockRecorder) Readdir(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockIVolumeMockRecorder) Readdir(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Readdir", reflect.TypeOf((*MockIVolume)(nil).Readdir), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Readdir", reflect.TypeOf((*MockIVolume)(nil).Readdir), arg0, arg1, arg2, arg3, arg4)
 }
 
 // Rename mocks base method.
@@ -408,66 +408,66 @@ func (mr *MockIVolumeMockRecorder) Rename(arg0, arg1, arg2 interface{}) *gomock.
 }
 
 // SetAttr mocks base method.
-func (m *MockIVolume) SetAttr(arg0 context.Context, arg1 *sdk.SetAttrReq) error {
+func (m *MockIVolume) SetAttr(arg0 context.Context, arg1 string, arg2 *sdk.SetAttrReq) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetAttr", arg0, arg1)
+	ret := m.ctrl.Call(m, "SetAttr", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetAttr indicates an expected call of SetAttr.
-func (mr *MockIVolumeMockRecorder) SetAttr(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockIVolumeMockRecorder) SetAttr(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAttr", reflect.TypeOf((*MockIVolume)(nil).SetAttr), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAttr", reflect.TypeOf((*MockIVolume)(nil).SetAttr), arg0, arg1, arg2)
 }
 
 // SetXAttr mocks base method.
-func (m *MockIVolume) SetXAttr(arg0 context.Context, arg1 uint64, arg2, arg3 string) error {
+func (m *MockIVolume) SetXAttr(arg0 context.Context, arg1 string, arg2 uint64, arg3, arg4 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetXAttr", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "SetXAttr", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetXAttr indicates an expected call of SetXAttr.
-func (mr *MockIVolumeMockRecorder) SetXAttr(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockIVolumeMockRecorder) SetXAttr(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetXAttr", reflect.TypeOf((*MockIVolume)(nil).SetXAttr), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetXAttr", reflect.TypeOf((*MockIVolume)(nil).SetXAttr), arg0, arg1, arg2, arg3, arg4)
 }
 
 // SetXAttrNX mocks base method.
-func (m *MockIVolume) SetXAttrNX(arg0 context.Context, arg1 uint64, arg2, arg3 string) error {
+func (m *MockIVolume) SetXAttrNX(arg0 context.Context, arg1 string, arg2 uint64, arg3, arg4 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetXAttrNX", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "SetXAttrNX", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetXAttrNX indicates an expected call of SetXAttrNX.
-func (mr *MockIVolumeMockRecorder) SetXAttrNX(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockIVolumeMockRecorder) SetXAttrNX(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetXAttrNX", reflect.TypeOf((*MockIVolume)(nil).SetXAttrNX), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetXAttrNX", reflect.TypeOf((*MockIVolume)(nil).SetXAttrNX), arg0, arg1, arg2, arg3, arg4)
 }
 
 // StatFs mocks base method.
-func (m *MockIVolume) StatFs(arg0 context.Context, arg1 uint64) (*sdk.StatFs, error) {
+func (m *MockIVolume) StatFs(arg0 context.Context, arg1 string, arg2 uint64) (*sdk.StatFs, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StatFs", arg0, arg1)
+	ret := m.ctrl.Call(m, "StatFs", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*sdk.StatFs)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // StatFs indicates an expected call of StatFs.
-func (mr *MockIVolumeMockRecorder) StatFs(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockIVolumeMockRecorder) StatFs(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StatFs", reflect.TypeOf((*MockIVolume)(nil).StatFs), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StatFs", reflect.TypeOf((*MockIVolume)(nil).StatFs), arg0, arg1, arg2)
 }
 
 // UploadFile mocks base method.
-func (m *MockIVolume) UploadFile(arg0 context.Context, arg1 *sdk.UploadFileReq) (*proto.InodeInfo, uint64, error) {
+func (m *MockIVolume) UploadFile(arg0 context.Context, arg1 string, arg2 *sdk.UploadFileReq) (*proto.InodeInfo, uint64, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UploadFile", arg0, arg1)
+	ret := m.ctrl.Call(m, "UploadFile", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*proto.InodeInfo)
 	ret1, _ := ret[1].(uint64)
 	ret2, _ := ret[2].(error)
@@ -475,9 +475,9 @@ func (m *MockIVolume) UploadFile(arg0 context.Context, arg1 *sdk.UploadFileReq) 
 }
 
 // UploadFile indicates an expected call of UploadFile.
-func (mr *MockIVolumeMockRecorder) UploadFile(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockIVolumeMockRecorder) UploadFile(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UploadFile", reflect.TypeOf((*MockIVolume)(nil).UploadFile), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UploadFile", reflect.TypeOf((*MockIVolume)(nil).UploadFile), arg0, arg1, arg2)
 }
 
 // UploadMultiPart mocks base method.
@@ -496,17 +496,17 @@ func (mr *MockIVolumeMockRecorder) UploadMultiPart(arg0, arg1, arg2, arg3, arg4 
 }
 
 // WriteFile mocks base method.
-func (m *MockIVolume) WriteFile(arg0 context.Context, arg1, arg2, arg3 uint64, arg4 io.Reader) error {
+func (m *MockIVolume) WriteFile(arg0 context.Context, arg1 string, arg2, arg3, arg4 uint64, arg5 io.Reader) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WriteFile", arg0, arg1, arg2, arg3, arg4)
+	ret := m.ctrl.Call(m, "WriteFile", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // WriteFile indicates an expected call of WriteFile.
-func (mr *MockIVolumeMockRecorder) WriteFile(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+func (mr *MockIVolumeMockRecorder) WriteFile(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteFile", reflect.TypeOf((*MockIVolume)(nil).WriteFile), arg0, arg1, arg2, arg3, arg4)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteFile", reflect.TypeOf((*MockIVolume)(nil).WriteFile), arg0, arg1, arg2, arg3, arg4, arg5)
 }
 
 // MockICluster is a mock of ICluster interface.

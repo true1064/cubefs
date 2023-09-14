@@ -651,7 +651,7 @@ func (mp *metaPartition) cleanDirVersions() {
 		dir := i.(*dirSnapshotItem)
 
 		for _, v := range dir.Vers {
-			if v.Ver != proto.VersionMarkDelete {
+			if v.Status != proto.VersionMarkDelete {
 				continue
 			}
 			log.LogDebugf("cleanDirVersions: ver %v is need to be deleted, dir %d, path %s",
@@ -663,11 +663,17 @@ func (mp *metaPartition) cleanDirVersions() {
 					SubRootIno: dir.RootInode,
 					DelVers:    make([]proto.DelVer, 0),
 				}
+				delItems[dir.SnapshotInode] = e
 			}
 			e.DelVers = append(e.DelVers, getVerIfo(v.Ver, dir.Vers))
 		}
 		return true
 	})
+
+	if len(delItems) == 0 {
+		log.LogDebugf("cleanDirVersions: no dir version need to be deleted, mp %d", mp.config.PartitionId)
+		return
+	}
 
 	items := make([]proto.DelDirVersionInfo, 0, len(delItems))
 	for _, e := range delItems {
@@ -680,6 +686,12 @@ func (mp *metaPartition) cleanDirVersions() {
 		Vol:             mp.config.VolName,
 		MetaPartitionId: mp.config.PartitionId,
 	}
+
+	if log.EnableDebug() {
+		data, _ := json.Marshal(req)
+		log.LogDebugf("cleanDirVersions: batch del info %s", data)
+	}
+
 	err := masterClient.AdminAPI().BatchDelDirSnapshotVersion(req)
 	if err != nil {
 		log.LogErrorf("cleanDirVersions: invoke master to batch delete dir versions failed, mp %d, err %s, cost %s",

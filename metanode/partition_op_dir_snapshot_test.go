@@ -30,12 +30,12 @@ func TestMetaPartition_ListAllDirSnapshot(t *testing.T) {
 	require.True(t, len(resp.Items) == 0)
 
 	items := []proto.CreateDirSnapShotInfo{
-		{"101", 10, "o1", 101, rootIno},
-		{"101", 10, "o2", 102, rootIno},
-		{"101", 12, "o-1", 121, rootIno},
-		{"101", 12, "o-2", 122, rootIno},
-		{"101", 12, "o-2", 121, rootIno - 1},
-		{"101", 12, "o-2", 121, rootIno + 1},
+		{SnapshotDir: "101", SnapshotInode: 10, OutVer: "o1", Ver: 101, RootInode: rootIno},
+		{SnapshotDir: "101", SnapshotInode: 10, OutVer: "o2", Ver: 102, RootInode: rootIno},
+		{SnapshotDir: "101", SnapshotInode: 12, OutVer: "o-1", Ver: 121, RootInode: rootIno},
+		{SnapshotDir: "101", SnapshotInode: 12, OutVer: "o-2", Ver: 122, RootInode: rootIno},
+		{SnapshotDir: "101", SnapshotInode: 12, OutVer: "o-2", Ver: 121, RootInode: rootIno - 1},
+		{SnapshotDir: "101", SnapshotInode: 12, OutVer: "o-2", Ver: 121, RootInode: rootIno + 1},
 	}
 
 	for _, e := range items {

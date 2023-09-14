@@ -297,7 +297,7 @@ func (d *DriveNode) listDir(ctx context.Context, ino uint64, vol sdk.IVolume, ma
 	for i := 0; i < n; i++ {
 		inodes[i] = dirInfos[i].Inode
 	}
-	inoInfo, err := vol.BatchGetInodes(ctx, inodes)
+	inoInfo, err := vol.BatchGetInodes(ctx, ino, inodes)
 	if err != nil {
 		return nil, err
 	}

@@ -2,6 +2,7 @@ package impl
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/trace"
@@ -16,9 +17,11 @@ type snapMetaOpImp struct {
 	snapShotItems []*proto.DirSnapshotInfo
 	hasSetVer     bool
 	ver           *proto.DelVer
+	verInfo       *proto.DirSnapshotInfo
 	snapIno       uint64
 	isNewest      bool
 	rootIno       uint64
+	inoMap        map[uint64]uint64
 }
 
 func newSnapMetaOp(mop MetaOp, items []*proto.DirSnapshotInfo, rootIno uint64) *snapMetaOpImp {
@@ -33,15 +36,72 @@ func newSnapMetaOp(mop MetaOp, items []*proto.DirSnapshotInfo, rootIno uint64) *
 		snapShotItems: items,
 		rootIno:       rootIno,
 		isNewest:      true,
+		inoMap:        map[uint64]uint64{},
 	}
 	return smw
 }
 
 func (m *snapMetaOpImp) getVerStr() string {
-	if m.ver == nil {
+	if m.verInfo == nil {
 		return "0-no version"
 	}
-	return m.ver.String()
+	data, _ := json.Marshal(m.verInfo)
+	return string(data)
+}
+
+func (m *snapMetaOpImp) setVerByInode(ctx context.Context, ino uint64) (ver *proto.DelVer, err error) {
+	if len(m.snapShotItems) == 0 {
+		return nil, nil
+	}
+
+	defer func() {
+		m.sm.SetVerInfo(ver)
+	}()
+	m.verInfo = nil
+
+	span := trace.SpanFromContextSafe(ctx)
+
+	getVer := func(inode uint64) *proto.DelVer {
+		for _, cv := range m.snapShotItems {
+			if cv.SnapshotInode != inode {
+				continue
+			}
+
+			tmp := &proto.DelVer{
+				DelVer: cv.MaxVer,
+			}
+			for _, v := range cv.Vers {
+				tmp.Vers = append(tmp.Vers, v.Ver)
+			}
+			m.verInfo = cv
+			return tmp
+		}
+		return nil
+	}
+
+	for {
+		ver = getVer(ino)
+		if ver != nil {
+			return ver, nil
+		}
+
+		if ino == m.rootIno {
+			return nil, nil
+		}
+
+		parIno, ok := m.inoMap[ino]
+		if !ok {
+			span.Warnf("can't find parent ino from ino map, maybe illegal usage, ino %d, map %v",
+				ino, m.inoMap)
+			return nil, sdk.ErrBadRequest
+		}
+
+		ino = parIno
+	}
+}
+
+func (m *snapMetaOpImp) addParInode(parIno, child uint64) {
+	m.inoMap[child] = parIno
 }
 
 func versionName(ver string) string {
@@ -93,55 +153,37 @@ func (m *snapMetaOpImp) isSnapshotDir(ctx context.Context, parentId uint64, name
 		return false, nil
 	}
 
-	if m.hasSetVer && parentId != m.snapIno {
-		span.Warnf("already set ver before, maybe conflict, parentId %d, name %s, ver %s",
-			parentId, name, m.getVerStr())
-		return false, sdk.ErrConflict
+	if parentId != m.verInfo.SnapshotInode {
+		return false, nil
 	}
 
-	var ver *proto.DelVer
-
-	buildVer := func(idx uint64, vers []*proto.ClientDirVer) {
-		ver = &proto.DelVer{
-			DelVer: idx,
-		}
-
-		for _, v := range vers {
-			ver.Vers = append(ver.Vers, v.Ver)
-		}
-	}
-
-	for _, e := range m.snapShotItems {
-		if e.SnapshotInode != parentId {
+	cv := m.verInfo
+	for _, v := range cv.Vers {
+		vName := versionName(v.OutVer)
+		if name != vName {
 			continue
 		}
-
-		for _, v := range e.Vers {
-			vName := versionName(v.OutVer)
-			if name == vName && v.Ver.Status == proto.VersionNormal {
-				buildVer(v.Ver.Ver, e.Vers)
-				ver.Vers = append(ver.Vers, &proto.VersionInfo{
-					Ver:     e.MaxVer,
-					DelTime: 0,
-					Status:  proto.VersionInit,
-				})
-				break
-			}
+		if v.Ver.Status != proto.VersionNormal {
+			span.Warnf("target dir version is already deleted, ver %v, ino %d name %s", v, parentId, name)
+			return false, sdk.ErrNotFound
 		}
 
-		break
+		tmp := &proto.DelVer{
+			DelVer: v.Ver.Ver,
+		}
+		for _, v := range cv.Vers {
+			tmp.Vers = append(tmp.Vers, v.Ver)
+		}
+		tmp.Vers = append(tmp.Vers, &proto.VersionInfo{
+			Ver:     cv.MaxVer,
+			DelTime: 0,
+			Status:  proto.VersionInit,
+		})
+		return true, nil
 	}
 
-	if ver == nil {
-		return false, sdk.ErrNotFound
-	}
-
-	m.hasSetVer = true
-	m.ver = ver
-	m.isNewest = false
-	m.snapIno = parentId
-	m.sm.SetVerInfo(ver)
-	return true, nil
+	span.Warnf("can't find target version, name %s, parIno %d, ver %s", name, parentId, m.getVerStr())
+	return false, sdk.ErrNotFound
 }
 
 func buildFromClientVers(maxVer uint64, clientVers []*proto.ClientDirVer) (vers []*proto.VersionInfo) {
@@ -163,7 +205,7 @@ func (m *snapMetaOpImp) resetDirVer(ctx context.Context) {
 	}
 
 	span := trace.SpanFromContextSafe(ctx)
-	span.Debugf("reset dis ver info, ver %s", m.ver.String())
+	span.Debugf("reset dir ver info, ver %s", m.ver.String())
 	m.hasSetVer = false
 	m.sm.SetVerInfo(nil)
 }
@@ -227,7 +269,10 @@ func newDirDentry(dirIno uint64, name string) (den *proto.Dentry) {
 
 func (m *snapMetaOpImp) LookupEx(ctx context.Context, parentId uint64, name string) (den *proto.Dentry, err error) {
 	span := trace.SpanFromContextSafe(ctx)
-	m.checkSnapshotIno(parentId)
+	_, err = m.setVerByInode(ctx, parentId)
+	if err != nil {
+		return
+	}
 
 	isSnapShot, err := m.isSnapshotDir(ctx, parentId, name)
 	if err != nil {

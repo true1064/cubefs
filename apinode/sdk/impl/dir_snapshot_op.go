@@ -148,7 +148,7 @@ func (d *dirSnapshotOp) DeleteDirSnapshot(ctx context.Context, ver, filePath str
 	return nil
 }
 
-func (d *dirSnapshotOp) Lookup(ctx context.Context, parentIno uint64, name string) (*sdk.DirInfo, error) {
+func (d *dirSnapshotOp) Lookup(ctx context.Context, subPath string, parentIno uint64, name string) (*sdk.DirInfo, error) {
 	span := trace.SpanFromContextSafe(ctx)
 
 	den, err := d.mw.LookupEx(ctx, parentIno, name)
@@ -160,7 +160,7 @@ func (d *dirSnapshotOp) Lookup(ctx context.Context, parentIno uint64, name strin
 	return den, nil
 }
 
-func (d *dirSnapshotOp) GetInode(ctx context.Context, ino uint64) (*proto.InodeInfo, error) {
+func (d *dirSnapshotOp) GetInode(ctx context.Context, subPath string, ino uint64) (*proto.InodeInfo, error) {
 	span := trace.SpanFromContextSafe(ctx)
 
 	info, err := d.mw.InodeGet(ino)
@@ -172,7 +172,7 @@ func (d *dirSnapshotOp) GetInode(ctx context.Context, ino uint64) (*proto.InodeI
 	return info, nil
 }
 
-func (d *dirSnapshotOp) BatchGetInodes(ctx context.Context, inos []uint64) ([]*proto.InodeInfo, error) {
+func (d *dirSnapshotOp) BatchGetInodes(ctx context.Context, subPath string, parIno uint64, inos []uint64) ([]*proto.InodeInfo, error) {
 	span := trace.SpanFromContextSafe(ctx)
 
 	infos, err := d.mw.sm.BatchInodeGetWith(inos)
@@ -184,7 +184,7 @@ func (d *dirSnapshotOp) BatchGetInodes(ctx context.Context, inos []uint64) ([]*p
 	return infos, nil
 }
 
-func (d *dirSnapshotOp) Readdir(ctx context.Context, parIno uint64, marker string, count uint32) ([]sdk.DirInfo, error) {
+func (d *dirSnapshotOp) Readdir(ctx context.Context, subPath string, parIno uint64, marker string, count uint32) ([]sdk.DirInfo, error) {
 	span := trace.SpanFromContextSafe(ctx)
 
 	if count > 10000 {
@@ -211,14 +211,14 @@ func (d *dirSnapshotOp) Rename(ctx context.Context, src, dst string) error {
 	return nil
 }
 
-func (d *dirSnapshotOp) ReadDirAll(ctx context.Context, ino uint64) ([]sdk.DirInfo, error) {
+func (d *dirSnapshotOp) ReadDirAll(ctx context.Context, subPath string, ino uint64) ([]sdk.DirInfo, error) {
 	span := trace.SpanFromContextSafe(ctx)
 	marker := ""
 	count := 1000
 	total := make([]sdk.DirInfo, 0)
 
 	for {
-		dirs, err := d.Readdir(ctx, ino, marker, uint32(count))
+		dirs, err := d.Readdir(ctx, subPath, ino, marker, uint32(count))
 		if err != nil {
 			span.Errorf("readdir failed, ino %d, marker %s, count %s", ino, marker, count)
 			return nil, syscallToErr(err)
@@ -232,10 +232,10 @@ func (d *dirSnapshotOp) ReadDirAll(ctx context.Context, ino uint64) ([]sdk.DirIn
 	}
 }
 
-func (d *dirSnapshotOp) getStatByIno(ctx context.Context, ino uint64) (info *sdk.StatFs, err error) {
+func (d *dirSnapshotOp) getStatByIno(ctx context.Context, subPath string, ino uint64) (info *sdk.StatFs, err error) {
 	span := trace.SpanFromContextSafe(ctx)
 	info = new(sdk.StatFs)
-	entArr, err := d.ReadDirAll(ctx, ino)
+	entArr, err := d.ReadDirAll(ctx, subPath, ino)
 	if err != nil {
 		span.Errorf("readirAll failed, ino %d, err %s", ino, err.Error())
 		return nil, syscallToErr(err)
@@ -249,7 +249,7 @@ func (d *dirSnapshotOp) getStatByIno(ctx context.Context, ino uint64) (info *sdk
 	inoArr := make([]uint64, 0, len(entArr))
 	for _, e := range entArr {
 		if proto.IsDir(e.Type) {
-			subStat, err1 := d.getStatByIno(ctx, e.Inode)
+			subStat, err1 := d.getStatByIno(ctx, subPath, e.Inode)
 			if err1 != nil {
 				return nil, syscallToErr(err1)
 			}
@@ -265,7 +265,7 @@ func (d *dirSnapshotOp) getStatByIno(ctx context.Context, ino uint64) (info *sdk
 	}
 	info.Files = files
 
-	infos, err := d.BatchGetInodes(ctx, inoArr)
+	infos, err := d.BatchGetInodes(ctx, subPath, ino, inoArr)
 	if err != nil {
 		span.Errorf("batch getInodes failed, err %s", err.Error())
 		return nil, syscallToErr(err)
@@ -278,11 +278,11 @@ func (d *dirSnapshotOp) getStatByIno(ctx context.Context, ino uint64) (info *sdk
 	return info, nil
 }
 
-func (d *dirSnapshotOp) StatFs(ctx context.Context, ino uint64) (*sdk.StatFs, error) {
-	return d.getStatByIno(ctx, ino)
+func (d *dirSnapshotOp) StatFs(ctx context.Context, subPath string, ino uint64) (*sdk.StatFs, error) {
+	return d.getStatByIno(ctx, subPath, ino)
 }
 
-func (d *dirSnapshotOp) SetAttr(ctx context.Context, req *sdk.SetAttrReq) error {
+func (d *dirSnapshotOp) SetAttr(ctx context.Context, subPath string, req *sdk.SetAttrReq) error {
 	span := trace.SpanFromContextSafe(ctx)
 
 	err := d.mw.Setattr(req.Ino, req.Flag, req.Mode, req.Uid, req.Gid, int64(req.Atime), int64(req.Mtime))
@@ -294,7 +294,7 @@ func (d *dirSnapshotOp) SetAttr(ctx context.Context, req *sdk.SetAttrReq) error 
 	return nil
 }
 
-func (d *dirSnapshotOp) SetXAttr(ctx context.Context, ino uint64, key string, val string) error {
+func (d *dirSnapshotOp) SetXAttr(ctx context.Context, subPath string, ino uint64, key string, val string) error {
 	span := trace.SpanFromContextSafe(ctx)
 
 	err := d.mw.XAttrSet(ino, []byte(key), []byte(val), true)
@@ -305,7 +305,7 @@ func (d *dirSnapshotOp) SetXAttr(ctx context.Context, ino uint64, key string, va
 
 	return nil
 }
-func (d *dirSnapshotOp) SetXAttrNX(ctx context.Context, ino uint64, key string, val string) error {
+func (d *dirSnapshotOp) SetXAttrNX(ctx context.Context, subPath string, ino uint64, key string, val string) error {
 	span := trace.SpanFromContextSafe(ctx)
 
 	err := d.mw.XAttrSet(ino, []byte(key), []byte(val), false)
@@ -316,7 +316,7 @@ func (d *dirSnapshotOp) SetXAttrNX(ctx context.Context, ino uint64, key string, 
 	return nil
 }
 
-func (d *dirSnapshotOp) BatchSetXAttr(ctx context.Context, ino uint64, attrs map[string]string) error {
+func (d *dirSnapshotOp) BatchSetXAttr(ctx context.Context, subPath string, ino uint64, attrs map[string]string) error {
 	span := trace.SpanFromContextSafe(ctx)
 
 	err := d.mw.BatchSetXAttr(ino, attrs)
@@ -328,7 +328,7 @@ func (d *dirSnapshotOp) BatchSetXAttr(ctx context.Context, ino uint64, attrs map
 	return nil
 }
 
-func (d *dirSnapshotOp) GetXAttr(ctx context.Context, ino uint64, key string) (string, error) {
+func (d *dirSnapshotOp) GetXAttr(ctx context.Context, subPath string, ino uint64, key string) (string, error) {
 	span := trace.SpanFromContextSafe(ctx)
 
 	val, err := d.mw.XAttrGet_ll(ino, key)
@@ -340,7 +340,7 @@ func (d *dirSnapshotOp) GetXAttr(ctx context.Context, ino uint64, key string) (s
 	return val.XAttrs[key], nil
 }
 
-func (d *dirSnapshotOp) ListXAttr(ctx context.Context, ino uint64) ([]string, error) {
+func (d *dirSnapshotOp) ListXAttr(ctx context.Context, subPath string, ino uint64) ([]string, error) {
 	span := trace.SpanFromContextSafe(ctx)
 
 	val, err := d.mw.XAttrsList_ll(ino)
@@ -352,7 +352,7 @@ func (d *dirSnapshotOp) ListXAttr(ctx context.Context, ino uint64) ([]string, er
 	return val, nil
 }
 
-func (d *dirSnapshotOp) GetXAttrMap(ctx context.Context, ino uint64) (map[string]string, error) {
+func (d *dirSnapshotOp) GetXAttrMap(ctx context.Context, subPath string, ino uint64) (map[string]string, error) {
 	span := trace.SpanFromContextSafe(ctx)
 
 	val, err := d.mw.XAttrGetAll(ino)
@@ -364,7 +364,7 @@ func (d *dirSnapshotOp) GetXAttrMap(ctx context.Context, ino uint64) (map[string
 	return val.XAttrs, nil
 }
 
-func (d *dirSnapshotOp) DeleteXAttr(ctx context.Context, ino uint64, key string) error {
+func (d *dirSnapshotOp) DeleteXAttr(ctx context.Context, subPath string, ino uint64, key string) error {
 	span := trace.SpanFromContextSafe(ctx)
 
 	err := d.mw.XAttrDel_ll(ino, key)
@@ -376,7 +376,7 @@ func (d *dirSnapshotOp) DeleteXAttr(ctx context.Context, ino uint64, key string)
 	return nil
 }
 
-func (d *dirSnapshotOp) BatchDeleteXAttr(ctx context.Context, ino uint64, keys []string) error {
+func (d *dirSnapshotOp) BatchDeleteXAttr(ctx context.Context, subPath string, ino uint64, keys []string) error {
 	span := trace.SpanFromContextSafe(ctx)
 	err := d.mw.XBatchDelAttr_ll(ino, keys)
 	if err != nil {
@@ -392,7 +392,7 @@ const (
 	defaultFileMode = 0o644
 )
 
-func (d *dirSnapshotOp) Mkdir(ctx context.Context, parIno uint64, name string) (*sdk.InodeInfo, uint64, error) {
+func (d *dirSnapshotOp) Mkdir(ctx context.Context, subPath string, parIno uint64, name string) (*sdk.InodeInfo, uint64, error) {
 	span := trace.SpanFromContextSafe(ctx)
 
 	info, fileId, err := d.mw.CreateFileEx(ctx, parIno, name, uint32(defaultDirMod))
@@ -405,7 +405,7 @@ func (d *dirSnapshotOp) Mkdir(ctx context.Context, parIno uint64, name string) (
 	return info, fileId, nil
 }
 
-func (d *dirSnapshotOp) CreateFile(ctx context.Context, parentIno uint64, name string) (*sdk.InodeInfo, uint64, error) {
+func (d *dirSnapshotOp) CreateFile(ctx context.Context, subPath string, parentIno uint64, name string) (*sdk.InodeInfo, uint64, error) {
 	ifo, fileId, err := d.mw.CreateFileEx(ctx, parentIno, name, uint32(defaultFileMode))
 	if err != nil {
 		return nil, 0, syscallToErr(err)
@@ -413,7 +413,7 @@ func (d *dirSnapshotOp) CreateFile(ctx context.Context, parentIno uint64, name s
 	return ifo, fileId, nil
 }
 
-func (d *dirSnapshotOp) Delete(ctx context.Context, parIno uint64, name string, isDir bool) error {
+func (d *dirSnapshotOp) Delete(ctx context.Context, subPath string, parIno uint64, name string, isDir bool) error {
 	span := trace.SpanFromContextSafe(ctx)
 
 	ifo, err := d.mw.Delete(parIno, name, isDir)
@@ -435,7 +435,7 @@ func (d *dirSnapshotOp) Delete(ctx context.Context, parIno uint64, name string, 
 	return nil
 }
 
-func (d *dirSnapshotOp) UploadFile(ctx context.Context, req *sdk.UploadFileReq) (*sdk.InodeInfo, uint64, error) {
+func (d *dirSnapshotOp) UploadFile(ctx context.Context, subPath string, req *sdk.UploadFileReq) (*sdk.InodeInfo, uint64, error) {
 	span := trace.SpanFromContextSafe(ctx)
 	var oldIno uint64
 	if req.OldFileId != 0 {
@@ -578,7 +578,7 @@ func (d *dirSnapshotOp) writeAt(ctx context.Context, ino uint64, off, size int, 
 	}
 }
 
-func (d *dirSnapshotOp) WriteFile(ctx context.Context, ino, off, size uint64, body io.Reader) error {
+func (d *dirSnapshotOp) WriteFile(ctx context.Context, subPath string, ino, off, size uint64, body io.Reader) error {
 	span := trace.SpanFromContextSafe(ctx)
 
 	span.Debugf("start write file, ino %d, off %d, size %d", ino, off, size)
@@ -598,7 +598,7 @@ func (d *dirSnapshotOp) WriteFile(ctx context.Context, ino, off, size uint64, bo
 	return err
 }
 
-func (d *dirSnapshotOp) ReadFile(ctx context.Context, ino, off uint64, data []byte) (n int, err error) {
+func (d *dirSnapshotOp) ReadFile(ctx context.Context, subPath string, ino, off uint64, data []byte) (n int, err error) {
 	span := trace.SpanFromContextSafe(ctx)
 
 	if err = d.ec.OpenStream(ino); err != nil {
@@ -1061,7 +1061,7 @@ func (d *dirSnapshotOp) NewInodeLock() sdk.InodeLockApi {
 }
 
 // GetDirSnapshot should be invoked when every rpc request from client.
-func (d *dirSnapshotOp) GetDirSnapshot(ctx context.Context, rootIno uint64) (sdk.IDirSnapshot, error) {
+func (d *dirSnapshotOp) GetDirSnapshot(ctx context.Context, rootIno uint64, concurrency bool) (sdk.IDirSnapshot, error) {
 	return nil, sdk.ErrBadRequest
 }
 

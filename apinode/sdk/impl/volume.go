@@ -104,7 +104,7 @@ func newVolume(ctx context.Context, name, owner, addr string) (sdk.IVolume, erro
 	return v, nil
 }
 
-func (v *volume) GetDirSnapshot(ctx context.Context, rootIno uint64) (sdk.IDirSnapshot, error) {
+func (v *volume) GetDirSnapshot(ctx context.Context, rootIno uint64, parallel bool) (sdk.IDirSnapshot, error) {
 	span := trace.SpanFromContext(ctx)
 
 	items, err := v.mw.ListAllDirSnapshot(rootIno)
