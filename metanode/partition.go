@@ -703,6 +703,15 @@ func (mp *metaPartition) cleanDirVersions() {
 
 	// update version status  in meta
 	verItems := make([]proto.DirVerItem, 0, len(req.DirInfos))
+	for _, e := range items {
+		for _, v := range e.DelVers {
+			verItems = append(verItems, proto.DirVerItem{
+				Ver:        v.DelVer,
+				RootIno:    e.SubRootIno,
+				DirSnapIno: e.DirIno,
+			})
+		}
+	}
 	pkt := &Packet{}
 	err = mp.batchDelDirSnapshot(verItems, pkt, proto.VersionDeleting)
 	if pkt.ResultCode != proto.OpOk {
