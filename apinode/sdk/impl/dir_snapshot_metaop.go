@@ -116,7 +116,7 @@ func (m *snapMetaOpImp) getVersionNames(dirIno uint64) (names []string) {
 	names = make([]string, 0)
 
 	for _, e := range m.snapShotItems {
-		if e.SnapshotInode != dirIno {
+		if e.IsSnapshotInode(dirIno) {
 			continue
 		}
 
@@ -133,7 +133,7 @@ func (m *snapMetaOpImp) getVersionNames(dirIno uint64) (names []string) {
 
 func (m *snapMetaOpImp) versionExist(dirIno uint64, outVer string) (bool, *proto.VersionInfo) {
 	for _, e := range m.snapShotItems {
-		if e.SnapshotInode != dirIno {
+		if e.IsSnapshotInode(dirIno) {
 			continue
 		}
 
@@ -153,8 +153,10 @@ func (m *snapMetaOpImp) isSnapshotDir(ctx context.Context, parentId uint64, name
 		return false, nil
 	}
 
-	if parentId != m.verInfo.SnapshotInode {
-		return false, nil
+	if m.verInfo != nil && parentId != m.verInfo.SnapshotInode {
+		span.Warnf("already set ver before, maybe conflict, parentId %d, name %s, ver %s",
+			parentId, name, m.getVerStr())
+		return false, sdk.ErrConflict
 	}
 
 	cv := m.verInfo
@@ -164,13 +166,10 @@ func (m *snapMetaOpImp) isSnapshotDir(ctx context.Context, parentId uint64, name
 			continue
 		}
 		if v.Ver.Status != proto.VersionNormal {
-			span.Warnf("target dir version is already deleted, ver %v, ino %d name %s", v, parentId, name)
-			return false, sdk.ErrNotFound
+			break
 		}
 
-		tmp := &proto.DelVer{
-			DelVer: v.Ver.Ver,
-		}
+		tmp := &proto.DelVer{}
 		for _, v := range cv.Vers {
 			tmp.Vers = append(tmp.Vers, v.Ver)
 		}
@@ -179,11 +178,51 @@ func (m *snapMetaOpImp) isSnapshotDir(ctx context.Context, parentId uint64, name
 			DelTime: 0,
 			Status:  proto.VersionInit,
 		})
-		return true, nil
+		break
 	}
 
-	span.Warnf("can't find target version, name %s, parIno %d, ver %s", name, parentId, m.getVerStr())
-	return false, sdk.ErrNotFound
+	var ver *proto.DelVer
+	buildVer := func(idx uint64, vers []*proto.ClientDirVer) {
+		ver = &proto.DelVer{
+			DelVer: idx,
+		}
+
+		for _, v := range vers {
+			ver.Vers = append(ver.Vers, v.Ver)
+		}
+	}
+
+	for _, e := range m.snapShotItems {
+		if e.SnapshotInode != parentId {
+			continue
+		}
+
+		for _, v := range e.Vers {
+			vName := versionName(v.OutVer)
+			if name == vName && v.Ver.Status == proto.VersionNormal {
+				buildVer(v.Ver.Ver, e.Vers)
+				ver.Vers = append(ver.Vers, &proto.VersionInfo{
+					Ver:     e.MaxVer,
+					DelTime: 0,
+					Status:  proto.VersionInit,
+				})
+				break
+			}
+		}
+
+		break
+	}
+
+	if ver == nil {
+		return false, sdk.ErrNotFound
+	}
+
+	m.hasSetVer = true
+	m.ver = ver
+	m.isNewest = false
+	m.snapIno = parentId
+	m.sm.SetVerInfo(ver)
+	return true, nil
 }
 
 func buildFromClientVers(maxVer uint64, clientVers []*proto.ClientDirVer) (vers []*proto.VersionInfo) {
@@ -215,30 +254,23 @@ func (m *snapMetaOpImp) checkSnapshotIno(dirIno uint64) {
 		return
 	}
 
-	for _, e := range m.snapShotItems {
-		if e.SnapshotInode != dirIno {
-			continue
-		}
-		ver := &proto.DelVer{
-			DelVer: e.MaxVer,
-			Vers:   buildFromClientVers(e.MaxVer, e.Vers),
-		}
-
-		m.sm.SetVerInfo(ver)
-		m.ver = ver
-		m.isNewest = true
-		m.hasSetVer = true
-		m.snapIno = dirIno
+	isSnapshot, ver := m.isSnapshotInode(dirIno)
+	if !isSnapshot {
 		return
 	}
 
+	m.sm.SetVerInfo(ver)
+	m.ver = ver
+	m.isNewest = true
+	m.hasSetVer = true
+	m.snapIno = dirIno
 	return
 
 }
 
 func (m *snapMetaOpImp) isSnapshotInode(dirIno uint64) (bool, *proto.DelVer) {
 	for _, e := range m.snapShotItems {
-		if e.SnapshotInode == dirIno {
+		if e.IsSnapshotInode(dirIno) {
 			ver := &proto.DelVer{
 				DelVer: e.MaxVer,
 				Vers:   buildFromClientVers(e.MaxVer, e.Vers),
@@ -263,7 +295,7 @@ func newDirDentry(dirIno uint64, name string) (den *proto.Dentry) {
 		Name:   name,
 		Inode:  dirIno,
 		Type:   uint32(defaultDirMod),
-		FileId: 0,
+		FileId: sdk.SnapShotFileId,
 	}
 }
 
@@ -654,21 +686,6 @@ func (m *snapMetaOpImp) RemoveMultipart_ll(path, multipartID string) (err error)
 
 func (m *snapMetaOpImp) ListAllDirSnapshot(subRootIno uint64) ([]*proto.DirSnapshotInfo, error) {
 	return m.sm.ListAllDirSnapshot(subRootIno)
-}
-
-func (m *snapMetaOpImp) conflict(ctx context.Context, filePath string) bool {
-	span := trace.SpanFromContextSafe(ctx)
-	for _, e := range m.snapShotItems {
-		if e.SnapshotDir == filePath {
-			continue
-		}
-
-		if strings.HasPrefix(e.SnapshotDir, filePath) || strings.HasPrefix(filePath, e.SnapshotDir) {
-			span.Warnf("filePath %s is conflict with before snapshot dir %s", filePath, e.SnapshotDir)
-			return true
-		}
-	}
-	return false
 }
 
 func (m *snapMetaOpImp) getSnapshotInodes() []uint64 {

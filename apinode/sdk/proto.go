@@ -45,6 +45,7 @@ type DirSnapshotList struct {
 }
 
 const SnapShotPre = ".cfa_snapshot_"
+const SnapShotFileId = 0
 
 type DirInfo = proto.Dentry
 

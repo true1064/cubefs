@@ -27,7 +27,7 @@ type IDirSnapshot interface {
 	Lookup(ctx context.Context, parentIno uint64, name string) (*DirInfo, error)
 	GetInode(ctx context.Context, ino uint64) (*proto.InodeInfo, error)
 	// BatchGetInodes maybe cost much time
-	BatchGetInodes(ctx context.Context, parIno uint64, inos []uint64) ([]*proto.InodeInfo, error)
+	BatchGetInodes(ctx context.Context, inos []uint64) ([]*proto.InodeInfo, error)
 	Readdir(ctx context.Context, parIno uint64, marker string, count uint32) ([]DirInfo, error)
 	ReadDirAll(ctx context.Context, ino uint64) ([]DirInfo, error)
 	StatFs(ctx context.Context, ino uint64) (*StatFs, error)
@@ -49,7 +49,8 @@ type IDirSnapshot interface {
 }
 
 type DirSnapShot interface {
-	GetDirSnapshot(ctx context.Context, rootIno uint64, concurrency bool) (IDirSnapshot, error)
+	IsSnapshotInode(ctx context.Context, ino uint64) bool
+	GetDirSnapshot(ctx context.Context, rootIno uint64) (IDirSnapshot, error)
 	CreateDirSnapshot(ctx context.Context, ver, filePath string) error
 	DeleteDirSnapshot(ctx context.Context, ver, filePath string) error
 }

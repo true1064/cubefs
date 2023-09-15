@@ -7,6 +7,7 @@ import (
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/trace"
 	"github.com/cubefs/cubefs/blobstore/util/taskpool"
+	"github.com/cubefs/cubefs/depends/tiglabs/raft/logger"
 	"github.com/cubefs/cubefs/proto"
 	"github.com/cubefs/cubefs/sdk/data/stream"
 	"github.com/cubefs/cubefs/sdk/meta"
@@ -19,6 +20,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 )
 
 type dirSnapshotOp struct {
@@ -26,6 +28,9 @@ type dirSnapshotOp struct {
 	mw      *snapMetaOpImp
 	ec      DataOp
 	rootIno uint64
+
+	walkCh chan struct{}
+	stop   chan struct{}
 }
 
 var (
@@ -77,12 +82,23 @@ func newDataVerOp(d DataOp, mw *snapMetaOpImp) DataOp {
 	return dop
 }
 
+func (d *dirSnapshotOp) IsSnapshotInode(ctx context.Context, ino uint64) bool {
+	span := trace.SpanFromContextSafe(ctx)
+	isSnapshot, ver := d.mw.isSnapshotInode(ino)
+	if isSnapshot {
+		span.Debugf("target ino is a snapshot inode, ino %d, ver %s", ino, ver.String())
+	}
+	return isSnapshot
+}
+
 func (d *dirSnapshotOp) CreateDirSnapshot(ctx context.Context, ver, subPath string) error {
 	span := trace.SpanFromContextSafe(ctx)
 
-	if d.mw.conflict(ctx, subPath) {
-		span.Warnf("snapshot path is conflict with before, subPath %s", subPath)
-		return sdk.ErrWriteSnapshot
+	err := d.checkConflict(ctx, subPath, ver)
+	if err != nil {
+		span.Warnf("snapshot path is conflict with before, subPath %s, err %s",
+			subPath, err.Error())
+		return syscallToErr(err)
 	}
 
 	dirIno, _, err := d.mw.lookupSubDirVer(d.rootIno, subPath)
@@ -115,6 +131,108 @@ func (d *dirSnapshotOp) CreateDirSnapshot(ctx context.Context, ver, subPath stri
 
 	span.Debugf("create dir snapshot success, ifo %v", ifo)
 	return nil
+}
+
+func (d *dirSnapshotOp) checkConflict(ctx context.Context, subPath, outVer string) error {
+	span := trace.SpanFromContextSafe(ctx)
+	dirIno, ver, err := d.mw.lookupSubDirVer(d.rootIno, subPath)
+	if err != nil {
+		span.Warnf("find snapshot path failed, rootIno %d, subPath %s, err %s",
+			d.rootIno, subPath, err.Error())
+		return syscallToErr(err)
+	}
+
+	isSnapshot, _ := d.mw.isSnapshotInode(dirIno)
+	if isSnapshot {
+		exist, _ := d.mw.versionExist(dirIno, outVer)
+		if exist {
+			span.Warnf("target dir version is already exist, ino %d, subPath %s, outVer %s",
+				dirIno, subPath, outVer)
+			return sdk.ErrExist
+		}
+		return nil
+	}
+
+	if ver != nil {
+		span.Warnf("subPath %s is conflict with before, snapshot inodes(%v), ver %v",
+			subPath, d.mw.getSnapshotInodes(), ver.String())
+		return sdk.ErrConflict
+	}
+
+	// check all inodes of subdir.
+	start := time.Now()
+	d.walkCh = make(chan struct{}, 10)
+	span.Infof("start check subDir dir snapshot info, subPath %s, dirIno %d", subPath, dirIno)
+	err = d.recursiveCheckSubDir(ctx, dirIno)
+	if err != nil {
+		span.Errorf("recursive check subDir failed, path %s, dirIno %d, err %s, cost %s",
+			subPath, dirIno, err.Error(), time.Since(start).String())
+		return syscallToErr(err)
+	}
+	span.Infof("check subDir snapshot success, path %s, dirIno %d, cost %s",
+		subPath, dirIno, time.Since(start).String())
+	return nil
+}
+
+func (d *dirSnapshotOp) recursiveCheckSubDir(ctx context.Context, dirIno uint64) error {
+	span := trace.SpanFromContextSafe(ctx)
+	items, err := d.ReadDirAll(ctx, dirIno)
+	if err != nil {
+		span.Warnf("read dir snapshot failed, dirIno %d, err %s", dirIno, err.Error())
+		return err
+	}
+
+	wg := sync.WaitGroup{}
+
+	release := func() {
+		wg.Done()
+		select {
+		case <-d.walkCh:
+			return
+		default:
+			return
+		}
+	}
+
+	for _, e := range items {
+		if !proto.IsDir(e.Type) {
+			continue
+		}
+
+		find, ver := d.mw.isSnapshotInode(e.Inode)
+		if find {
+			span.Errorf("find a conflict snapshot ino %d, name %s, ver %v", e.Inode, e.Name, ver)
+			return sdk.ErrConflict
+		}
+
+		select {
+		case d.walkCh <- struct{}{}:
+			wg.Add(1)
+			go func(ino uint64) {
+				defer release()
+				err1 := d.recursiveCheckSubDir(ctx, ino)
+				if err1 != nil {
+					span.Errorf("recursiveCheckSubDir: find conflict snapshot ino, parIno %d, name %s, err1 %s",
+						e.Inode, e.Name, err1.Error())
+					err = err1
+				}
+			}(e.Inode)
+		case <-d.stop:
+			logger.Warn("receive stop from stopCh, exit walkDir, dirIno %d", dirIno)
+			return sdk.ErrInternalServerError
+		default:
+			err1 := d.recursiveCheckSubDir(ctx, e.Inode)
+			if err1 != nil {
+				span.Errorf("recursiveCheckSubDir: find conflict snapshot ino, parIno %d, name %s, err1 %s",
+					e.Inode, e.Name, err1.Error())
+				err = err1
+			}
+		}
+	}
+
+	wg.Wait()
+
+	return err
 }
 
 func (d *dirSnapshotOp) DeleteDirSnapshot(ctx context.Context, ver, filePath string) error {
@@ -172,7 +290,7 @@ func (d *dirSnapshotOp) GetInode(ctx context.Context, ino uint64) (*proto.InodeI
 	return info, nil
 }
 
-func (d *dirSnapshotOp) BatchGetInodes(ctx context.Context, parIno uint64, inos []uint64) ([]*proto.InodeInfo, error) {
+func (d *dirSnapshotOp) BatchGetInodes(ctx context.Context, inos []uint64) ([]*proto.InodeInfo, error) {
 	span := trace.SpanFromContextSafe(ctx)
 
 	infos, err := d.mw.sm.BatchInodeGetWith(inos)
@@ -265,7 +383,7 @@ func (d *dirSnapshotOp) getStatByIno(ctx context.Context, ino uint64) (info *sdk
 	}
 	info.Files = files
 
-	infos, err := d.BatchGetInodes(ctx, ino, inoArr)
+	infos, err := d.BatchGetInodes(ctx, inoArr)
 	if err != nil {
 		span.Errorf("batch getInodes failed, err %s", err.Error())
 		return nil, syscallToErr(err)
@@ -1061,7 +1179,7 @@ func (d *dirSnapshotOp) NewInodeLock() sdk.InodeLockApi {
 }
 
 // GetDirSnapshot should be invoked when every rpc request from client.
-func (d *dirSnapshotOp) GetDirSnapshot(ctx context.Context, rootIno uint64, concurrency bool) (sdk.IDirSnapshot, error) {
+func (d *dirSnapshotOp) GetDirSnapshot(ctx context.Context, rootIno uint64) (sdk.IDirSnapshot, error) {
 	return nil, sdk.ErrBadRequest
 }
 

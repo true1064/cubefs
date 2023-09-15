@@ -100,6 +100,10 @@ type DirSnapshotInfo struct {
 	Vers          []*ClientDirVer `json:"vers"`
 }
 
+func (d *DirSnapshotInfo) IsSnapshotInode(ino uint64) bool {
+	return d.SnapshotInode == ino
+}
+
 func (d *DirSnapshotInfo) String() string {
 	data, _ := json.Marshal(d)
 	return string(data)

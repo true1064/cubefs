@@ -21,8 +21,7 @@ type volume struct {
 	owner      string
 	allocId    func(ctx context.Context) (id uint64, err error)
 	allocVerId func(ctx context.Context, name string) (id uint64, err error)
-	//allocVerId func(
-	sdk.IDirSnapshot
+	*dirSnapshotOp
 }
 
 type metaOpImp struct {
@@ -104,7 +103,7 @@ func newVolume(ctx context.Context, name, owner, addr string) (sdk.IVolume, erro
 	return v, nil
 }
 
-func (v *volume) GetDirSnapshot(ctx context.Context, rootIno uint64, parallel bool) (sdk.IDirSnapshot, error) {
+func (v *volume) GetDirSnapshot(ctx context.Context, rootIno uint64) (sdk.IDirSnapshot, error) {
 	span := trace.SpanFromContext(ctx)
 
 	items, err := v.mw.ListAllDirSnapshot(rootIno)
