@@ -394,21 +394,6 @@ func (mr *MockMetaOpMockRecorder) ListAllDirSnapshot(arg0 interface{}) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAllDirSnapshot", reflect.TypeOf((*MockMetaOp)(nil).ListAllDirSnapshot), arg0)
 }
 
-// ListMultipart_ll mocks base method.
-func (m *MockMetaOp) ListMultipart_ll(arg0, arg1, arg2, arg3 string, arg4 uint64) ([]*proto.MultipartInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListMultipart_ll", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].([]*proto.MultipartInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ListMultipart_ll indicates an expected call of ListMultipart_ll.
-func (mr *MockMetaOpMockRecorder) ListMultipart_ll(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListMultipart_ll", reflect.TypeOf((*MockMetaOp)(nil).ListMultipart_ll), arg0, arg1, arg2, arg3, arg4)
-}
-
 // LookupEx_ll mocks base method.
 func (m *MockMetaOp) LookupEx_ll(arg0 uint64, arg1 string) (*proto.Dentry, error) {
 	m.ctrl.T.Helper()
