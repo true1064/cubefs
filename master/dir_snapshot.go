@@ -368,6 +368,7 @@ func (dirVerMgr *DirSnapVersionManager) AllocVersion() (verInfo *proto.DirSnapsh
 	return dirVerMgr.dirVerAllocator.AllocVersion(dirVerMgr.vol, dirVerMgr.c)
 }
 
+//TODO:tangjingyu check if mpId exists
 func (dirVerMgr *DirSnapVersionManager) AddDirToDelVerInfos(mpId uint64, infoList []proto.DelDirVersionInfo) (err error) {
 	var changed bool
 
@@ -398,7 +399,10 @@ func (dirVerMgr *DirSnapVersionManager) AddDirToDelVerInfos(mpId uint64, infoLis
 	}
 
 	if changed {
-		err = dirVerMgr.PersistDirDelVerInfo()
+		if err = dirVerMgr.PersistDirDelVerInfo(); err != nil {
+			log.LogErrorf("[AddDirToDelVerInfos]: PersistDirDelVerInfo failed, mpId:%v, err:%v", mpId, err.Error())
+			return
+		}
 	} else {
 		log.LogInfof("[AddDirToDelVerInfos]: nothing changed, mpId:%v, ", mpId)
 	}
@@ -412,14 +416,8 @@ type ToDelDirVersionInfo struct {
 	DirInfos        []proto.DelDirVersionInfo //TODO: change to pointer
 }
 
-//TODO:tangjingyu return pointer
-//for lcNode
 func (dirVerMgr *DirSnapVersionManager) getToDelDirVersionInfoList() (toDelDirVersionInfoList []ToDelDirVersionInfo) {
 	toDelDirVersionInfoList = make([]ToDelDirVersionInfo, 0)
-
-	//TODO: lock scope
-	dirVerMgr.DeVerInfoLock.Lock()
-	defer dirVerMgr.DeVerInfoLock.Unlock()
 
 	for _, dirToDelVerInfoByMpId := range dirVerMgr.toDelDirVerInfoMap {
 		toDelDirVersionInfo := ToDelDirVersionInfo{
@@ -456,6 +454,16 @@ func (dirVerMgr *DirSnapVersionManager) getToDelDirVersionInfoList() (toDelDirVe
 	}
 
 	return toDelDirVersionInfoList
+}
+
+//TODO:tangjingyu return pointer
+//for lcNode
+func (dirVerMgr *DirSnapVersionManager) getToDelDirVersionInfoListWithLock() (toDelDirVersionInfoList []ToDelDirVersionInfo) {
+	//TODO: lock scope
+	dirVerMgr.DeVerInfoLock.Lock()
+	defer dirVerMgr.DeVerInfoLock.Unlock()
+
+	return dirVerMgr.getToDelDirVersionInfoList()
 }
 
 // RemoveDirToDelVer :

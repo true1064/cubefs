@@ -4372,7 +4372,7 @@ func (c *Cluster) getSnapshotDelVer() {
 			}
 		}
 
-		dirVersionInfoList := vol.DirSnapVersionMgr.getToDelDirVersionInfoList()
+		dirVersionInfoList := vol.DirSnapVersionMgr.getToDelDirVersionInfoListWithLock()
 		for _, dirVerInfo := range dirVersionInfoList {
 			for _, info := range dirVerInfo.DirInfos {
 				for _, ver := range info.DelVers {
