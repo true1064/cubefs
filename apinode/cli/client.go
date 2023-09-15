@@ -225,6 +225,14 @@ func (c *client) FileBatchDelete(paths []string) (r drive.BatchDeleteResult, err
 	return
 }
 
+func (c *client) SnapshotCreate(path, ver string) error {
+	return c.request(post, genURI("/v1/snapshot", "path", path, "ver", ver), nil)
+}
+
+func (c *client) SnapshotDelete(path, ver string) error {
+	return c.request(del, genURI("/v1/snapshot", "path", path, "ver", ver), nil)
+}
+
 func (c *client) MPInit(path, fileID string, meta ...string) (r drive.RespMPuploads, err error) {
 	err = c.requestWith(post, genURI(_pmp, "path", path, "fileId", fileID), nil, &r, meta...)
 	return

@@ -148,7 +148,7 @@ func (d *DriveNode) recursivelyDelete(c *rpc.Context, path FilePath) {
 			if !dir.ignore {
 				if vol.IsSnapshotInode(ctx, dirInfo.Inode) {
 					span.Info("sub name is snapshot:", dir)
-					d.respError(c, sdk.ErrNotEmpty.Extend("is snapshot dir"))
+					d.respError(c, sdk.ErrNotEmpty.Extend("has snapshot dir"))
 					return
 				}
 			}

@@ -429,6 +429,37 @@ func addCmdMultipart(cmd *grumble.Command) {
 	})
 }
 
+func addCmdSnapshot(cmd *grumble.Command) {
+	snapCommand := &grumble.Command{
+		Name: "snap",
+		Help: "snap api",
+	}
+	cmd.AddCommand(snapCommand)
+
+	snapCommand.AddCommand(&grumble.Command{
+		Name: "create",
+		Help: "create dir snapshot",
+		Args: func(a *grumble.Args) {
+			a.String("path", "path name")
+			a.String("ver", "version")
+		},
+		Run: func(c *grumble.Context) error {
+			return cli.SnapshotCreate(c.Args.String("path"), c.Args.String("ver"))
+		},
+	})
+	snapCommand.AddCommand(&grumble.Command{
+		Name: "delete",
+		Help: "delete dir snapshot",
+		Args: func(a *grumble.Args) {
+			a.String("path", "path name")
+			a.String("ver", "version")
+		},
+		Run: func(c *grumble.Context) error {
+			return cli.SnapshotDelete(c.Args.String("path"), c.Args.String("ver"))
+		},
+	})
+}
+
 func flagsStrings(f *grumble.Flags, keys ...string) {
 	for _, k := range keys {
 		f.StringL(k, "", k)
@@ -454,4 +485,5 @@ func registerDrive(app *grumble.App) {
 	addCmdDir(driveCommand)
 	addCmdFile(driveCommand)
 	addCmdMultipart(driveCommand)
+	addCmdSnapshot(driveCommand)
 }
