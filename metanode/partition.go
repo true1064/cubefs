@@ -554,7 +554,8 @@ func (mp *metaPartition) checkAndUpdateVerList(verSeq uint64) (err error) {
 	if isInitSnapVer(verSeq) {
 		verSeq = 0
 	}
-	log.LogDebugf("mp.multiVersionList.VerList size %v, content %v", len(mp.multiVersionList.VerList), mp.multiVersionList.VerList)
+	log.LogDebugf("mp.multiVersionList.VerList size %v, content %v",
+		len(mp.multiVersionList.VerList), mp.multiVersionList.VerList)
 	nLen := len(mp.multiVersionList.VerList)
 	if nLen == 0 {
 		log.LogFatalf("checkAndUpdateVerList. mp %v must have more than one version on list", mp.config.PartitionId)
@@ -623,6 +624,24 @@ func (mp *metaPartition) scheduleCleanDirVersions() {
 	}()
 }
 
+func getVerIfo(v, max uint64, items []*snapshotVer) proto.DelVer {
+	e := proto.DelVer{
+		DelVer: v,
+		Vers:   make([]*proto.VersionInfo, 0),
+	}
+
+	for _, v := range items {
+		e.Vers = append(e.Vers, &proto.VersionInfo{
+			Ver:     v.Ver,
+			DelTime: v.DelTime,
+			Status:  v.Status,
+		})
+	}
+
+	e.Vers = append(e.Vers, proto.GetMaxVersion(max))
+	return e
+}
+
 func (mp *metaPartition) cleanDirVersions() {
 	start := time.Now()
 	log.LogDebugf("cleanDirVersions: start clean dir versions, mp %d", mp.config.PartitionId)
@@ -630,26 +649,7 @@ func (mp *metaPartition) cleanDirVersions() {
 
 	delItems := map[uint64]*proto.DelDirVersionInfo{}
 
-	getVerIfo := func(v uint64, items []*snapshotVer) proto.DelVer {
-		e := proto.DelVer{
-			DelVer: v,
-			Vers:   make([]*proto.VersionInfo, 0),
-		}
-
-		for _, v := range items {
-			e.Vers = append(e.Vers, &proto.VersionInfo{
-				Ver:     v.Ver,
-				DelTime: v.DelTime,
-				Status:  v.Status,
-			})
-		}
-
-		return e
-	}
-
-	dirTree.Ascend(func(i BtreeItem) bool {
-		dir := i.(*dirSnapshotItem)
-
+	walkFunc := func(dir *dirSnapshotItem) {
 		for _, v := range dir.Vers {
 			if v.Status != proto.VersionMarkDelete {
 				continue
@@ -665,8 +665,13 @@ func (mp *metaPartition) cleanDirVersions() {
 				}
 				delItems[dir.SnapshotInode] = e
 			}
-			e.DelVers = append(e.DelVers, getVerIfo(v.Ver, dir.Vers))
+			e.DelVers = append(e.DelVers, getVerIfo(v.Ver, dir.MaxVer, dir.Vers))
 		}
+	}
+
+	dirTree.Ascend(func(i BtreeItem) bool {
+		dir := i.(*dirSnapshotItem)
+		walkFunc(dir)
 		return true
 	})
 
@@ -675,6 +680,51 @@ func (mp *metaPartition) cleanDirVersions() {
 		return
 	}
 
+	err := mp.batchDelDirVerToMaster(delItems)
+	if err != nil {
+		log.LogErrorf("cleanDirVersions: invoke master to batch delete dir versions failed, mp %d, err %s, cost %s",
+			mp.config.PartitionId, err.Error(), time.Since(start).String())
+		return
+	}
+	log.LogDebugf("cleanDirVersions: batch delete dir version success, mp %d, cost %s",
+		mp.config.PartitionId, time.Since(start).String())
+
+	err = mp.tryBatchUpdateDirVerStatus(delItems)
+	if err != nil {
+		log.LogErrorf("cleanDirVersions: batch delete dir snapshot failed, mp %d, err %v",
+			mp.config.PartitionId, err.Error())
+		return
+	}
+	log.LogDebugf("cleanDirVersions: clean dir versions success, mp %d, cost %s",
+		mp.config.PartitionId, time.Since(start).String())
+}
+
+func (mp *metaPartition) tryBatchUpdateDirVerStatus(delItems map[uint64]*proto.DelDirVersionInfo) error {
+	// update version status  in meta
+	verItems := make([]proto.DirVerItem, 0, len(delItems))
+	for _, e := range delItems {
+		for _, v := range e.DelVers {
+			verItems = append(verItems, proto.DirVerItem{
+				Ver:        v.DelVer,
+				RootIno:    e.SubRootIno,
+				DirSnapIno: e.DirIno,
+			})
+		}
+	}
+	pkt := &Packet{}
+	err := mp.batchDelDirSnapshot(verItems, pkt, proto.VersionDeleting)
+	if err != nil {
+		return err
+	}
+
+	if pkt.ResultCode != proto.OpOk {
+		return fmt.Errorf(pkt.GetResultMsg())
+	}
+
+	return nil
+}
+
+func (mp *metaPartition) batchDelDirVerToMaster(delItems map[uint64]*proto.DelDirVersionInfo) error {
 	items := make([]proto.DelDirVersionInfo, 0, len(delItems))
 	for _, e := range delItems {
 		items = append(items, *e)
@@ -689,39 +739,10 @@ func (mp *metaPartition) cleanDirVersions() {
 
 	if log.EnableDebug() {
 		data, _ := json.Marshal(req)
-		log.LogDebugf("cleanDirVersions: batch del info %s", data)
+		log.LogDebugf("batchDelDirVerToMaster: batch del info %s", data)
 	}
 
-	err := masterClient.AdminAPI().BatchDelDirSnapshotVersion(req)
-	if err != nil {
-		log.LogErrorf("cleanDirVersions: invoke master to batch delete dir versions failed, mp %d, err %s, cost %s",
-			mp.config.PartitionId, err.Error(), time.Since(start).String())
-		return
-	}
-	log.LogDebugf("cleanDirVersions: batch delete dir version success, mp %d, cost %s",
-		mp.config.PartitionId, time.Since(start).String())
-
-	// update version status  in meta
-	verItems := make([]proto.DirVerItem, 0, len(req.DirInfos))
-	for _, e := range items {
-		for _, v := range e.DelVers {
-			verItems = append(verItems, proto.DirVerItem{
-				Ver:        v.DelVer,
-				RootIno:    e.SubRootIno,
-				DirSnapIno: e.DirIno,
-			})
-		}
-	}
-	pkt := &Packet{}
-	err = mp.batchDelDirSnapshot(verItems, pkt, proto.VersionDeleting)
-	if pkt.ResultCode != proto.OpOk {
-		log.LogErrorf("cleanDirVersions: batch delete dir snapshot failed, mp %d, msg %s, err %v",
-			mp.config.PartitionId, pkt.GetResultMsg(), err)
-		return
-	}
-
-	log.LogDebugf("cleanDirVersions: clean dir versions success, mp %d, cost %s",
-		mp.config.PartitionId, time.Since(start).String())
+	return masterClient.AdminAPI().BatchDelDirSnapshotVersion(req)
 }
 
 func (mp *metaPartition) ForceSetMetaPartitionToLoadding() {

@@ -362,6 +362,14 @@ func (v *VersionInfo) IsNormal() bool {
 	return v.Status == VersionNormal
 }
 
+func GetMaxVersion(max uint64) *VersionInfo {
+	return &VersionInfo{
+		Ver:     max,
+		DelTime: 0,
+		Status:  VersionInit,
+	}
+}
+
 const VersionSimpleSize int = 17
 
 type VolVersionInfoList struct {
