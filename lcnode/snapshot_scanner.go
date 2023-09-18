@@ -56,9 +56,18 @@ func NewSnapshotScanner(adminTask *proto.AdminTask, l *LcNode) (*SnapshotScanner
 		ValidateOwner: false,
 	}
 
-	var metaWrapper *meta.MetaWrapper
+	var metaWrapper MetaWrapper
 	if metaWrapper, err = meta.NewMetaWrapper(metaConfig); err != nil {
 		return nil, err
+	}
+
+	if request.Task.Mode == proto.ModeDir {
+		snapMetaWrapper, err := meta.NewSnapshotMetaWrapper(metaConfig)
+		if err != nil {
+			return nil, err
+		}
+		snapMetaWrapper.SetVerInfo(&request.Task.DirVersionInfo.DelVer)
+		metaWrapper = snapMetaWrapper
 	}
 
 	scanner := &SnapshotScanner{
