@@ -181,6 +181,7 @@ type DriveNode struct {
 	userRouter  *userRouteMgr
 	clusterMgr  sdk.ClusterManager
 	groupRouter singleflight.Group // for get user route
+	groupMulti  singleflight.Group // for multipart complete
 	limiter     *rate.Limiter
 
 	out      *oplog.Output

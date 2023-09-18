@@ -77,7 +77,6 @@ func (d *DriveNode) multipartUploads(c *rpc.Context, args *ArgsMPUploads) {
 	if d.checkError(c, func(err error) { span.Error(err) }, err) {
 		return
 	}
-	extend[internalMetaUploadID] = args.UploadID
 
 	if d.checkError(c, func(err error) { span.Error("lookup error: ", err, args) },
 		d.lookupFileID(ctx, vol, root, args.Path.String(), args.FileID)) {
@@ -203,50 +202,84 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 		return
 	}
 	root := ur.RootFileID
-	if d.checkError(c, func(err error) { span.Error("lookup error: ", err, args) },
-		d.lookupFileID(ctx, vol, root, args.Path.String(), args.FileID)) {
+
+	fileInfo, err := d.lookup(ctx, vol, root, args.Path.String())
+	if err == sdk.ErrNotFound {
+		if args.FileID != 0 {
+			d.respError(c, sdk.ErrConflict)
+			return
+		}
+	} else if err != nil {
+		span.Error("lookup:", args, err)
+		d.respError(c, err)
+		return
+	} else {
+		xattrs, errAttr := vol.GetXAttrMap(ctx, fileInfo.Inode)
+		inoInfo, errInode := vol.GetInode(ctx, fileInfo.Inode)
+		if d.checkError(c, func(err error) { span.Error(err) }, errAttr, errInode) {
+			return
+		}
+		if xattrs[internalMetaUploadID] == args.UploadID {
+			d.respData(c, inode2file(inoInfo, fileInfo.Inode, fileInfo.Name, xattrs))
+			return
+		} else if fileInfo.Inode != args.FileID {
+			d.respError(c, sdk.ErrConflict)
+			return
+		}
+	}
+
+	compFile, err, _ := d.groupMulti.Do(args.UploadID, func() (interface{}, error) {
+		st := time.Now()
+		parts, gerr := d.checkParts(c, vol, args)
+		span.AppendTrackLog("cmcl", st, nil)
+		if gerr != nil {
+			span.Warn("multipart complete check", args, gerr)
+			return nil, gerr
+		}
+
+		st = time.Now()
+		fileMD5, gerr := d.calculatePartsMD5(c, vol, parts, ur.CipherKey)
+		span.AppendTrackLog("cmcc", st, gerr)
+		if gerr != nil {
+			span.Warn("multipart complete calculate", args, gerr)
+			return nil, gerr
+		}
+		if md5Header := c.Request.Header.Get(HeaderMD5); md5Header != "" && md5Header != fileMD5 {
+			span.Warnf("multipart comlete md5 mismatch %s != %s", md5Header, fileMD5)
+			return nil, sdk.ErrBadRequest.Extend("md5 mismatch", md5Header)
+		}
+
+		cmReq := &sdk.CompleteMultipartReq{
+			FilePath:  multipartFullPath(d.userID(c), args.Path),
+			UploadId:  args.UploadID,
+			OldFileId: args.FileID,
+			Parts:     parts,
+			Extend: map[string]string{
+				internalMetaMD5:      fileMD5,
+				internalMetaUploadID: args.UploadID,
+			},
+		}
+		inode, fileID, gerr := vol.CompleteMultiPart(ctx, cmReq)
+		if gerr != nil {
+			span.Error("multipart complete", args, parts, gerr)
+			return nil, gerr
+		}
+		extend, gerr := vol.GetXAttrMap(ctx, inode.Inode)
+		if gerr != nil {
+			span.Error("multipart complete, get properties", inode.Inode, gerr)
+			return nil, gerr
+		}
+
+		span.Info("multipart complete", fileMD5, args, parts)
+		_, filename := args.Path.Split()
+		return inode2file(inode, fileID, filename, extend), nil
+	})
+	if err != nil {
+		d.respError(c, err)
 		return
 	}
 
-	st := time.Now()
-	parts, err := d.checkParts(c, vol, args)
-	if d.checkError(c, func(err error) { span.Warn("multipart complete", args, err) }, err) {
-		return
-	}
-	span.AppendTrackLog("cmcl", st, nil)
-
-	st = time.Now()
-	fileMD5, err := d.calculatePartsMD5(c, vol, parts, ur.CipherKey)
-	span.AppendTrackLog("cmcc", st, err)
-	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
-		return
-	}
-	if md5Header := c.Request.Header.Get(HeaderMD5); md5Header != "" && md5Header != fileMD5 {
-		span.Warnf("multipart comlete md5 mismatch %s != %s", md5Header, fileMD5)
-		d.respError(c, sdk.ErrBadRequest.Extend("md5 mismatch", md5Header))
-		return
-	}
-
-	cmReq := &sdk.CompleteMultipartReq{
-		FilePath:  multipartFullPath(d.userID(c), args.Path),
-		UploadId:  args.UploadID,
-		OldFileId: args.FileID,
-		Parts:     parts,
-		Extend:    map[string]string{internalMetaMD5: fileMD5},
-	}
-	inode, fileID, err := vol.CompleteMultiPart(ctx, cmReq)
-	if d.checkError(c, func(err error) { span.Error("multipart complete", args, parts, err) }, err) {
-		return
-	}
-	extend, err := vol.GetXAttrMap(ctx, inode.Inode)
-	if d.checkError(c, func(err error) { span.Error("multipart complete, get properties", inode.Inode, err) }, err) {
-		return
-	}
-
-	d.out.Publish(ctx, makeOpLog(OpMultiUploadFile, d.requestID(c), d.userID(c), args.Path.String(), "size", inode.Size))
-	span.Info("multipart complete", fileMD5, args, parts)
-	_, filename := args.Path.Split()
-	d.respData(c, inode2file(inode, fileID, filename, extend))
+	d.respData(c, compFile.(*FileInfo))
 }
 
 // ArgsMPUpload multipart upload part argument.
