@@ -116,7 +116,7 @@ func (m *snapMetaOpImp) getVersionNames(dirIno uint64) (names []string) {
 	names = make([]string, 0)
 
 	for _, e := range m.snapShotItems {
-		if e.IsSnapshotInode(dirIno) {
+		if !e.IsSnapshotInode(dirIno) {
 			continue
 		}
 
@@ -133,7 +133,7 @@ func (m *snapMetaOpImp) getVersionNames(dirIno uint64) (names []string) {
 
 func (m *snapMetaOpImp) versionExist(dirIno uint64, outVer string) (bool, *proto.VersionInfo) {
 	for _, e := range m.snapShotItems {
-		if e.IsSnapshotInode(dirIno) {
+		if !e.IsSnapshotInode(dirIno) {
 			continue
 		}
 
@@ -159,27 +159,27 @@ func (m *snapMetaOpImp) isSnapshotDir(ctx context.Context, parentId uint64, name
 		return false, sdk.ErrConflict
 	}
 
-	cv := m.verInfo
-	for _, v := range cv.Vers {
-		vName := versionName(v.OutVer)
-		if name != vName {
-			continue
-		}
-		if v.Ver.Status != proto.VersionNormal {
-			break
-		}
-
-		tmp := &proto.DelVer{}
-		for _, v := range cv.Vers {
-			tmp.Vers = append(tmp.Vers, v.Ver)
-		}
-		tmp.Vers = append(tmp.Vers, &proto.VersionInfo{
-			Ver:     cv.MaxVer,
-			DelTime: 0,
-			Status:  proto.VersionInit,
-		})
-		break
-	}
+	//cv := m.verInfo
+	//for _, v := range cv.Vers {
+	//	vName := versionName(v.OutVer)
+	//	if name != vName {
+	//		continue
+	//	}
+	//	if v.Ver.Status != proto.VersionNormal {
+	//		break
+	//	}
+	//
+	//	tmp := &proto.DelVer{}
+	//	for _, v := range cv.Vers {
+	//		tmp.Vers = append(tmp.Vers, v.Ver)
+	//	}
+	//	tmp.Vers = append(tmp.Vers, &proto.VersionInfo{
+	//		Ver:     cv.MaxVer,
+	//		DelTime: 0,
+	//		Status:  proto.VersionInit,
+	//	})
+	//	break
+	//}
 
 	var ver *proto.DelVer
 	buildVer := func(idx uint64, vers []*proto.ClientDirVer) {
@@ -301,10 +301,7 @@ func newDirDentry(dirIno uint64, name string) (den *proto.Dentry) {
 
 func (m *snapMetaOpImp) LookupEx(ctx context.Context, parentId uint64, name string) (den *proto.Dentry, err error) {
 	span := trace.SpanFromContextSafe(ctx)
-	_, err = m.setVerByInode(ctx, parentId)
-	if err != nil {
-		return
-	}
+	m.checkSnapshotIno(parentId)
 
 	isSnapShot, err := m.isSnapshotDir(ctx, parentId, name)
 	if err != nil {
