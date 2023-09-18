@@ -49,6 +49,7 @@ const (
 	HeaderUserID    = "x-cfa-user-id"
 	HeaderVolume    = "x-cfa-volume"
 	HeaderCrc32     = "x-cfa-content-crc32"
+	HeaderMD5       = "x-cfa-content-md5"
 	ChecksumPrefix  = "x-cfa-content-"
 	// headerSign      = "x-cfa-sign"
 	HeaderCipherMeta = "x-cfa-cipher-meta"
@@ -59,8 +60,9 @@ const (
 	typeFile   = "file"
 	typeFolder = "folder"
 
-	internalMetaPrefix = "x-cfa-"
-	internalMetaMD5    = internalMetaPrefix + "md5"
+	internalMetaPrefix   = "x-cfa-"
+	internalMetaMD5      = internalMetaPrefix + "md5"
+	internalMetaUploadID = internalMetaPrefix + "uploadid"
 
 	maxMultipartNumber = 10000
 )

@@ -15,6 +15,8 @@
 package drive
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -75,6 +77,7 @@ func (d *DriveNode) multipartUploads(c *rpc.Context, args *ArgsMPUploads) {
 	if d.checkError(c, func(err error) { span.Error(err) }, err) {
 		return
 	}
+	extend[internalMetaUploadID] = args.UploadID
 
 	if d.checkError(c, func(err error) { span.Error("lookup error: ", err, args) },
 		d.lookupFileID(ctx, vol, root, args.Path.String(), args.FileID)) {
@@ -111,6 +114,88 @@ func (d *DriveNode) requestParts(c *rpc.Context) (parts []MPPart, err error) {
 	return
 }
 
+func (d *DriveNode) checkParts(c *rpc.Context, vol sdk.IVolume, args *ArgsMPUploads) ([]sdk.Part, error) {
+	ctx, span := d.ctxSpan(c)
+	parts, err := d.requestParts(c)
+	if err != nil {
+		return nil, sdk.ErrBadRequest.Extend(err)
+	}
+
+	type indexEtag struct {
+		Index int
+		Etag  string
+	}
+
+	reqParts := make(map[uint16]indexEtag, len(parts))
+	sParts := make([]sdk.Part, 0, len(parts))
+	for idx, part := range parts {
+		sParts = append(sParts, sdk.Part{
+			ID:  part.PartNumber,
+			MD5: part.Etag,
+		})
+		reqParts[part.PartNumber] = indexEtag{Index: idx, Etag: part.Etag}
+	}
+
+	fullPath := multipartFullPath(d.userID(c), args.Path)
+	marker := uint64(0)
+	for {
+		listParts, next, _, perr := vol.ListMultiPart(ctx, fullPath, args.UploadID, 400, marker)
+		if perr != nil {
+			return nil, perr
+		}
+
+		for idx, part := range listParts {
+			// not the last part
+			if !(next == 0 && idx == len(listParts)-1) && part.Size%crypto.BlockSize != 0 {
+				if err = vol.AbortMultiPart(ctx, fullPath, args.UploadID); err != nil {
+					span.Error("multipart comlete server abort", args.UploadID, err)
+				}
+				return nil, sdk.ErrBadRequest.Extend("size not supported", part.ID, part.Size)
+			}
+			if ie, ok := reqParts[part.ID]; ok {
+				sParts[ie.Index].Inode = part.Inode
+				sParts[ie.Index].Size = part.Size
+				if ie.Etag != part.MD5 {
+					return nil, sdk.ErrBadRequest.Extend("etag mismatch", part.ID, ie.Etag)
+				}
+			}
+		}
+
+		if next == 0 {
+			break
+		}
+		marker = next
+	}
+
+	for _, part := range sParts {
+		if part.Inode == 0 {
+			return nil, sdk.ErrBadRequest.Extend("inode mismatch", part.ID)
+		}
+	}
+	return sParts, nil
+}
+
+func (d *DriveNode) calculatePartsMD5(c *rpc.Context, vol sdk.IVolume, parts []sdk.Part, key []byte) (string, error) {
+	ctx, _ := d.ctxSpan(c)
+
+	var size int64
+	readers := make([]io.Reader, 0, len(parts))
+	for _, part := range parts {
+		reader, err := d.makeBlockedReader(ctx, vol, part.Inode, 0, key)
+		if err != nil {
+			return "", err
+		}
+		size += int64(part.Size)
+		readers = append(readers, newFixedReader(reader, int64(part.Size)))
+	}
+
+	hasher := md5.New()
+	if _, err := io.CopyN(io.Discard, io.TeeReader(io.MultiReader(readers...), hasher), size); err != nil {
+		return "", sdk.ErrInternalServerError.Extend(err)
+	}
+	return hex.EncodeToString(hasher.Sum(nil)), nil
+}
+
 func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 	ctx, span := d.ctxSpan(c)
 	ur, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c))
@@ -123,64 +208,31 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 		return
 	}
 
-	parts, err := d.requestParts(c)
-	if err != nil {
-		span.Warn("multipart complete", args, err)
-		d.respError(c, sdk.ErrBadRequest.Extend(err))
-		return
-	}
-
-	reqParts := make(map[uint16]string, len(parts))
-	sParts := make([]sdk.Part, 0, len(parts))
-	for _, part := range parts {
-		sParts = append(sParts, sdk.Part{
-			ID:  part.PartNumber,
-			MD5: part.Etag,
-		})
-		reqParts[part.PartNumber] = part.Etag
-	}
-
 	st := time.Now()
-	fullPath := multipartFullPath(d.userID(c), args.Path)
-	marker := uint64(0)
-	for {
-		sParts, next, _, perr := vol.ListMultiPart(ctx, fullPath, args.UploadID, 400, marker)
-		if d.checkError(c, func(err error) { span.Error("multipart complete list", args, err) }, perr) {
-			return
-		}
-
-		for idx, part := range sParts {
-			// not the last part
-			if !(next == 0 && idx == len(sParts)-1) && part.Size%crypto.BlockSize != 0 {
-				if err = vol.AbortMultiPart(ctx, fullPath, args.UploadID); err != nil {
-					span.Error("multipart comlete server abort", args.UploadID, err)
-				}
-
-				span.Warn("multipart complete size not supported", part.ID, part.Size)
-				d.respError(c, sdk.ErrBadRequest.Extend("size not supported", part.ID, part.Size))
-				return
-			}
-			if etag, ok := reqParts[part.ID]; ok {
-				if etag != part.MD5 {
-					span.Warn("multipart complete part etag mismatch", part.ID, etag)
-					d.respError(c, sdk.ErrBadRequest.Extend("etag mismatch", part.ID, etag))
-					return
-				}
-			}
-		}
-
-		if next == 0 {
-			break
-		}
-		marker = next
+	parts, err := d.checkParts(c, vol, args)
+	if d.checkError(c, func(err error) { span.Warn("multipart complete", args, err) }, err) {
+		return
 	}
 	span.AppendTrackLog("cmcl", st, nil)
 
+	st = time.Now()
+	fileMD5, err := d.calculatePartsMD5(c, vol, parts, ur.CipherKey)
+	span.AppendTrackLog("cmcc", st, err)
+	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
+		return
+	}
+	if md5Header := c.Request.Header.Get(HeaderMD5); md5Header != "" && md5Header != fileMD5 {
+		span.Warnf("multipart comlete md5 mismatch %s != %s", md5Header, fileMD5)
+		d.respError(c, sdk.ErrBadRequest.Extend("md5 mismatch", md5Header))
+		return
+	}
+
 	cmReq := &sdk.CompleteMultipartReq{
-		FilePath:  fullPath,
+		FilePath:  multipartFullPath(d.userID(c), args.Path),
 		UploadId:  args.UploadID,
 		OldFileId: args.FileID,
-		Parts:     sParts,
+		Parts:     parts,
+		Extend:    map[string]string{internalMetaMD5: fileMD5},
 	}
 	inode, fileID, err := vol.CompleteMultiPart(ctx, cmReq)
 	if d.checkError(c, func(err error) { span.Error("multipart complete", args, parts, err) }, err) {
@@ -192,7 +244,7 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 	}
 
 	d.out.Publish(ctx, makeOpLog(OpMultiUploadFile, d.requestID(c), d.userID(c), args.Path.String(), "size", inode.Size))
-	span.Info("multipart complete", args, parts)
+	span.Info("multipart complete", fileMD5, args, parts)
 	_, filename := args.Path.Split()
 	d.respData(c, inode2file(inode, fileID, filename, extend))
 }

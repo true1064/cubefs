@@ -15,6 +15,7 @@
 package drive
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -35,6 +36,7 @@ func TestHandleMultipartUploads(t *testing.T) {
 	server, client := newTestServer(d)
 	defer server.Close()
 
+	contentMD5 := ""
 	doRequest := func(body *mockBody, r interface{}, queries ...string) rpc.HTTPError {
 		url := genURL(server.URL, "/v1/files/multipart", queries...)
 		req, _ := http.NewRequest(http.MethodPost, url, body)
@@ -42,6 +44,9 @@ func TestHandleMultipartUploads(t *testing.T) {
 		req.Header.Add(HeaderUserID, testUserID)
 		req.Header.Add(HeaderCrc32, fmt.Sprint(body.Sum32()))
 		req.Header.Add(EncodeMetaHeader("multipart"), EncodeMeta("MultiPart"))
+		if contentMD5 != "" {
+			req.Header.Add(HeaderMD5, contentMD5)
+		}
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
 		defer resp.Body.Close()
@@ -134,11 +139,26 @@ func TestHandleMultipartUploads(t *testing.T) {
 	}
 	{
 		node.OnceGetUser()
+		var parts []MPPart
+		var listp []*sdk.Part
+		for idx := range [10]struct{}{} {
+			parts = append(parts, MPPart{PartNumber: uint16(idx + 1), Size: int(crypto.BlockSize), Etag: fmt.Sprint(idx)})
+			listp = append(listp, &sdk.Part{ID: uint16(idx + 1), Size: crypto.BlockSize, MD5: fmt.Sprint(idx)})
+		}
+		buff, _ := json.Marshal(parts)
+		body := &mockBody{buff: buff}
+		listp = listp[:8]
+		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotFound)
+		node.Volume.EXPECT().ListMultiPart(A, A, A, A, A).Return(listp, uint64(0), false, nil)
+		require.Equal(t, 400, doRequest(body, nil, "path", "/mpfile", "uploadId", uploadID).StatusCode())
+	}
+	{
+		node.OnceGetUser()
 		body := &mockBody{buff: []byte("[]")}
 		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotFound)
 		node.Volume.EXPECT().ListMultiPart(A, A, A, A, A).Return(nil, uint64(100), false, nil)
 		node.Volume.EXPECT().ListMultiPart(A, A, A, A, A).Return(nil, uint64(0), false, nil)
-		node.Volume.EXPECT().CompleteMultiPart(A, A, A, A, A).Return(&sdk.InodeInfo{Inode: node.GenInode()}, uint64(0), nil)
+		node.Volume.EXPECT().CompleteMultiPart(A, A).Return(&sdk.InodeInfo{Inode: node.GenInode()}, uint64(0), nil)
 		node.Volume.EXPECT().GetXAttrMap(A, A).Return(nil, e3)
 		require.Equal(t, e3.Status, doRequest(body, nil, "path", "/mpfile", "uploadId", uploadID).StatusCode())
 	}
@@ -148,7 +168,7 @@ func TestHandleMultipartUploads(t *testing.T) {
 		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotFound)
 		node.Volume.EXPECT().ListMultiPart(A, A, A, A, A).Return(nil, uint64(100), false, nil)
 		node.Volume.EXPECT().ListMultiPart(A, A, A, A, A).Return(nil, uint64(0), false, nil)
-		node.Volume.EXPECT().CompleteMultiPart(A, A, A, A, A).Return(nil, uint64(0), e4)
+		node.Volume.EXPECT().CompleteMultiPart(A, A).Return(nil, uint64(0), e4)
 		require.Equal(t, e4.Status, doRequest(body, nil, "path", "/mpfile", "uploadId", uploadID).StatusCode())
 	}
 	{
@@ -161,9 +181,46 @@ func TestHandleMultipartUploads(t *testing.T) {
 		listp[9].Size = crypto.BlockSize - 1
 		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotFound)
 		node.Volume.EXPECT().ListMultiPart(A, A, A, A, A).Return(nil, uint64(0), false, nil)
-		node.Volume.EXPECT().CompleteMultiPart(A, A, A, A, A).Return(&sdk.InodeInfo{Inode: node.GenInode()}, uint64(0), nil)
+		node.Volume.EXPECT().CompleteMultiPart(A, A).Return(&sdk.InodeInfo{Inode: node.GenInode()}, uint64(0), nil)
 		node.Volume.EXPECT().GetXAttrMap(A, A).Return(nil, nil)
 		require.NoError(t, doRequest(body, nil, "path", "/mpfile", "uploadId", uploadID))
+	}
+	{
+		node.OnceGetUser()
+		var parts []MPPart
+		var listp []*sdk.Part
+		for idx := range [10]struct{}{} {
+			parts = append(parts, MPPart{PartNumber: uint16(idx + 1), Size: int(crypto.BlockSize), Etag: fmt.Sprint(idx)})
+			listp = append(listp, &sdk.Part{ID: uint16(idx + 1), Inode: uint64(idx + 1111), Size: crypto.BlockSize, MD5: fmt.Sprint(idx)})
+		}
+		buff, _ := json.Marshal(parts)
+		body := &mockBody{buff: buff}
+		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotFound)
+		node.Volume.EXPECT().ListMultiPart(A, A, A, A, A).Return(listp, uint64(0), false, nil)
+		node.Volume.EXPECT().ReadFile(A, A, A, A).Return(int(crypto.BlockSize), nil).Times(10)
+		node.Volume.EXPECT().CompleteMultiPart(A, A).DoAndReturn(
+			func(_ context.Context, req *sdk.CompleteMultipartReq) (*sdk.InodeInfo, uint64, error) {
+				require.NotEmpty(t, req.Extend[internalMetaMD5])
+				return &sdk.InodeInfo{Inode: node.GenInode()}, uint64(0), nil
+			})
+		node.Volume.EXPECT().GetXAttrMap(A, A).Return(nil, nil)
+		require.NoError(t, doRequest(body, nil, "path", "/mpfile", "uploadId", uploadID))
+	}
+	{
+		node.OnceGetUser()
+		var parts []MPPart
+		var listp []*sdk.Part
+		for idx := range [10]struct{}{} {
+			parts = append(parts, MPPart{PartNumber: uint16(idx + 1), Size: int(crypto.BlockSize), Etag: fmt.Sprint(idx)})
+			listp = append(listp, &sdk.Part{ID: uint16(idx + 1), Inode: uint64(idx + 1111), Size: crypto.BlockSize, MD5: fmt.Sprint(idx)})
+		}
+		buff, _ := json.Marshal(parts)
+		body := &mockBody{buff: buff}
+		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotFound)
+		node.Volume.EXPECT().ListMultiPart(A, A, A, A, A).Return(listp, uint64(0), false, nil)
+		node.Volume.EXPECT().ReadFile(A, A, A, A).Return(int(crypto.BlockSize), nil).Times(10)
+		contentMD5 = "not-md5"
+		require.Equal(t, 400, doRequest(body, nil, "path", "/mpfile", "uploadId", uploadID).StatusCode())
 	}
 }
 
