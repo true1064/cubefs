@@ -537,7 +537,13 @@ func testMultiPartOp(ctx context.Context, vol sdk.IVolume) {
 	}
 
 	var finalIno *sdk.InodeInfo
-	finalIno, _, err = vol.CompleteMultiPart(ctx, tmpFile, uploadId, 0, newPartArr)
+	cReq := &sdk.CompleteMultipartReq{
+		FilePath:  tmpFile,
+		UploadId:  uploadId,
+		OldFileId: 0,
+		Parts:     newPartArr,
+	}
+	finalIno, _, err = vol.CompleteMultiPart(ctx, cReq)
 	if err != nil {
 		span.Fatalf("complete multipart failed, file %s, err %s", tmpFile, err.Error())
 	}
@@ -583,7 +589,10 @@ func testMultiPartOp(ctx context.Context, vol sdk.IVolume) {
 	}
 
 	start := time.Now()
-	_, _, err = vol.CompleteMultiPart(ctx, newTmpFile, newUploadId, 0, respParts)
+	cReq.FilePath = newTmpFile
+	cReq.UploadId = newUploadId
+	cReq.Parts = respParts
+	_, _, err = vol.CompleteMultiPart(ctx, cReq)
 	if err != nil {
 		span.Fatalf("complete multipart failed, file %s, err %s", newTmpFile, err.Error())
 	}
@@ -631,9 +640,24 @@ func testMultiPartOp(ctx context.Context, vol sdk.IVolume) {
 		})
 	}
 
-	_, _, err = vol.CompleteMultiPart(ctx, newTmp2File, newUploadId2, oldId, newPartArr2)
+	cReq.FilePath = newTmp2File
+	cReq.UploadId = newUploadId2
+	cReq.OldFileId = oldId
+	cReq.Parts = newPartArr2
+	val := "xxx1"
+	cReq.Extend = map[string]string{"md5": val}
+	ifo, _, err := vol.CompleteMultiPart(ctx, cReq)
 	if err != nil {
 		span.Fatalf("complete multipart failed, file %s, err %s", tmpFile, err.Error())
+	}
+
+	got, err := vol.GetXAttr(ctx, ifo.Inode, "md5")
+	if err != nil {
+		span.Fatalf("get complete xAttr failed, err %s", err.Error())
+	}
+
+	if val != got {
+		span.Fatalf("get complete xAttr not correct, got %s, want %s", got, val)
 	}
 }
 

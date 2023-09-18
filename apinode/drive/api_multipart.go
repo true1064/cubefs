@@ -176,7 +176,13 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 	}
 	span.AppendTrackLog("cmcl", st, nil)
 
-	inode, fileID, err := vol.CompleteMultiPart(ctx, fullPath, args.UploadID, args.FileID, sParts)
+	cmReq := &sdk.CompleteMultipartReq{
+		FilePath:  fullPath,
+		UploadId:  args.UploadID,
+		OldFileId: args.FileID,
+		Parts:     sParts,
+	}
+	inode, fileID, err := vol.CompleteMultiPart(ctx, cmReq)
 	if d.checkError(c, func(err error) { span.Error("multipart complete", args, parts, err) }, err) {
 		return
 	}

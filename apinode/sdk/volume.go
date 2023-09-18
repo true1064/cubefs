@@ -45,7 +45,7 @@ type IVolume interface {
 	UploadMultiPart(ctx context.Context, filepath, uploadId string, partNum uint16, read io.Reader) (*Part, error)
 	ListMultiPart(ctx context.Context, filepath, uploadId string, count, marker uint64) (parts []*Part, next uint64, isTruncated bool, err error)
 	AbortMultiPart(ctx context.Context, filepath, uploadId string) error
-	CompleteMultiPart(ctx context.Context, filepath, uploadId string, oldIno uint64, parts []Part) (*InodeInfo, uint64, error)
+	CompleteMultiPart(ctx context.Context, req *CompleteMultipartReq) (*InodeInfo, uint64, error)
 	NewInodeLock() InodeLockApi
 }
 

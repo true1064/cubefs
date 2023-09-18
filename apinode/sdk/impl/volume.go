@@ -782,7 +782,12 @@ func (v *volume) AbortMultiPart(ctx context.Context, filepath, uploadId string) 
 	return nil
 }
 
-func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId string, oldFileId uint64, partsArg []sdk.Part) (ifo *sdk.InodeInfo, fileId uint64, err error) {
+func (v *volume) CompleteMultiPart(ctx context.Context, req *sdk.CompleteMultipartReq) (ifo *sdk.InodeInfo, fileId uint64, err error) {
+	filepath := req.FilePath
+	partsArg := req.Parts
+	oldFileId := req.OldFileId
+	uploadId := req.UploadId
+
 	if !startWithSlash(filepath) {
 		return nil, 0, sdk.ErrBadRequest
 	}
@@ -943,9 +948,13 @@ func (v *volume) CompleteMultiPart(ctx context.Context, filepath, uploadId strin
 
 	extend := info.Extend
 	attrs := make(map[string]string)
-	if len(extend) > 0 {
+	if len(extend) > 0 || req.Extend != nil {
 		for key, value := range extend {
 			attrs[key] = value
+		}
+
+		for k, v := range req.Extend {
+			attrs[k] = v
 		}
 
 		if err = v.mw.BatchSetXAttr_ll(cIno, attrs); err != nil {

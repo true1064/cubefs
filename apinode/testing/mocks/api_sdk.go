@@ -95,9 +95,9 @@ func (mr *MockIVolumeMockRecorder) BatchSetXAttr(arg0, arg1, arg2 interface{}) *
 }
 
 // CompleteMultiPart mocks base method.
-func (m *MockIVolume) CompleteMultiPart(arg0 context.Context, arg1, arg2 string, arg3 uint64, arg4 []proto.MultipartPartInfo) (*proto.InodeInfo, uint64, error) {
+func (m *MockIVolume) CompleteMultiPart(arg0 context.Context, arg1 *sdk.CompleteMultipartReq) (*proto.InodeInfo, uint64, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CompleteMultiPart", arg0, arg1, arg2, arg3, arg4)
+	ret := m.ctrl.Call(m, "CompleteMultiPart", arg0, arg1)
 	ret0, _ := ret[0].(*proto.InodeInfo)
 	ret1, _ := ret[1].(uint64)
 	ret2, _ := ret[2].(error)
@@ -105,9 +105,9 @@ func (m *MockIVolume) CompleteMultiPart(arg0 context.Context, arg1, arg2 string,
 }
 
 // CompleteMultiPart indicates an expected call of CompleteMultiPart.
-func (mr *MockIVolumeMockRecorder) CompleteMultiPart(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+func (mr *MockIVolumeMockRecorder) CompleteMultiPart(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompleteMultiPart", reflect.TypeOf((*MockIVolume)(nil).CompleteMultiPart), arg0, arg1, arg2, arg3, arg4)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompleteMultiPart", reflect.TypeOf((*MockIVolume)(nil).CompleteMultiPart), arg0, arg1)
 }
 
 // CreateFile mocks base method.

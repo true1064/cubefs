@@ -234,25 +234,32 @@ func Test_volume_CompleteMultiPart(t *testing.T) {
 
 	_, ctx := trace.StartSpanFromContext(context.TODO(), "")
 	var err error
+	req := &sdk.CompleteMultipartReq{
+		FilePath:  "test",
+		UploadId:  "",
+		OldFileId: 0,
+		Parts:     nil,
+	}
 
 	{
 		// path not illegal
-		_, _, err = v.CompleteMultiPart(ctx, "test", "", 0, nil)
+		_, _, err = v.CompleteMultiPart(ctx, req)
 		require.True(t, err == sdk.ErrBadRequest)
 	}
 
-	filePath := "/completePath"
-	uploadId := "uploadId"
-	parts := []sdk.Part{
+	req.FilePath = "/completePath"
+	req.UploadId = "uploadId"
+	req.Parts = []sdk.Part{
 		{ID: 3},
 	}
+
 	{
 		// order is not valid
-		_, _, err = v.CompleteMultiPart(ctx, filePath, uploadId, 0, parts)
+		_, _, err = v.CompleteMultiPart(ctx, req)
 		require.True(t, err == sdk.ErrInvalidPartOrder)
 	}
 
-	parts = []sdk.Part{
+	req.Parts = []sdk.Part{
 		{ID: 1, MD5: "md1"},
 	}
 	resultPart := &proto.MultipartInfo{
@@ -261,9 +268,9 @@ func Test_volume_CompleteMultiPart(t *testing.T) {
 		},
 	}
 	{
-		mockMeta.EXPECT().GetMultipart_ll(filePath, uploadId).Return(resultPart, nil)
+		mockMeta.EXPECT().GetMultipart_ll(req.FilePath, req.UploadId).Return(resultPart, nil)
 		// md5 not equal
-		_, _, err = v.CompleteMultiPart(ctx, filePath, uploadId, 0, parts)
+		_, _, err = v.CompleteMultiPart(ctx, req)
 		require.True(t, err == sdk.ErrInvalidPart)
 	}
 	resultPart = &proto.MultipartInfo{
@@ -271,11 +278,11 @@ func Test_volume_CompleteMultiPart(t *testing.T) {
 			{Inode: 1, MD5: "md1"},
 		},
 	}
-	mockMeta.EXPECT().GetMultipart_ll(any, uploadId).Return(resultPart, nil).AnyTimes()
+	mockMeta.EXPECT().GetMultipart_ll(any, req.UploadId).Return(resultPart, nil).AnyTimes()
 	{
 		// inode create failed
 		mockMeta.EXPECT().CreateInode(any).Return(nil, syscall.EAGAIN)
-		_, _, err = v.CompleteMultiPart(ctx, filePath, uploadId, 0, parts)
+		_, _, err = v.CompleteMultiPart(ctx, req)
 		require.True(t, err == syscallToErr(syscall.EAGAIN))
 	}
 	newIno := uint64(10)
@@ -285,7 +292,7 @@ func Test_volume_CompleteMultiPart(t *testing.T) {
 		mockMeta.EXPECT().InodeDelete_ll(newIno).Return(syscall.ENOENT).AnyTimes()
 		// getExtents error (gen uint64, size uint64, extents []proto.ExtentKey, err error)
 		mockMeta.EXPECT().GetExtents(uint64(1)).Return(uint64(0), uint64(0), nil, syscall.ENOENT)
-		_, _, err = v.CompleteMultiPart(ctx, filePath, uploadId, 0, parts)
+		_, _, err = v.CompleteMultiPart(ctx, req)
 		require.True(t, err == syscallToErr(syscall.ENOENT))
 	}
 	exts := []proto.ExtentKey{
@@ -295,42 +302,43 @@ func Test_volume_CompleteMultiPart(t *testing.T) {
 	{
 		// append extent failed
 		mockMeta.EXPECT().AppendExtentKeys(any, any).Return(syscall.ENOTSUP)
-		_, _, err = v.CompleteMultiPart(ctx, filePath, uploadId, 0, parts)
+		_, _, err = v.CompleteMultiPart(ctx, req)
 		require.Equal(t, err, syscallToErr(syscall.ENOTSUP))
 	}
 	mockMeta.EXPECT().AppendExtentKeys(newIno, any).Return(nil).AnyTimes()
 	{
 		// remove multipart failed
 		mockMeta.EXPECT().RemoveMultipart_ll(any, any).Return(syscall.ENOTSUP)
-		_, _, err = v.CompleteMultiPart(ctx, filePath, uploadId, 0, parts)
+		_, _, err = v.CompleteMultiPart(ctx, req)
 		require.Equal(t, err, syscallToErr(syscall.ENOTSUP))
 	}
 	mockMeta.EXPECT().RemoveMultipart_ll(any, any).Return(nil).AnyTimes()
 	mockMeta.EXPECT().InodeDelete_ll(any).Return(syscall.ENOENT).AnyTimes()
 	{
 		mockMeta.EXPECT().CreateDentryEx(any, any).Return(uint64(0), syscall.EEXIST)
-		_, _, err = v.CompleteMultiPart(ctx, filePath, uploadId, 0, parts)
+		_, _, err = v.CompleteMultiPart(ctx, req)
 		require.Equal(t, err, syscallToErr(syscall.EEXIST))
 	}
 
 	mockMeta.EXPECT().InodeGet_ll(any).Return(nil, nil).AnyTimes()
 	mockMeta.EXPECT().CreateDentryEx(any, any).Return(uint64(0), nil).AnyTimes()
-	_, _, err = v.CompleteMultiPart(ctx, filePath, uploadId, 0, parts)
+	_, _, err = v.CompleteMultiPart(ctx, req)
 	require.True(t, err == nil)
 
 	// test with oldFile id not zero
-	oldId := uint64(10)
-	_, _, err = v.CompleteMultiPart(ctx, filePath+"/", uploadId, oldId, parts)
+	req.OldFileId = uint64(10)
+	req.FilePath = req.FilePath + "/"
+	_, _, err = v.CompleteMultiPart(ctx, req)
 	require.True(t, err == sdk.ErrBadRequest)
 
-	newPath := filePath
-	dir, name := path.Split(newPath)
+	req.FilePath = "/completePath"
+	dir, name := path.Split(req.FilePath)
 	mockMeta.EXPECT().LookupPath(dir).Return(uint64(0), syscall.EAGAIN)
-	_, _, err = v.CompleteMultiPart(ctx, newPath, uploadId, oldId, parts)
+	_, _, err = v.CompleteMultiPart(ctx, req)
 	require.Equal(t, err, syscallToErr(syscall.EAGAIN))
 
 	mockMeta.EXPECT().LookupPath(dir).Return(uint64(0), syscall.ENOENT)
-	_, _, err = v.CompleteMultiPart(ctx, newPath, uploadId, oldId, parts)
+	_, _, err = v.CompleteMultiPart(ctx, req)
 	require.Equal(t, err, sdk.ErrConflict)
 
 	parIno := uint64(10)
@@ -349,12 +357,12 @@ func Test_volume_CompleteMultiPart(t *testing.T) {
 
 	for _, c := range tcases {
 		mockMeta.EXPECT().LookupEx(parIno, name).Return(c.d, c.err)
-		_, _, err = v.CompleteMultiPart(ctx, newPath, uploadId, oldId, parts)
+		_, _, err = v.CompleteMultiPart(ctx, req)
 		require.Equal(t, err, c.expectErr)
 	}
 
-	mockMeta.EXPECT().LookupEx(any, any).Return(&sdk.DirInfo{Inode: 1, FileId: oldId}, nil).AnyTimes()
-	_, _, err = v.CompleteMultiPart(ctx, newPath, uploadId, oldId, parts)
+	mockMeta.EXPECT().LookupEx(any, any).Return(&sdk.DirInfo{Inode: 1, FileId: req.OldFileId}, nil).AnyTimes()
+	_, _, err = v.CompleteMultiPart(ctx, req)
 	require.NoError(t, err)
 }
 

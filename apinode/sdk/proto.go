@@ -53,6 +53,14 @@ type UploadFileReq struct {
 	Callback  func() error
 }
 
+type CompleteMultipartReq struct {
+	FilePath  string
+	UploadId  string
+	OldFileId uint64
+	Parts     []Part
+	Extend    map[string]string
+}
+
 type SetAttrReq struct {
 	Ino   uint64
 	Flag  uint32 // valid=>(proto.AttrMode|proto.AttrUid|...)
