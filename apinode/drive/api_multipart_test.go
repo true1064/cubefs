@@ -219,7 +219,7 @@ func TestHandleMultipartUploads(t *testing.T) {
 		node.OnceGetUser()
 		var parts []MPPart
 		var listp []*sdk.Part
-		for idx := range [10]struct{}{} {
+		for idx := range [1]struct{}{} {
 			parts = append(parts, MPPart{PartNumber: uint16(idx + 1), Size: int(crypto.BlockSize), Etag: fmt.Sprint(idx)})
 			listp = append(listp, &sdk.Part{ID: uint16(idx + 1), Inode: uint64(idx + 1111), Size: crypto.BlockSize, MD5: fmt.Sprint(idx)})
 		}
@@ -227,7 +227,6 @@ func TestHandleMultipartUploads(t *testing.T) {
 		body := &mockBody{buff: buff}
 		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotFound)
 		node.Volume.EXPECT().ListMultiPart(A, A, A, A, A).Return(listp, uint64(0), false, nil)
-		node.Volume.EXPECT().ReadFile(A, A, A, A).Return(int(crypto.BlockSize), nil).Times(9)
 		node.Volume.EXPECT().ReadFile(A, A, A, A).Return(int(crypto.BlockSize-1), nil)
 		require.Equal(t, 500, doRequest(body, nil, "path", "/mpfile", "uploadId", uploadID).StatusCode())
 	}

@@ -69,8 +69,6 @@ const (
 
 var noneTransmitter, _ = crypto.NoneCryptor().Transmitter("")
 
-// TODO: defines inode in sdk.
-
 // Inode type of inode.
 type Inode uint64
 

@@ -21,13 +21,27 @@ import (
 	"fmt"
 	"io"
 	"path"
+	"sync"
 	"time"
 
 	"github.com/cubefs/cubefs/apinode/crypto"
 	"github.com/cubefs/cubefs/apinode/sdk"
+	"github.com/cubefs/cubefs/blobstore/common/resourcepool"
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
 	"github.com/cubefs/cubefs/blobstore/util/bytespool"
 )
+
+var memPool *resourcepool.MemPool
+
+func init() {
+	memPool = resourcepool.NewMemPool(map[int]int{
+		1 << 21: -1,
+		1 << 22: -1,
+		1 << 23: -1,
+		1 << 24: -1,
+		1 << 27: -1,
+	})
+}
 
 // MPPart multipart part.
 type MPPart struct {
@@ -175,21 +189,105 @@ func (d *DriveNode) checkParts(c *rpc.Context, vol sdk.IVolume, args *ArgsMPUplo
 }
 
 func (d *DriveNode) calculatePartsMD5(c *rpc.Context, vol sdk.IVolume, parts []sdk.Part, key []byte) (string, error) {
-	ctx, _ := d.ctxSpan(c)
+	if len(parts) == 0 {
+		return hex.EncodeToString(md5.New().Sum(nil)), nil
+	}
 
-	var size int64
-	readers := make([]io.Reader, 0, len(parts))
-	for _, part := range parts {
-		reader, err := d.makeBlockedReader(ctx, vol, part.Inode, 0, key)
+	ctx, span := d.ctxSpan(c)
+	solts := 8
+	if n := len(parts); n < solts {
+		solts = n
+	}
+
+	soltReaders := make([][]io.Reader, solts)
+	soltSizes := make([][]int64, solts)
+	l := (len(parts) / solts) + 1
+	for solt := range soltReaders {
+		soltReaders[solt] = make([]io.Reader, 0, l)
+		soltSizes[solt] = make([]int64, 0, l)
+	}
+
+	for idx, part := range parts {
+		solt := idx % solts
+		var r io.Reader = &downReader{ctx: ctx, vol: vol, inode: part.Inode}
+		soltReaders[solt] = append(soltReaders[solt], r)
+		soltSizes[solt] = append(soltSizes[solt], int64(part.Size))
+	}
+
+	type partBuffer struct {
+		buffer []byte
+		err    error
+	}
+	readers := make([]io.Reader, 0, solts)
+	buffers := make([]chan partBuffer, solts)
+	for solt := range soltReaders {
+		buffers[solt] = make(chan partBuffer, 1)
+		er, err := d.cryptor.FileDecryptor(key, io.MultiReader(soltReaders[solt]...))
 		if err != nil {
 			return "", err
 		}
-		size += int64(part.Size)
-		readers = append(readers, newFixedReader(reader, int64(part.Size)))
+		readers = append(readers, er)
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(solts + 1)
+
+	closed := make(chan struct{})
+	for solt := range soltReaders {
+		go func(solt int) {
+			defer func() {
+				close(buffers[solt])
+				wg.Done()
+			}()
+
+			for _, size := range soltSizes[solt] {
+				select {
+				case <-closed:
+					return
+				default:
+				}
+
+				p := partBuffer{}
+				p.buffer, _ = memPool.Alloc(int(size))
+
+				_, p.err = io.ReadFull(readers[solt], p.buffer)
+				buffers[solt] <- p
+				if p.err != nil {
+					span.Warnf("read solt %d size %d %s", solt, size, p.err.Error())
+					return
+				}
+			}
+		}(solt)
 	}
 
 	hasher := md5.New()
-	if _, err := io.CopyN(io.Discard, io.TeeReader(io.MultiReader(readers...), hasher), size); err != nil {
+	var err error
+	go func() {
+		has := true
+		for has {
+			has = false
+			for solt := range buffers {
+				p, ok := <-buffers[solt]
+				if !ok {
+					continue
+				}
+				has = true
+
+				if p.err != nil {
+					err = p.err
+					close(closed)
+				} else {
+					hasher.Write(p.buffer)
+				}
+				memPool.Put(p.buffer)
+			}
+		}
+		wg.Done()
+	}()
+
+	wg.Wait()
+
+	if err != nil {
 		return "", sdk.ErrInternalServerError.Extend(err)
 	}
 	return hex.EncodeToString(hasher.Sum(nil)), nil
