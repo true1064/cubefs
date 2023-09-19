@@ -593,6 +593,12 @@ func (mw *MetaWrapper) BatchInodeGetWith(inodes []uint64) (batchInfos []*proto.I
 		infoMap[i.Inode] = i
 	}
 
+	if len(batchInfos) != len(inodes) {
+		log.LogWarnf("BatchInodeGetWith: got inode info cnt not correct, want %d, got %d, inodes %v",
+			len(inodes), len(batchInfos), inodes)
+		return nil, fmt.Errorf("result cnt wrong, want %d, got %d", len(inodes), len(batchInfos))
+	}
+
 	for idx, ino := range inodes {
 		batchInfos[idx] = infoMap[ino]
 	}
