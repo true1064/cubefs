@@ -392,6 +392,7 @@ func (dirVerMgr *DirSnapVersionManager) AddDirToDelVerInfos(mpId uint64, infoLis
 		var dirToDelVerInfos *DirToDelVerInfosByIno
 		if dirToDelVerInfos, ok = dirToDelVerInfosOfMp.DirDelVerInfoByInoMap[info.DirIno]; !ok {
 			dirToDelVerInfos = newDirToDelVerInfos(info.DirIno, info.SubRootIno)
+			dirToDelVerInfosOfMp.DirDelVerInfoByInoMap[info.DirIno] = dirToDelVerInfos
 		}
 
 		dirToDelVerInfos.AddDirToDelVers(info.DelVers)
@@ -403,8 +404,10 @@ func (dirVerMgr *DirSnapVersionManager) AddDirToDelVerInfos(mpId uint64, infoLis
 			log.LogErrorf("[AddDirToDelVerInfos]: PersistDirDelVerInfo failed, mpId:%v, err:%v", mpId, err.Error())
 			return
 		}
+		log.LogInfof("[AddDirToDelVerInfos]: PersistDirDelVerInfo done, vol[%v] mpId[%v], ",
+			dirVerMgr.vol.Name, mpId)
 	} else {
-		log.LogInfof("[AddDirToDelVerInfos]: nothing changed, mpId:%v, ", mpId)
+		log.LogInfof("[AddDirToDelVerInfos]: nothing changed, vol[%v] mpId[%v], ", dirVerMgr.vol.Name, mpId)
 	}
 
 	return
@@ -417,6 +420,8 @@ type ToDelDirVersionInfo struct {
 }
 
 func (dirVerMgr *DirSnapVersionManager) getToDelDirVersionInfoList() (toDelDirVersionInfoList []ToDelDirVersionInfo) {
+	log.LogDebugf("#### [getToDelDirVersionInfoList] vol:%v", dirVerMgr.vol.Name) //TODO:tangjignyu del
+
 	toDelDirVersionInfoList = make([]ToDelDirVersionInfo, 0)
 
 	for _, dirToDelVerInfoByMpId := range dirVerMgr.toDelDirVerInfoMap {
@@ -425,8 +430,11 @@ func (dirVerMgr *DirSnapVersionManager) getToDelDirVersionInfoList() (toDelDirVe
 			MetaPartitionId: dirToDelVerInfoByMpId.MetaPartitionId,
 			DirInfos:        make([]proto.DelDirVersionInfo, 0),
 		}
+		log.LogDebugf("#### [getToDelDirVersionInfoList] dirToDelVerInfoByMpId.DirDelVerInfoByInoMap len:%v",
+			len(dirToDelVerInfoByMpId.DirDelVerInfoByInoMap)) //TODO:tangjignyu del
 
 		for _, dirToDelVerInfos := range dirToDelVerInfoByMpId.DirDelVerInfoByInoMap {
+			log.LogDebugf("#### [getToDelDirVersionInfoList] range DirDelVerInfoByInoMap, DirIno:%v", dirToDelVerInfos.DirInode) //TODO:tangjignyu del
 			delDirVersionInfo := proto.DelDirVersionInfo{
 				DirIno:     dirToDelVerInfos.DirInode,
 				SubRootIno: dirToDelVerInfos.SubRootIno,
@@ -434,6 +442,7 @@ func (dirVerMgr *DirSnapVersionManager) getToDelDirVersionInfoList() (toDelDirVe
 			}
 
 			for verToDel := range dirToDelVerInfos.ToDelVerSet {
+				log.LogDebugf("#### [getToDelDirVersionInfoList] range ToDelVerSet, verToDel:%v", verToDel) //TODO:tangjignyu del
 				delVer := proto.DelVer{
 					DelVer: verToDel,
 					Vers:   make([]*proto.VersionInfo, len(dirToDelVerInfos.Vers)),
@@ -453,6 +462,8 @@ func (dirVerMgr *DirSnapVersionManager) getToDelDirVersionInfoList() (toDelDirVe
 		toDelDirVersionInfoList = append(toDelDirVersionInfoList, toDelDirVersionInfo)
 	}
 
+	log.LogDebugf("[getToDelDirVersionInfoList] vol[%v], got item cnt:%v",
+		dirVerMgr.vol.Name, len(toDelDirVersionInfoList))
 	return toDelDirVersionInfoList
 }
 
@@ -535,6 +546,8 @@ func (dirVerMgr *DirSnapVersionManager) DelVer(metaPartitionId, dirIno, deletedV
 	//TODO: lock scope
 	dirVerMgr.DeVerInfoLock.Lock()
 	defer dirVerMgr.DeVerInfoLock.Unlock()
+
+	log.LogInfof("[DelVer] deletedVer:%v, dirIno:%v, mpId:%v", deletedVer, dirIno, metaPartitionId)
 
 	removedToDelVer := dirVerMgr.RemoveDirToDelVer(metaPartitionId, dirIno, deletedVer)
 
