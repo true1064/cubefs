@@ -48,9 +48,10 @@ func name(block, size uint64) string {
 
 func setBlock(block uint64) {
 	BlockSize = block
+	cacheSize = 32 * int(BlockSize)
 	pool = sync.Pool{
 		New: func() interface{} {
-			return make([]byte, BlockSize)
+			return make([]byte, cacheSize)
 		},
 	}
 }

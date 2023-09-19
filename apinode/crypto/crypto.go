@@ -40,10 +40,12 @@ var (
 	cryptoKit kit.AndesCryptoKit
 
 	// BlockSize independent block with crypto.
-	BlockSize uint64 = 4096
-	pool             = sync.Pool{
+	BlockSize uint64 = 4096 // 4 KB
+
+	cacheSize = 32 * int(BlockSize) // 128 KB
+	pool      = sync.Pool{
 		New: func() interface{} {
-			return make([]byte, BlockSize)
+			return make([]byte, cacheSize)
 		},
 	}
 )
@@ -243,7 +245,7 @@ func (cryptor) FileEncryptor(key []byte, plaintexter io.Reader) (io.Reader, erro
 	}
 	return &fileCryptor{
 		offset:  -1,
-		block:   pool.Get().([]byte)[:BlockSize],
+		block:   pool.Get().([]byte)[:cacheSize],
 		reader:  plaintexter,
 		cryptor: cipher.EncryptBlock,
 	}, nil
@@ -259,7 +261,7 @@ func (cryptor) FileDecryptor(key []byte, ciphertexter io.Reader) (io.Reader, err
 	}
 	return &fileCryptor{
 		offset:  -1,
-		block:   pool.Get().([]byte)[:BlockSize],
+		block:   pool.Get().([]byte)[:cacheSize],
 		reader:  ciphertexter,
 		cryptor: cipher.DecryptBlock,
 	}, nil
@@ -293,10 +295,10 @@ func (r *fileCryptor) Read(p []byte) (n int, err error) {
 	for len(p) > 0 {
 		if r.offset < 0 || r.offset == len(r.block) {
 			if r.err = r.nextBlock(); r.err != nil {
+				r.free()
 				if n > 0 {
 					return n, nil
 				}
-				r.free()
 				return n, r.err
 			}
 		}
@@ -307,6 +309,19 @@ func (r *fileCryptor) Read(p []byte) (n int, err error) {
 		p = p[read:]
 		n += read
 	}
+
+	sizeBlock := len(r.block)
+	if r.offset == sizeBlock {
+		if sizeBlock < cacheSize { // EOF
+			r.free()
+			r.err = io.EOF
+		} else {
+			if r.err = r.nextBlock(); r.err != nil {
+				r.free()
+			}
+		}
+	}
+
 	return n, nil
 }
 
@@ -314,11 +329,20 @@ func (r *fileCryptor) nextBlock() error {
 	n, err := readFullOrToEnd(r.reader, r.block)
 	r.offset = 0
 	r.block = r.block[:n]
-	if n > 0 {
-		if eno := r.cryptor(r.block, r.block, 0); eno != errno.OK {
+
+	start := 0
+	for start < n {
+		end := start + int(BlockSize)
+		if end > n {
+			end = n
+		}
+		block := r.block[start:end]
+		if eno := r.cryptor(block, block, 0); eno != errno.OK {
 			return fileError(eno)
 		}
+		start += int(BlockSize)
 	}
+
 	return err
 }
 
