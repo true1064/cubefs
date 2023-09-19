@@ -164,6 +164,7 @@ func testDirOp(ctx context.Context, vol sdk.IVolume) {
 	}
 
 	var inoInfos []*proto.InodeInfo
+	inos = append(inos, 101010)
 	inoInfos, err = vol.BatchGetInodes(ctx, inos)
 	if err != nil {
 		span.Fatalf("execute BatchGetInodes failed, err %s", err.Error())

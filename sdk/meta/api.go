@@ -594,17 +594,25 @@ func (mw *MetaWrapper) BatchInodeGetWith(inodes []uint64) (batchInfos []*proto.I
 	}
 
 	if len(batchInfos) != len(inodes) {
-		log.LogWarnf("BatchInodeGetWith: got inode info cnt not correct, want %d, got %d, inodes %v",
-			len(inodes), len(batchInfos), inodes)
-		return nil, fmt.Errorf("result cnt wrong, want %d, got %d", len(inodes), len(batchInfos))
+		log.LogWarnf("BatchInodeGetWith: got inode info cnt not correct, want %d, got %d",
+			len(inodes), len(batchInfos))
 	}
 
+	newInfos := make([]*proto.InodeInfo, len(inodes))
 	for idx, ino := range inodes {
-		batchInfos[idx] = infoMap[ino]
+		ifo, ok := infoMap[ino]
+		if !ok {
+			log.LogWarnf("BatchInodeGetWith: get target inode info failed, ino %d", ino)
+			newInfos[idx] = &proto.InodeInfo{
+				Inode: ino,
+			}
+			continue
+		}
+		newInfos[idx] = ifo
 	}
 
 	log.LogDebugf("BatchInodeGet: inodesCnt(%d)", len(inodes))
-	return batchInfos, nil
+	return newInfos, nil
 }
 
 // InodeDelete_ll is a low-level api that removes specified inode immediately
