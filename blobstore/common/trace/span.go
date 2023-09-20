@@ -281,7 +281,7 @@ func (s *spanImpl) track(value string) {
 
 // String returns traceID:spanID.
 func (s *spanImpl) String() string {
-	return fmt.Sprintf("%s:%s", s.context.traceID, s.context.spanID)
+	return fmt.Sprintf("%s:%s:%s", s.context.traceID, s.context.spanID, s.OperationName())
 }
 
 // TraceID return traceID
