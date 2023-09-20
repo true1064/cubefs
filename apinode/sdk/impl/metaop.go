@@ -53,7 +53,7 @@ func (m *metaOpImp) LookupEx(parentId uint64, name string) (den *proto.Dentry, e
 }
 
 func (m *metaOpImp) CreateInode(mode uint32) (*proto.InodeInfo, error) {
-	return m.InodeCreate_ll(mode, 0, 0, nil, nil)
+	return m.InodeCreate_ll(0, mode, 0, 0, nil, nil)
 }
 
 func (m *metaOpImp) CreateFileEx(ctx context.Context, parentID uint64, name string, mode uint32) (*sdk.InodeInfo, uint64, error) {

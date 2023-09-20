@@ -40,8 +40,16 @@ type DataOpImp struct {
 	*stream.ExtentClient
 }
 
+func (d *DataOpImp) Write(inode uint64, offset int, data []byte, flags int) (write int, err error) {
+	return d.ExtentClient.Write(inode, offset, data, flags, nil)
+}
+
 func newDataOp(cfg *stream.ExtentConfig) (sdk.DataOp, error) {
-	return stream.NewExtentClient(cfg)
+	ec, err := stream.NewExtentClient(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &DataOpImp{ExtentClient: ec}, nil
 }
 
 func newVolume(ctx context.Context, name, owner, addr string) (sdk.IVolume, error) {
@@ -77,10 +85,6 @@ func newVolume(ctx context.Context, name, owner, addr string) (sdk.IVolume, erro
 	if err != nil {
 		span.Errorf("init extent client failed, name %s, owner %s, addr %s", name, owner, addr)
 		return nil, sdk.ErrInternalServerError
-	}
-
-	if mw1, ok := mw.(*metaOpImp); ok {
-		mw1.Client = ec.(*stream.ExtentClient)
 	}
 
 	v := &volume{

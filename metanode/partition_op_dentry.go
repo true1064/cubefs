@@ -99,12 +99,18 @@ func (mp *metaPartition) CreateDentry(req *CreateDentryReq, p *Packet) (err erro
 	}
 
 	dentry := &Dentry{
-		ParentId:  req.ParentID,
-		Name:      req.Name,
-		Inode:     req.Inode,
-		Type:      req.Mode,
+		ParentId: req.ParentID,
+		Name:     req.Name,
+		Inode:    req.Inode,
+		Type:     req.Mode,
+		FileId:   req.FileId,
 		multiSnap: NewDentrySnap(mp.GetVerSeq()),
 	}
+
+	if req.OldIno != 0 {
+		return mp.createDentryEx(dentry, req.OldIno, p)
+	}
+
 	val, err := dentry.Marshal()
 	if err != nil {
 		return
@@ -161,8 +167,6 @@ func (mp *metaPartition) QuotaCreateDentry(req *proto.QuotaCreateDentryRequest, 
 		return mp.createDentryEx(dentry, req.OldIno, p)
 	}
 
-	dentry.setVerSeq(mp.verSeq)
-	log.LogDebugf("action[CreateDentry] mp[%v] with seq %v,dentry [%v]", mp.config.PartitionId, mp.verSeq, dentry)
 	val, err := dentry.Marshal()
 	if err != nil {
 		return

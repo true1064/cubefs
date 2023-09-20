@@ -31,7 +31,7 @@ const (
 func main() {
 	// log.InitFileLog("/tmp/cfs", "test", "debug")
 	logDir := "/tmp/cfs/sdktest"
-	log.InitLog(logDir, "test", log.DebugLevel, nil)
+	log.InitLog(logDir, "test", log.DebugLevel, nil, 0)
 	stat.DefaultStatInterval = 2 * time.Second
 	stat.NewStatistic(logDir, "test", int64(stat.DefaultStatLogSize), stat.DefaultTimeOutUs, true)
 	mgr := impl.NewClusterMgr()
