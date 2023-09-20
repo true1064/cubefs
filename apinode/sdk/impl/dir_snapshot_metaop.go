@@ -2,7 +2,6 @@ package impl
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/trace"
@@ -17,11 +16,9 @@ type snapMetaOpImp struct {
 	snapShotItems []*proto.DirSnapshotInfo
 	hasSetVer     bool
 	ver           *proto.DelVer
-	verInfo       *proto.DirSnapshotInfo
 	snapIno       uint64
 	isNewest      bool
 	rootIno       uint64
-	inoMap        map[uint64]uint64
 }
 
 func newSnapMetaOp(mop MetaOp, items []*proto.DirSnapshotInfo, rootIno uint64) *snapMetaOpImp {
@@ -36,72 +33,16 @@ func newSnapMetaOp(mop MetaOp, items []*proto.DirSnapshotInfo, rootIno uint64) *
 		snapShotItems: items,
 		rootIno:       rootIno,
 		isNewest:      true,
-		inoMap:        map[uint64]uint64{},
 	}
 	return smw
 }
 
 func (m *snapMetaOpImp) getVerStr() string {
-	if m.verInfo == nil {
+	if m.ver == nil {
 		return "0-no version"
 	}
-	data, _ := json.Marshal(m.verInfo)
-	return string(data)
-}
 
-func (m *snapMetaOpImp) setVerByInode(ctx context.Context, ino uint64) (ver *proto.DelVer, err error) {
-	if len(m.snapShotItems) == 0 {
-		return nil, nil
-	}
-
-	defer func() {
-		m.sm.SetVerInfo(ver)
-	}()
-	m.verInfo = nil
-
-	span := trace.SpanFromContextSafe(ctx)
-
-	getVer := func(inode uint64) *proto.DelVer {
-		for _, cv := range m.snapShotItems {
-			if cv.SnapshotInode != inode {
-				continue
-			}
-
-			tmp := &proto.DelVer{
-				DelVer: cv.MaxVer,
-			}
-			for _, v := range cv.Vers {
-				tmp.Vers = append(tmp.Vers, v.Ver)
-			}
-			m.verInfo = cv
-			return tmp
-		}
-		return nil
-	}
-
-	for {
-		ver = getVer(ino)
-		if ver != nil {
-			return ver, nil
-		}
-
-		if ino == m.rootIno {
-			return nil, nil
-		}
-
-		parIno, ok := m.inoMap[ino]
-		if !ok {
-			span.Warnf("can't find parent ino from ino map, maybe illegal usage, ino %d, map %v",
-				ino, m.inoMap)
-			return nil, sdk.ErrBadRequest
-		}
-
-		ino = parIno
-	}
-}
-
-func (m *snapMetaOpImp) addParInode(parIno, child uint64) {
-	m.inoMap[child] = parIno
+	return m.ver.String()
 }
 
 func versionName(ver string) string {
@@ -121,7 +62,7 @@ func (m *snapMetaOpImp) getVersionNames(dirIno uint64) (names []string) {
 		}
 
 		for _, v := range e.Vers {
-			if v.Ver.IsNormal() {
+			if v.Normal() {
 				names = append(names, versionName(v.OutVer))
 			}
 		}
@@ -148,64 +89,24 @@ func (m *snapMetaOpImp) versionExist(dirIno uint64, outVer string) (bool, *proto
 }
 
 func (m *snapMetaOpImp) isSnapshotDir(ctx context.Context, parentId uint64, name string) (bool, error) {
-	span := trace.SpanFromContext(ctx)
 	if !strings.HasPrefix(name, sdk.SnapShotPre) {
 		return false, nil
 	}
 
-	if m.verInfo != nil && parentId != m.verInfo.SnapshotInode {
-		span.Warnf("already set ver before, maybe conflict, parentId %d, name %s, ver %s",
-			parentId, name, m.getVerStr())
-		return false, sdk.ErrConflict
-	}
-
-	//cv := m.verInfo
-	//for _, v := range cv.Vers {
-	//	vName := versionName(v.OutVer)
-	//	if name != vName {
-	//		continue
-	//	}
-	//	if v.Ver.Status != proto.VersionNormal {
-	//		break
-	//	}
-	//
-	//	tmp := &proto.DelVer{}
-	//	for _, v := range cv.Vers {
-	//		tmp.Vers = append(tmp.Vers, v.Ver)
-	//	}
-	//	tmp.Vers = append(tmp.Vers, &proto.VersionInfo{
-	//		Ver:     cv.MaxVer,
-	//		DelTime: 0,
-	//		Status:  proto.VersionInit,
-	//	})
-	//	break
-	//}
-
+	span := trace.SpanFromContext(ctx)
 	var ver *proto.DelVer
-	buildVer := func(idx uint64, vers []*proto.ClientDirVer) {
-		ver = &proto.DelVer{
-			DelVer: idx,
-		}
-
-		for _, v := range vers {
-			ver.Vers = append(ver.Vers, v.Ver)
-		}
-	}
-
 	for _, e := range m.snapShotItems {
-		if e.SnapshotInode != parentId {
+		if !e.IsSnapshotInode(parentId) {
 			continue
 		}
 
 		for _, v := range e.Vers {
 			vName := versionName(v.OutVer)
-			if name == vName && v.Ver.Status == proto.VersionNormal {
-				buildVer(v.Ver.Ver, e.Vers)
-				ver.Vers = append(ver.Vers, &proto.VersionInfo{
-					Ver:     e.MaxVer,
-					DelTime: 0,
-					Status:  proto.VersionInit,
-				})
+			if name == vName && v.Normal() {
+				ver = &proto.DelVer{
+					DelVer: v.Ver.Ver,
+					Vers:   buildByClientVerItems(e.Vers),
+				}
 				break
 			}
 		}
@@ -214,30 +115,26 @@ func (m *snapMetaOpImp) isSnapshotDir(ctx context.Context, parentId uint64, name
 	}
 
 	if ver == nil {
+		span.Warnf("not found version info, parIno %d, name %s", parentId, name)
 		return false, sdk.ErrNotFound
 	}
 
 	m.hasSetVer = true
 	m.ver = ver
 	m.isNewest = false
-	m.snapIno = parentId
 	m.sm.SetVerInfo(ver)
 	return true, nil
 }
 
-func buildFromClientVers(maxVer uint64, clientVers []*proto.ClientDirVer) (vers []*proto.VersionInfo) {
-	vers = make([]*proto.VersionInfo, 0)
-	for _, cv := range clientVers {
-		vers = append(vers, cv.Ver)
+func buildByClientVerItems(clientVerItems []*proto.ClientDirVer) (items []*proto.VersionInfo) {
+	items = make([]*proto.VersionInfo, 0, len(clientVerItems))
+	for _, cv := range clientVerItems {
+		items = append(items, cv.Ver)
 	}
-	vers = append(vers, &proto.VersionInfo{
-		Ver:     maxVer,
-		DelTime: 0,
-		Status:  proto.VersionInit,
-	})
-	return vers
+	return items
 }
 
+// resetDirVer used by multipart to ensure only when complete op is relative to snapshot.
 func (m *snapMetaOpImp) resetDirVer(ctx context.Context) {
 	if !m.hasSetVer {
 		return
@@ -263,9 +160,7 @@ func (m *snapMetaOpImp) checkSnapshotIno(dirIno uint64) {
 	m.ver = ver
 	m.isNewest = true
 	m.hasSetVer = true
-	m.snapIno = dirIno
 	return
-
 }
 
 func (m *snapMetaOpImp) isSnapshotInode(dirIno uint64) (bool, *proto.DelVer) {
@@ -273,7 +168,7 @@ func (m *snapMetaOpImp) isSnapshotInode(dirIno uint64) (bool, *proto.DelVer) {
 		if e.IsSnapshotInode(dirIno) {
 			ver := &proto.DelVer{
 				DelVer: e.MaxVer,
-				Vers:   buildFromClientVers(e.MaxVer, e.Vers),
+				Vers:   buildByClientVerItems(e.Vers),
 			}
 			return true, ver
 		}
@@ -283,7 +178,7 @@ func (m *snapMetaOpImp) isSnapshotInode(dirIno uint64) (bool, *proto.DelVer) {
 }
 
 func (m *snapMetaOpImp) newestVer() bool {
-	if m.ver == nil {
+	if !m.hasSetVer {
 		return true
 	}
 
@@ -357,10 +252,11 @@ func (m *snapMetaOpImp) CreateDentryEx(ctx context.Context, req *sdk.CreateDentr
 	span := trace.SpanFromContextSafe(ctx)
 	m.checkSnapshotIno(req.ParentId)
 	if !m.newestVer() {
-		span.Warnf("can't write on snapshot dir, snap %v", m.getVerStr())
+		span.Warnf("can't write on snapshot dir, snap %s", m.getVerStr())
 		return 0, sdk.ErrWriteSnapshot
 	}
 	if isSnapshotName(req.Name) {
+		span.Warnf("request name is not valid, name %s", req.Name)
 		return 0, sdk.ErrSnapshotName
 	}
 
@@ -445,23 +341,23 @@ func (m *snapMetaOpImp) InodeDeleteVer(inode uint64) error {
 	return m.sm.InodeDelete_ll(inode)
 }
 
-func (m *snapMetaOpImp) ReadDirLimit(parentID uint64, from string, limit uint64) ([]proto.Dentry, error) {
-	m.checkSnapshotIno(parentID)
+func (m *snapMetaOpImp) ReadDirLimit(dirIno uint64, from string, limit uint64) ([]proto.Dentry, error) {
+	m.checkSnapshotIno(dirIno)
 	if !m.newestVer() || !m.hasSetVer {
-		return m.sm.ReadDirLimit_ll(parentID, from, limit)
+		return m.sm.ReadDirLimit_ll(dirIno, from, limit)
 	}
 
 	// snapshot inode, return version info
-	items, err := m.sm.ReadDirLimit_ll(parentID, from, limit)
+	items, err := m.sm.ReadDirLimit_ll(dirIno, from, limit)
 	if err != nil {
 		return nil, err
 	}
 
 	// insert version info to items
-	versionNames := m.getVersionNames(parentID)
+	versionNames := m.getVersionNames(dirIno)
 	vItems := make([]proto.Dentry, 0, len(versionNames))
 	for _, v := range versionNames {
-		vItems = append(vItems, *newDirDentry(parentID, v))
+		vItems = append(vItems, *newDirDentry(dirIno, v))
 	}
 
 	cnt := int(limit)

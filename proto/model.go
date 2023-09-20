@@ -15,6 +15,7 @@
 package proto
 
 import (
+	"fmt"
 	"sync"
 	"time"
 )
@@ -362,11 +363,15 @@ func (v *VersionInfo) IsNormal() bool {
 	return v.Status == VersionNormal
 }
 
+func (v *VersionInfo) String() string {
+	return fmt.Sprintf("ver(%d)_delTime(%d)_status(%d)", v.Ver, v.DelTime, v.Status)
+}
+
 func GetMaxVersion(max uint64) *VersionInfo {
 	return &VersionInfo{
 		Ver:     max,
 		DelTime: 0,
-		Status:  VersionInit,
+		Status:  VersionNormal,
 	}
 }
 

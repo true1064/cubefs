@@ -94,6 +94,11 @@ func (d *dirSnapshotOp) IsSnapshotInode(ctx context.Context, ino uint64) bool {
 func (d *dirSnapshotOp) CreateDirSnapshot(ctx context.Context, ver, subPath string) error {
 	span := trace.SpanFromContextSafe(ctx)
 
+	if ver == "" {
+		span.Warnf("request ver is not valid, subPath %s, ver %s", subPath, ver)
+		return sdk.ErrBadRequest
+	}
+
 	err := d.checkConflict(ctx, subPath, ver)
 	if err != nil {
 		span.Warnf("snapshot path is conflict with before, subPath %s, err %s",
@@ -144,10 +149,10 @@ func (d *dirSnapshotOp) checkConflict(ctx context.Context, subPath, outVer strin
 
 	isSnapshot, _ := d.mw.isSnapshotInode(dirIno)
 	if isSnapshot {
-		exist, _ := d.mw.versionExist(dirIno, outVer)
+		exist, oldVer := d.mw.versionExist(dirIno, outVer)
 		if exist {
-			span.Warnf("target dir version is already exist, ino %d, subPath %s, outVer %s",
-				dirIno, subPath, outVer)
+			span.Warnf("target dir version is already exist, ino %d, subPath %s, outVer %s, oldVer %s",
+				dirIno, subPath, outVer, oldVer.String())
 			return sdk.ErrExist
 		}
 		return nil
@@ -247,7 +252,7 @@ func (d *dirSnapshotOp) DeleteDirSnapshot(ctx context.Context, ver, filePath str
 
 	ok, verInfo := d.mw.versionExist(dirIno, ver)
 	if !ok {
-		span.Warnf("target version is already not exist, dirIno %d, ver %s, path %s", dirIno, ver, err.Error())
+		span.Warnf("target version is already not exist, dirIno %d, ver %s, path %s", dirIno, ver, filePath)
 		return sdk.ErrNotFound
 	}
 

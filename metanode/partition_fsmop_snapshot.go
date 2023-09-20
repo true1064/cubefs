@@ -25,10 +25,10 @@ func (mp *metaPartition) fsmCreateDirSnapshot(ifo *proto.CreateDirSnapShotInfo) 
 	}
 
 	oldDirSnap := oldItem.(*dirSnapshotItem)
-	if ifo.SnapshotDir != oldDirSnap.Dir {
-		log.LogWarnf("fsmCreateDirSnapshot: root inode is conflict with before, req %v, before %v", ifo, oldItem)
-		return proto.OpArgMismatchErr
-	}
+	//if ifo.SnapshotDir != oldDirSnap.Dir {
+	//	log.LogWarnf("fsmCreateDirSnapshot: root inode is conflict with before, req %v, before %v", ifo, oldItem)
+	//	return proto.OpArgMismatchErr
+	//}
 
 	oldDirSnap.Lock()
 	defer oldDirSnap.Unlock()
@@ -123,7 +123,7 @@ func (mp *metaPartition) fsmDelDirSnap(e *proto.DirVerItem) (resp uint8) {
 
 func (mp *metaPartition) fsmBatchDelDirSnapshot(ifo *BatchDelDirSnapInfo) (resp uint8) {
 	start := time.Now()
-	log.LogDebugf("fsmBatchDelDirSnapshot: start batch delete, stat %d, cnt %d", ifo.Status, len(ifo.Items))
+	log.LogDebugf("fsmBatchDelDirSnapshot: start batch delete, status %d, cnt %d", ifo.Status, len(ifo.Items))
 	if ifo.Status != proto.VersionDeleting && ifo.Status != proto.VersionDeleted {
 		log.LogWarnf("fsmBatchDelDirSnapshot: ifo status is not valid, status %d", ifo.Status)
 		return proto.OpArgMismatchErr

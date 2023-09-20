@@ -585,6 +585,14 @@ type ClientDirVer struct {
 	Ver    *VersionInfo `json:"ver"`
 }
 
+func (c *ClientDirVer) Normal() bool {
+	if c.OutVer == SnapshotMockVerName {
+		return false
+	}
+
+	return c.Ver != nil && c.Ver.IsNormal()
+}
+
 type MetaBatchDelVerReq struct {
 	VolName     string       `json:"vol"`
 	PartitionID uint64       `json:"pid"`

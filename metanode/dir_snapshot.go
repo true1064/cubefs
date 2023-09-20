@@ -66,6 +66,10 @@ func (d *dirSnapshotItem) buildDirSnapshotIfo() *proto.DirSnapshotInfo {
 		})
 	}
 
+	ifo.Vers = append(ifo.Vers, &proto.ClientDirVer{
+		OutVer: proto.SnapshotMockVerName,
+		Ver:    proto.GetMaxVersion(ifo.MaxVer),
+	})
 	return ifo
 }
 

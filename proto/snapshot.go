@@ -15,6 +15,8 @@ const (
 	ModeDir
 )
 
+const SnapshotMockVerName = ""
+
 type SnapshotVerDelTaskRequest struct {
 	MasterAddr string
 	LcNodeAddr string
