@@ -286,6 +286,8 @@ func (d *DriveNode) getUserRouterAndVolume(ctx context.Context, uid UserID) (*Us
 	if err != nil {
 		return nil, nil, err
 	}
+	span.SetOperationName(fmt.Sprintf("%s(%s)(%s)", uid, ur.ClusterID, ur.VolumeID))
+
 	cluster := d.clusterMgr.GetCluster(ur.ClusterID)
 	if cluster == nil {
 		return nil, nil, sdk.ErrNoCluster

@@ -84,18 +84,19 @@ func (d *DriveNode) RegisterAPIRouters() *rpc.Router {
 
 func (d *DriveNode) setHeaders(c *rpc.Context) {
 	rid := c.Request.Header.Get(HeaderRequestID)
+	uid := UserID(c.Request.Header.Get(HeaderUserID))
 	c.Set(HeaderRequestID, rid)
 
 	ctx := c.Request.Context()
 	var span trace.Span
 	if rid != "" {
-		span, _ = trace.StartSpanFromContextWithTraceID(ctx, "", rid)
+		span, _ = trace.StartSpanFromContextWithTraceID(ctx, string(uid), rid)
 	} else {
 		span = trace.SpanFromContextSafe(ctx)
+		span.SetOperationName(string(uid))
 	}
 	c.Set(contextSpan, span)
 
-	uid := UserID(c.Request.Header.Get(HeaderUserID))
 	span.Debug("user id:", uid)
 	if !uid.Valid() {
 		span.Warn("abort invalid user", uid)

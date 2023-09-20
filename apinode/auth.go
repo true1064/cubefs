@@ -44,18 +44,10 @@ func (m *authenticator) Handler(w http.ResponseWriter, req *http.Request, f func
 		f(w, req)
 		return
 	}
-
-	var (
-		span trace.Span
-		err  error
-	)
 	ctx := req.Context()
-	if rid := req.Header.Get(drive.HeaderRequestID); rid != "" {
-		span, _ = trace.StartSpanFromContextWithTraceID(ctx, "", rid)
-	} else {
-		span = trace.SpanFromContextSafe(ctx)
-	}
+	span := trace.SpanFromContextSafe(ctx)
 
+	var err error
 	defer func() {
 		if err == nil {
 			return

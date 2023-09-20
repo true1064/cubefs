@@ -33,12 +33,14 @@ func (m *limiter) Handler(w http.ResponseWriter, req *http.Request, f func(http.
 		err  *sdk.Error
 	)
 	ctx := req.Context()
-	req = req.WithContext(auditlog.ContextWithStartTime(ctx, st))
 	if rid := req.Header.Get(drive.HeaderRequestID); rid != "" {
-		span, _ = trace.StartSpanFromContextWithTraceID(ctx, "", rid)
+		span, ctx = trace.StartSpanFromContextWithTraceID(ctx, "", rid)
 	} else {
 		span = trace.SpanFromContextSafe(ctx)
+		span.SetOperationName("")
+		ctx = trace.ContextWithSpan(ctx, span)
 	}
+	req = req.WithContext(auditlog.ContextWithStartTime(ctx, st))
 
 	defer func() {
 		p := recover()
