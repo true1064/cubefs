@@ -465,7 +465,7 @@ func (s *SnapshotScanner) checkScanning(report bool) {
 					delete(s.lcnode.snapshotScanners, s.ID)
 					s.Stop()
 					s.lcnode.scannerMutex.Unlock()
-
+					s.mw.Close()
 					s.lcnode.respondToMaster(s.adminTask)
 					log.LogInfof("scan completed for task(%v)", s.adminTask)
 				} else {

@@ -25,4 +25,5 @@ type MetaWrapper interface {
 	BatchInodeGet(inodes []uint64) []*proto.InodeInfo
 	BatchDelete_ll(dentries []*proto.ScanDentry)
 	ReadDirLimit_ll(parentID uint64, from string, limit uint64) ([]proto.Dentry, error)
+	Close() error
 }

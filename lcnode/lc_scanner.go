@@ -525,7 +525,7 @@ func (s *LcScanner) checkScanning() {
 					delete(s.lcnode.lcScanners, s.ID)
 					s.Stop()
 					s.lcnode.scannerMutex.Unlock()
-
+					s.mw.Close()
 					s.lcnode.respondToMaster(s.adminTask)
 					return
 				}
