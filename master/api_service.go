@@ -6347,7 +6347,7 @@ func (m *Server) BatchDeleteDirSnapshotVersion(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if err = vol.DirSnapVersionMgr.AddDirToDelVerInfos(req.MetaPartitionId, req.DirInfos); err != nil {
+	if err = vol.DirSnapVersionMgr.AddDirToDelVerInfos(req.MetaPartitionId, req.DirInfos, true); err != nil {
 		log.LogErrorf("[BatchDeleteDirSnapshotVersion] add to del ver info of dir failed, vol: %v, mpId: %v:, err:%v",
 			req.Vol, req.MetaPartitionId, err.Error())
 		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeVersionOpError, Msg: fmt.Sprintf(" add to del ver info of dir err: %v", err.Error())})
@@ -6357,4 +6357,35 @@ func (m *Server) BatchDeleteDirSnapshotVersion(w http.ResponseWriter, r *http.Re
 	log.LogInfof("[BatchDeleteDirSnapshotVersion] vol[%v] mpId[%v] add %v items",
 		volName, req.MetaPartitionId, len(req.DirInfos))
 	sendOkReply(w, r, newSuccessHTTPReply(fmt.Sprintf("%v", http.StatusOK)))
+}
+
+func (m *Server) GetDirSnapshotVersion(w http.ResponseWriter, r *http.Request) {
+	log.LogDebug("[GetDirSnapshotVersion] run...") //TODO:DEL
+	var (
+		err     error
+		volName string
+		vol     *Vol
+	)
+
+	metric := exporter.NewTPCnt(apiToMetricsName(proto.AdminDirSnapshotGetInfo))
+	defer func() {
+		doStatAndMetric(proto.AdminDirSnapshotGetInfo, metric, err, map[string]string{exporter.Vol: volName})
+	}()
+
+	if volName, err = parseAndExtractName(r); err != nil {
+		log.LogErrorf("[GetDirSnapshotVersion] parseAndExtractName failed, err: %v", err.Error)
+		sendErrReply(w, r, newErrHTTPReply(err))
+		return
+	}
+
+	if vol, err = m.cluster.getVol(volName); err != nil {
+		log.LogErrorf("[GetDirSnapshotVersion] not exist vol: %v", volName)
+		sendErrReply(w, r, newErrHTTPReply(proto.ErrVolNotExists))
+		return
+	}
+
+	info := vol.DirSnapVersionMgr.Query()
+
+	log.LogDebugf("[GetDirSnapshotVersion] vol[%v] query success", volName)
+	sendOkReply(w, r, newSuccessHTTPReply(info))
 }

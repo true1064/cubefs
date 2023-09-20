@@ -755,6 +755,9 @@ func (m *Server) registerAPIRoutes(router *mux.Router) {
 	router.NewRoute().Methods(http.MethodGet, http.MethodPost).
 		Path(proto.AdminDirSnapshotBatchDeleteVersion).
 		HandlerFunc(m.BatchDeleteDirSnapshotVersion)
+	router.NewRoute().Methods(http.MethodGet).
+		Path(proto.AdminDirSnapshotGetInfo).
+		HandlerFunc(m.GetDirSnapshotVersion)
 }
 
 func (m *Server) registerHandler(router *mux.Router, model string, schema *graphql.Schema) {

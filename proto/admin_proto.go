@@ -237,6 +237,7 @@ const (
 	//admin dir snapshot (Taking snapshots at the dir level granularity)
 	AdminDirSnapshotAllocVersion       = "/dirSnapshot/allocVersion"
 	AdminDirSnapshotBatchDeleteVersion = "/dirSnapshot/batchDeleteVersion"
+	AdminDirSnapshotGetInfo            = "/dirSnapshot/get"
 )
 
 var GApiInfo map[string]string = map[string]string{

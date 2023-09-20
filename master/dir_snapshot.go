@@ -164,7 +164,7 @@ func (dirVerAlloc *DirSnapVerAllocator) Persist(vol *Vol, c *Cluster) (err error
 	return
 }
 
-func (dirVerAlloc *DirSnapVerAllocator) load(val []byte) (err error) {
+func (dirVerAlloc *DirSnapVerAllocator) load(val []byte, volName string) (err error) {
 	persistVer := &DirSnapVerAllocatorPersist{}
 	if err = json.Unmarshal(val, persistVer); err != nil {
 		return
@@ -172,6 +172,8 @@ func (dirVerAlloc *DirSnapVerAllocator) load(val []byte) (err error) {
 
 	dirVerAlloc.PreAllocMaxVer = persistVer.PreAllocMaxVer
 	dirVerAlloc.CurSnapVer = persistVer.PreAllocMaxVer
+	log.LogInfof("action[DirSnapVerAllocator.load]: vol[%v], PreAllocMaxVer: %v, CurSnapVer: %v",
+		volName, dirVerAlloc.PreAllocMaxVer, dirVerAlloc.CurSnapVer)
 	return nil
 }
 
@@ -222,8 +224,8 @@ func (dirVerMgr *DirSnapVersionManager) String() string {
 		dirVerMgr.vol.Name, dirVerMgr.dirVerAllocator.String())
 }
 
-func (direrMgr *DirSnapVersionManager) SetCluster(c *Cluster) {
-	direrMgr.c = c
+func (dirVerMgr *DirSnapVersionManager) SetCluster(c *Cluster) {
+	dirVerMgr.c = c
 	return
 }
 
@@ -252,7 +254,7 @@ func newDirDeletedVerInfoByInoPersist(dInfo *DirDeletedVerInfoByIno) *DirDeleted
 	dirDeletedVerInfoByInoPersist := &DirDeletedVerInfoByInoPersist{
 		DirInode:       dInfo.DirInode,
 		SubRootIno:     dInfo.SubRootIno,
-		DeletedVerList: make([]uint64, len(dInfo.DeletedVerSet)),
+		DeletedVerList: make([]uint64, 0),
 	}
 
 	for deletedVer := range dInfo.DeletedVerSet {
@@ -263,26 +265,25 @@ func newDirDeletedVerInfoByInoPersist(dInfo *DirDeletedVerInfoByIno) *DirDeleted
 }
 
 type DirDeletedVerInfoByMpIdPersist struct {
-	mpId                uint64
-	deletedVerByInoList []*DirDeletedVerInfoByInoPersist
+	MpId                uint64
+	DeletedVerByInoList []*DirDeletedVerInfoByInoPersist
 }
 
 func newDirDeletedVerInfoByMpIdPersist(mpId uint64) *DirDeletedVerInfoByMpIdPersist {
 	return &DirDeletedVerInfoByMpIdPersist{
-		mpId:                mpId,
-		deletedVerByInoList: make([]*DirDeletedVerInfoByInoPersist, 0),
+		MpId:                mpId,
+		DeletedVerByInoList: make([]*DirDeletedVerInfoByInoPersist, 0),
 	}
 }
 
 type DirDelVerInfoPersist struct {
-	toDelDirVersionInfoList []*DirToDelVersionInfoByMpIdPersist
-	deletedDirVerInfoList   []*DirDeletedVerInfoByMpIdPersist
+	ToDelDirVersionInfoList []*DirToDelVersionInfoByMpIdPersist
+	DeletedDirVerInfoList   []*DirDeletedVerInfoByMpIdPersist
 }
 
-func (direrMgr *DirSnapVersionManager) GetDirToDelVerInfoByMpIdPersist() []*DirToDelVersionInfoByMpIdPersist {
-	toDelDirVersionInfoList := direrMgr.getToDelDirVersionInfoList()
-
-	toDelDirVersionInfoListPersist := make([]*DirToDelVersionInfoByMpIdPersist, len(toDelDirVersionInfoList))
+func (dirVerMgr *DirSnapVersionManager) GetDirToDelVerInfoByMpIdPersist() []*DirToDelVersionInfoByMpIdPersist {
+	toDelDirVersionInfoList := dirVerMgr.getToDelDirVersionInfoList()
+	toDelDirVersionInfoListPersist := make([]*DirToDelVersionInfoByMpIdPersist, 0)
 
 	for _, toDelVerInfo := range toDelDirVersionInfoList {
 		toDelDirVersionInfoListPersist = append(toDelDirVersionInfoListPersist, newDirToDelVersionInfoByMpIdPersist(toDelVerInfo))
@@ -291,40 +292,49 @@ func (direrMgr *DirSnapVersionManager) GetDirToDelVerInfoByMpIdPersist() []*DirT
 	return toDelDirVersionInfoListPersist
 }
 
-func (direrMgr *DirSnapVersionManager) GetDirDeletedVerInfoByMpIdPersist() []*DirDeletedVerInfoByMpIdPersist {
+func (dirVerMgr *DirSnapVersionManager) GetDirDeletedVerInfoByMpIdPersist() []*DirDeletedVerInfoByMpIdPersist {
 	deletedDirVerInfoList := make([]*DirDeletedVerInfoByMpIdPersist, 0)
+	log.LogInfof("#### [GetDirDeletedVerInfoByMpIdPersist] running.... deletedDirVerInfoList: %+v", deletedDirVerInfoList) //TODO:tangjingyu del
 
-	for mpId, dirDeletedVerInfoByIno := range direrMgr.deletedDirVerInfoMap {
+	for mpId, dirDeletedVerInfoByIno := range dirVerMgr.deletedDirVerInfoMap {
+		log.LogInfof("#### [GetDirDeletedVerInfoByMpIdPersist] mpId:%v, dirDeletedVerInfoByIno:%+v",
+			mpId, dirDeletedVerInfoByIno) //TODO:tangjingyu del
+
 		dirDeletedVerInfoByMpIdPersist := newDirDeletedVerInfoByMpIdPersist(mpId)
 
 		p := newDirDeletedVerInfoByInoPersist(dirDeletedVerInfoByIno)
-		dirDeletedVerInfoByMpIdPersist.deletedVerByInoList = append(dirDeletedVerInfoByMpIdPersist.deletedVerByInoList, p)
+		dirDeletedVerInfoByMpIdPersist.DeletedVerByInoList = append(dirDeletedVerInfoByMpIdPersist.DeletedVerByInoList, p)
 
 		deletedDirVerInfoList = append(deletedDirVerInfoList, dirDeletedVerInfoByMpIdPersist)
+		log.LogInfof("#### [GetDirDeletedVerInfoByMpIdPersist] appneded.... deletedDirVerInfoList: %+v", deletedDirVerInfoList)
 	}
 
+	log.LogInfof("#### [GetDirDeletedVerInfoByMpIdPersist] deletedDirVerInfoList len:%v", len(deletedDirVerInfoList)) //TODO:tangjingyu del
+	log.LogInfof("#### [GetDirDeletedVerInfoByMpIdPersist] deletedDirVerInfoList: %+v", deletedDirVerInfoList)        //TODO:tangjingyu del
 	return deletedDirVerInfoList
 }
 
 //PersistDirDelVerInfo :
 // caller must handle the lock properly
-func (direrMgr *DirSnapVersionManager) PersistDirDelVerInfo() (err error) {
+func (dirVerMgr *DirSnapVersionManager) PersistDirDelVerInfo() (err error) {
 	persist := &DirDelVerInfoPersist{
-		toDelDirVersionInfoList: direrMgr.GetDirToDelVerInfoByMpIdPersist(),
-		deletedDirVerInfoList:   direrMgr.GetDirDeletedVerInfoByMpIdPersist(),
+		ToDelDirVersionInfoList: dirVerMgr.GetDirToDelVerInfoByMpIdPersist(),
+		DeletedDirVerInfoList:   dirVerMgr.GetDirDeletedVerInfoByMpIdPersist(),
 	}
 
 	var val []byte
 	if val, err = json.Marshal(persist); err != nil {
-		err = fmt.Errorf("[PersistDirDelVerInfo]: Marshal failed, vol: %v, err: %v", direrMgr.vol.Name, err)
+		err = fmt.Errorf("[PersistDirDelVerInfo]: Marshal failed, vol: %v, err: %v", dirVerMgr.vol.Name, err)
 		return
 	}
 
-	return direrMgr.c.syncDirDelVersionInfo(direrMgr.vol, val)
+	log.LogInfof("[PersistDirDelVerInfo] ToDelDirVersionInfoList len: %v, DeletedDirVerInfoList len: %v",
+		len(persist.ToDelDirVersionInfoList), len(persist.DeletedDirVerInfoList)) //TODO:tangjingyu del
+	return dirVerMgr.c.syncDirDelVersionInfo(dirVerMgr.vol, val)
 }
 
 func (dirVerMgr *DirSnapVersionManager) loadDirVersionAllocator(val []byte) (err error) {
-	return dirVerMgr.dirVerAllocator.load(val)
+	return dirVerMgr.dirVerAllocator.load(val, dirVerMgr.vol.Name)
 }
 
 func (dirVerMgr *DirSnapVersionManager) loadDirDelVerInfo(val []byte) (err error) {
@@ -334,21 +344,27 @@ func (dirVerMgr *DirSnapVersionManager) loadDirDelVerInfo(val []byte) (err error
 	}
 
 	//1. load to-del version info
-	for _, toDel := range persist.toDelDirVersionInfoList {
-		dirVerMgr.AddDirToDelVerInfos(toDel.MpId, toDel.DirToDelVerInfoList)
+	for idx, toDel := range persist.ToDelDirVersionInfoList {
+		if toDel == nil {
+			log.LogWarnf("[loadDirDelVerInfo] ToDelDirVersionInfoList idx[%v] is nil", idx)
+			continue
+		}
+
+		log.LogDebugf("### [loadDirDelVerInfo] ToDelDirVersionInfoList idx[%v]: %#v", idx, toDel)
+		dirVerMgr.AddDirToDelVerInfos(toDel.MpId, toDel.DirToDelVerInfoList, false)
 	}
 
 	//2. load deleted version info
-	for _, deletedByMpId := range persist.deletedDirVerInfoList {
-
-		for _, deletedByIno := range deletedByMpId.deletedVerByInoList {
-
+	for _, deletedByMpId := range persist.DeletedDirVerInfoList {
+		for _, deletedByIno := range deletedByMpId.DeletedVerByInoList {
 			for _, deletedVer := range deletedByIno.DeletedVerList {
-				dirVerMgr.AddDirDeletedVer(deletedByMpId.mpId, deletedByIno.DirInode, deletedByIno.SubRootIno, deletedVer)
+				dirVerMgr.AddDirDeletedVer(deletedByMpId.MpId, deletedByIno.DirInode, deletedByIno.SubRootIno, deletedVer)
 			}
 		}
 	}
 
+	log.LogInfof("action[loadDirDelVerInfo] vol[%v] load done, toDelListLen :%v, deletedListLen: %v",
+		dirVerMgr.vol.Name, len(persist.ToDelDirVersionInfoList), len(persist.DeletedDirVerInfoList))
 	return nil
 }
 
@@ -368,9 +384,9 @@ func (dirVerMgr *DirSnapVersionManager) AllocVersion() (verInfo *proto.DirSnapsh
 	return dirVerMgr.dirVerAllocator.AllocVersion(dirVerMgr.vol, dirVerMgr.c)
 }
 
-//TODO:tangjingyu check if mpId exists
-func (dirVerMgr *DirSnapVersionManager) AddDirToDelVerInfos(mpId uint64, infoList []proto.DelDirVersionInfo) (err error) {
-	var changed bool
+//TODO:tangjingyu check if MpId exists
+func (dirVerMgr *DirSnapVersionManager) AddDirToDelVerInfos(mpId uint64, infoList []proto.DelDirVersionInfo, doPersist bool) (err error) {
+	addCnt := uint32(0)
 
 	dirVerMgr.DeVerInfoLock.Lock()
 	defer dirVerMgr.DeVerInfoLock.Unlock()
@@ -396,18 +412,22 @@ func (dirVerMgr *DirSnapVersionManager) AddDirToDelVerInfos(mpId uint64, infoLis
 		}
 
 		dirToDelVerInfos.AddDirToDelVers(info.DelVers)
-		changed = true
+		addCnt++
 	}
 
-	if changed {
-		if err = dirVerMgr.PersistDirDelVerInfo(); err != nil {
-			log.LogErrorf("[AddDirToDelVerInfos]: PersistDirDelVerInfo failed, mpId:%v, err:%v", mpId, err.Error())
-			return
+	if addCnt > 0 {
+		if doPersist {
+			if err = dirVerMgr.PersistDirDelVerInfo(); err != nil {
+				log.LogErrorf("[AddDirToDelVerInfos] PersistDirDelVerInfo failed, MpId:%v, err:%v", mpId, err.Error())
+				return
+			}
+			log.LogInfof("[AddDirToDelVerInfos] vol[%v] mpId[%v] PersistDirDelVerInfo done, add count:%v",
+				dirVerMgr.vol.Name, mpId, addCnt)
+		} else {
+			log.LogInfof("[AddDirToDelVerInfos] vol[%v] mpId[%v] add count:%v", dirVerMgr.vol.Name, mpId, addCnt)
 		}
-		log.LogInfof("[AddDirToDelVerInfos]: PersistDirDelVerInfo done, vol[%v] mpId[%v], ",
-			dirVerMgr.vol.Name, mpId)
 	} else {
-		log.LogInfof("[AddDirToDelVerInfos]: nothing changed, vol[%v] mpId[%v], ", dirVerMgr.vol.Name, mpId)
+		log.LogInfof("[AddDirToDelVerInfos]: nothing changed, vol[%v] mpId[%v]", dirVerMgr.vol.Name, mpId)
 	}
 
 	return
@@ -419,9 +439,17 @@ type ToDelDirVersionInfo struct {
 	DirInfos        []proto.DelDirVersionInfo //TODO: change to pointer
 }
 
-func (dirVerMgr *DirSnapVersionManager) getToDelDirVersionInfoList() (toDelDirVersionInfoList []ToDelDirVersionInfo) {
-	log.LogDebugf("#### [getToDelDirVersionInfoList] vol:%v", dirVerMgr.vol.Name) //TODO:tangjignyu del
+//TODO:tangjingyu return pointer
+//for lcNode
+func (dirVerMgr *DirSnapVersionManager) getToDelDirVersionInfoListWithLock() (toDelDirVersionInfoList []ToDelDirVersionInfo) {
+	//TODO: lock scope
+	dirVerMgr.DeVerInfoLock.Lock()
+	defer dirVerMgr.DeVerInfoLock.Unlock()
 
+	return dirVerMgr.getToDelDirVersionInfoList()
+}
+
+func (dirVerMgr *DirSnapVersionManager) getToDelDirVersionInfoList() (toDelDirVersionInfoList []ToDelDirVersionInfo) {
 	toDelDirVersionInfoList = make([]ToDelDirVersionInfo, 0)
 
 	for _, dirToDelVerInfoByMpId := range dirVerMgr.toDelDirVerInfoMap {
@@ -438,7 +466,7 @@ func (dirVerMgr *DirSnapVersionManager) getToDelDirVersionInfoList() (toDelDirVe
 			delDirVersionInfo := proto.DelDirVersionInfo{
 				DirIno:     dirToDelVerInfos.DirInode,
 				SubRootIno: dirToDelVerInfos.SubRootIno,
-				DelVers:    make([]proto.DelVer, len(dirToDelVerInfos.ToDelVerSet)),
+				DelVers:    make([]proto.DelVer, 0),
 			}
 
 			for verToDel := range dirToDelVerInfos.ToDelVerSet {
@@ -465,16 +493,6 @@ func (dirVerMgr *DirSnapVersionManager) getToDelDirVersionInfoList() (toDelDirVe
 	log.LogDebugf("[getToDelDirVersionInfoList] vol[%v], got item cnt:%v",
 		dirVerMgr.vol.Name, len(toDelDirVersionInfoList))
 	return toDelDirVersionInfoList
-}
-
-//TODO:tangjingyu return pointer
-//for lcNode
-func (dirVerMgr *DirSnapVersionManager) getToDelDirVersionInfoListWithLock() (toDelDirVersionInfoList []ToDelDirVersionInfo) {
-	//TODO: lock scope
-	dirVerMgr.DeVerInfoLock.Lock()
-	defer dirVerMgr.DeVerInfoLock.Unlock()
-
-	return dirVerMgr.getToDelDirVersionInfoList()
 }
 
 // RemoveDirToDelVer :
@@ -531,14 +549,15 @@ func (dirVerMgr *DirSnapVersionManager) AddDirDeletedVer(metaPartitionId, dirIno
 	}
 
 	if _, ok = deletedVerInfoByIno.DeletedVerSet[deletedVer]; ok {
-		log.LogInfo("[AddDirDeletedVer]: vol[%v], dirInodeId[%v] already exists deletedVer: %v, metaPartitionId=%v",
-			dirVerMgr.vol.Name, dirIno, deletedVer, metaPartitionId)
+		log.LogInfo("[AddDirDeletedVer]: vol[%v] mpId[%v] dirInodeId[%v] already exists deletedVer: %v",
+			dirVerMgr.vol.Name, metaPartitionId, dirIno, deletedVer)
 		changed = false
 	} else {
+		log.LogInfo("[AddDirDeletedVer]: vol[%v] mpId[%v] dirInodeId[%v] add deletedVer: %v",
+			dirVerMgr.vol.Name, metaPartitionId, dirIno, deletedVer)
 		deletedVerInfoByIno.DeletedVerSet[deletedVer] = struct{}{}
 		changed = true
 	}
-
 	return
 }
 
@@ -564,9 +583,11 @@ func (dirVerMgr *DirSnapVersionManager) RemoveDirDeleteVer(mpId uint64) (err err
 	dirVerMgr.DeVerInfoLock.Lock()
 	defer dirVerMgr.DeVerInfoLock.Unlock()
 
+	log.LogDebugf("####[RemoveDirDeleteVer] run, vol:%v, mpId:%v", dirVerMgr.vol.Name, mpId) //TODO:tangjingyu del
+
 	delete(dirVerMgr.deletedDirVerInfoMap, mpId)
 	if err = dirVerMgr.PersistDirDelVerInfo(); err != nil {
-		log.LogErrorf("[RemoveDirDeleteVer] PersistDirDelVerInfo failed, err:%v, vol:%v, mpId:%v",
+		log.LogErrorf("[RemoveDirDeleteVer] PersistDirDelVerInfo failed, err:%v, vol:%v, MpId:%v",
 			err.Error(), dirVerMgr.vol.Name, mpId)
 	}
 	return
@@ -579,6 +600,9 @@ func (dirVerMgr *DirSnapVersionManager) ReqMetaNodeToBatchDelDirSnapVer(mpId uin
 		mr *MetaReplica
 	)
 
+	log.LogDebugf("[ReqMetaNodeToBatchDelDirSnapVer] err:%v, vol:%v, mpId:%v",
+		err.Error(), dirVerMgr.vol.Name, mpId)
+
 	if mp, err = dirVerMgr.c.getMetaPartitionByID(mpId); err != nil {
 		log.LogErrorf("[ReqMetaNodeToBatchDelDirSnapVer] err:%v, vol:%v, mpId:%v",
 			err.Error(), dirVerMgr.vol.Name, mpId)
@@ -586,13 +610,12 @@ func (dirVerMgr *DirSnapVersionManager) ReqMetaNodeToBatchDelDirSnapVer(mpId uin
 	}
 
 	if mr, err = mp.getMetaReplicaLeader(); err != nil {
-		log.LogErrorf("[ReqMetaNodeToBatchDelDirSnapVer] get MetaReplica leader fail, err:%v, vol:%v, mpId:%v",
+		log.LogErrorf("[ReqMetaNodeToBatchDelDirSnapVer] get MetaReplica leader fail, err:%v, vol:%v, MpId:%v",
 			err.Error(), dirVerMgr.vol.Name, mpId)
 		return
 	}
 
 	task := mr.metaNode.createDirVerDelTask(dirVerMgr.vol.Name, mpId, deletedVers)
-	mr.metaNode.Sender.syncSendAdminTask(task)
 	if _, err = mr.metaNode.Sender.syncSendAdminTask(task); err != nil {
 		log.LogErrorf("[ReqMetaNodeToBatchDelDirSnapVer] req metaNode(%v) batch del dir ver failed, err:%v, vol:%v, mpId:%v",
 			mr.Addr, err.Error(), dirVerMgr.vol.Name, mpId)
@@ -617,7 +640,7 @@ func (dirVerMgr *DirSnapVersionManager) CheckDirDeletedVer() {
 	dirVerMgr.DeVerInfoLock.RUnlock()
 
 	for mpId, deletedVerInfoByIno := range deletedDirVerInfoMapCopy {
-		deletedVerList := make([]proto.DirVerItem, len(deletedVerInfoByIno.DeletedVerSet))
+		deletedVerList := make([]proto.DirVerItem, 0)
 
 		for deletedVer := range deletedVerInfoByIno.DeletedVerSet {
 			dirVerItem := proto.DirVerItem{
@@ -637,4 +660,37 @@ func (dirVerMgr *DirSnapVersionManager) CheckDirDeletedVer() {
 	}
 
 	return
+}
+
+type DirSnapVerAllocatorValue struct {
+	PreAllocMaxVer uint64
+	CurSnapVer     uint64
+}
+
+type DirSnapVersionInfoValue struct {
+	AllocatorVal            *DirSnapVerAllocatorValue
+	ToDelDirVersionInfoList []*DirToDelVersionInfoByMpIdPersist
+	DeletedDirVerInfoList   []*DirDeletedVerInfoByMpIdPersist
+}
+
+func (dirVerMgr *DirSnapVersionManager) Query() *DirSnapVersionInfoValue {
+	dirVerMgr.DeVerInfoLock.RLock()
+
+	defer dirVerMgr.DeVerInfoLock.RUnlock()
+	allocVal := &DirSnapVerAllocatorValue{
+		PreAllocMaxVer: dirVerMgr.dirVerAllocator.PreAllocMaxVer,
+		CurSnapVer:     dirVerMgr.dirVerAllocator.CurSnapVer,
+	}
+
+	allocVal.PreAllocMaxVer = dirVerMgr.dirVerAllocator.PreAllocMaxVer
+
+	dirVerMgr.getToDelDirVersionInfoList()
+
+	retVal := &DirSnapVersionInfoValue{
+		AllocatorVal:            allocVal,
+		ToDelDirVersionInfoList: dirVerMgr.GetDirToDelVerInfoByMpIdPersist(),
+		DeletedDirVerInfoList:   dirVerMgr.GetDirDeletedVerInfoByMpIdPersist(),
+	}
+
+	return retVal
 }
