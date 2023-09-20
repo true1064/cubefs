@@ -1760,8 +1760,6 @@ func (c *Cluster) loadDirSnapVersionAllocator(vol *Vol) (err error) {
 }
 
 func (c *Cluster) loadDirDelSnapVerInfo(vol *Vol) (err error) {
-	vol.DirSnapVersionMgr.SetCluster(c)
-
 	key := DirVerDelInfoPrefix + strconv.FormatUint(vol.ID, 10)
 	result, err := c.fsm.store.SeekForPrefix([]byte(key))
 	if err != nil {

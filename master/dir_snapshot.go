@@ -527,10 +527,17 @@ func (dirVerMgr *DirSnapVersionManager) RemoveDirToDelVer(metaPartitionId, dirIn
 	changed = true
 
 	if len(dirToDelVerInfos.ToDelVerSet) == 0 {
-		log.LogInfof("[RemoveDirToDelVer]: vol[%v], dirInodeId[%v] remove all versions to delete, latest remove ver: %v, metaPartitionId=%v",
-			dirVerMgr.vol.Name, dirIno, deletedVer, metaPartitionId)
+		log.LogInfof("[RemoveDirToDelVer]: vol[%v] mpId[%v] dirInodeId[%v]: remove all versions to delete of dir, latest remove ver: %v",
+			dirVerMgr.vol.Name, metaPartitionId, dirIno, deletedVer)
 		delete(dirToDelVerInfoByMpId.DirDelVerInfoByInoMap, dirIno)
 	}
+
+	if len(dirToDelVerInfoByMpId.DirDelVerInfoByInoMap) == 0 {
+		log.LogInfof("[RemoveDirToDelVer]: vol[%v] mpId[%v]: remove all versions to delete of metaPartition",
+			dirVerMgr.vol.Name, metaPartitionId)
+		delete(dirVerMgr.toDelDirVerInfoMap, metaPartitionId)
+	}
+
 	return
 }
 
@@ -549,11 +556,11 @@ func (dirVerMgr *DirSnapVersionManager) AddDirDeletedVer(metaPartitionId, dirIno
 	}
 
 	if _, ok = deletedVerInfoByIno.DeletedVerSet[deletedVer]; ok {
-		log.LogInfo("[AddDirDeletedVer]: vol[%v] mpId[%v] dirInodeId[%v] already exists deletedVer: %v",
+		log.LogInfof("[AddDirDeletedVer]: vol[%v] mpId[%v] dirInodeId[%v] already exists deletedVer: %v",
 			dirVerMgr.vol.Name, metaPartitionId, dirIno, deletedVer)
 		changed = false
 	} else {
-		log.LogInfo("[AddDirDeletedVer]: vol[%v] mpId[%v] dirInodeId[%v] add deletedVer: %v",
+		log.LogInfof("[AddDirDeletedVer]: vol[%v] mpId[%v] dirInodeId[%v] add deletedVer: %v",
 			dirVerMgr.vol.Name, metaPartitionId, dirIno, deletedVer)
 		deletedVerInfoByIno.DeletedVerSet[deletedVer] = struct{}{}
 		changed = true
@@ -632,6 +639,8 @@ func (dirVerMgr *DirSnapVersionManager) ReqMetaNodeToBatchDelDirSnapVer(mpId uin
 }
 
 func (dirVerMgr *DirSnapVersionManager) CheckDirDeletedVer() {
+	log.LogDebugf("[CheckDirDeletedVer] vol:%v", dirVerMgr.vol.Name)
+
 	dirVerMgr.DeVerInfoLock.RLock()
 	deletedDirVerInfoMapCopy := make(map[uint64]*DirDeletedVerInfoByIno)
 	for mpId, deletedVerInfoByIno := range dirVerMgr.deletedDirVerInfoMap {
