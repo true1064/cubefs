@@ -319,7 +319,7 @@ func (dirVerMgr *DirSnapVersionManager) GetDirDeletedVerInfoByMpIdPersist() []*D
 			log.LogInfof("#### [GetDirDeletedVerInfoByMpIdPersist] appneded.... deletedDirVerInfoList: %+v", deletedDirVerInfoList)
 		}
 	}
-	
+
 	log.LogInfof("#### [GetDirDeletedVerInfoByMpIdPersist] deletedDirVerInfoList len:%v", len(deletedDirVerInfoList)) //TODO:tangjingyu del
 	log.LogInfof("#### [GetDirDeletedVerInfoByMpIdPersist] deletedDirVerInfoList: %+v", deletedDirVerInfoList)        //TODO:tangjingyu del
 	return deletedDirVerInfoList
@@ -340,7 +340,7 @@ func (dirVerMgr *DirSnapVersionManager) PersistDirDelVerInfo() (err error) {
 	}
 
 	log.LogInfof("[PersistDirDelVerInfo] ToDelDirVersionInfoList len: %v, DeletedDirVerInfoList len: %v",
-		len(persist.ToDelDirVersionInfoList), len(persist.DeletedDirVerInfoList)) //TODO:tangjingyu del
+		len(persist.ToDelDirVersionInfoList), len(persist.DeletedDirVerInfoList))
 	return dirVerMgr.c.syncDirDelVersionInfo(dirVerMgr.vol, val)
 }
 
@@ -395,8 +395,12 @@ func (dirVerMgr *DirSnapVersionManager) AllocVersion() (verInfo *proto.DirSnapsh
 	return dirVerMgr.dirVerAllocator.AllocVersion(dirVerMgr.vol, dirVerMgr.c)
 }
 
-//TODO:tangjingyu check if MpId exists
 func (dirVerMgr *DirSnapVersionManager) AddDirToDelVerInfos(mpId uint64, infoList []proto.DelDirVersionInfo, doPersist bool) (err error) {
+	if _, err = dirVerMgr.vol.metaPartition(mpId); err != nil {
+		log.LogErrorf("[AddDirToDelVerInfos] vol[%v] not exist mpId:%v", dirVerMgr.vol.Name, mpId)
+		return
+	}
+
 	addCnt := uint32(0)
 
 	dirVerMgr.DeVerInfoLock.Lock()
@@ -411,7 +415,7 @@ func (dirVerMgr *DirSnapVersionManager) AddDirToDelVerInfos(mpId uint64, infoLis
 
 	for _, info := range infoList {
 		if len(info.DelVers) == 0 {
-			log.LogErrorf("[AddDirToDelVerInfos]: len(DelDirVersionInfo.DelVers) is 0, dirInode:%v, mpId:%v, ",
+			log.LogErrorf("[AddDirToDelVerInfos] len(DelDirVersionInfo.DelVers) is 0, dirInode:%v, mpId:%v, ",
 				info.DirIno, mpId)
 			continue
 		}
@@ -438,7 +442,7 @@ func (dirVerMgr *DirSnapVersionManager) AddDirToDelVerInfos(mpId uint64, infoLis
 			log.LogInfof("[AddDirToDelVerInfos] vol[%v] mpId[%v] add count:%v", dirVerMgr.vol.Name, mpId, addCnt)
 		}
 	} else {
-		log.LogInfof("[AddDirToDelVerInfos]: nothing changed, vol[%v] mpId[%v]", dirVerMgr.vol.Name, mpId)
+		log.LogInfof("[AddDirToDelVerInfos] nothing changed, vol[%v] mpId[%v]", dirVerMgr.vol.Name, mpId)
 	}
 
 	return
@@ -678,14 +682,13 @@ func (dirVerMgr *DirSnapVersionManager) RemoveDirDeletedVer(mpId uint64, deleted
 	return
 }
 
-//TODO:tangjingyu: recored on flight request and not req repeatlly
 func (dirVerMgr *DirSnapVersionManager) ReqMetaNodeToBatchDelDirSnapVer(mpId uint64, deletedVers []proto.DirVerItem) (err error) {
 	var (
 		mp *MetaPartition
 		mr *MetaReplica
 	)
 
-	log.LogDebugf("[ReqMetaNodeToBatchDelDirSnapVer] vol[%v] mpId[%v] deletedVers:%+v",
+	log.LogDebugf("[ReqMetaNodeToBatchDelDirSnapVer] vol[%v] mpId[%v] deletedVers: %+v",
 		dirVerMgr.vol.Name, mpId, deletedVers)
 
 	if mp, err = dirVerMgr.c.getMetaPartitionByID(mpId); err != nil {
