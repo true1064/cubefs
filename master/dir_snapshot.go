@@ -46,14 +46,14 @@ func (d *DirToDelVerInfosByIno) AddDirToDelVers(delVers []proto.DelVer) {
 }
 
 type DirToDelVerInfoByMpId struct {
-	MetaPartitionId       uint64
-	DirDelVerInfoByInoMap map[uint64]*DirToDelVerInfosByIno //key: inodes of dirs which have versions to delete.
+	MetaPartitionId      uint64
+	ToDelVerInfoByInoMap map[uint64]*DirToDelVerInfosByIno //key: inodes of dirs which have versions to delete.
 }
 
 func newDirToDelVerInfoByMpId(mpId uint64) *DirToDelVerInfoByMpId {
 	return &DirToDelVerInfoByMpId{
-		MetaPartitionId:       mpId,
-		DirDelVerInfoByInoMap: make(map[uint64]*DirToDelVerInfosByIno),
+		MetaPartitionId:      mpId,
+		ToDelVerInfoByInoMap: make(map[uint64]*DirToDelVerInfosByIno),
 	}
 }
 
@@ -63,7 +63,7 @@ type DirDeletedVerInfoByIno struct {
 	DeletedVerSet map[uint64]struct{} //key: Deleted Version
 }
 
-func newDirDeletedVerInfos(dirInode, subRootIno uint64) *DirDeletedVerInfoByIno {
+func newDirDeletedVerInfoByIno(dirInode, subRootIno uint64) *DirDeletedVerInfoByIno {
 	return &DirDeletedVerInfoByIno{
 		DirInode:      dirInode,
 		SubRootIno:    subRootIno,
@@ -74,6 +74,13 @@ func newDirDeletedVerInfos(dirInode, subRootIno uint64) *DirDeletedVerInfoByIno 
 type DirDeletedVerInfoByMpId struct {
 	MetaPartitionId        uint64
 	DirDeletedVerInfoByIno map[uint64]*DirDeletedVerInfoByIno //key: inodes of dirs which have versions deleted.
+}
+
+func newDirDeletedVerInfoByMpId(metaPartitionId uint64) *DirDeletedVerInfoByMpId {
+	return &DirDeletedVerInfoByMpId{
+		MetaPartitionId:        metaPartitionId,
+		DirDeletedVerInfoByIno: make(map[uint64]*DirDeletedVerInfoByIno),
+	}
 }
 
 const (
@@ -203,18 +210,19 @@ type DirSnapVersionManager struct {
 
 	DeVerInfoLock sync.RWMutex //TODO:tangjingyu name of the lock
 	// dir snap versions to delete, received from metaNode. key: metaPartitionId
-	toDelDirVerInfoMap map[uint64]*DirToDelVerInfoByMpId
+	toDelDirVerByMpIdMap map[uint64]*DirToDelVerInfoByMpId
+
 	// key: metaPartitionId
-	deletedDirVerInfoMap map[uint64]*DirDeletedVerInfoByIno
+	deletedDirVerByMpIdMap map[uint64]*DirDeletedVerInfoByMpId
 }
 
 func newDirSnapVersionManager(vol *Vol) *DirSnapVersionManager {
 	return &DirSnapVersionManager{
 		vol: vol,
 
-		dirVerAllocator:      newDirSnapVerAllocator(),
-		toDelDirVerInfoMap:   make(map[uint64]*DirToDelVerInfoByMpId),
-		deletedDirVerInfoMap: make(map[uint64]*DirDeletedVerInfoByIno),
+		dirVerAllocator:        newDirSnapVerAllocator(),
+		toDelDirVerByMpIdMap:   make(map[uint64]*DirToDelVerInfoByMpId),
+		deletedDirVerByMpIdMap: make(map[uint64]*DirDeletedVerInfoByMpId),
 	}
 }
 
@@ -294,21 +302,24 @@ func (dirVerMgr *DirSnapVersionManager) GetDirToDelVerInfoByMpIdPersist() []*Dir
 
 func (dirVerMgr *DirSnapVersionManager) GetDirDeletedVerInfoByMpIdPersist() []*DirDeletedVerInfoByMpIdPersist {
 	deletedDirVerInfoList := make([]*DirDeletedVerInfoByMpIdPersist, 0)
-	log.LogInfof("#### [GetDirDeletedVerInfoByMpIdPersist] running.... deletedDirVerInfoList: %+v", deletedDirVerInfoList) //TODO:tangjingyu del
 
-	for mpId, dirDeletedVerInfoByIno := range dirVerMgr.deletedDirVerInfoMap {
-		log.LogInfof("#### [GetDirDeletedVerInfoByMpIdPersist] mpId:%v, dirDeletedVerInfoByIno:%+v",
-			mpId, dirDeletedVerInfoByIno) //TODO:tangjingyu del
+	for mpId, deletedVerInfoByMpId := range dirVerMgr.deletedDirVerByMpIdMap {
+		log.LogDebugf("#### [GetDirDeletedVerInfoByMpIdPersist] mpId:%v, DirDeletedVerInfoByIno len:%v",
+			mpId, len(deletedVerInfoByMpId.DirDeletedVerInfoByIno)) //TODO:tangjingyu del
 
-		dirDeletedVerInfoByMpIdPersist := newDirDeletedVerInfoByMpIdPersist(mpId)
+		for _, deletedVerInfoByIno := range deletedVerInfoByMpId.DirDeletedVerInfoByIno {
+			log.LogInfof("#### [GetDirDeletedVerInfoByMpIdPersist] mpId:%v, deletedVerInfoByIno:%+v",
+				mpId, deletedVerInfoByIno) //TODO:tangjingyu del
 
-		p := newDirDeletedVerInfoByInoPersist(dirDeletedVerInfoByIno)
-		dirDeletedVerInfoByMpIdPersist.DeletedVerByInoList = append(dirDeletedVerInfoByMpIdPersist.DeletedVerByInoList, p)
+			dirDeletedVerInfoByMpIdPersist := newDirDeletedVerInfoByMpIdPersist(mpId)
+			p := newDirDeletedVerInfoByInoPersist(deletedVerInfoByIno)
+			dirDeletedVerInfoByMpIdPersist.DeletedVerByInoList = append(dirDeletedVerInfoByMpIdPersist.DeletedVerByInoList, p)
 
-		deletedDirVerInfoList = append(deletedDirVerInfoList, dirDeletedVerInfoByMpIdPersist)
-		log.LogInfof("#### [GetDirDeletedVerInfoByMpIdPersist] appneded.... deletedDirVerInfoList: %+v", deletedDirVerInfoList)
+			deletedDirVerInfoList = append(deletedDirVerInfoList, dirDeletedVerInfoByMpIdPersist)
+			log.LogInfof("#### [GetDirDeletedVerInfoByMpIdPersist] appneded.... deletedDirVerInfoList: %+v", deletedDirVerInfoList)
+		}
 	}
-
+	
 	log.LogInfof("#### [GetDirDeletedVerInfoByMpIdPersist] deletedDirVerInfoList len:%v", len(deletedDirVerInfoList)) //TODO:tangjingyu del
 	log.LogInfof("#### [GetDirDeletedVerInfoByMpIdPersist] deletedDirVerInfoList: %+v", deletedDirVerInfoList)        //TODO:tangjingyu del
 	return deletedDirVerInfoList
@@ -393,9 +404,9 @@ func (dirVerMgr *DirSnapVersionManager) AddDirToDelVerInfos(mpId uint64, infoLis
 
 	var ok bool
 	var dirToDelVerInfosOfMp *DirToDelVerInfoByMpId
-	if dirToDelVerInfosOfMp, ok = dirVerMgr.toDelDirVerInfoMap[mpId]; !ok {
+	if dirToDelVerInfosOfMp, ok = dirVerMgr.toDelDirVerByMpIdMap[mpId]; !ok {
 		dirToDelVerInfosOfMp = newDirToDelVerInfoByMpId(mpId)
-		dirVerMgr.toDelDirVerInfoMap[mpId] = dirToDelVerInfosOfMp
+		dirVerMgr.toDelDirVerByMpIdMap[mpId] = dirToDelVerInfosOfMp
 	}
 
 	for _, info := range infoList {
@@ -406,9 +417,9 @@ func (dirVerMgr *DirSnapVersionManager) AddDirToDelVerInfos(mpId uint64, infoLis
 		}
 
 		var dirToDelVerInfos *DirToDelVerInfosByIno
-		if dirToDelVerInfos, ok = dirToDelVerInfosOfMp.DirDelVerInfoByInoMap[info.DirIno]; !ok {
+		if dirToDelVerInfos, ok = dirToDelVerInfosOfMp.ToDelVerInfoByInoMap[info.DirIno]; !ok {
 			dirToDelVerInfos = newDirToDelVerInfos(info.DirIno, info.SubRootIno)
-			dirToDelVerInfosOfMp.DirDelVerInfoByInoMap[info.DirIno] = dirToDelVerInfos
+			dirToDelVerInfosOfMp.ToDelVerInfoByInoMap[info.DirIno] = dirToDelVerInfos
 		}
 
 		dirToDelVerInfos.AddDirToDelVers(info.DelVers)
@@ -452,17 +463,17 @@ func (dirVerMgr *DirSnapVersionManager) getToDelDirVersionInfoListWithLock() (to
 func (dirVerMgr *DirSnapVersionManager) getToDelDirVersionInfoList() (toDelDirVersionInfoList []ToDelDirVersionInfo) {
 	toDelDirVersionInfoList = make([]ToDelDirVersionInfo, 0)
 
-	for _, dirToDelVerInfoByMpId := range dirVerMgr.toDelDirVerInfoMap {
+	for _, dirToDelVerInfoByMpId := range dirVerMgr.toDelDirVerByMpIdMap {
 		toDelDirVersionInfo := ToDelDirVersionInfo{
 			VolName:         dirVerMgr.vol.Name,
 			MetaPartitionId: dirToDelVerInfoByMpId.MetaPartitionId,
 			DirInfos:        make([]proto.DelDirVersionInfo, 0),
 		}
-		log.LogDebugf("#### [getToDelDirVersionInfoList] dirToDelVerInfoByMpId.DirDelVerInfoByInoMap len:%v",
-			len(dirToDelVerInfoByMpId.DirDelVerInfoByInoMap)) //TODO:tangjignyu del
+		log.LogDebugf("#### [getToDelDirVersionInfoList] dirToDelVerInfoByMpId.ToDelVerInfoByInoMap len:%v",
+			len(dirToDelVerInfoByMpId.ToDelVerInfoByInoMap)) //TODO:tangjignyu del
 
-		for _, dirToDelVerInfos := range dirToDelVerInfoByMpId.DirDelVerInfoByInoMap {
-			log.LogDebugf("#### [getToDelDirVersionInfoList] range DirDelVerInfoByInoMap, DirIno:%v", dirToDelVerInfos.DirInode) //TODO:tangjignyu del
+		for _, dirToDelVerInfos := range dirToDelVerInfoByMpId.ToDelVerInfoByInoMap {
+			log.LogDebugf("#### [getToDelDirVersionInfoList] range ToDelVerInfoByInoMap, DirIno:%v", dirToDelVerInfos.DirInode) //TODO:tangjignyu del
 			delDirVersionInfo := proto.DelDirVersionInfo{
 				DirIno:     dirToDelVerInfos.DirInode,
 				SubRootIno: dirToDelVerInfos.SubRootIno,
@@ -498,19 +509,18 @@ func (dirVerMgr *DirSnapVersionManager) getToDelDirVersionInfoList() (toDelDirVe
 // RemoveDirToDelVer :
 // caller must handle the lock properly
 // called when lcNode actually deleted the dir version
-func (dirVerMgr *DirSnapVersionManager) RemoveDirToDelVer(metaPartitionId, dirIno uint64, deletedVer uint64) (changed bool) {
+func (dirVerMgr *DirSnapVersionManager) RemoveDirToDelVer(metaPartitionId, dirIno uint64, deletedVer uint64) (ret *DirToDelVerInfosByIno) {
 	var dirToDelVerInfoByMpId *DirToDelVerInfoByMpId
 	var dirToDelVerInfos *DirToDelVerInfosByIno
 	var ok bool
-	changed = false
 
-	if dirToDelVerInfoByMpId, ok = dirVerMgr.toDelDirVerInfoMap[metaPartitionId]; !ok {
+	if dirToDelVerInfoByMpId, ok = dirVerMgr.toDelDirVerByMpIdMap[metaPartitionId]; !ok {
 		log.LogErrorf("[RemoveDirToDelVer]: vol[%v] not exist DirToDelVerInfoByMpId record with metaPartitionId=%v",
 			dirVerMgr.vol.Name, metaPartitionId)
 		return
 	}
 
-	if dirToDelVerInfos, ok = dirToDelVerInfoByMpId.DirDelVerInfoByInoMap[dirIno]; !ok {
+	if dirToDelVerInfos, ok = dirToDelVerInfoByMpId.ToDelVerInfoByInoMap[dirIno]; !ok {
 		log.LogErrorf("[RemoveDirToDelVer]: vol[%v] not exist DirToDelVerInfosByIno record with dirInodeId=%v， metaPartitionId=%v",
 			dirVerMgr.vol.Name, dirIno, metaPartitionId)
 		return
@@ -524,18 +534,18 @@ func (dirVerMgr *DirSnapVersionManager) RemoveDirToDelVer(metaPartitionId, dirIn
 	delete(dirToDelVerInfos.ToDelVerSet, deletedVer)
 	log.LogInfof("[RemoveDirToDelVer]: vol[%v], dirInodeId[%v] remove to delete dir ver: %v, metaPartitionId=%v",
 		dirVerMgr.vol.Name, dirIno, deletedVer, metaPartitionId)
-	changed = true
+	ret = dirToDelVerInfos
 
 	if len(dirToDelVerInfos.ToDelVerSet) == 0 {
 		log.LogInfof("[RemoveDirToDelVer]: vol[%v] mpId[%v] dirInodeId[%v]: remove all versions to delete of dir, latest remove ver: %v",
 			dirVerMgr.vol.Name, metaPartitionId, dirIno, deletedVer)
-		delete(dirToDelVerInfoByMpId.DirDelVerInfoByInoMap, dirIno)
-	}
+		delete(dirToDelVerInfoByMpId.ToDelVerInfoByInoMap, dirIno)
 
-	if len(dirToDelVerInfoByMpId.DirDelVerInfoByInoMap) == 0 {
-		log.LogInfof("[RemoveDirToDelVer]: vol[%v] mpId[%v]: remove all versions to delete of metaPartition",
-			dirVerMgr.vol.Name, metaPartitionId)
-		delete(dirVerMgr.toDelDirVerInfoMap, metaPartitionId)
+		if len(dirToDelVerInfoByMpId.ToDelVerInfoByInoMap) == 0 {
+			log.LogInfof("[RemoveDirToDelVer]: vol[%v] mpId[%v]: remove all versions to delete of metaPartition",
+				dirVerMgr.vol.Name, metaPartitionId)
+			delete(dirVerMgr.toDelDirVerByMpIdMap, metaPartitionId)
+		}
 	}
 
 	return
@@ -546,13 +556,20 @@ func (dirVerMgr *DirSnapVersionManager) RemoveDirToDelVer(metaPartitionId, dirIn
 // called when lcNode actually deleted the dir version
 func (dirVerMgr *DirSnapVersionManager) AddDirDeletedVer(metaPartitionId, dirIno, subRootIno, deletedVer uint64) (changed bool) {
 	var deletedVerInfoByIno *DirDeletedVerInfoByIno
+	var deletedVerInfoByMpId *DirDeletedVerInfoByMpId
 	var ok bool
 
-	if deletedVerInfoByIno, ok = dirVerMgr.deletedDirVerInfoMap[metaPartitionId]; !ok {
-		log.LogDebugf("[AddDirDeletedVer]: vol[%v] has no record with metaPartitionId=%v, dirInodeId=%v",
+	if deletedVerInfoByMpId, ok = dirVerMgr.deletedDirVerByMpIdMap[metaPartitionId]; !ok {
+		log.LogDebugf("[AddDirDeletedVer]: vol[%v] has no record of mpId:%v", dirVerMgr.vol.Name, metaPartitionId)
+		deletedVerInfoByMpId = newDirDeletedVerInfoByMpId(metaPartitionId)
+		dirVerMgr.deletedDirVerByMpIdMap[metaPartitionId] = deletedVerInfoByMpId
+	}
+
+	if deletedVerInfoByIno, ok = deletedVerInfoByMpId.DirDeletedVerInfoByIno[dirIno]; !ok {
+		log.LogDebugf("[AddDirDeletedVer]: vol[%v] mpId[%v] has no record of dirInodeId=%v",
 			dirVerMgr.vol.Name, metaPartitionId, dirIno)
-		deletedVerInfoByIno = newDirDeletedVerInfos(dirIno, subRootIno)
-		dirVerMgr.deletedDirVerInfoMap[metaPartitionId] = deletedVerInfoByIno
+		deletedVerInfoByIno = newDirDeletedVerInfoByIno(dirIno, subRootIno)
+		deletedVerInfoByMpId.DirDeletedVerInfoByIno[dirIno] = deletedVerInfoByIno
 	}
 
 	if _, ok = deletedVerInfoByIno.DeletedVerSet[deletedVer]; ok {
@@ -573,28 +590,89 @@ func (dirVerMgr *DirSnapVersionManager) DelVer(metaPartitionId, dirIno, deletedV
 	dirVerMgr.DeVerInfoLock.Lock()
 	defer dirVerMgr.DeVerInfoLock.Unlock()
 
-	log.LogInfof("[DelVer] deletedVer:%v, dirIno:%v, mpId:%v", deletedVer, dirIno, metaPartitionId)
+	log.LogDebugf("[DelVer] vol[%v] mpId[%v]  dirIno[%v] del ver:%v",
+		dirVerMgr.vol.Name, metaPartitionId, dirIno, deletedVer)
 
-	removedToDelVer := dirVerMgr.RemoveDirToDelVer(metaPartitionId, dirIno, deletedVer)
+	ToDelVerInfosByIno := dirVerMgr.RemoveDirToDelVer(metaPartitionId, dirIno, deletedVer)
+	if ToDelVerInfosByIno == nil {
+		log.LogErrorf("[DelVer] vol[%v] mpId[%v]  dirIno[%v] no record of del ver:%v",
+			dirVerMgr.vol.Name, metaPartitionId, dirIno, deletedVer)
+		return
+	}
 
-	addedDeletedVer := dirVerMgr.AddDirDeletedVer(metaPartitionId, dirIno, 0, deletedVer) //TODO: ROOT INO
+	changed := dirVerMgr.AddDirDeletedVer(metaPartitionId, dirIno, ToDelVerInfosByIno.SubRootIno, deletedVer)
+	if !changed {
+		log.LogErrorf("[DelVer] vol[%v] mpId[%v]  dirIno[%v] already has record of deleted ver:%v",
+			dirVerMgr.vol.Name, metaPartitionId, dirIno, deletedVer)
+	}
 
-	if removedToDelVer || addedDeletedVer {
+	if ToDelVerInfosByIno != nil {
 		err = dirVerMgr.PersistDirDelVerInfo()
 	}
 
 	return
 }
 
-func (dirVerMgr *DirSnapVersionManager) RemoveDirDeleteVer(mpId uint64) (err error) {
+func (dirVerMgr *DirSnapVersionManager) RemoveDirDeletedVer(mpId uint64, deletedVers []proto.DirVerItem) (err error) {
+	var (
+		ok                   bool
+		changed              bool
+		deletedVerInfoByMpId *DirDeletedVerInfoByMpId
+	)
+	log.LogDebugf("[RemoveDirDeletedVer] vol[%v] mpId[%v] deletedVers:+%v", dirVerMgr.vol.Name, mpId, deletedVers)
+
+	if len(deletedVers) == 0 {
+		err = fmt.Errorf("deleted ver count is 0")
+		log.LogErrorf("[RemoveDirDeletedVer] vol[%v] mpId[%v] err:%v", dirVerMgr.vol.Name, mpId, err.Error())
+		return
+	}
+
 	dirVerMgr.DeVerInfoLock.Lock()
 	defer dirVerMgr.DeVerInfoLock.Unlock()
 
-	log.LogDebugf("####[RemoveDirDeleteVer] run, vol:%v, mpId:%v", dirVerMgr.vol.Name, mpId) //TODO:tangjingyu del
+	if deletedVerInfoByMpId, ok = dirVerMgr.deletedDirVerByMpIdMap[mpId]; !ok {
+		err = fmt.Errorf("no record of mpId")
+		log.LogErrorf("[RemoveDirDeletedVer] vol[%v] mpId[%v] err:%v", dirVerMgr.vol.Name, mpId, err.Error())
+		return
+	}
 
-	delete(dirVerMgr.deletedDirVerInfoMap, mpId)
+	for _, verItem := range deletedVers {
+		var deletedVerInfoByIno *DirDeletedVerInfoByIno
+		if deletedVerInfoByIno, ok = deletedVerInfoByMpId.DirDeletedVerInfoByIno[verItem.DirSnapIno]; !ok {
+			log.LogErrorf("[RemoveDirDeletedVer] vol[%v] mpId[%v] no record of dirInodeId:%v",
+				dirVerMgr.vol.Name, mpId, verItem.DirSnapIno)
+			continue
+		}
+
+		if _, ok := deletedVerInfoByIno.DeletedVerSet[verItem.Ver]; !ok {
+			log.LogErrorf("[RemoveDirDeletedVer] vol[%v] mpId[%v] dirInodeId[%v] no record of del ver:%v",
+				dirVerMgr.vol.Name, mpId, verItem.DirSnapIno, verItem.Ver)
+			continue
+		}
+		delete(deletedVerInfoByIno.DeletedVerSet, verItem.Ver)
+		changed = true
+
+		if len(deletedVerInfoByIno.DeletedVerSet) == 0 {
+			delete(deletedVerInfoByMpId.DirDeletedVerInfoByIno, verItem.DirSnapIno)
+			log.LogDebugf("[RemoveDirDeletedVer] vol[%v] mpId[%v] clean record of dirInodeId:%v",
+				dirVerMgr.vol.Name, mpId, verItem.DirSnapIno)
+
+			if len(deletedVerInfoByMpId.DirDeletedVerInfoByIno) == 0 {
+				delete(dirVerMgr.deletedDirVerByMpIdMap, mpId)
+				log.LogDebugf("[RemoveDirDeletedVer] vol[%v] clean record of mpId:%v",
+					dirVerMgr.vol.Name, mpId)
+			}
+		}
+	}
+
+	if !changed {
+		log.LogInfof("[RemoveDirDeletedVer] vol[%v] mpId[%v] try deleted ver count:%v, but nothing changed",
+			dirVerMgr.vol.Name, mpId, len(deletedVers))
+		return
+	}
+
 	if err = dirVerMgr.PersistDirDelVerInfo(); err != nil {
-		log.LogErrorf("[RemoveDirDeleteVer] PersistDirDelVerInfo failed, err:%v, vol:%v, MpId:%v",
+		log.LogErrorf("[RemoveDirDeletedVer] PersistDirDelVerInfo failed, err:%v, vol:%v, MpId:%v",
 			err.Error(), dirVerMgr.vol.Name, mpId)
 	}
 	return
@@ -607,8 +685,8 @@ func (dirVerMgr *DirSnapVersionManager) ReqMetaNodeToBatchDelDirSnapVer(mpId uin
 		mr *MetaReplica
 	)
 
-	log.LogDebugf("[ReqMetaNodeToBatchDelDirSnapVer] err:%v, vol:%v, mpId:%v",
-		err.Error(), dirVerMgr.vol.Name, mpId)
+	log.LogDebugf("[ReqMetaNodeToBatchDelDirSnapVer] vol[%v] mpId[%v] deletedVers:%+v",
+		dirVerMgr.vol.Name, mpId, deletedVers)
 
 	if mp, err = dirVerMgr.c.getMetaPartitionByID(mpId); err != nil {
 		log.LogErrorf("[ReqMetaNodeToBatchDelDirSnapVer] err:%v, vol:%v, mpId:%v",
@@ -629,8 +707,8 @@ func (dirVerMgr *DirSnapVersionManager) ReqMetaNodeToBatchDelDirSnapVer(mpId uin
 		return
 	}
 
-	if err = dirVerMgr.RemoveDirDeleteVer(mpId); err != nil {
-		log.LogErrorf("[ReqMetaNodeToBatchDelDirSnapVer] RemoveDirDeleteVer failed, err:%v, vol:%v, mpId:%v",
+	if err = dirVerMgr.RemoveDirDeletedVer(mpId, deletedVers); err != nil {
+		log.LogErrorf("[ReqMetaNodeToBatchDelDirSnapVer] RemoveDirDeletedVer failed, err:%v, vol:%v, mpId:%v",
 			mr.Addr, err.Error(), dirVerMgr.vol.Name, mpId)
 		return
 	}
@@ -639,33 +717,51 @@ func (dirVerMgr *DirSnapVersionManager) ReqMetaNodeToBatchDelDirSnapVer(mpId uin
 }
 
 func (dirVerMgr *DirSnapVersionManager) CheckDirDeletedVer() {
-	log.LogDebugf("[CheckDirDeletedVer] vol:%v", dirVerMgr.vol.Name)
+	log.LogDebugf("[CheckDirDeletedVer] vol[%v] deletedDirVerByMpIdMap len:%v",
+		dirVerMgr.vol.Name, len(dirVerMgr.deletedDirVerByMpIdMap))
+	deletedDirVerByMpIdMapCopy := make(map[uint64]*DirDeletedVerInfoByMpId)
 
+	//copy for preventing network requests from occupying the lock
 	dirVerMgr.DeVerInfoLock.RLock()
-	deletedDirVerInfoMapCopy := make(map[uint64]*DirDeletedVerInfoByIno)
-	for mpId, deletedVerInfoByIno := range dirVerMgr.deletedDirVerInfoMap {
-		deletedDirVerInfoMapCopy[mpId] = deletedVerInfoByIno
+	for mpId, deletedDirVerByMpId := range dirVerMgr.deletedDirVerByMpIdMap {
+		deletedVerInfoByMpIdCopy := newDirDeletedVerInfoByMpId(mpId)
+
+		for dirInoddId, deletedVerInfoByIno := range deletedDirVerByMpId.DirDeletedVerInfoByIno {
+			deletedDirVerByInodeCopy := newDirDeletedVerInfoByIno(deletedVerInfoByIno.DirInode, deletedVerInfoByIno.SubRootIno)
+
+			for delVer := range deletedVerInfoByIno.DeletedVerSet {
+				deletedDirVerByInodeCopy.DeletedVerSet[delVer] = struct{}{}
+			}
+
+			deletedVerInfoByMpIdCopy.DirDeletedVerInfoByIno[dirInoddId] = deletedDirVerByInodeCopy
+		}
+
+		deletedDirVerByMpIdMapCopy[mpId] = deletedVerInfoByMpIdCopy
 	}
 	dirVerMgr.DeVerInfoLock.RUnlock()
 
-	for mpId, deletedVerInfoByIno := range deletedDirVerInfoMapCopy {
-		deletedVerList := make([]proto.DirVerItem, 0)
+	for mpId, deletedDirVerByMpId := range deletedDirVerByMpIdMapCopy {
+		for _, deletedVerInfoByIno := range deletedDirVerByMpId.DirDeletedVerInfoByIno {
+			deletedVerList := make([]proto.DirVerItem, 0)
 
-		for deletedVer := range deletedVerInfoByIno.DeletedVerSet {
-			dirVerItem := proto.DirVerItem{
-				DirSnapIno: deletedVerInfoByIno.DirInode,
-				RootIno:    deletedVerInfoByIno.SubRootIno,
-				Ver:        deletedVer,
+			for deletedVer := range deletedVerInfoByIno.DeletedVerSet {
+				dirVerItem := proto.DirVerItem{
+					DirSnapIno: deletedVerInfoByIno.DirInode,
+					RootIno:    deletedVerInfoByIno.SubRootIno,
+					Ver:        deletedVer,
+				}
+				deletedVerList = append(deletedVerList, dirVerItem)
 			}
-			deletedVerList = append(deletedVerList, dirVerItem)
-		}
 
-		if err := dirVerMgr.ReqMetaNodeToBatchDelDirSnapVer(mpId, deletedVerList); err != nil {
-			log.LogErrorf("[CheckDirDeletedVer] failed to create batch del task to metaNode, err:%v, vol:%v, mpId:%v",
-				err.Error(), dirVerMgr.vol.Name, mpId)
+			if err := dirVerMgr.ReqMetaNodeToBatchDelDirSnapVer(mpId, deletedVerList); err != nil {
+				log.LogErrorf("[CheckDirDeletedVer] failed to create batch del task to metaNode, err:%v, vol:%v, mpId:%v",
+					err.Error(), dirVerMgr.vol.Name, mpId)
+				continue
+			}
+
+			log.LogInfof("[CheckDirDeletedVer] vol[%v] mpId[%v] batch del task to metaNode done, deletedVerList len: %v",
+				dirVerMgr.vol.Name, mpId, len(deletedVerList))
 		}
-		log.LogDebugf("[CheckDirDeletedVer] create batch del task to metaNode, vol:%v, mpId:%v",
-			dirVerMgr.vol.Name, mpId)
 	}
 
 	return
