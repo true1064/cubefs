@@ -50,6 +50,16 @@ var (
 	}
 )
 
+// Configure crypto configures.
+type Configure struct {
+	Environment uint16 `json:"environment"`
+	AppName     string `json:"appName"`
+	AK          string `json:"ak"`
+	SK          string `json:"sk"`
+	FileKeyID   string `json:"fileKeyId"`
+	TransKeyID  string `json:"transKeyId"`
+}
+
 func transError(en *errno.Errno) error {
 	if en == nil || en == errno.OK {
 		return nil
@@ -72,19 +82,29 @@ func fileError(en *errno.Errno) error {
 	}
 }
 
-func initOnce() error {
+func initOnce(conf Configure) error {
+	empty := Configure{}
+	if conf == empty {
+		conf.Environment = uint16(types.EnvironmentTest)
+		conf.AppName = "cryptokit"
+		conf.AK = "AK0642C908CE001356"
+		conf.SK = "cded5f1a55747351dbf4435a4f8fab02f803ee74fd4518fcd1bec1311bdadf79"
+		conf.FileKeyID = "a08be12a-08df-4754-a7b4-ff69c0fac73e"
+		conf.TransKeyID = "a67d2abb-c7f6-408d-93d7-450c8394e73e"
+	}
+
 	var err *errno.Errno
 	once.Do(func() {
 		configure := types.Configure{
-			Environment: types.EnvironmentTest,
+			Environment: types.EnvironmentType(conf.Environment),
 			AuthParam: types.AuthParam{
-				AppName: "cryptokit",
-				AK:      "AK0642C908CE001356",
-				SK:      "cded5f1a55747351dbf4435a4f8fab02f803ee74fd4518fcd1bec1311bdadf79",
+				AppName: conf.AppName,
+				AK:      conf.AK,
+				SK:      conf.SK,
 			},
 			CustomMasterKey: types.CustomMasterKey{
-				FileKeyId:  "a08be12a-08df-4754-a7b4-ff69c0fac73e",
-				TransKeyId: "a67d2abb-c7f6-408d-93d7-450c8394e73e",
+				FileKeyId:  conf.FileKeyID,
+				TransKeyId: conf.TransKeyID,
 			},
 		}
 		if cryptoKit, err = kit.New(types.CipherScheme_ServiceBasedKMS, configure); err != errno.OK {
@@ -95,8 +115,8 @@ func initOnce() error {
 }
 
 // Init init server client of crypto kit.
-func Init() error {
-	return initOnce()
+func Init(conf Configure) error {
+	return initOnce(conf)
 }
 
 // Cryptor for transmitting and file content.
@@ -176,8 +196,8 @@ func NoneCryptor() Cryptor {
 
 // NewCryptor returns the encryption and decryption object.
 func NewCryptor() Cryptor {
-	if err := initOnce(); err != nil {
-		panic(err)
+	if cryptoKit == nil {
+		panic("please init cryptor kit firstly")
 	}
 	return cryptor{}
 }

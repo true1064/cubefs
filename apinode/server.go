@@ -16,6 +16,7 @@ package apinode
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -23,12 +24,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/cubefs/cubefs/util/stat"
-
 	"github.com/gorilla/mux"
 	"golang.org/x/time/rate"
 	"gopkg.in/natefinch/lumberjack.v2"
 
+	"github.com/cubefs/cubefs/apinode/crypto"
 	"github.com/cubefs/cubefs/apinode/drive"
 	"github.com/cubefs/cubefs/blobstore/common/profile"
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
@@ -41,6 +41,7 @@ import (
 	"github.com/cubefs/cubefs/sdk/master"
 	"github.com/cubefs/cubefs/util/config"
 	"github.com/cubefs/cubefs/util/exporter"
+	"github.com/cubefs/cubefs/util/stat"
 )
 
 func init() {
@@ -176,7 +177,32 @@ func (s *apiNode) loadConfig(cfg *config.Config) error {
 	return nil
 }
 
+func getCryptoConfig(cfg *config.Config) (crypto.Configure, error) {
+	var conf crypto.Configure
+	c := cfg.GetValue("crypto")
+	if c == nil {
+		return conf, nil
+	}
+	data, err := json.Marshal(c)
+	if err != nil {
+		return conf, err
+	}
+
+	if err = json.Unmarshal(data, &conf); err != nil {
+		return conf, err
+	}
+	return conf, nil
+}
+
 func (s *apiNode) startRouters(cfg *config.Config) error {
+	conf, err := getCryptoConfig(cfg)
+	if err != nil {
+		return err
+	}
+	if err := crypto.Init(conf); err != nil {
+		return err
+	}
+
 	{
 		limiter := rate.NewLimiter(rate.Inf, limiterBrust)
 		node := drive.New(limiter)

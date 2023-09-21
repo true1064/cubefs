@@ -197,9 +197,6 @@ func New(limiter *rate.Limiter) *DriveNode {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := crypto.Init(); err != nil {
-		log.Fatal(err)
-	}
 	return &DriveNode{
 		userRouter: urm,
 		clusterMgr: cm,

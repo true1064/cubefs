@@ -57,6 +57,7 @@ func setBlock(block uint64) {
 }
 
 func BenchmarkTransmit(b *testing.B) {
+	require.NoError(b, Init(Configure{}))
 	for _, block := range blocks {
 		setBlock(block)
 		for _, size := range sizes {
@@ -81,6 +82,7 @@ func BenchmarkTransmit(b *testing.B) {
 }
 
 func BenchmarkCrypto(b *testing.B) {
+	require.NoError(b, Init(Configure{}))
 	for _, block := range blocks {
 		setBlock(block)
 		for _, size := range sizes {

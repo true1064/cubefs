@@ -21,6 +21,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/desertbit/grumble"
 	"github.com/fatih/color"
@@ -142,6 +143,7 @@ func registerUser(app *grumble.App) {
 				fmt.Println("host :", host)
 				fmt.Println("user :", user)
 				fmt.Println("pass :", pass != "")
+				fmt.Println("crypto")
 				return nil
 			}
 
@@ -157,6 +159,7 @@ func registerUser(app *grumble.App) {
 					} else {
 						pass = metaMaterial
 					}
+					crypto.Init(crypto.Configure{})
 					cryptor = crypto.NewCryptor()
 				} else {
 					pass = ""
@@ -165,6 +168,30 @@ func registerUser(app *grumble.App) {
 				encoder = newTransmitter()
 				requester = newTransFuncEncoder()
 				responser = newTransFuncDecoder()
+			case "crypto":
+				err := fmt.Errorf("value: %s", val)
+				vals := strings.Split(val, " ")
+				if len(vals) != 6 {
+					return err
+				}
+				conf := crypto.Configure{
+					AppName:    vals[1],
+					AK:         vals[2],
+					SK:         vals[3],
+					FileKeyID:  vals[4],
+					TransKeyID: vals[5],
+				}
+				switch vals[0] {
+				case "1":
+					conf.Environment = 1
+				case "2":
+					conf.Environment = 2
+				case "3":
+					conf.Environment = 3
+				default:
+					return err
+				}
+				return crypto.Init(conf)
 			}
 			return nil
 		},
