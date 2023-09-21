@@ -318,9 +318,9 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 			return
 		}
 		if xattrs[internalMetaUploadID] == args.UploadID {
-			d.respData(c, inode2file(inoInfo, fileInfo.Inode, fileInfo.Name, xattrs))
+			d.respData(c, inode2file(inoInfo, fileInfo.FileId, fileInfo.Name, xattrs))
 			return
-		} else if fileInfo.Inode != args.FileID {
+		} else if fileInfo.FileId != args.FileID {
 			d.respError(c, sdk.ErrConflict)
 			return
 		}
