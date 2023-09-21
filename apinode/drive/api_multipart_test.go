@@ -266,7 +266,7 @@ func TestHandleMultipartUploads(t *testing.T) {
 		node.Volume.EXPECT().ListMultiPart(A, A, A, A, A).Return(listp, uint64(0), false, nil)
 		node.Volume.EXPECT().ReadFile(A, A, A, A).Return(int(crypto.BlockSize), nil).Times(10)
 		contentMD5 = "not-md5"
-		require.Equal(t, 400, doRequest(body, nil, "path", "/mpfile", "uploadId", uploadID).StatusCode())
+		require.Equal(t, sdk.ErrMismatchChecksum.Status, doRequest(body, nil, "path", "/mpfile", "uploadId", uploadID).StatusCode())
 	}
 }
 

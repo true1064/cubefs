@@ -342,9 +342,9 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 			span.Warn("multipart complete calculate", args, gerr)
 			return nil, gerr
 		}
-		if md5Header := c.Request.Header.Get(HeaderMD5); md5Header != "" && md5Header != fileMD5 {
-			span.Warnf("multipart comlete md5 mismatch %s != %s", md5Header, fileMD5)
-			return nil, sdk.ErrBadRequest.Extend("md5 mismatch", md5Header)
+		if gerr = verifyMD5(c.Request.Header, fileMD5); gerr != nil {
+			span.Warnf("multipart comlete", gerr)
+			return nil, gerr
 		}
 
 		cmReq := &sdk.CompleteMultipartReq{

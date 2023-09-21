@@ -84,7 +84,11 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 		Extend:    extend,
 		Body:      reader,
 		Callback: func() error {
-			extend[internalMetaMD5] = hex.EncodeToString(hasher.Sum(nil))
+			fileMD5 := hex.EncodeToString(hasher.Sum(nil))
+			if errMD5 := verifyMD5(c.Request.Header, fileMD5); errMD5 != nil {
+				return errMD5
+			}
+			extend[internalMetaMD5] = fileMD5
 			return nil
 		},
 	})

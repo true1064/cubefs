@@ -273,3 +273,10 @@ func parseChecksums(header http.Header) (checksums, error) {
 	}
 	return s, nil
 }
+
+func verifyMD5(header http.Header, fileMD5 string) error {
+	if md5Header := header.Get(HeaderMD5); len(md5Header) > 0 && md5Header != fileMD5 {
+		return sdk.ErrMismatchChecksum.Extend("md5 mismatch", fileMD5, md5Header)
+	}
+	return nil
+}
