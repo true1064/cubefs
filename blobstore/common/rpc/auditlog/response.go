@@ -36,10 +36,12 @@ type responseWriter struct {
 	// body hold some data buffer of response body, like json or form
 	// audit log will record body buffer into log file
 	body           []byte
+	extra          http.Header // extra header
 	span           trace.Span
 	startTime      time.Time
 	hasRecordCost  bool
 	hasWroteHeader bool
+	no2xxBody      bool
 
 	http.ResponseWriter
 }
@@ -49,7 +51,7 @@ func (w *responseWriter) Write(b []byte) (int, error) {
 		w.WriteHeader(http.StatusOK)
 		w.hasWroteHeader = true
 	}
-	if w.n < w.bodyLimit {
+	if !(w.statusCode/100 == 2 && w.no2xxBody) && w.n < w.bodyLimit {
 		n := copy(w.body[w.n:], b)
 		w.n += n
 	}
@@ -89,10 +91,18 @@ func (w *responseWriter) Flush() {
 	w.ResponseWriter.(http.Flusher).Flush()
 }
 
+func (w *responseWriter) ExtraHeader() http.Header {
+	if w.extra == nil {
+		w.extra = make(http.Header)
+	}
+
+	return w.extra
+}
+
 func (w *responseWriter) getBody() []byte {
 	header := w.ResponseWriter.Header()
 	length, _ := strconv.ParseInt(header.Get(rpc.HeaderContentLength), 10, 64)
-	if length > int64(w.n) || !json.Valid(w.body[:w.n]) {
+	if (w.statusCode/100 == 2 && w.no2xxBody) || length > int64(w.n) || !json.Valid(w.body[:w.n]) {
 		return nil
 	}
 	return w.body[:w.n]
@@ -108,10 +118,21 @@ func (w *responseWriter) getHeader() M {
 	for k := range header {
 		if k == rpc.HeaderTraceLog || k == rpc.HeaderTraceTags {
 			headerM[k] = header[k]
+		} else if len(header[k]) == 1 {
+			headerM[k] = header[k][0]
 		} else {
-			headerM[k] = header.Get(k)
+			headerM[k] = header[k]
 		}
 	}
+
+	for k := range w.extra {
+		if len(w.extra[k]) == 1 {
+			headerM[k] = w.extra[k][0]
+		} else {
+			headerM[k] = w.extra[k]
+		}
+	}
+
 	return headerM
 }
 
