@@ -288,7 +288,7 @@ func testCreateFile(ctx context.Context, vol sdk.IVolume) {
 
 	req.OldFileId = den.FileId
 	req.Body = bytes.NewBuffer(data)
-	uploadIfo, _, err = vol.UploadFile(ctx, req)
+	uploadIfo, fileId, err := vol.UploadFile(ctx, req)
 	if err != nil {
 		span.Fatalf("upload file failed, name %s, err %s", req.Name, err.Error())
 	}
@@ -297,6 +297,16 @@ func testCreateFile(ctx context.Context, vol sdk.IVolume) {
 	err = vol.Rename(ctx, dirIfo.Inode, dirIfo.Inode, req.Name, newName)
 	if err != nil {
 		span.Fatalf("rename file failed, err %s", err.Error())
+	}
+
+	den, err = vol.Lookup(ctx, dirIfo.Inode, newName)
+	if err != nil {
+		span.Fatalf("lookup new file failed, ino %d, name %s, err %s", dirIfo.Inode, newName)
+	}
+	span.Infof("lookup after rename, den %v", den)
+
+	if den.FileId == 0 || den.FileId != fileId {
+		span.Fatalf("lookup file id is not correct after rename, den %v, fileId %d", den, fileId)
 	}
 
 	// test rename dest already exist, should be failed
