@@ -77,7 +77,7 @@ func (mw *SnapShotMetaWrapper) sendToMeta(mp *MetaPartition, opCode uint8, req, 
 
 	resultPkt, err := mw.sendToMetaPartition(mp, pkt)
 	if err != nil {
-		log.LogErrorf("%s: pkt(%v) mp(%v) req(%v) err(%v)", resultPkt.GetOpMsg(), pkt, mp, req, err)
+		log.LogErrorf("%s: pkt(%v) mp(%v) req(%v) err(%v)", pkt.GetOpMsg(), pkt, mp, req, err)
 		return
 	}
 

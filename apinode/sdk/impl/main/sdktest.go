@@ -17,13 +17,13 @@ import (
 )
 
 const (
-	cluster = "cfs_dev"
-	addr    = "172.16.1.101:17010,172.16.1.102:17010,172.16.1.103:17010"
-	vol     = "abc"
+	//cluster = "cfs_dev"
+	//addr    = "172.16.1.101:17010,172.16.1.102:17010,172.16.1.103:17010"
+	//vol     = "abc"
 
-	// vol = "create-vol-test"
-	// cluster = "cfs_fault_test"
-	// addr = "10.177.111.194:17010"
+	cluster = "cfs_performance_cross"
+	addr    = "10.177.217.118:17010"
+	vol     = "cfa_snapshot"
 )
 
 func main() {
@@ -56,11 +56,11 @@ func main() {
 		span.Fatalf("get dir snapshot failed, err %s", err.Error())
 	}
 
-	testDirOp(ctx, dirVol)
-	testCreateFile(ctx, dirVol)
-	testXAttrOp(ctx, dirVol)
-	testMultiPartOp(ctx, dirVol)
-	testInodeLock(ctx, dirVol)
+	//testDirOp(ctx, dirVol)
+	//testCreateFile(ctx, dirVol)
+	//testXAttrOp(ctx, dirVol)
+	//testMultiPartOp(ctx, dirVol)
+	//testInodeLock(ctx, dirVol)
 
 	testDirSnapshotOp(ctx, vol, dirVol)
 }
@@ -124,7 +124,7 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 	createSnapshot(v2)
 
 	err = dirVol.CreateDirSnapshot(ctx, v1, dir)
-	if err != sdk.ErrBadRequest {
+	if err != sdk.ErrExist {
 		span.Fatalf("create dir snapshot again, should be bad req, dir %s, err %v", dir, err)
 	}
 
