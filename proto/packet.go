@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"github.com/cubefs/cubefs/util/log"
 	"io"
+	"math"
 	"net"
 	"strconv"
 	"sync/atomic"
@@ -351,6 +352,9 @@ func NewPacketReqID() *Packet {
 
 func (p *Packet) SetVerInfo(ifo *DelVer) {
 	p.VerSeq = ifo.DelVer
+	if ifo.DelVer == 0 {
+		p.VerSeq = math.MaxUint64
+	}
 	p.DirVerList = ifo.Vers
 	return
 }
