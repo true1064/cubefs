@@ -38,11 +38,7 @@ type ArgsFileUpload struct {
 func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 	args := new(ArgsFileUpload)
 	ctx, span := d.ctxSpan(c)
-
-	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args)) {
-		return
-	}
-	if d.checkError(c, func(err error) { span.Info(args.Path, err) }, args.Path.Clean()) {
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args), args.Path.Clean()) {
 		return
 	}
 
@@ -73,7 +69,7 @@ func (d *DriveNode) handleFileUpload(c *rpc.Context) {
 	}
 
 	extend, err := d.getProperties(c)
-	if d.checkError(c, nil, err) {
+	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
 	st := time.Now()
@@ -111,11 +107,7 @@ type ArgsFileWrite struct {
 func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 	args := new(ArgsFileWrite)
 	ctx, span := d.ctxSpan(c)
-
-	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args)) {
-		return
-	}
-	if d.checkError(c, func(err error) { span.Info(args.Path, err) }, args.Path.Clean()) {
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args), args.Path.Clean()) {
 		return
 	}
 
@@ -130,10 +122,12 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 		if err == sdk.ErrNotFound {
 			err = sdk.ErrConflict
 		}
+		span.Warn("lookup file", args, err)
 		d.respError(c, err)
 		return
 	}
 	if dirInfo.FileId != args.FileID {
+		span.Warn("fileid mismatch", args.FileID, dirInfo.FileId)
 		d.respError(c, sdk.ErrConflict)
 		return
 	}
@@ -185,12 +179,14 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 		return
 	}
 
-	if err = d.out.Publish(ctx, makeOpLog(OpUpdateFile, d.requestID(c), uid, string(args.Path), "size", inode.Size)); err != nil {
-		d.respError(c, err)
+	if d.checkError(c, func(err error) { span.Warn(err) },
+		d.out.Publish(ctx, makeOpLog(OpUpdateFile, d.requestID(c), uid, string(args.Path), "size", inode.Size))) {
 		return
 	}
-	if err = vol.DeleteXAttr(ctx, inode.Inode, internalMetaMD5); err != nil {
+	if d.checkError(c, func(err error) {
 		span.Warn("delete old xattr", internalMetaMD5, err.Error())
+	}, vol.DeleteXAttr(ctx, inode.Inode, internalMetaMD5)) {
+		return
 	}
 
 	wOffset, wSize := uint64(ranged.Start)-firstN, firstN+size+lastN
@@ -213,11 +209,7 @@ type ArgsFileVerify struct {
 func (d *DriveNode) handleFileVerify(c *rpc.Context) {
 	args := new(ArgsFileVerify)
 	ctx, span := d.ctxSpan(c)
-
-	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args)) {
-		return
-	}
-	if d.checkError(c, func(err error) { span.Error(args.Path, err) }, args.Path.Clean()) {
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args), args.Path.Clean()) {
 		return
 	}
 
@@ -272,7 +264,6 @@ func (d *DriveNode) handleFileVerify(c *rpc.Context) {
 		func() error { return checksum.verify() }) {
 		return
 	}
-
 	c.Respond()
 }
 
@@ -294,7 +285,7 @@ func (d *DriveNode) downloadConfig(c *rpc.Context) {
 	}
 
 	body, err := d.encryptResponse(c, makeFileReader(ctx, d.vol, inode.Inode, 0))
-	if d.checkError(c, nil, err) {
+	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
 	c.RespondWithReader(http.StatusOK, int(inode.Size), rpc.MIMEStream, body, nil)
@@ -303,11 +294,7 @@ func (d *DriveNode) downloadConfig(c *rpc.Context) {
 func (d *DriveNode) handleFileDownload(c *rpc.Context) {
 	args := new(ArgsFileDownload)
 	ctx, span := d.ctxSpan(c)
-
-	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args)) {
-		return
-	}
-	if d.checkError(c, func(err error) { span.Error(err) }, args.Path.Clean()) {
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args), args.Path.Clean()) {
 		return
 	}
 
@@ -378,7 +365,7 @@ func (d *DriveNode) handleFileDownload(c *rpc.Context) {
 		body = io.TeeReader(body, hasher)
 	}
 	body, err = d.encryptResponse(c, body)
-	if d.checkError(c, nil, err) {
+	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
 
@@ -409,14 +396,11 @@ type ArgsFileRename struct {
 func (d *DriveNode) handleFileRename(c *rpc.Context) {
 	args := new(ArgsFileRename)
 	ctx, span := d.ctxSpan(c)
-
-	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args)) {
+	if d.checkError(c, func(err error) { span.Error(err) },
+		c.ParseArgs(args), args.Src.Clean(), args.Dst.Clean()) {
 		return
 	}
-	if d.checkError(c, func(err error) { span.Error(args, err) }, args.Src.Clean(), args.Dst.Clean()) {
-		return
-	}
-	span.Debug("to rename", args)
+	span.Info("to rename", args)
 
 	ur, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c))
 	if d.checkError(c, func(err error) { span.Warn(err) }, err, ur.CanWrite()) {
@@ -483,18 +467,16 @@ type ArgsFileCopy struct {
 func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 	args := new(ArgsFileCopy)
 	ctx, span := d.ctxSpan(c)
-
-	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args)) {
-		return
-	}
-	if d.checkError(c, func(err error) { span.Error(args, err) }, args.Src.Clean(), args.Dst.Clean()) {
+	if d.checkError(c, func(err error) { span.Error(err) },
+		c.ParseArgs(args), args.Src.Clean(), args.Dst.Clean()) {
 		return
 	}
 	span.Info("to copy", args)
 
 	dir, filename := args.Dst.Split()
 	if filename == "" {
-		d.respError(c, sdk.ErrBadRequest.Extend("invalid path"))
+		span.Warn("invalid dst path", args.Dst)
+		d.respError(c, sdk.ErrBadRequest.Extend("invalid path", args.Dst))
 		return
 	}
 
@@ -516,7 +498,7 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 	dstFile, err := d.lookup(ctx, vol, dstParent, filename)
 	if err == nil {
 		if dstFile.IsDir() {
-			span.Warn("args dest is dir", args.Dst.String())
+			span.Warn("args dst is dir:", args.Dst.String())
 			d.respError(c, sdk.ErrNotFile)
 			return
 		}
@@ -554,8 +536,8 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 		}
 	}
 
-	if err = d.out.Publish(ctx, makeOpLog(OpCopyFile, d.requestID(c), d.userID(c), string(args.Src), "dst", string(args.Dst))); err != nil {
-		d.respError(c, err)
+	if d.checkError(c, func(err error) { span.Warn(err) },
+		d.out.Publish(ctx, makeOpLog(OpCopyFile, d.requestID(c), d.userID(c), string(args.Src), "dst", string(args.Dst)))) {
 		return
 	}
 	_, _, err = vol.UploadFile(ctx, &sdk.UploadFileReq{

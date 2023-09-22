@@ -16,11 +16,7 @@ type ArgsSnapshot struct {
 func (d *DriveNode) handleCreateSnapshot(c *rpc.Context) {
 	args := &ArgsSnapshot{}
 	ctx, span := d.ctxSpan(c)
-
-	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args)) {
-		return
-	}
-	if d.checkError(c, func(err error) { span.Info(args.Path, err) }, args.Path.Clean()) {
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args), args.Path.Clean()) {
 		return
 	}
 
@@ -44,11 +40,7 @@ func (d *DriveNode) handleCreateSnapshot(c *rpc.Context) {
 func (d *DriveNode) handleDeleteSnapshot(c *rpc.Context) {
 	args := &ArgsSnapshot{}
 	ctx, span := d.ctxSpan(c)
-
-	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args)) {
-		return
-	}
-	if d.checkError(c, func(err error) { span.Info(args.Path, err) }, args.Path.Clean()) {
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args), args.Path.Clean()) {
 		return
 	}
 

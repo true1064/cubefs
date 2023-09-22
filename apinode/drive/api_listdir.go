@@ -159,21 +159,18 @@ func (builder *filterBuilder) matchFileInfo(f *FileInfo) bool {
 }
 
 func (d *DriveNode) handleListDir(c *rpc.Context) {
-	ctx, span := d.ctxSpan(c)
 	args := new(ArgsListDir)
-	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args)) {
+	ctx, span := d.ctxSpan(c)
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args), args.Path.Clean()) {
 		return
 	}
 
-	if d.checkError(c, func(err error) { span.Error(err) }, args.Path.Clean()) {
-		return
-	}
 	path, marker, limit := args.Path.String(), args.Marker, args.Limit
 
 	uid := d.userID(c)
 	var (
 		pathIno Inode
-		fileId  uint64
+		fileID  uint64
 	)
 	// 1. get user route info
 	ur, vol, err := d.getUserRouterAndVolume(ctx, uid)
@@ -201,7 +198,7 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 			return
 		}
 		pathIno = Inode(dirInodeInfo.Inode)
-		fileId = dirInodeInfo.FileId
+		fileID = dirInodeInfo.FileId
 	}
 
 	if args.Filter != "" {
@@ -215,7 +212,7 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 	}
 
 	res := ListDirResult{
-		ID:         fileId,
+		ID:         fileID,
 		Type:       typeFolder,
 		Properties: make(map[string]string),
 		Files:      []FileInfo{},
@@ -325,7 +322,7 @@ func (d *DriveNode) listDir(ctx context.Context, ino uint64, vol sdk.IVolume, ma
 			typ = typeFolder
 		}
 		ino := dirInfos[i].Inode
-		fileId := dirInfos[i].FileId
+		fileID := dirInfos[i].FileId
 
 		files = append(files, FileInfo{
 			ID:         dirInfos[i].FileId,
@@ -342,7 +339,7 @@ func (d *DriveNode) listDir(ctx context.Context, ino uint64, vol sdk.IVolume, ma
 			defer wg.Done()
 			properties, err := vol.GetXAttrMap(ctx, ino)
 			mu.Lock()
-			res[fileId] = result{properties, err}
+			res[fileID] = result{properties, err}
 			mu.Unlock()
 		})
 	}

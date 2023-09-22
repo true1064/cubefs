@@ -30,12 +30,8 @@ const (
 func (d *DriveNode) handleSetProperties(c *rpc.Context) {
 	ctx, span := d.ctxSpan(c)
 	uid := d.userID(c)
-
 	args := new(ArgsProperties)
-	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args)) {
-		return
-	}
-	if d.checkError(c, func(err error) { span.Info(args.Path, err) }, args.Path.Clean()) {
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args), args.Path.Clean()) {
 		return
 	}
 
@@ -74,10 +70,7 @@ func (d *DriveNode) handleDelProperties(c *rpc.Context) {
 	uid := d.userID(c)
 
 	args := new(ArgsProperties)
-	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args)) {
-		return
-	}
-	if d.checkError(c, func(err error) { span.Info(args.Path, err) }, args.Path.Clean()) {
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args), args.Path.Clean()) {
 		return
 	}
 
@@ -121,10 +114,7 @@ func (d *DriveNode) handleGetProperties(c *rpc.Context) {
 	uid := d.userID(c)
 
 	args := new(ArgsProperties)
-	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args)) {
-		return
-	}
-	if d.checkError(c, func(err error) { span.Info(args.Path, err) }, args.Path.Clean()) {
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args), args.Path.Clean()) {
 		return
 	}
 

@@ -60,13 +60,9 @@ type ArgsMPUploads struct {
 func (d *DriveNode) handleMultipartUploads(c *rpc.Context) {
 	args := new(ArgsMPUploads)
 	_, span := d.ctxSpan(c)
-	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args)) {
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args), args.Path.Clean()) {
 		return
 	}
-	if d.checkError(c, func(err error) { span.Error(args.Path, err) }, args.Path.Clean()) {
-		return
-	}
-
 	if args.UploadID == "" {
 		d.multipartUploads(c, args)
 	} else {
@@ -304,6 +300,7 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 	fileInfo, err := d.lookup(ctx, vol, root, args.Path.String())
 	if err == sdk.ErrNotFound {
 		if args.FileID != 0 {
+			span.Warn("not found file with id", args.FileID)
 			d.respError(c, sdk.ErrConflict)
 			return
 		}
@@ -321,6 +318,7 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 			d.respData(c, inode2file(inoInfo, fileInfo.FileId, fileInfo.Name, xattrs))
 			return
 		} else if fileInfo.FileId != args.FileID {
+			span.Warn("fileid mismatch", args.FileID, fileInfo.FileId)
 			d.respError(c, sdk.ErrConflict)
 			return
 		}
@@ -368,6 +366,8 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 			return nil, gerr
 		}
 
+		d.out.Publish(ctx, makeOpLog(OpMultiUploadFile, d.requestID(c), d.userID(c),
+			args.Path.String(), "size", inode.Size))
 		span.Info("multipart complete", fileMD5, args, parts)
 		_, filename := args.Path.Split()
 		return inode2file(inode, fileID, filename, extend), nil
@@ -390,11 +390,7 @@ type ArgsMPUpload struct {
 func (d *DriveNode) handleMultipartPart(c *rpc.Context) {
 	args := new(ArgsMPUpload)
 	ctx, span := d.ctxSpan(c)
-
-	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args)) {
-		return
-	}
-	if d.checkError(c, func(err error) { span.Info(args.Path, err) }, args.Path.Clean()) {
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args), args.Path.Clean()) {
 		return
 	}
 	if args.PartNumber == 0 || args.PartNumber >= maxMultipartNumber {
@@ -444,10 +440,7 @@ type RespMPList struct {
 func (d *DriveNode) handleMultipartList(c *rpc.Context) {
 	args := new(ArgsMPList)
 	ctx, span := d.ctxSpan(c)
-	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args)) {
-		return
-	}
-	if d.checkError(c, func(err error) { span.Info(args.Path, err) }, args.Path.Clean()) {
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args), args.Path.Clean()) {
 		return
 	}
 	if args.Limit <= 0 {
@@ -488,11 +481,8 @@ type ArgsMPAbort struct {
 
 func (d *DriveNode) handleMultipartAbort(c *rpc.Context) {
 	args := new(ArgsMPAbort)
-	if d.checkError(c, nil, c.ParseArgs(args)) {
-		return
-	}
 	ctx, span := d.ctxSpan(c)
-	if d.checkError(c, func(err error) { span.Info(args.Path, err) }, args.Path.Clean()) {
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args), args.Path.Clean()) {
 		return
 	}
 

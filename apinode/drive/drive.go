@@ -90,7 +90,7 @@ func (p *FilePath) Clean() error {
 	s := p.String()
 	path := filepath.Clean(s)
 	if path == "" || path[0] != '/' {
-		return sdk.ErrInvalidPath
+		return sdk.ErrInvalidPath.Extend(path)
 	}
 	*p = FilePath(path)
 	return nil

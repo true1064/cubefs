@@ -319,16 +319,16 @@ func TestHandleFileWrite(t *testing.T) {
 		defer resp.Body.Close()
 		require.Equal(t, sdk.ErrWriteOverSize.Status, resp.StatusCode)
 	}
-	node.Volume.EXPECT().DeleteXAttr(A, A, A).Return(sdk.ErrInternalServerError).AnyTimes()
 	{
 		file = newMockBody(1024)
 		node.OnceGetUser()
 		node.Volume.EXPECT().GetInode(A, A).Return(&proto.InodeInfo{Size: 1024}, nil)
-		node.Volume.EXPECT().WriteFile(A, A, A, A, A).Return(e2)
+		node.Volume.EXPECT().DeleteXAttr(A, A, A).Return(e2)
 		resp := doRequest(newMockBody(64), "bytes=1024-", queries...)
 		defer resp.Body.Close()
 		require.Equal(t, e2.Status, resp.StatusCode)
 	}
+	node.Volume.EXPECT().DeleteXAttr(A, A, A).Return(nil).AnyTimes()
 	{
 		file = newMockBody(1024)
 		node.OnceGetUser()

@@ -37,10 +37,7 @@ type ArgsMkDir struct {
 func (d *DriveNode) handleMkDir(c *rpc.Context) {
 	ctx, span := d.ctxSpan(c)
 	args := new(ArgsMkDir)
-	if d.checkError(c, nil, c.ParseArgs(args)) {
-		return
-	}
-	if d.checkError(c, func(err error) { span.Info(args.Path, err) }, args.Path.Clean()) {
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args), args.Path.Clean()) {
 		return
 	}
 
@@ -70,11 +67,8 @@ type ArgsDelete struct {
 
 func (d *DriveNode) handleFilesDelete(c *rpc.Context) {
 	args := new(ArgsDelete)
-	if d.checkError(c, nil, c.ParseArgs(args)) {
-		return
-	}
 	ctx, span := d.ctxSpan(c)
-	if d.checkError(c, func(err error) { span.Info(args.Path, err) }, args.Path.Clean()) {
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args), args.Path.Clean()) {
 		return
 	}
 	span.Info("to delete", args)
@@ -90,9 +84,8 @@ func (d *DriveNode) handleFilesDelete(c *rpc.Context) {
 	}
 	root := ur.RootFileID
 
-	var info *sdk.DirInfo
-	if d.checkFunc(c, func(err error) { span.Error(err) },
-		func() error { info, err = deleteFile(ctx, vol, root, args.Path.String()); return err }) {
+	info, err := deleteFile(ctx, vol, root, args.Path.String())
+	if d.checkError(c, func(err error) { span.Error(err) }, err) {
 		return
 	}
 
@@ -215,12 +208,13 @@ type BatchDeleteResult struct {
 
 func (d *DriveNode) handleBatchDelete(c *rpc.Context) {
 	args := new(ArgsBatchDelete)
-	if d.checkError(c, nil, c.ParseArgs(args)) {
+	ctx, span := d.ctxSpan(c)
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args)) {
 		return
 	}
-	ctx, span := d.ctxSpan(c)
+
 	ur, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c))
-	if d.checkError(c, func(err error) { span.Warnf("get root inode and volume return error: %v", err) }, err, ur.CanWrite()) {
+	if d.checkError(c, func(err error) { span.Warnf("get root inode and volume: %v", err) }, err, ur.CanWrite()) {
 		return
 	}
 	root := ur.RootFileID
