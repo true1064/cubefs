@@ -34,7 +34,7 @@ func (d *DriveNode) ConsumerEvent(ctx context.Context, e oplog.Event) {
 		return
 	}
 
-	if item.Op != OpMultiUploadFile && item.Op != OpUpdateFile {
+	if item.Op != OpUpdateFile {
 		return
 	}
 
