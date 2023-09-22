@@ -260,6 +260,33 @@ func (mw *MetaWrapper) UpdateMasterAddr(addrs string) {
 	mw.mc = masterSDK.NewMasterClientFromString(addrs, false)
 }
 
+func (mw *MetaWrapper) SetTxConfig(txMaskStr string, timeout int64, retryNum int64, retryInterval int64) {
+	//maskStr := proto.GetMaskString(txMask)
+	mask, err := proto.GetMaskFromString(txMaskStr)
+	if err != nil {
+		log.LogErrorf("SetTransaction: err[%v], op[%v], timeout[%v]", err, txMaskStr, timeout)
+		return
+	}
+
+	mw.EnableTransaction = mask
+	if timeout <= 0 {
+		timeout = proto.DefaultTransactionTimeout
+	}
+	mw.TxTimeout = timeout
+
+	if retryNum <= 0 {
+		retryNum = proto.DefaultTxConflictRetryNum
+	}
+	mw.TxConflictRetryNum = retryNum
+
+	if retryInterval <= 0 {
+		retryInterval = proto.DefaultTxConflictRetryInterval
+	}
+	mw.TxConflictRetryInterval = retryInterval
+	log.LogDebugf("SetTransaction: mask[%v], op[%v], timeout[%v], retryNum[%v], retryInterval[%v ms]",
+		mask, txMaskStr, timeout, retryNum, retryInterval)
+}
+
 func (mw *MetaWrapper) initMetaWrapper() (err error) {
 	if err = mw.updateClusterInfo(); err != nil {
 		return err

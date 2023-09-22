@@ -466,42 +466,23 @@ func (mw *MetaWrapper) ievict(mp *MetaPartition, inode uint64) (status int, err 
 	return statusOK, nil
 }
 
-func (mw *MetaWrapper) txDcreate(tx *Transaction, mp *MetaPartition, parentID uint64, name string, inode uint64, mode uint32, quotaIds []uint32) (status int, err error) {
+func (mw *MetaWrapper) txDcreateEx(mp *MetaPartition, req *proto.TxCreateDentryRequest) (status int, err error) {
 	bgTime := stat.BeginStat()
 	defer func() {
 		stat.EndStat("txDcreate", err, bgTime, 1)
 	}()
 
-	if parentID == inode {
+	if req.ParentID == req.Inode {
 		return statusExist, nil
 	}
 
-	req := &proto.TxCreateDentryRequest{
-		VolName:     mw.volname,
-		PartitionID: mp.PartitionID,
-		ParentID:    parentID,
-		Inode:       inode,
-		Name:        name,
-		Mode:        mode,
-		QuotaIds:    quotaIds,
-		TxInfo:      tx.txInfo,
-	}
+	req.VolName = mw.volname
+	req.PartitionID = mp.PartitionID
 
 	metric := exporter.NewTPCnt("OpMetaTxCreateDentry")
 	defer func() {
 		metric.SetWithLabels(err, map[string]string{exporter.Vol: mw.volname})
 	}()
-
-	//statusCheckFunc := func(status int, packet *proto.Packet) (err error) {
-	//	if (status != statusOK) && (status != statusExist) {
-	//		err = errors.New(packet.GetResultMsg())
-	//		log.LogErrorf("txDcreate: packet(%v) mp(%v) req(%v) result(%v)", packet, mp, *req, packet.GetResultMsg())
-	//		return
-	//	} else if status == statusExist {
-	//		log.LogWarnf("txDcreate: packet(%v) mp(%v) req(%v) result(%v)", packet, mp, *req, packet.GetResultMsg())
-	//	}
-	//	return
-	//}
 
 	var packet *proto.Packet
 	if status, err, packet = mw.SendTxPack(req, nil, proto.OpMetaTxCreateDentry, mp, nil); err != nil {
@@ -509,8 +490,27 @@ func (mw *MetaWrapper) txDcreate(tx *Transaction, mp *MetaPartition, parentID ui
 		return
 	}
 
-	log.LogDebugf("txDcreate: packet(%v) mp(%v) req(%v) result(%v)", packet, mp, *req, packet.GetResultMsg())
+	if log.EnableDebug() {
+		log.LogDebugf("txDcreate: packet(%v) mp(%v) req(%v) result(%v)", packet, mp, *req, packet.GetResultMsg())
+	}
 	return
+}
+
+func (mw *MetaWrapper) txDcreate(tx *Transaction, mp *MetaPartition, parentID uint64, name string, inode uint64, mode uint32, quotaIds []uint32) (status int, err error) {
+	if parentID == inode {
+		return statusExist, nil
+	}
+
+	req := &proto.TxCreateDentryRequest{
+		ParentID: parentID,
+		Inode:    inode,
+		Name:     name,
+		Mode:     mode,
+		QuotaIds: quotaIds,
+		TxInfo:   tx.txInfo,
+	}
+
+	return mw.txDcreateEx(mp, req)
 }
 
 func (mw *MetaWrapper) quotaDcreate(mp *MetaPartition, parentID uint64, name string, inode uint64, mode uint32,

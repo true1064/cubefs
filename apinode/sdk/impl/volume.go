@@ -449,10 +449,15 @@ func (v *volume) UploadFile(ctx context.Context, req *sdk.UploadFileReq) (*sdk.I
 	}
 
 	tmpIno := tmpInoInfo.Inode
-
+	hasCreateFile := true
 	defer func() {
 		// remove inode once error not nil
 		if err != nil {
+			if hasCreateFile {
+				span.Errorf("create file maybe failed, but not delete it, ino %d, err %s", tmpIno, err.Error())
+				return
+			}
+
 			_, err1 := v.mw.InodeUnlink_ll(tmpIno)
 			if err1 != nil {
 				span.Errorf("unlink inode failed, ino %d, err %s", tmpIno, err1.Error())
@@ -521,6 +526,7 @@ func (v *volume) UploadFile(ctx context.Context, req *sdk.UploadFileReq) (*sdk.I
 	id, err := v.mw.CreateDentryEx(ctx, dirReq)
 	if err != nil {
 		span.Errorf("dentryCreateEx failed, parent %d, name %s, ino %d", req.ParIno, req.Name, req.OldFileId)
+		hasCreateFile = true
 		return nil, 0, syscallToErr(err)
 	}
 
@@ -866,9 +872,13 @@ func (v *volume) CompleteMultiPart(ctx context.Context, req *sdk.CompleteMultipa
 		return nil, 0, syscallToErr(err)
 	}
 	cIno := completeInfo.Inode
-
+	hasCreateFile := false
 	defer func() {
 		if err != nil {
+			if hasCreateFile {
+				span.Errorf("file dentry may be already been created, ino %d, err %s", cIno, err.Error())
+				return
+			}
 			if deleteErr := v.mw.InodeDelete_ll(cIno); deleteErr != nil {
 				span.Errorf("delete ino failed, ino %d, err %s", cIno, deleteErr.Error())
 			}

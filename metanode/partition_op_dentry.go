@@ -60,6 +60,7 @@ func (mp *metaPartition) TxCreateDentry(req *proto.TxCreateDentryRequest, p *Pac
 
 	txInfo := req.TxInfo.GetCopy()
 	txDentry := NewTxDentry(req.ParentID, req.Name, req.Inode, req.Mode, parIno, txInfo)
+	txDentry.Dentry.FileId = req.FileId
 	val, err := txDentry.Marshal()
 	if err != nil {
 		return

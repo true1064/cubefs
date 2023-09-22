@@ -21,11 +21,12 @@ import (
 
 const (
 	cluster = "cfs_dev"
-	// cluster = "cfs_fault_test"
-	addr = "172.16.1.101:17010,172.16.1.102:17010,172.16.1.103:17010"
-	// addr = "10.177.111.194:17010"
-	vol = "abc"
+	addr    = "172.16.1.101:17010,172.16.1.102:17010,172.16.1.103:17010"
+	vol     = "abc"
+
 	// vol = "create-vol-test"
+	// cluster = "cfs_fault_test"
+	// addr = "10.177.111.194:17010"
 )
 
 func main() {

@@ -16,6 +16,7 @@ type metaOpImp struct {
 
 func newMetaOp(config *meta.MetaConfig) (sdk.MetaOp, error) {
 	mw, err := meta.NewMetaWrapper(config)
+	mw.SetTxConfig("rename", 0, 0, 0)
 	m := &metaOpImp{
 		MetaWrapper: mw,
 	}
