@@ -543,8 +543,12 @@ func (v *volume) writeAt(ctx context.Context, ino uint64, off, size int, body io
 
 	total := 0
 	wn := 0
+	buf, err := proto.Buffers.Get(util.BlockSize)
+	if err != nil {
+		buf = make([]byte, util.BlockSize)
+	}
+	defer proto.Buffers.Put(buf)
 
-	buf := make([]byte, util.BlockSize)
 	for {
 		n, err := body.Read(buf)
 		if err != nil && err != io.EOF {
