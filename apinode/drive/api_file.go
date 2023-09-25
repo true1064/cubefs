@@ -193,11 +193,11 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 	span.Infof("write file: %+v range-start: %d body-size: %d rewrite-offset: %d rewrite-size: %d",
 		args, ranged.Start, size, wOffset, wSize)
 	st = time.Now()
-	defer func() { span.AppendTrackLog("cfww", st, nil) }()
-	if d.checkError(c, func(err error) { span.Warn(err) },
+	if d.checkError(c, func(err error) { span.AppendTrackLog("cfww", st, err); span.Warn(err) },
 		vol.WriteFile(ctx, inode.Inode, wOffset, wSize, reader)) {
 		return
 	}
+	span.AppendTrackLog("cfww", st, nil)
 	c.Respond()
 }
 
@@ -369,8 +369,6 @@ func (d *DriveNode) handleFileDownload(c *rpc.Context) {
 		return
 	}
 
-	st = time.Now()
-	defer func() { span.AppendTrackLog("cfdw", st, nil) }()
 	span.Debug("download", args, ranged)
 
 	c.Writer.Header().Set(rpc.HeaderContentType, rpc.MIMEStream)
@@ -380,11 +378,17 @@ func (d *DriveNode) handleFileDownload(c *rpc.Context) {
 	}
 	c.RespondStatus(status)
 
-	if _, err = io.CopyN(c.Writer, body, int64(size)); err == nil && hasher != nil {
+	st = time.Now()
+	_, err = io.CopyN(c.Writer, body, int64(size))
+	if err != nil {
+		span.Info("download copy failed", args.Path, err)
+	} else if hasher != nil {
 		md5sum := hex.EncodeToString(hasher.Sum(nil))
 		err = vol.SetXAttr(ctx, inode.Inode, internalMetaMD5, md5sum)
 		span.Warn("download md5 feedback", args.Path, md5sum, err)
 	}
+	dur := time.Since(st).Nanoseconds() / 1e6
+	span.AppendRPCTrackLog([]string{fmt.Sprintf("cfdw:%d", dur)})
 }
 
 // ArgsFileRename rename file or dir.

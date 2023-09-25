@@ -137,10 +137,5 @@ func (c cryptor) Handler(w http.ResponseWriter, req *http.Request, f func(http.R
 	}
 	span.AppendTrackLog("tdq", st, nil)
 
-	traceLogs := span.TrackLog()
-	for i := range traceLogs {
-		w.Header().Add(rpc.HeaderTraceLog, traceLogs[i])
-	}
-
 	f(w, req)
 }
