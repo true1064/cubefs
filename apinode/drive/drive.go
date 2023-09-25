@@ -165,6 +165,7 @@ type ArgsProperties struct {
 type kafkaConfig struct {
 	Addrs            string `json:"addrs"`
 	Topic            string `json:"topic"`
+	ClientID         string `json:"clientid"`
 	FailedRecordFile string `json:"failedRecordFile"`
 }
 
@@ -453,21 +454,21 @@ func (d *DriveNode) initOplog(cfg *config.Config) error {
 			return err
 		}
 
-		cfg := kafkaConfig{}
-		if err = json.Unmarshal(data, &cfg); err != nil {
+		kcfg := kafkaConfig{}
+		if err = json.Unmarshal(data, &kcfg); err != nil {
 			return err
 		}
 
-		if cfg.FailedRecordFile == "" {
+		if kcfg.FailedRecordFile == "" {
 			return fmt.Errorf("not configure failedRecordFile in kafka")
 		}
 
-		sink, err := kafka.NewKafkaSink(cfg.Addrs, cfg.Topic)
+		sink, err := kafka.NewKafkaSink(kcfg.Addrs, kcfg.Topic, kcfg.ClientID)
 		if err != nil {
 			return err
 		}
 		d.recorder = &lumberjack.Logger{
-			Filename: cfg.FailedRecordFile,
+			Filename: kcfg.FailedRecordFile,
 			MaxAge:   7,
 		}
 		d.out.AddSinks(sink)

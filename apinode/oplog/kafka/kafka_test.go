@@ -12,8 +12,9 @@ import (
 )
 
 const (
-	addrs = "127.0.0.1:9050"
-	topic = "cfa-unit-test"
+	addrs         = "127.0.0.1:9050"
+	topic         = "cfa-unit-test"
+	consumerGroup = "cfa-unit-test-oplog-group"
 )
 
 func TestNewKafkaSink(t *testing.T) {
@@ -28,7 +29,7 @@ func TestNewKafkaSink(t *testing.T) {
 			SetOffset("cfa-unit-test", 0, sarama.OffsetNewest, 2345),
 		"FetchRequest": mockFetchResponse,
 	})
-	sink, err := NewKafkaSink(addrs, topic)
+	sink, err := NewKafkaSink(addrs, topic, "")
 	require.Nil(t, err)
 	sink.Close()
 	broker.Close()
@@ -46,7 +47,7 @@ func TestPublish(t *testing.T) {
 			SetOffset("cfa-unit-test", 0, sarama.OffsetNewest, 2345),
 		"FetchRequest": mockFetchResponse,
 	})
-	s, err := NewKafkaSink(addrs, topic)
+	s, err := NewKafkaSink(addrs, topic, "")
 	require.Nil(t, err)
 	producer := s.(*sink).producer
 	producer.Close()
@@ -115,7 +116,7 @@ func TestConsumer(t *testing.T) {
 		),
 	})
 
-	sink, err := NewKafkaSink(addrs, topic)
+	sink, err := NewKafkaSink(addrs, topic, "")
 	require.Nil(t, err)
 
 	h := &handler{

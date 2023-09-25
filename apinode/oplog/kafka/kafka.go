@@ -13,8 +13,6 @@ import (
 	"github.com/cubefs/cubefs/blobstore/util/log"
 )
 
-var consumerGroup = "cfa-oplog"
-
 type sink struct {
 	topic      string
 	producer   sarama.SyncProducer
@@ -26,13 +24,16 @@ type sink struct {
 	stopCancel context.CancelFunc
 }
 
-func NewKafkaSink(addrs string, topic string) (oplog.Sink, error) {
+func NewKafkaSink(addrs, topic, clientid string) (oplog.Sink, error) {
 	conf := sarama.NewConfig()
 	conf.Version = sarama.V2_1_0_0
 	conf.Metadata.RefreshFrequency = 120 * time.Second
 	conf.Producer.RequiredAcks = sarama.WaitForAll
 	conf.Producer.Return.Errors = true
 	conf.Producer.Return.Successes = true
+	if clientid != "" {
+		conf.ClientID = clientid
+	}
 
 	kafkaAddrs := strings.Split(addrs, ",")
 	producer, err := sarama.NewSyncProducer(kafkaAddrs, conf)
@@ -43,6 +44,7 @@ func NewKafkaSink(addrs string, topic string) (oplog.Sink, error) {
 	conf.Consumer.Offsets.Initial = sarama.OffsetOldest
 	conf.Consumer.Group.Rebalance.Strategy = sarama.BalanceStrategyRange
 	conf.Consumer.Offsets.CommitInterval = time.Second
+	consumerGroup := fmt.Sprintf("%s-oplog-group", topic)
 	group, err := sarama.NewConsumerGroup(kafkaAddrs, consumerGroup, conf)
 	if err != nil {
 		producer.Close()
