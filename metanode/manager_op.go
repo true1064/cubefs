@@ -631,10 +631,10 @@ func (m *metadataManager) opDeleteDentry(conn net.Conn, p *Packet,
 	if !m.serveProxy(conn, mp, p) {
 		return
 	}
-	if len(p.DirVerList) == 0 {
-		err = mp.DeleteDentry(req, p)
-	} else {
+	if p.IsDirVersion() {
 		err = mp.DeleteDentryByDirVer(req, p)
+	} else {
+		err = mp.DeleteDentry(req, p)
 	}
 
 	m.respondToClient(conn, p)

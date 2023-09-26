@@ -290,7 +290,7 @@ func (mp *metaPartition) DeleteDentryByDirVer(req *DeleteDentryReq, p *Packet) (
 		},
 		VerList: p.DirVerList,
 	}
-	dirVerdentry.Dentry.setVerSeq(req.Verseq)
+	dirVerdentry.Dentry.setVerSeq(p.VerSeq)
 	log.LogDebugf("action[DeleteDentry] den param(%v)", dirVerdentry.Dentry)
 
 	val, err := dirVerdentry.Marshal()

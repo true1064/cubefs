@@ -619,6 +619,7 @@ func (mp *metaPartition) scheduleCleanDirVersions() {
 				mp.cleanDirVersions()
 			case <-mp.stopC:
 				log.LogWarnf("mp is stopped, exit from cleanDirVersions, mp %d", mp.config.PartitionId)
+				return
 			}
 		}
 	}()

@@ -352,9 +352,14 @@ func NewPacketReqID() *Packet {
 
 func (p *Packet) SetVerInfo(ifo *DelVer) {
 	p.VerSeq = ifo.DelVer
-	if ifo.DelVer == 0 {
+	if p.VerSeq == 0 {
 		p.VerSeq = math.MaxUint64
 	}
+
+	if (p.Opcode == OpMetaDeleteDentry || p.Opcode == OpMetaUnlinkInode) && ifo.Newest() {
+		p.VerSeq = 0
+	}
+
 	p.DirVerList = ifo.Vers
 	return
 }

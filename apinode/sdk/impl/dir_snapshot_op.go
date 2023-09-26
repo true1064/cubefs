@@ -549,6 +549,11 @@ func (d *dirSnapshotOp) Delete(ctx context.Context, parIno uint64, name string, 
 		return nil
 	}
 
+	if ifo.Inode == 0 {
+		span.Warnf("no need to evict inode again, parIno %d, name %s", parIno, name)
+		return nil
+	}
+
 	err = d.mw.Evict(ifo.Inode)
 	if err != nil {
 		span.Errorf("evict file failed, ino %d, name %s, dir %v, err %s", parIno, name, isDir, err.Error())
