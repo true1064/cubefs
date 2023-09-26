@@ -253,6 +253,10 @@ func (d *DriveNode) handleFileVerify(c *rpc.Context) {
 		return
 	}
 	span.Info("to verify", args.Path, ranged, checksum)
+	if len(checksum) == 0 {
+		c.Respond()
+		return
+	}
 
 	r, err := d.makeBlockedReader(ctx, vol, inode.Inode, uint64(ranged.Start), ur.CipherKey)
 	if d.checkError(c, func(err error) { span.Warn(err) }, err) {

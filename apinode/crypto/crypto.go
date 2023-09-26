@@ -86,11 +86,11 @@ func initOnce(conf Configure) error {
 	empty := Configure{}
 	if conf == empty {
 		conf.Environment = uint16(types.EnvironmentTest)
-		conf.AppName = "cryptokit"
-		conf.AK = "AK0642C908CE001356"
-		conf.SK = "cded5f1a55747351dbf4435a4f8fab02f803ee74fd4518fcd1bec1311bdadf79"
-		conf.FileKeyID = "a08be12a-08df-4754-a7b4-ff69c0fac73e"
-		conf.TransKeyID = "a67d2abb-c7f6-408d-93d7-450c8394e73e"
+		conf.AppName = "cfa-client"
+		conf.AK = "AK06A9C42F20001356"
+		conf.SK = "51c03043bf791f2b122a32ac9dfef335ec06aa583509a2dbf895153c65c1f2fb"
+		conf.FileKeyID = "24b7a5ff-5a82-4606-b394-94755798deab"
+		conf.TransKeyID = "dc907f16-8cec-4873-bc78-bb227868a0ef"
 	}
 
 	var err *errno.Errno
