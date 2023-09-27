@@ -94,6 +94,7 @@ func (d *DriveNode) setHeaders(c *rpc.Context) {
 	} else {
 		span = trace.SpanFromContextSafe(ctx)
 		span.SetOperationName(string(uid))
+		c.Set(HeaderRequestID, span.TraceID())
 	}
 	c.Set(contextSpan, span)
 

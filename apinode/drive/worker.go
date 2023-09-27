@@ -56,6 +56,7 @@ func (d *DriveNode) ConsumerEvent(ctx context.Context, e oplog.Event) {
 			span.Warnf("not found volume %v", item)
 			return true
 		}
+		// TODO: if path was renamed, origin path should be not found.
 		dInfo, err := d.lookup(sctx, volume, ur.RootFileID, item.Path)
 		if err != nil {
 			span.Warnf("lookup error: %v, %v", err, item)
@@ -85,6 +86,7 @@ func (d *DriveNode) ConsumerEvent(ctx context.Context, e oplog.Event) {
 		}
 
 		md5sum := hex.EncodeToString(wr.Sum(nil))
+		span.Infof("to update %+v file:%d inode:%d md5:%s", item, dInfo.FileId, dInfo.Inode, md5sum)
 		if err = volume.SetXAttr(sctx, dInfo.Inode, internalMetaMD5, md5sum); err != nil {
 			span.Warnf("set %s  error: %v, %v", internalMetaMD5, err, item)
 			return false

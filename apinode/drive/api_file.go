@@ -179,10 +179,6 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 		return
 	}
 
-	if d.checkError(c, func(err error) { span.Warn(err) },
-		d.out.Publish(ctx, makeOpLog(OpUpdateFile, d.requestID(c), uid, string(args.Path), "size", inode.Size))) {
-		return
-	}
 	if d.checkError(c, func(err error) {
 		span.Warn("delete old xattr", internalMetaMD5, err.Error())
 	}, vol.DeleteXAttr(ctx, inode.Inode, internalMetaMD5)) {
@@ -198,6 +194,9 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 		return
 	}
 	span.AppendTrackLog("cfww", st, nil)
+
+	// inode.Size is not the real file size.
+	d.out.Publish(ctx, makeOpLog(OpUpdateFile, d.requestID(c), uid, args.Path.String(), "size", inode.Size))
 	c.Respond()
 }
 
@@ -544,10 +543,6 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 		}
 	}
 
-	if d.checkError(c, func(err error) { span.Warn(err) },
-		d.out.Publish(ctx, makeOpLog(OpCopyFile, d.requestID(c), d.userID(c), string(args.Src), "dst", string(args.Dst)))) {
-		return
-	}
 	_, _, err = vol.UploadFile(ctx, &sdk.UploadFileReq{
 		ParIno:    dstParent.Uint64(),
 		Name:      filename,
@@ -570,5 +565,6 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 	if d.checkError(c, func(err error) { span.Error(err) }, err) {
 		return
 	}
+	d.out.Publish(ctx, makeOpLog(OpCopyFile, d.requestID(c), d.userID(c), string(args.Src), "dst", string(args.Dst)))
 	c.Respond()
 }
