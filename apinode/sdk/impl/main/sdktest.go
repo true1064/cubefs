@@ -262,6 +262,9 @@ func testCreateFile(ctx context.Context, vol sdk.IVolume) {
 		span.Fatalf("read file size error, got %d, want %s", readN, size)
 	}
 
+	_, _ = vol.ReadFile(ctx, tmpInfo.Inode, 0, out)
+	span.Infof("read file again, inode %d", tmpInfo.Inode)
+
 	if string(data) != string(out[:readN]) {
 		span.Fatalf("read file data not equal to input")
 	}

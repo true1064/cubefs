@@ -44,6 +44,15 @@ func (d *DataOpImp) Write(inode uint64, offset int, data []byte, flags int) (wri
 	return d.ExtentClient.Write(inode, offset, data, flags, nil)
 }
 
+func (d *DataOpImp) CloseStream(inode uint64) error {
+	err := d.ExtentClient.CloseStream(inode)
+	if err != nil {
+		return err
+	}
+
+	return d.ExtentClient.EvictStream(inode)
+}
+
 func newDataOp(cfg *stream.ExtentConfig) (sdk.DataOp, error) {
 	ec, err := stream.NewExtentClient(cfg)
 	if err != nil {
@@ -71,8 +80,6 @@ func newVolume(ctx context.Context, name, owner, addr string) (sdk.IVolume, erro
 	ecCfg := &stream.ExtentConfig{
 		Volume:       name,
 		Masters:      addrList,
-		FollowerRead: true,
-		NearRead:     true,
 		OnGetExtents: mw.GetExtents,
 		OnTruncate:   mw.Truncate,
 	}
