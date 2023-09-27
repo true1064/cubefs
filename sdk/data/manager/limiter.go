@@ -511,11 +511,11 @@ func (limitManager *LimitManager) SetClientLimit(limit *proto.LimitRsp2Client) {
 	}
 	limitManager.enable = limit.Enable
 	if limit.HitTriggerCnt > 0 {
-		log.LogWarnf("action[SetClientLimit] update to HitTriggerCnt [%v] from [%v]", limitManager.HitTriggerCnt, limit.HitTriggerCnt)
+		log.LogInfof("action[SetClientLimit] update to HitTriggerCnt [%v] from [%v]", limitManager.HitTriggerCnt, limit.HitTriggerCnt)
 		limitManager.HitTriggerCnt = limit.HitTriggerCnt
 	}
 	if limit.ReqPeriod > 0 {
-		log.LogWarnf("action[SetClientLimit] update to ReqPeriod [%v] from [%v]", limitManager.ReqPeriod, limit.ReqPeriod)
+		log.LogInfof("action[SetClientLimit] update to ReqPeriod [%v] from [%v]", limitManager.ReqPeriod, limit.ReqPeriod)
 		limitManager.ReqPeriod = limit.ReqPeriod
 	}
 

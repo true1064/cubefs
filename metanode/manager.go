@@ -117,11 +117,23 @@ func (m *metadataManager) getPacketLabels(p *Packet) (labels map[string]string) 
 	return
 }
 
+func enableAudit(p *Packet) bool {
+	switch p.Opcode {
+	case proto.OpLoadMetaPartition,
+		proto.OpMetaNodeHeartbeat:
+		return false
+	}
+
+	return true
+}
+
 // HandleMetadataOperation handles the metadata operations.
 func (m *metadataManager) HandleMetadataOperation(conn net.Conn, p *Packet, remoteAddr string) (err error) {
 	start := time.Now()
-	if log.EnableInfo() {
-		log.LogInfof("HandleMetadataOperation input info op (%s), data %s, remote %s", p.String(), string(p.Data), remoteAddr)
+
+	audit := enableAudit(p)
+	if audit {
+		log.LogAuditf("HandleMetadataOperation input info op (%s), remote %s, data %s", p.String(), remoteAddr, string(p.Data))
 	}
 
 	metric := exporter.NewTPCnt(p.GetOpMsg())
@@ -133,8 +145,8 @@ func (m *metadataManager) HandleMetadataOperation(conn net.Conn, p *Packet, remo
 			return
 		}
 
-		if log.EnableInfo() {
-			log.LogInfof("HandleMetadataOperation out (%s), result (%s), remote %s, cost %s", p.String(),
+		if audit {
+			log.LogAuditf("HandleMetadataOperation out (%s), result (%s), remote %s, cost %s", p.String(),
 				p.GetResultMsg(), remoteAddr, time.Since(start).String())
 		}
 	}()

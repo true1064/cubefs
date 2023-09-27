@@ -535,6 +535,21 @@ func LogWarnf(format string, v ...interface{}) {
 	gLog.warnLogger.Output(2, s)
 }
 
+func LogAuditf(format string, v ...interface{}) {
+	if gLog == nil {
+		return
+	}
+	if WarnLevel&gLog.level != gLog.level {
+		return
+	}
+	s := fmt.Sprintf(format, v...)
+	if len(s) > 2048 {
+		s = s[:2048]
+	}
+	s = gLog.SetPrefix(s, levelPrefixes[2])
+	gLog.warnLogger.Output(2, s)
+}
+
 // LogInfo indicates log the information. TODO explain
 func LogInfo(v ...interface{}) {
 	if gLog == nil {
