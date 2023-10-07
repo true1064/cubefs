@@ -132,6 +132,7 @@ func (s *SnapshotScanner) Stop() {
 	close(s.stopC)
 	s.rPoll.WaitAndClose()
 	close(s.inodeChan.In)
+	s.mw.Close()
 	log.LogDebugf("snapshot scanner(%v) stopped", s.ID)
 }
 
@@ -448,6 +449,11 @@ func (s *SnapshotScanner) checkScanning(report bool) {
 			if s.DoneScanning() {
 				taskCheckTimer.Stop()
 				if report {
+					//delete DirIno ver for dir snapshot
+					if s.verDelReq.Task.Mode == proto.ModeDir {
+						s.mw.InodeUnlink_ll(s.getTaskFirstInode())
+					}
+
 					t := time.Now()
 					response := s.adminTask.Response.(*proto.SnapshotVerDelTaskResponse)
 					response.EndTime = &t
@@ -465,7 +471,6 @@ func (s *SnapshotScanner) checkScanning(report bool) {
 					delete(s.lcnode.snapshotScanners, s.ID)
 					s.Stop()
 					s.lcnode.scannerMutex.Unlock()
-					s.mw.Close()
 					s.lcnode.respondToMaster(s.adminTask)
 					log.LogInfof("scan completed for task(%v)", s.adminTask)
 				} else {

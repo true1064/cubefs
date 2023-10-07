@@ -525,7 +525,6 @@ func (s *LcScanner) checkScanning() {
 					delete(s.lcnode.lcScanners, s.ID)
 					s.Stop()
 					s.lcnode.scannerMutex.Unlock()
-					s.mw.Close()
 					s.lcnode.respondToMaster(s.adminTask)
 					return
 				}
@@ -548,5 +547,6 @@ func (s *LcScanner) Stop() {
 	s.dirRPoll.WaitAndClose()
 	close(s.dirChan.In)
 	close(s.fileChan.In)
+	s.mw.Close()
 	log.LogInfof("scanner(%v) stopped", s.ID)
 }

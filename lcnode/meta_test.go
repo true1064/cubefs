@@ -38,6 +38,10 @@ func (*MockMetaWrapper) DeleteVerEx_ll(parentID uint64, name string, isDir bool,
 	return nil, nil
 }
 
+func (*MockMetaWrapper) InodeUnlink_ll(inode uint64) (*proto.InodeInfo, error) {
+	return nil, nil
+}
+
 func (*MockMetaWrapper) Lookup_ll(parentID uint64, name string) (inode uint64, mode uint32, err error) {
 	return
 }
