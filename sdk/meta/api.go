@@ -362,7 +362,7 @@ func (mw *SnapShotMetaWrapper) LookupEx_ll(parentId uint64, name string) (den *p
 		return nil, syscall.ENOENT
 	}
 
-	status, err, den := mw.lookupEx(parentMP, parentId, name)
+	status, err, den := mw.lookupEx(parentMP, parentId, name, 0)
 	if err != nil || status != statusOK {
 		return nil, statusToErrno(status)
 	}
@@ -732,7 +732,7 @@ func (mw *SnapShotMetaWrapper) txDelete_ll(parentID uint64, name string, isDir b
 		}
 	}()
 
-	status, inode, mode, err = mw.lookup(parentMP, parentID, name, mw.LastVerSeq)
+	inode, mode, err = mw.Lookup_ll(parentID, name)
 	if err != nil || status != statusOK {
 		return nil, statusErrToErrno(status, err)
 	}
@@ -764,14 +764,6 @@ func (mw *SnapShotMetaWrapper) txDelete_ll(parentID uint64, name string, isDir b
 	tx, err = NewDeleteTransaction(parentMP, parentID, name, mp, inode, mw.TxTimeout)
 	if err != nil {
 		return nil, syscall.EAGAIN
-	}
-
-	status, inode, err = mw.txDdelete(tx, parentMP, parentID, name)
-	if err != nil || status != statusOK {
-		if status == statusNoent {
-			return nil, nil
-		}
-		return nil, statusToErrno(status)
 	}
 
 	funcs := make([]func() (int, error), 0)
@@ -1196,7 +1188,7 @@ func (mw *SnapShotMetaWrapper) txRename_ll(srcParentID uint64, srcName string, d
 
 	funcs := make([]func() (int, error), 0)
 
-	status, dstInode, dstMode, err := mw.lookup(dstParentMP, dstParentID, dstName)
+	status, dstInode, dstMode, err := mw.lookup(dstParentMP, dstParentID, dstName, 0)
 	if err == nil && status == statusOK {
 
 		// Note that only regular files are allowed to be overwritten.
@@ -1389,7 +1381,6 @@ func (mw *SnapShotMetaWrapper) rename_ll(srcParentID uint64, srcName string, dst
 
 	// look up for the src ino
 	//status, inode, mode, err := mw.lookup(srcParentMP, srcParentID, srcName, 0)
-	status, err, den := mw.lookupEx(srcParentMP, srcParentID, srcName, mw.VerReadSeq)
 	mw.verInfo = mw.srcVer
 	status, err, den := mw.lookupEx(srcParentMP, srcParentID, srcName, 0)
 	if err != nil || status != statusOK {
@@ -1979,7 +1970,7 @@ func (mw *SnapShotMetaWrapper) Setattr(inode uint64, valid, mode, uid, gid uint3
 	return nil
 }
 
-func (mw *SnapShotMetaWrapper) InodeCreate_ll(mode, uid, gid uint32, target []byte, quotaIds []uint64) (*proto.InodeInfo, error) {
+func (mw *SnapShotMetaWrapper) InodeCreate_ll(parentID uint64, mode, uid, gid uint32, target []byte, quotaIds []uint64) (*proto.InodeInfo, error) {
 	var (
 		status       int
 		err          error
@@ -2217,6 +2208,30 @@ func (mw *SnapShotMetaWrapper) RemoveMultipart_ll(path, multipartID string) (err
 		return statusToErrno(status)
 	}
 	return
+}
+
+func (mw *SnapShotMetaWrapper) ReadDirLimitByVer(parentID uint64, from string, limit uint64, verSeq uint64, is2nd bool) ([]proto.Dentry, error) {
+	if verSeq == 0 {
+		verSeq = math.MaxUint64
+	}
+	log.LogDebugf("action[ReadDirLimit_ll] parentID %v from %v limit %v verSeq %v", parentID, from, limit, verSeq)
+	parentMP := mw.getPartitionByInode(parentID)
+	if parentMP == nil {
+		return nil, syscall.ENOENT
+	}
+	var opt uint8
+	//opt |= uint8(proto.FlagsVerDel)
+	//if is2nd {
+	//	opt |= uint8(proto.FlagsVerDelDir)
+	//}
+	status, children, err := mw.readDirLimit(parentMP, parentID, from, limit, verSeq, opt)
+	if err != nil || status != statusOK {
+		return nil, statusToErrno(status)
+	}
+	for _, den := range children {
+		log.LogDebugf("ReadDirLimitByVer. get dentry %v", den)
+	}
+	return children, nil
 }
 
 func (mw *SnapShotMetaWrapper) broadcastGetMultipart(path, multipartId string) (info *proto.MultipartInfo, mpID uint64, err error) {
@@ -2749,10 +2764,7 @@ func (mw *SnapShotMetaWrapper) refreshSummary(parentIno uint64, errCh chan<- err
 	}
 }
 
-func (mw *SnapShotMetaWrapper) BatchSetInodeQuota_ll(inodes []uint64, quotaId uint32) {
-	var wg sync.WaitGroup
-	var maxGoroutineNum int32 = MaxGoroutineNum
-	var curGoroutineNum int32 = 0
+func (mw *SnapShotMetaWrapper) BatchSetInodeQuota_ll(inodes []uint64, quotaId uint32, IsRoot bool) (ret map[uint64]uint8, err error) {
 	batchInodeMap := make(map[uint64][]uint64)
 	ret = make(map[uint64]uint8, 0)
 	for _, ino := range inodes {
@@ -2786,10 +2798,7 @@ func (mw *SnapShotMetaWrapper) GetPartitionByInodeId_ll(inodeId uint64) (mp *Met
 	return mw.getPartitionByInode(inodeId)
 }
 
-func (mw *SnapShotMetaWrapper) BatchDeleteInodeQuota_ll(inodes []uint64, quotaId uint32) {
-	var wg sync.WaitGroup
-	var maxGoroutineNum int32 = MaxGoroutineNum
-	var curGoroutineNum int32 = 0
+func (mw *SnapShotMetaWrapper) BatchDeleteInodeQuota_ll(inodes []uint64, quotaId uint32) (ret map[uint64]uint8, err error) {
 	batchInodeMap := make(map[uint64][]uint64)
 	ret = make(map[uint64]uint8, 0)
 	for _, ino := range inodes {
@@ -2846,8 +2855,4 @@ func (mw *MetaWrapper) RevokeQuota_ll(parentIno uint64, quotaId uint32, maxConcu
 	var curInodeCount uint64
 	err = mw.revokeQuota(parentIno, quotaId, &numInodes, &curInodeCount, &inodes, maxConcurrencyInode, true)
 	return
-}
-
-func (mw *SnapShotMetaWrapper) BatchModifyQuotaPath(changePathMap map[uint32]string) {
-	mw.mc.AdminAPI().BatchModifyQuotaPath(mw.volname, changePathMap)
 }

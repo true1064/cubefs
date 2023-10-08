@@ -536,9 +536,9 @@ type DetryInfo struct {
 
 // LookupResponse defines the response for the loopup request.
 type LookupResponse struct {
-	Inode  uint64 `json:"ino"`
-	Mode   uint32 `json:"mode"`
-	FileId uint64 `json:"fileId"`
+	Inode  uint64      `json:"ino"`
+	Mode   uint32      `json:"mode"`
+	FileId uint64      `json:"fileId"`
 	VerSeq uint64      `json:"seq"`
 	LayAll []DetryInfo `json:"layerInfo"`
 }
@@ -849,10 +849,6 @@ type RemoveXAttrRequest struct {
 	Key         string   `json:"key"`
 }
 
-func (rx *RemoveXAttrRequest) IsBatch() bool {
-	return len(rx.Keys) > 0
-}
-
 type ListXAttrRequest struct {
 	VolName     string `json:"vol"`
 	PartitionId uint64 `json:"pid"`
@@ -887,14 +883,6 @@ type UpdateXAttrRequest struct {
 	Inode       uint64 `json:"ino"`
 	Key         string `json:"key"`
 	Value       string `json:"val"`
-}
-
-type MultipartInfo struct {
-	ID       string               `json:"id"`
-	Path     string               `json:"path"`
-	InitTime time.Time            `json:"itime"`
-	Parts    []*MultipartPartInfo `json:"parts"`
-	Extend   map[string]string    `json:"extend"`
 }
 
 type MultipartPartInfo struct {

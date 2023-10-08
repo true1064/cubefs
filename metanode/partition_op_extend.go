@@ -81,7 +81,7 @@ func (mp *metaPartition) SetXAttr(req *proto.SetXAttrRequest, p *Packet) (err er
 		return
 	}
 	p.PacketOkReply()
-	extend.Put([]byte(req.Key), []byte(req.Value))
+	extend.Put([]byte(req.Key), []byte(req.Value), p.VerSeq)
 
 	if req.OverWrite {
 		if _, err = mp.putExtend(opFSMSetXAttr, extend); err != nil {
@@ -226,7 +226,7 @@ func (mp *metaPartition) BatchGetXAttr(req *proto.BatchGetXAttrRequest, p *Packe
 
 func (mp *metaPartition) RemoveXAttr(req *proto.RemoveXAttrRequest, p *Packet) (err error) {
 	var extend = NewExtend(req.Inode)
-	if req.IsBatch() {
+	if len(req.Keys) > 0 {
 		for _, key := range req.Keys {
 			extend.Put([]byte(key), nil, mp.verSeq)
 		}

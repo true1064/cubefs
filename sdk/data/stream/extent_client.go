@@ -243,7 +243,7 @@ func (client *extentClient) GetLatestVer() uint64 {
 func (client *extentClient) GetReadVer() uint64 {
 	return atomic.LoadUint64(&client.multiVerMgr.verReadSeq)
 }
-func (client *ExtentClient) GetVerMgr() *proto.VolVersionInfoList {
+func (client *extentClient) GetVerMgr() *proto.VolVersionInfoList {
 	return client.multiVerMgr.verList
 }
 func (client *extentClient) UpdateLatestVer(verList *proto.VolVersionInfoList) (err error) {

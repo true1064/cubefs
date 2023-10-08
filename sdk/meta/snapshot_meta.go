@@ -10,6 +10,7 @@ import (
 	"github.com/cubefs/cubefs/util/btree"
 	"github.com/cubefs/cubefs/util/errors"
 	"github.com/cubefs/cubefs/util/log"
+	"golang.org/x/sync/singleflight"
 	"golang.org/x/time/rate"
 	"sync"
 	"time"
@@ -35,16 +36,17 @@ func (mw *SnapShotMetaWrapper) CloneWrapper() *SnapShotMetaWrapper {
 
 type metaWrapper struct {
 	sync.RWMutex
-	cluster         string
-	localIP         string
-	volname         string
-	ossSecure       *OSSSecure
-	volCreateTime   int64
-	owner           string
-	ownerValidation bool
-	mc              *masterSDK.MasterClient
-	ac              *authSDK.AuthClient
-	conns           *util.ConnectPool
+	cluster           string
+	localIP           string
+	volname           string
+	ossSecure         *OSSSecure
+	volCreateTime     int64
+	volDeleteLockTime int64
+	owner             string
+	ownerValidation   bool
+	mc                *masterSDK.MasterClient
+	ac                *authSDK.AuthClient
+	conns             *util.ConnectPool
 
 	// Callback handler for handling asynchronous task errors.
 	onAsyncTaskError AsyncTaskErrorFunc
@@ -82,17 +84,32 @@ type metaWrapper struct {
 	// Allocated to trigger and throttle instant partition updates
 	forceUpdate         chan struct{}
 	forceUpdateLimit    *rate.Limiter
+	singleflight        singleflight.Group
 	EnableSummary       bool
+	EnableQuota         bool
 	metaSendTimeout     int64
 	DirChildrenNumLimit uint32
-	EnableTransaction   uint8
-	TxTimeout           int64
+	EnableTransaction   proto.TxOpMask
+
+	TxTimeout               int64
+	TxConflictRetryNum      int64
+	TxConflictRetryInterval int64
+
+	uniqidRangeMap   map[uint64]*uniqidRange
+	uniqidRangeMutex sync.Mutex
+
 	//EnableTransaction bool
 	QuotaInfoMap map[uint32]*proto.QuotaInfo
 	QuotaLock    sync.RWMutex
+	qc           *QuotaCache
 	Client       wrapper.SimpleClientInfo
 	VerReadSeq   uint64
 	LastVerSeq   uint64
+}
+
+type uniqidRange struct {
+	cur uint64
+	end uint64
 }
 
 func newMetaWrapper(config *MetaConfig) (*metaWrapper, error) {

@@ -14,6 +14,7 @@ import (
 	blog "github.com/cubefs/cubefs/blobstore/util/log"
 	"github.com/cubefs/cubefs/proto"
 	"github.com/cubefs/cubefs/util/log"
+	"github.com/cubefs/cubefs/util/stat"
 )
 
 const (
@@ -466,8 +467,13 @@ func testCreateFile(ctx context.Context, vol sdk.IVolume) {
 		span.Fatalf("upload file failed, name %s, err %s", req.Name, err.Error())
 	}
 
+	// test rename dest already exist, should be failed
+	tmpName := "test" + tmpString()
+	_, _, err = vol.CreateFile(ctx, dirIfo.Inode, tmpName)
 	newName := "testNewName" + tmpString()
-	err = vol.Rename(ctx, dirIfo.Inode, dirIfo.Inode, req.Name, newName)
+	srcDir := fmt.Sprintf("%s/%s", tmpDir, req.Name)
+	dstDir := fmt.Sprintf("%s/%s", tmpDir, newName)
+	err = vol.Rename(ctx, srcDir, dstDir)
 	if err != nil {
 		span.Fatalf("rename file failed, err %s", err.Error())
 	}
@@ -483,22 +489,7 @@ func testCreateFile(ctx context.Context, vol sdk.IVolume) {
 	}
 
 	// test rename dest already exist, should be failed
-	tmpName := "test" + tmpString()
-	_, _, err = vol.CreateFile(ctx, dirIfo.Inode, tmpName)
-	newName := "testNewName"
-	srcPath := fmt.Sprintf("%s/%s", tmpDir, req.Name)
-	dstPath := fmt.Sprintf("%s/%s", tmpDir, newName)
-	err = vol.Rename(ctx, srcPath, dstPath)
-	newName := "testNewName" + tmpString()
-	srcDir := fmt.Sprintf("%s/%s", tmpDir, req.Name)
-	dstDir := fmt.Sprintf("%s/%s", tmpDir, newName)
-	err = vol.Rename(ctx, srcDir, dstDir)
-	if err != nil {
-		span.Fatalf("rename file failed, err %s", err.Error())
-	}
-
-	// test rename dest already exist, should be failed
-	tmpName := "test" + tmpString()
+	tmpName = "test" + tmpString()
 	_, _, err = vol.CreateFile(ctx, dirIfo.Inode, tmpName)
 	if err != nil {
 		span.Fatalf("create file failed, err %s", err.Error())

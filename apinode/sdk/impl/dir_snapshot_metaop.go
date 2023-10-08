@@ -217,7 +217,7 @@ func (m *snapMetaOpImp) CreateInode(mode uint32) (*proto.InodeInfo, error) {
 		return nil, sdk.ErrWriteSnapshot
 	}
 
-	return m.sm.InodeCreate_ll(mode, 0, 0, nil, nil)
+	return m.sm.InodeCreate_ll(0, mode, 0, 0, nil, nil)
 }
 
 func (m *snapMetaOpImp) CreateFileEx(ctx context.Context, parentID uint64, name string, mode uint32) (*sdk.InodeInfo, uint64, error) {

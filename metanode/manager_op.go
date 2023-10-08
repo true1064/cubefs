@@ -2431,12 +2431,12 @@ func (m *metadataManager) checkMultiVersionStatus(mp MetaPartition, p *Packet) (
 			log.LogDebugf("action[checkmultiSnap.multiVersionstatus] mp ver %v, packet ver %v", mp.GetVerSeq(), p.VerSeq)
 			p.VerSeq = mp.GetVerSeq() // used to response to client and try update verSeq of client
 			p.ExtentType |= proto.VersionListFlag
-			p.VerList = mp.GetVerList()
+			p.DirVerList = mp.GetVerList()
 		}
 		return
 	}
 	if p.IsVersionList() {
-		return mp.checkVerList(&proto.VolVersionInfoList{VerList: p.VerList}, true)
+		return mp.checkVerList(&proto.VolVersionInfoList{VerList: p.DirVerList}, true)
 	}
 	p.Opcode = proto.OpAgainVerionList
 	// need return and tell client

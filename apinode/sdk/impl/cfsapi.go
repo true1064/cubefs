@@ -7,14 +7,14 @@ import (
 type DataOp interface {
 	OpenStream(inode uint64) error
 	//OpenStreamVer(inode, seq uint64) error
-	Write(inode uint64, offset int, data []byte, flags int) (write int, err error)
+	Write(inode uint64, offset int, data []byte, flags int, checkFunc func() error) (write int, err error)
 	Read(inode uint64, data []byte, offset int, size int) (read int, err error)
 	Flush(inode uint64) error
 	CloseStream(inode uint64) error
 }
 
 type MetaOp interface {
-	InodeCreate_ll(mode, uid, gid uint32, target []byte, quotaIds []uint64) (*proto.InodeInfo, error)
+	InodeCreate_ll(parId uint64, mode, uid, gid uint32, target []byte, quotaIds []uint64) (*proto.InodeInfo, error)
 	Delete_ll(parentID uint64, name string, isDir bool) (*proto.InodeInfo, error)
 	Truncate(inode, size uint64) error
 	InodeUnlink_ll(inode uint64) (*proto.InodeInfo, error)
@@ -42,7 +42,6 @@ type MultiPart interface {
 	GetMultipart_ll(path, multipartId string) (info *proto.MultipartInfo, err error)
 	AddMultipartPart_ll(path, multipartId string, partId uint16, size uint64, md5 string, inodeInfo *proto.InodeInfo) (oldInode uint64, updated bool, err error)
 	RemoveMultipart_ll(path, multipartID string) (err error)
-	//ListMultipart_ll(prefix, delimiter, keyMarker string, multipartIdMarker string, maxUploads uint64) (sessionResponse []*proto.MultipartInfo, err error)
 }
 
 type IXAttr interface {

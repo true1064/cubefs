@@ -317,7 +317,7 @@ func (s *DataNode) commitCreateVersion(volumeID string, verSeq uint64) (err erro
 				partition.volVersionInfoList.Unlock()
 				continue
 			}
-			newVer := &proto.VolVersionInfo{
+			newVer := &proto.VersionInfo{
 				Status: proto.VersionNormal,
 				Ver:    verSeq,
 			}

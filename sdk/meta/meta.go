@@ -16,20 +16,12 @@ package meta
 
 import (
 	"fmt"
-	"strings"
-	"sync"
 	"syscall"
 	"time"
 
-	"golang.org/x/sync/singleflight"
-	"golang.org/x/time/rate"
-
 	"github.com/cubefs/cubefs/proto"
-	authSDK "github.com/cubefs/cubefs/sdk/auth"
-	"github.com/cubefs/cubefs/sdk/data/wrapper"
-	masterSDK "github.com/cubefs/cubefs/sdk/master"
-	"github.com/cubefs/cubefs/util"
 	"github.com/cubefs/cubefs/util/auth"
+	"github.com/cubefs/cubefs/util/log"
 )
 
 const (
@@ -167,7 +159,7 @@ func (mw *metaWrapper) Owner() string {
 	return mw.owner
 }
 
-func (mw *MetaWrapper) enableTx(mask proto.TxOpMask) bool {
+func (mw *metaWrapper) enableTx(mask proto.TxOpMask) bool {
 	return mw.EnableTransaction != proto.TxPause && mw.EnableTransaction&mask > 0
 }
 

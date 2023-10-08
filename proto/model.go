@@ -397,7 +397,13 @@ type DecommissionDiskLimitDetail struct {
 type DecommissionDiskLimit struct {
 	Details []DecommissionDiskLimitDetail
 }
-
+type MultipartInfo struct {
+	ID       string               `json:"id"`
+	Path     string               `json:"path"`
+	InitTime time.Time            `json:"itime"`
+	Parts    []*MultipartPartInfo `json:"parts"`
+	Extend   map[string]string    `json:"extend"`
+}
 type DecommissionDiskInfo struct {
 	SrcAddr                  string
 	DiskPath                 string

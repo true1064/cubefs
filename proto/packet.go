@@ -742,56 +742,6 @@ func (p *Packet) MarshalHeader(out []byte) {
 	return
 }
 
-const verInfoCnt = 17
-
-func (p *Packet) MarshalVersionSlice() (data []byte, err error) {
-	items := p.DirVerList
-	cnt := len(items)
-	buff := bytes.NewBuffer(make([]byte, 0, 2*cnt*verInfoCnt))
-	if err := binary.Write(buff, binary.BigEndian, uint16(cnt)); err != nil {
-		return nil, err
-	}
-
-	for _, v := range items {
-		if err := binary.Write(buff, binary.BigEndian, v.Ver); err != nil {
-			return nil, err
-		}
-		if err := binary.Write(buff, binary.BigEndian, v.DelTime); err != nil {
-			return nil, err
-		}
-		if err := binary.Write(buff, binary.BigEndian, v.Status); err != nil {
-			return nil, err
-		}
-	}
-
-	return buff.Bytes(), nil
-}
-
-func (p *Packet) UnmarshalVersionSlice(cnt int, d []byte) error {
-	items := make([]*VersionInfo, 0)
-	buf := bytes.NewBuffer(d)
-	var err error
-
-	for idx := 0; idx < cnt; idx++ {
-		e := &VersionInfo{}
-		err = binary.Read(buf, binary.BigEndian, &e.Ver)
-		if err != nil {
-			return err
-		}
-		err = binary.Read(buf, binary.BigEndian, &e.DelTime)
-		if err != nil {
-			return err
-		}
-		err = binary.Read(buf, binary.BigEndian, &e.Status)
-		if err != nil {
-			return err
-		}
-		items = append(items, e)
-	}
-	p.DirVerList = items
-	return nil
-}
-
 func (p *Packet) isVersionPkt() bool {
 	if p.ExtentType&MultiVersionFlag == MultiVersionFlag {
 		return true
@@ -846,7 +796,7 @@ func (p *Packet) UnmarshalHeader(in []byte) error {
 const verInfoCnt = 17
 
 func (p *Packet) MarshalVersionSlice() (data []byte, err error) {
-	items := p.VerList
+	items := p.DirVerList
 	cnt := len(items)
 	buff := bytes.NewBuffer(make([]byte, 0, 2*cnt*verInfoCnt))
 	if err := binary.Write(buff, binary.BigEndian, uint16(cnt)); err != nil {
@@ -869,12 +819,12 @@ func (p *Packet) MarshalVersionSlice() (data []byte, err error) {
 }
 
 func (p *Packet) UnmarshalVersionSlice(cnt int, d []byte) error {
-	items := make([]*VolVersionInfo, 0)
+	items := make([]*VersionInfo, 0)
 	buf := bytes.NewBuffer(d)
 	var err error
 
 	for idx := 0; idx < cnt; idx++ {
-		e := &VolVersionInfo{}
+		e := &VersionInfo{}
 		err = binary.Read(buf, binary.BigEndian, &e.Ver)
 		if err != nil {
 			return err
@@ -889,7 +839,7 @@ func (p *Packet) UnmarshalVersionSlice(cnt int, d []byte) error {
 		}
 		items = append(items, e)
 	}
-	p.VerList = items
+	p.DirVerList = items
 	return nil
 }
 

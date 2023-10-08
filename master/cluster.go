@@ -363,7 +363,7 @@ func (c *Cluster) scheduleTask() {
 	c.scheduleToLcScan()
 	c.scheduleToSnapshotDelVerScan()
 	c.scheduleToBadDisk()
-	c.scheduleToCheckDirSnapDeletedVer(
+	c.scheduleToCheckDirSnapDeletedVer()
 }
 
 func (c *Cluster) masterAddr() (addr string) {
@@ -4481,7 +4481,6 @@ func (c *Cluster) scheduleToCheckDirSnapDeletedVer() {
 		}
 	}()
 }
-
 
 func (c *Cluster) addDecommissionDiskToNodeset(dd *DecommissionDisk) (err error) {
 	var (

@@ -687,7 +687,7 @@ func (d *dirSnapshotOp) writeAt(ctx context.Context, ino uint64, off, size int, 
 		}
 
 		if n > 0 {
-			wn, err = d.ec.Write(ino, off, buf[:n], 0)
+			wn, err = d.ec.Write(ino, off, buf[:n], 0, nil)
 			if err != nil {
 				span.Errorf("write file failed, ino %d, off %d, err %s", ino, off, err.Error())
 				return 0, syscallToErr(err)
@@ -921,7 +921,12 @@ func (d *dirSnapshotOp) AbortMultiPart(ctx context.Context, filepath, uploadId s
 	return nil
 }
 
-func (d *dirSnapshotOp) CompleteMultiPart(ctx context.Context, filepath, uploadId string, oldFileId uint64, partsArg []sdk.Part) (ifo *sdk.InodeInfo, id uint64, err error) {
+func (d *dirSnapshotOp) CompleteMultiPart(ctx context.Context, req *sdk.CompleteMultipartReq) (ifo *sdk.InodeInfo, fileId uint64, err error) {
+	filepath := req.FilePath
+	partsArg := req.Parts
+	oldFileId := req.OldFileId
+	uploadId := req.UploadId
+
 	if !startWithSlash(filepath) {
 		return nil, 0, sdk.ErrBadRequest
 	}
@@ -1099,7 +1104,7 @@ func (d *dirSnapshotOp) CompleteMultiPart(ctx context.Context, filepath, uploadI
 		Mode:     defaultFileMode,
 	}
 
-	fileId, err := d.mw.CreateDentryEx(ctx, dirReq)
+	fileId, err = d.mw.CreateDentryEx(ctx, dirReq)
 	if err != nil {
 		span.Errorf("final create dentry failed, parIno %d, name %s, childIno %d, err %s",
 			parIno, name, cIno, err.Error())

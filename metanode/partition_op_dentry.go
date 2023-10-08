@@ -100,11 +100,11 @@ func (mp *metaPartition) CreateDentry(req *CreateDentryReq, p *Packet) (err erro
 	}
 
 	dentry := &Dentry{
-		ParentId: req.ParentID,
-		Name:     req.Name,
-		Inode:    req.Inode,
-		Type:     req.Mode,
-		FileId:   req.FileId,
+		ParentId:  req.ParentID,
+		Name:      req.Name,
+		Inode:     req.Inode,
+		Type:      req.Mode,
+		FileId:    req.FileId,
 		multiSnap: NewDentrySnap(mp.GetVerSeq()),
 	}
 
@@ -160,7 +160,6 @@ func (mp *metaPartition) QuotaCreateDentry(req *proto.QuotaCreateDentryRequest, 
 		Name:     req.Name,
 		Inode:    req.Inode,
 		Type:     req.Mode,
-		FileId:   req.FileId,
 	}
 	dentry.setVerSeq(mp.verSeq)
 
@@ -168,11 +167,6 @@ func (mp *metaPartition) QuotaCreateDentry(req *proto.QuotaCreateDentryRequest, 
 		dentry.setVerSeq(req.VerSeq)
 	} else {
 		dentry.setVerSeq(mp.GetVerSeq())
-	}
-
-	// TODO createDentryEx support snap and tx
-	if req.OldIno != 0 {
-		return mp.createDentryEx(dentry, req.OldIno, p)
 	}
 
 	log.LogDebugf("action[CreateDentry] mp[%v] with seq %v,dentry [%v]", mp.config.PartitionId, mp.verSeq, dentry)
@@ -284,7 +278,7 @@ func (mp *metaPartition) TxDeleteDentry(req *proto.TxDeleteDentryRequest, p *Pac
 func (mp *metaPartition) DeleteDentryByDirVer(req *DeleteDentryReq, p *Packet) (err error) {
 
 	dirVerdentry := &DirVerDentry{
-		Dentry:&Dentry{
+		Dentry: &Dentry{
 			ParentId: req.ParentID,
 			Name:     req.Name,
 		},

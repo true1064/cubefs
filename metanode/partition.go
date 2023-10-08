@@ -220,7 +220,7 @@ type OpMultipart interface {
 
 // MultiVersion operation from master or client
 type OpMultiVersion interface {
-	HandleVersionOp(op uint8, verSeq uint64, verList []*proto.VolVersionInfo, sync bool) (err error)
+	HandleVersionOp(op uint8, verSeq uint64, verList []*proto.VersionInfo, sync bool) (err error)
 	fsmVersionOp(reqData []byte) (err error)
 	GetAllVersionInfo(req *proto.MultiVersionOpRequest, p *Packet) (err error)
 	GetSpecVersionInfo(req *proto.MultiVersionOpRequest, p *Packet) (err error)
@@ -246,7 +246,7 @@ type OpMeta interface {
 type OpPartition interface {
 	GetVolName() (volName string)
 	GetVerSeq() uint64
-	GetVerList() []*proto.VolVersionInfo
+	GetVerList() []*proto.VersionInfo
 	IsLeader() (leaderAddr string, isLeader bool)
 	LeaderTerm() (leaderID, term uint64)
 	IsFollowerRead() bool
@@ -542,6 +542,12 @@ func (mp *metaPartition) acucumUidSizeByLoad(ino *Inode) {
 }
 
 func (mp *metaPartition) getVerList() []*proto.VersionInfo {
+	mp.multiVersionList.RLock()
+	defer mp.multiVersionList.RUnlock()
+	return mp.multiVersionList.VerList
+}
+
+func (mp *metaPartition) GetVerList() []*proto.VersionInfo {
 	mp.multiVersionList.RLock()
 	defer mp.multiVersionList.RUnlock()
 	return mp.multiVersionList.VerList
@@ -1021,7 +1027,7 @@ func NewMetaPartition(conf *MetaPartitionConfig, manager *metadataManager) MetaP
 		inodeTree:        NewBtree(),
 		extendTree:       NewBtree(),
 		multipartTree:    NewBtree(),
-		dirVerTree:    NewBtree(),
+		dirVerTree:       NewBtree(),
 		stopC:            make(chan bool),
 		storeChan:        make(chan *storeMsg, 100),
 		freeList:         newFreeList(),

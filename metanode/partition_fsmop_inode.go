@@ -282,21 +282,21 @@ func (mp *metaPartition) fsmTxUnlinkInode(txIno *TxInode) (resp *InodeResponse) 
 }
 
 func (mp *metaPartition) fsmUnlinkInodeByDirVer(inoDirVer *InodeDirVer) (resp *InodeResponse) {
-	return mp.fsmUnlinkInodeDoWork(inoDirVer.Ino, inoDirVer.DirVerList)
+	return mp.fsmUnlinkInodeDoWork(inoDirVer.Ino, 0, inoDirVer.DirVerList)
 }
 
 // normal unlink seq is 0
 // snapshot unlink seq is snapshotVersion
 // fsmUnlinkInode delete the specified inode from inode tree.
 
-func (mp *metaPartition) fsmUnlinkInode(ino *Inode) (resp *InodeResponse) {
-	return mp.fsmUnlinkInodeDoWork(ino, mp.getVerList())
+func (mp *metaPartition) fsmUnlinkInode(ino *Inode, uniqID uint64) (resp *InodeResponse) {
+	return mp.fsmUnlinkInodeDoWork(ino, uniqID, mp.getVerList())
 }
 
 // normal unlink seq is 0
 // snapshot unlink seq is snapshotVersion
 // fsmUnlinkInode delete the specified inode from inode tree.
-func (mp *metaPartition) fsmUnlinkInodeDoWork(ino *Inode, verList []*proto.VersionInfo) (resp *InodeResponse) {
+func (mp *metaPartition) fsmUnlinkInodeDoWork(ino *Inode, uniqID uint64, verList []*proto.VersionInfo) (resp *InodeResponse) {
 	log.LogDebugf("action[fsmUnlinkInode]  ino %v", ino)
 	var (
 		ext2Del []proto.ExtentKey
@@ -333,8 +333,12 @@ func (mp *metaPartition) fsmUnlinkInodeDoWork(ino *Inode, verList []*proto.Versi
 		status = proto.OpOk
 	)
 
+	verItems := &proto.VolVersionInfoList{
+		VerList: verList,
+	}
+
 	if ino.getVer() == 0 {
-		ext2Del, doMore, status = inode.unlinkTopLayer(mp.config.PartitionId, ino, mp.verSeq, verList)
+		ext2Del, doMore, status = inode.unlinkTopLayer(mp.config.PartitionId, ino, mp.verSeq, verItems)
 	} else { // means drop snapshot
 		log.LogDebugf("action[fsmUnlinkInode] req drop assigned snapshot reqseq %v inode seq %v", ino.getVer(), inode.getVer())
 		if ino.getVer() > inode.getVer() && !isInitSnapVer(ino.getVer()) {
@@ -342,7 +346,7 @@ func (mp *metaPartition) fsmUnlinkInodeDoWork(ino *Inode, verList []*proto.Versi
 				ino.Inode, ino.getVer(), inode.getVer())
 			return
 		} else {
-			ext2Del, doMore, status = inode.unlinkVerInList(mp.config.PartitionId, ino, mp.verSeq, verList)
+			ext2Del, doMore, status = inode.unlinkVerInList(mp.config.PartitionId, ino, mp.verSeq, verItems)
 		}
 	}
 	if !doMore {
@@ -639,7 +643,10 @@ func (mp *metaPartition) fsmExtentsTruncateDoWork(ino *Inode, verList []*proto.V
 	i.Lock()
 	defer i.Unlock()
 
-	if err = i.CreateLowerVersion(i.getVer(), verList); err != nil {
+	verInfo := &proto.VolVersionInfoList{
+		VerList: verList,
+	}
+	if err = i.CreateLowerVersion(i.getVer(), verInfo); err != nil {
 		return
 	}
 	oldSize := int64(i.Size)

@@ -115,7 +115,7 @@ sendWithList:
 			goto out
 		}
 		req.ExtentType |= proto.VersionListFlag
-		req.VerList = mw.Client.GetVerMgr().VerList
+		req.DirVerList = mw.Client.GetVerMgr().VerList
 		goto sendWithList
 	}
 	mw.putConn(mc, err)

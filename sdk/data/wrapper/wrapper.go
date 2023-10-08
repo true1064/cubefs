@@ -554,7 +554,7 @@ func (w *Wrapper) CheckReadVerSeq(volName string, verReadSeq uint64, verList *pr
 
 	var (
 		id     int
-		ver    *proto.VolVersionInfo
+		ver    *proto.VersionInfo
 		verLen = len(verList.VerList)
 	)
 	for id, ver = range verList.VerList {

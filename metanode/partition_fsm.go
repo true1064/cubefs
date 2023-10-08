@@ -567,7 +567,7 @@ func (mp *metaPartition) fsmVersionOp(reqData []byte) (err error) {
 				return
 			}
 		}
-		newVer := &proto.VolVersionInfo{
+		newVer := &proto.VersionInfo{
 			Status: proto.VersionPrepare,
 			Ver:    opData.VerSeq,
 		}
@@ -687,7 +687,7 @@ func (mp *metaPartition) ApplySnapshot(peers []raftproto.Peer, iter raftproto.Sn
 		dentryTree     = NewBtree()
 		extendTree     = NewBtree()
 		multipartTree  = NewBtree()
-		dirVerTree    = NewBtree()
+		dirVerTree     = NewBtree()
 		txTree         = NewBtree()
 		txRbInodeTree  = NewBtree()
 		txRbDentryTree = NewBtree()
@@ -757,7 +757,7 @@ func (mp *metaPartition) ApplySnapshot(peers []raftproto.Peer, iter raftproto.Sn
 				txId:           mp.txProcessor.txManager.txIdAlloc.getTransactionID(),
 				inodeTree:      mp.inodeTree.GetTree(),
 				dentryTree:     mp.dentryTree.GetTree(),
-				dirVerTree:    mp.dirVerTree,
+				dirVerTree:     mp.dirVerTree,
 				extendTree:     mp.extendTree.GetTree(),
 				multipartTree:  mp.multipartTree.GetTree(),
 				txTree:         mp.txProcessor.txManager.txTree.GetTree(),

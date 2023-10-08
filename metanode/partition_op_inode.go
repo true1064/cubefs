@@ -18,7 +18,6 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/cubefs/cubefs/proto"
@@ -347,9 +346,8 @@ func (mp *metaPartition) UnlinkInode(req *UnlinkInoReq, p *Packet) (err error) {
 			ino.Flag |= InodeDelTop
 		}
 
-
 		log.LogDebugf("action[UnlinkInode] ino %v submit", ino)
-		r, err = mp.buildAndSubmitInoPacket(ino,opFSMUnlinkInode,opFSMUnlinkByDirVer, p)
+		r, err = mp.buildAndSubmitInoPacket(ino, opFSMUnlinkInode, opFSMUnlinkByDirVer, p)
 	}
 
 	if err != nil {
@@ -501,7 +499,7 @@ func (mp *metaPartition) InodeGet(req *InodeGetReq, p *Packet) (err error) {
 			Info: &proto.InodeInfo{},
 		}
 		if getAllVerInfo {
-			replyInfoNoCheck(resp.Info, retMsg.Msg)
+			replyInfoNoCheck(resp.Info, retMsg.Msg, nil)
 		} else {
 			if !replyInfo(resp.Info, retMsg.Msg, quotaInfos) {
 				p.PacketErrorWithBody(status, reply)

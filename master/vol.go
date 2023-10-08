@@ -109,7 +109,7 @@ type Vol struct {
 	quotaManager            *MasterQuotaManager
 	enableQuota             bool
 	VersionMgr              *VolVersionManager
-	DirSnapVersionMgr     *DirSnapVerManager
+	DirSnapVersionMgr       *DirSnapVersionManager
 	Forbidden               bool
 }
 

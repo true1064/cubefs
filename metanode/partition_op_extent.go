@@ -163,9 +163,9 @@ func (mp *metaPartition) ExtentAppendWithCheck(req *proto.AppendExtentKeyWithChe
 	// use inode verSeq instead
 
 	if p.IsDirSnapshotOperate() {
-		ino.setVer(req.VerSeq)
+		inoParm.setVer(req.VerSeq)
 	} else {
-		ino.setVer(mp.GetVerSeq())
+		inoParm.setVer(mp.GetVerSeq())
 	}
 
 	inoParm.Extents.Append(ext)
@@ -185,7 +185,7 @@ func (mp *metaPartition) ExtentAppendWithCheck(req *proto.AppendExtentKeyWithChe
 		opFlag = opFSMExtentSplit
 	}
 	var resp interface{}
-	if resp, err = mp.buildAndSubmitInoPacket(ino, opFlag, opDirFlag, p); err != nil {
+	if resp, err = mp.buildAndSubmitInoPacket(inoParm, uint32(opFlag), uint32(opDirFlag), p); err != nil {
 		return
 	}
 
@@ -215,7 +215,7 @@ func (mp *metaPartition) SetTxInfo(info []*proto.TxInfo) {
 type VerOpData struct {
 	Op      uint8
 	VerSeq  uint64
-	VerList []*proto.VolVersionInfo
+	VerList []*proto.VersionInfo
 }
 
 func (mp *metaPartition) checkVerList(masterListInfo *proto.VolVersionInfoList, sync bool) (err error) {
@@ -233,7 +233,7 @@ func (mp *metaPartition) checkVerList(masterListInfo *proto.VolVersionInfoList, 
 	}
 
 	var (
-		VerList    []*proto.VolVersionInfo
+		VerList    []*proto.VersionInfo
 		needUpdate bool
 	)
 
@@ -257,7 +257,7 @@ func (mp *metaPartition) checkVerList(masterListInfo *proto.VolVersionInfoList, 
 			needUpdate = true
 		}
 		VerList = append(VerList, info2)
-		verMapLocal[info2.Ver] = info2
+		verMapLocal[info2.Ver] = info2.Status
 	}
 	mp.multiVersionList.RUnlock()
 
@@ -266,7 +266,7 @@ func (mp *metaPartition) checkVerList(masterListInfo *proto.VolVersionInfoList, 
 			log.LogDebugf("checkVerList. vol %v mp %v master info %v", mp.config.VolName, mp.config.PartitionId, vInfo)
 			continue
 		}
-		ver, exist := verMapLocal[vInfo.Ver]
+		status, exist := verMapLocal[vInfo.Ver]
 		if !exist {
 			expStr := fmt.Sprintf("checkVerList.vol %v mp %v not found %v in mp list and append version %v",
 				mp.config.VolName, mp.config.PartitionId, vInfo.Ver, vInfo)
@@ -276,11 +276,11 @@ func (mp *metaPartition) checkVerList(masterListInfo *proto.VolVersionInfoList, 
 			needUpdate = true
 			continue
 		}
-		if ver.Status != vInfo.Status {
+		if status != vInfo.Status {
 			warn := fmt.Sprintf("checkVerList.vol %v mp %v ver %v inoraml.local status %v update to %v",
 				mp.config.VolName, mp.config.PartitionId, vInfo.Status, vInfo.Ver, vInfo.Status)
 			log.LogWarn(warn)
-			ver.Status = vInfo.Status
+			status = vInfo.Status
 		}
 	}
 	if needUpdate {
@@ -300,7 +300,7 @@ func (mp *metaPartition) checkVerList(masterListInfo *proto.VolVersionInfoList, 
 	return
 }
 
-func (mp *metaPartition) HandleVersionOp(op uint8, verSeq uint64, verList []*proto.VolVersionInfo, sync bool) (err error) {
+func (mp *metaPartition) HandleVersionOp(op uint8, verSeq uint64, verList []*proto.VersionInfo, sync bool) (err error) {
 
 	verData := &VerOpData{
 		Op:      op,

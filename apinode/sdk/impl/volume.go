@@ -32,6 +32,15 @@ type dataOpImp struct {
 	*stream.ExtentClientVer
 }
 
+func (d *dataOpImp) CloseStream(inode uint64) error {
+	err := d.ExtentClientVer.CloseStream(inode)
+	if err != nil {
+		return err
+	}
+
+	return d.ExtentClientVer.EvictStream(inode)
+}
+
 func newDataOp(cfg *stream.ExtentConfig) (DataOp, error) {
 	ec, err := stream.NewExtentClientVer(cfg)
 	if err != nil {

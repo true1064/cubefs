@@ -148,9 +148,8 @@ func (verMgr *VolVersionManager) GenerateVer(verSeq uint64, op uint8) (err error
 
 	verMgr.prepareCommit.op = op
 	size := len(verMgr.multiVersionList)
-	if size > 0 && tm.Before(time.Unix(verMgr.multiVersionList[size-1].Ctime,0)) {
-		verMgr.prepareCommit.prepareInfo.Ctime++
-		verMgr.prepareCommit.prepareInfo.Ver = uint64(verMgr.multiVersionList[size-1].Ctime) + 1
+	if size > 0 && !tm.After(time.Unix(int64(verMgr.multiVersionList[size-1].Ver)/1e6, 0)) {
+		verMgr.prepareCommit.prepareInfo.Ver = uint64(verMgr.multiVersionList[size-1].Ver) + 1
 		log.LogDebugf("action[GenerateVer] vol %v  use ver %v", verMgr.vol.Name, verMgr.prepareCommit.prepareInfo.Ver)
 	}
 	log.LogDebugf("action[GenerateVer] vol %v exit", verMgr.vol.Name)
@@ -222,7 +221,7 @@ func (verMgr *VolVersionManager) checkCreateStrategy() {
 			verMgr.RLock()
 			verEle := verMgr.multiVersionList[len(verMgr.multiVersionList)-1]
 			verMgr.RUnlock()
-			if verEle.Ctime + int64(verMgr.strategy.Periodic * 24 * 3600) < curTime.Unix() {
+			if int64(verEle.Ver)/1e6+int64(verMgr.strategy.GetPeriodicSecond()) < curTime.Unix() {
 				msg := fmt.Sprintf("[checkSnapshotStrategy] last version %v status %v for %v hours than 2times periodic", verEle.Ver, verEle.Status, 2*verMgr.strategy.Periodic)
 				Warn(verMgr.c.Name, msg)
 			}
