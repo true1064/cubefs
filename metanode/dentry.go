@@ -758,9 +758,12 @@ func (d *Dentry) MarshalValue() []byte {
 	writeBinary(&d.FileId)
 
 	seq := d.getSeqFiled()
-	writeBinary(&seq)
-
 	verCnt := uint32(d.getSnapListLen())
+	if seq == 0 && verCnt == 0 {
+		return buff.Bytes()
+	}
+
+	writeBinary(&seq)
 	writeBinary(&verCnt)
 
 	if d.getSnapListLen() > 0 {

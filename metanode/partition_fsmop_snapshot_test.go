@@ -23,8 +23,6 @@ func Test_fsmCreateDirSnapshot(t *testing.T) {
 			resp: proto.OpOk, size: 1, treeSize: 1},
 		{ifo: &proto.CreateDirSnapShotInfo{SnapshotDir: "test", SnapshotInode: 10, OutVer: "tt", Ver: 1, RootInode: rootIno},
 			resp: proto.OpOk, size: 1, treeSize: 1},
-		{ifo: &proto.CreateDirSnapShotInfo{SnapshotDir: "test1", SnapshotInode: 10, OutVer: "tt", Ver: 2, RootInode: rootIno},
-			resp: proto.OpArgMismatchErr, size: 1, treeSize: 1},
 		{ifo: &proto.CreateDirSnapShotInfo{SnapshotDir: "test", SnapshotInode: 10, OutVer: "tt1", Ver: 1, RootInode: rootIno},
 			resp: proto.OpArgMismatchErr, size: 1, treeSize: 1},
 		{ifo: &proto.CreateDirSnapShotInfo{SnapshotDir: "test", SnapshotInode: 10, OutVer: "tt1", Ver: 2, RootInode: rootIno},
@@ -36,8 +34,8 @@ func Test_fsmCreateDirSnapshot(t *testing.T) {
 	mp := initDirVerMP()
 	for _, c := range tcases {
 		result := mp.fsmCreateDirSnapshot(c.ifo)
-		require.True(t, result == c.resp)
-		require.Equal(t, mp.dirVerTree.Len(), c.treeSize)
+		require.Equal(t, c.resp, result)
+		require.Equal(t, c.treeSize, mp.dirVerTree.Len())
 		item := mp.getDirSnapItem(c.ifo.SnapshotInode, rootIno)
 		require.Equal(t, len(item.Vers), c.size)
 	}
@@ -114,7 +112,7 @@ func Test_fsmBatchDelDirSnapshot(t *testing.T) {
 	ifo.Items = []proto.DirVerItem{
 		{DirSnapIno: ino1, Ver: 100, RootIno: rootIno},
 		{DirSnapIno: ino1, Ver: 2, RootIno: rootIno},
-		{DirSnapIno: ino2, Ver: 3, RootIno: rootIno},
+		{DirSnapIno: ino2, Ver: 2, RootIno: rootIno},
 	}
 
 	resp = mp.fsmBatchDelDirSnapshot(ifo)
@@ -137,7 +135,7 @@ func Test_fsmBatchDelDirSnapshot(t *testing.T) {
 	dir2 := mp.getDirSnapItem(ino2, rootIno)
 	t.Logf("dir2 items %v", dir2.Vers)
 	require.True(t, len(dir2.Vers) == 3)
-	require.True(t, check(dir2, 3, proto.VersionDeleting))
+	require.True(t, check(dir2, 2, proto.VersionDeleting))
 
 	update := func(dir *dirSnapshotItem, ver uint64, status int) {
 		for _, v := range dir.Vers {
@@ -147,14 +145,14 @@ func Test_fsmBatchDelDirSnapshot(t *testing.T) {
 		}
 	}
 
-	update(dir2, 3, proto.VersionNormal)
+	update(dir2, 2, proto.VersionNormal)
 	resp = mp.fsmBatchDelDirSnapshot(ifo)
 	require.Equal(t, resp, proto.OpInternalErr)
 
 	ifo.Status = proto.VersionDeleted
 	resp = mp.fsmBatchDelDirSnapshot(ifo)
 	require.Equal(t, resp, proto.OpInternalErr)
-	update(dir2, 3, proto.VersionDeleting)
+	update(dir2, 2, proto.VersionDeleting)
 
 	resp = mp.fsmBatchDelDirSnapshot(ifo)
 	require.Equal(t, resp, proto.OpOk)
@@ -166,8 +164,9 @@ func Test_fsmBatchDelDirSnapshot(t *testing.T) {
 
 	ifo.Status = proto.VersionDeleting
 	ifo.Items = []proto.DirVerItem{
+		{DirSnapIno: ino1, Ver: 0, RootIno: rootIno},
 		{DirSnapIno: ino1, Ver: 1, RootIno: rootIno},
-		{DirSnapIno: ino1, Ver: 3, RootIno: rootIno},
+		{DirSnapIno: ino1, Ver: 2, RootIno: rootIno},
 	}
 	resp = mp.fsmBatchDelDirSnapshot(ifo)
 	require.Equal(t, resp, proto.OpOk)

@@ -49,7 +49,7 @@ func TestMetaPartition_ListAllDirSnapshot(t *testing.T) {
 	resp = getResp(pkt)
 	require.Equal(t, len(resp.Items), 2)
 	for _, e := range resp.Items {
-		require.Equal(t, len(e.Vers), 2)
+		require.Equal(t, len(e.Vers), 3)
 	}
 }
 

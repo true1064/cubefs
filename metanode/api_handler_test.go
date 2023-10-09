@@ -76,6 +76,7 @@ func createMetaPartition(rootDir string, t *testing.T) (mp *metaPartition) {
 		txTree:         mp.txProcessor.txManager.txTree,
 		txRbInodeTree:  mp.txProcessor.txResource.txRbInodeTree,
 		txRbDentryTree: mp.txProcessor.txResource.txRbDentryTree,
+		dirVerTree:     mp.dirVerTree,
 		uniqChecker:    newUniqChecker(),
 	}
 	mp.uidManager = NewUidMgr(mpC.VolName, mpC.PartitionId)

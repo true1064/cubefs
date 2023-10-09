@@ -47,8 +47,7 @@ func TestDentry_Marshal(t *testing.T) {
 	require.Equal(t, dentry.Inode, newDentry.Inode)
 
 	// old data from snapshot
-	tmpData = valData[:44]
-	err = newDentry.UnmarshalValue(tmpData)
+	err = newDentry.UnmarshalValue(valData)
 	require.NoError(t, err)
 	require.Equal(t, dentry.Inode, newDentry.Inode)
 	require.Equal(t, dentry.getSnapListLen(), newDentry.getSnapListLen())

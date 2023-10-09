@@ -74,8 +74,8 @@ func (d *dirSnapshotItem) buildDirSnapshotIfo() *proto.DirSnapshotInfo {
 }
 
 func (d *dirSnapshotItem) String() string {
-	return fmt.Sprintf("snapshotIno(%d)_snapDir(%s)_rootIno(%d)_verCnt(%d)",
-		d.SnapshotInode, d.Dir, d.RootInode, len(d.Vers))
+	return fmt.Sprintf("snapshotIno(%d)_snapDir(%s)_rootIno(%d)_max_(%d)_verCnt(%d)",
+		d.SnapshotInode, d.Dir, d.RootInode, d.MaxVer, len(d.Vers))
 }
 
 func (d *dirSnapshotItem) equal(d1 *dirSnapshotItem) bool {
