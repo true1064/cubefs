@@ -73,7 +73,6 @@ func (mp *metaPartition) fsmCreateInode(ino *Inode) (status uint8) {
 	if status = mp.uidManager.addUidSpace(ino.Uid, ino.Inode, nil); status != proto.OpOk {
 		return
 	}
-	log.LogDebugf("action[fsmCreateInode] inode  %v be created", ino)
 
 	status = proto.OpOk
 	if _, ok := mp.inodeTree.ReplaceOrInsert(ino, false); !ok {
@@ -307,18 +306,16 @@ func (mp *metaPartition) fsmUnlinkInodeDoWork(ino *Inode, uniqID uint64, verList
 
 	item := mp.inodeTree.CopyGet(ino)
 	if item == nil {
-		log.LogDebugf("action[fsmUnlinkInode] ino %v", ino)
+		log.LogWarnf("action[fsmUnlinkInode] ino %d not found", ino.Inode)
 		resp.Status = proto.OpNotExistErr
 		return
 	}
 	inode := item.(*Inode)
 	if ino.getVer() == 0 && inode.ShouldDelete() {
-		log.LogDebugf("action[fsmUnlinkInode] ino %v", ino)
+		log.LogWarnf("action[fsmUnlinkInode] ino %d is already been deleted before, ver %d", ino.Inode, ino.getVer())
 		resp.Status = proto.OpNotExistErr
 		return
 	}
-
-	topLayerEmpty := inode.IsTopLayerEmptyDir()
 
 	resp.Msg = inode
 
@@ -333,12 +330,17 @@ func (mp *metaPartition) fsmUnlinkInodeDoWork(ino *Inode, uniqID uint64, verList
 		status = proto.OpOk
 	)
 
-	verItems := &proto.VolVersionInfoList{
-		VerList: verList,
+	verItems := mp.multiVersionList
+	curVer := mp.verSeq
+	if len(verList) > 0 {
+		verItems = &proto.VolVersionInfoList{
+			VerList: verList,
+		}
+		curVer = verItems.GetLastVer()
 	}
 
 	if ino.getVer() == 0 {
-		ext2Del, doMore, status = inode.unlinkTopLayer(mp.config.PartitionId, ino, mp.verSeq, verItems)
+		ext2Del, doMore, status = inode.unlinkTopLayer(mp.config.PartitionId, ino, curVer, verItems)
 	} else { // means drop snapshot
 		log.LogDebugf("action[fsmUnlinkInode] req drop assigned snapshot reqseq %v inode seq %v", ino.getVer(), inode.getVer())
 		if ino.getVer() > inode.getVer() && !isInitSnapVer(ino.getVer()) {
@@ -346,7 +348,7 @@ func (mp *metaPartition) fsmUnlinkInodeDoWork(ino *Inode, uniqID uint64, verList
 				ino.Inode, ino.getVer(), inode.getVer())
 			return
 		} else {
-			ext2Del, doMore, status = inode.unlinkVerInList(mp.config.PartitionId, ino, mp.verSeq, verItems)
+			ext2Del, doMore, status = inode.unlinkVerInList(mp.config.PartitionId, ino, curVer, verItems)
 		}
 	}
 	if !doMore {
@@ -354,10 +356,12 @@ func (mp *metaPartition) fsmUnlinkInodeDoWork(ino *Inode, uniqID uint64, verList
 		return
 	}
 
-	if ino.getVer() == 0 && topLayerEmpty && inode.IsEmptyDirAndNoSnapshot() { // normal deletion
+	if ino.getVer() == 0 && inode.IsEmptyDirAndNoSnapshot() { // normal deletion
 		log.LogDebugf("action[fsmUnlinkInode] ino %v really be deleted, empty dir", inode)
 		mp.inodeTree.Delete(inode)
-	} else if ino.getVer() > 0 && inode.IsEmptyDirAndNoSnapshot() { // snapshot deletion
+		return
+	}
+	if ino.getVer() > 0 && inode.IsEmptyDirAndNoSnapshot() { // snapshot deletion
 		log.LogDebugf("action[fsmUnlinkInode] ino %v really be deleted, empty dir", inode)
 		mp.inodeTree.Delete(inode)
 		mp.updateUsedInfo(0, -1, inode.Inode)

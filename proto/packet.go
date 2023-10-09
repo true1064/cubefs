@@ -262,7 +262,7 @@ const (
 	DefaultClusterLoadFactor          float64 = 10
 	MultiVersionFlag                          = 0x80
 	VersionListFlag                           = 0x40
-	DirVersionFlag                            = 0x41
+	DirVersionFlag                            = 0x20
 )
 
 // multi version operation

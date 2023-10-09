@@ -104,6 +104,7 @@ func (mp *metaPartition) fsmCreateDentry(dentry *Dentry,
 			d.setVerSeq(dentry.getSeqFiled())
 			d.Type = dentry.Type
 			d.ParentId = dentry.ParentId
+			d.FileId = dentry.FileId
 			log.LogDebugf("action[fsmCreateDentry.ver] latest dentry already deleted.Now create new one [%v]", dentry)
 
 			if !forceUpdate {
@@ -111,11 +112,13 @@ func (mp *metaPartition) fsmCreateDentry(dentry *Dentry,
 				parIno.SetMtime()
 			}
 			return
-		} else if proto.OsModeType(dentry.Type) != proto.OsModeType(d.Type) {
+		}
+		if proto.OsModeType(dentry.Type) != proto.OsModeType(d.Type) {
 			log.LogDebugf("action[fsmCreateDentry.ver] OpArgMismatchErr [%v] [%v]", proto.OsModeType(dentry.Type), proto.OsModeType(d.Type))
 			status = proto.OpArgMismatchErr
 			return
-		} else if dentry.ParentId == d.ParentId && strings.Compare(dentry.Name, d.Name) == 0 && dentry.Inode == d.Inode {
+		}
+		if dentry.ParentId == d.ParentId && strings.Compare(dentry.Name, d.Name) == 0 && dentry.Inode == d.Inode {
 			log.LogDebugf("action[fsmCreateDentry.ver] no need repeat create new one [%v]", dentry)
 			return
 		}
@@ -163,6 +166,12 @@ func (mp *metaPartition) fsmCreateDentryEx(dentry *DentryEx) (status uint8) {
 		}
 
 		d := item.(*Dentry)
+		if d.isDeleted() {
+			log.LogWarnf("action[fsmCreateDentryEx] dentry is already been deleted, parIno %d, name %s, oldIno %d, ver %d",
+				dentry.ParentId, dentry.Name, dentry.OldIno, d.getSeqFiled())
+			status = proto.OpNotExistErr
+			return
+		}
 		// already update success
 		if dentry.ParentId == d.ParentId && strings.Compare(dentry.Name, d.Name) == 0 && dentry.Inode == d.Inode {
 			return
@@ -172,6 +181,10 @@ func (mp *metaPartition) fsmCreateDentryEx(dentry *DentryEx) (status uint8) {
 			log.LogErrorf("action[fsmCreateDentryEx] exist ino %d is not equal to oldIno %d, parIno %d, name %s", d.Inode, dentry.OldIno, dentry.ParentId, dentry.Name)
 			status = proto.OpArgMismatchErr
 			return
+		}
+
+		if d.getVerSeq() < den.getVerSeq() {
+			d.addVersion(den.getVerSeq())
 		}
 
 		d.Inode = den.Inode
@@ -272,6 +285,7 @@ func (mp *metaPartition) fsmDeleteDentry(denParm *Dentry, checkInode bool) (resp
 func (mp *metaPartition) fsmDeleteDentryByDirVerList(denParm *DirVerDentry, checkInode bool) (resp *DentryResponse) {
 	return mp.fsmDeleteDentryInner(denParm.Dentry, checkInode, denParm.VerList, false)
 }
+
 // Delete dentry from the dentry tree.
 func (mp *metaPartition) fsmDeleteDentryInner(denParm *Dentry, checkInode bool, verlist []*proto.VersionInfo, isVolVer bool) (resp *DentryResponse) {
 	var denFound *Dentry

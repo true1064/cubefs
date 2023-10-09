@@ -115,6 +115,13 @@ func (d *Dentry) getVerSeq() (verSeq uint64) {
 	return d.multiSnap.VerSeq & math.MaxInt64
 }
 
+func (d *Dentry) addVersion(ver uint64) {
+	dn := d.CopyDirectly().(*Dentry)
+	dn.setVerSeq(d.getVerSeq())
+	d.setVerSeq(ver)
+	d.multiSnap.dentryList = append([]*Dentry{dn}, d.multiSnap.dentryList...)
+}
+
 func (d *Dentry) isDeleted() bool {
 	if d.multiSnap == nil {
 		return false
@@ -125,6 +132,7 @@ func (d *Dentry) isDeleted() bool {
 func (d *Dentry) setDeleted() {
 	if d.multiSnap == nil {
 		log.LogErrorf("action[setDeleted] d %v be set deleted not found multiSnap", d)
+		return
 	}
 	log.LogDebugf("action[setDeleted] d %v be set deleted", d)
 	d.multiSnap.VerSeq |= uint64(1) << 63

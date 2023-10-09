@@ -753,16 +753,17 @@ type DelExtentKeyRequest struct {
 
 // SetAttrRequest defines the request to set attribute.
 type SetAttrRequest struct {
-	VolName     string `json:"vol"`
-	PartitionID uint64 `json:"pid"`
-	Inode       uint64 `json:"ino"`
-	Mode        uint32 `json:"mode"`
-	Uid         uint32 `json:"uid"`
-	Gid         uint32 `json:"gid"`
-	ModifyTime  int64  `json:"mt"`
-	AccessTime  int64  `json:"at"`
-	Valid       uint32 `json:"valid"`
-	VerSeq      uint64 `json:"seq"`
+	VolName     string         `json:"vol"`
+	PartitionID uint64         `json:"pid"`
+	Inode       uint64         `json:"ino"`
+	Mode        uint32         `json:"mode"`
+	Uid         uint32         `json:"uid"`
+	Gid         uint32         `json:"gid"`
+	ModifyTime  int64          `json:"mt"`
+	AccessTime  int64          `json:"at"`
+	Valid       uint32         `json:"valid"`
+	VerSeq      uint64         `json:"seq"`
+	VerList     []*VersionInfo `json:"verInfo"`
 }
 
 const (

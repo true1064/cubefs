@@ -117,16 +117,17 @@ func (mp *metaPartition) CreateInode(req *CreateInoReq, p *Packet) (err error) {
 		p.PacketErrorWithBody(proto.OpInodeFullErr, []byte(err.Error()))
 		return
 	}
+
 	ino := NewInode(inoID, req.Mode)
 	ino.Uid = req.Uid
 	ino.Gid = req.Gid
+	ino.LinkTarget = req.Target
 
 	verSeq := mp.GetVerSeq()
 	if p.IsDirSnapshotOperate() {
 		verSeq = p.VerSeq
 	}
 	ino.setVer(verSeq)
-	ino.LinkTarget = req.Target
 
 	val, err := ino.Marshal()
 	if err != nil {

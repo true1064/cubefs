@@ -120,6 +120,20 @@ func (mr *MockRaftPartitionMockRecorder) IsRaftLeader() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsRaftLeader", reflect.TypeOf((*MockRaftPartition)(nil).IsRaftLeader))
 }
 
+// IsRestoring mocks base method.
+func (m *MockRaftPartition) IsRestoring() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsRestoring")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsRestoring indicates an expected call of IsRestoring.
+func (mr *MockRaftPartitionMockRecorder) IsRestoring() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsRestoring", reflect.TypeOf((*MockRaftPartition)(nil).IsRestoring))
+}
+
 // LeaderTerm mocks base method.
 func (m *MockRaftPartition) LeaderTerm() (uint64, uint64) {
 	m.ctrl.T.Helper()

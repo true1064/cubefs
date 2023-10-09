@@ -915,7 +915,7 @@ func TestTruncateAndDel(t *testing.T) {
 
 	log.LogDebugf("TestTruncate start")
 	ino.setVer(0) // unlink top layer
-	mp.fsmUnlinkInode(ino)
+	mp.fsmUnlinkInode(ino, 0)
 	log.LogDebugf("TestTruncate start")
 	assert.True(t, 3 == len(fileIno.multiSnap.multiVersions))
 	rsp = testGetExtList(t, fileIno, 0)
@@ -1234,13 +1234,13 @@ func TestCheckVerList(t *testing.T) {
 	mp = mockPartitionRaftForTest(mockCtrl)
 	mp.verUpdateChan = make(chan []byte, 100)
 	mp.multiVersionList = &proto.VolVersionInfoList{
-		VerList: []*proto.VolVersionInfo{
+		VerList: []*proto.VersionInfo{
 			{Ver: 20, Status: proto.VersionNormal},
 			{Ver: 30, Status: proto.VersionNormal},
 			{Ver: 40, Status: proto.VersionNormal}},
 	}
 	masterList := &proto.VolVersionInfoList{
-		VerList: []*proto.VolVersionInfo{
+		VerList: []*proto.VersionInfo{
 			{Ver: 20, Status: proto.VersionNormal},
 			{Ver: 30, Status: proto.VersionNormal},
 			{Ver: 40, Status: proto.VersionNormal},
@@ -1255,7 +1255,7 @@ func TestCheckVerList(t *testing.T) {
 	assert.True(t, mp.multiVersionList.VerList[len(mp.multiVersionList.VerList)-1].Ver == 50)
 
 	masterList = &proto.VolVersionInfoList{
-		VerList: []*proto.VolVersionInfo{
+		VerList: []*proto.VersionInfo{
 			{Ver: 20, Status: proto.VersionNormal},
 			{Ver: 40, Status: proto.VersionNormal}},
 	}

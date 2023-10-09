@@ -99,13 +99,18 @@ func (mp *metaPartition) CreateDentry(req *CreateDentryReq, p *Packet) (err erro
 		}
 	}
 
+	seq := mp.GetVerSeq()
+	if p.IsDirVersion() {
+		seq = p.VerSeq
+	}
+
 	dentry := &Dentry{
 		ParentId:  req.ParentID,
 		Name:      req.Name,
 		Inode:     req.Inode,
 		Type:      req.Mode,
 		FileId:    req.FileId,
-		multiSnap: NewDentrySnap(mp.GetVerSeq()),
+		multiSnap: NewDentrySnap(seq),
 	}
 
 	if req.OldIno != 0 {
