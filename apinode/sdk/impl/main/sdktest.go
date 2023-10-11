@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
@@ -912,6 +913,21 @@ func testCreateFile(ctx context.Context, vol sdk.IVolume) {
 	if newUploadIfo.ModifyTime.Unix() != mtime {
 		span.Fatalf("get ino time exception, got %d, want %d", newUploadIfo.ModifyTime.Unix(), mtime)
 	}
+
+	wg := sync.WaitGroup{}
+	for idx := 0; idx < 10; idx++ {
+		wg.Add(1)
+		off := (idx + 1) * 100
+		go func() {
+			defer wg.Done()
+			err1 := vol.WriteFile(ctx, tmpInfo.Inode, uint64(off), uint64(size), bytes.NewBuffer(data))
+			if err1 != nil {
+				span.Fatalf("write file failed, ino %d, err %s", tmpInfo.Inode, err1.Error())
+			}
+			span.Infof("concurrent write file failed, ino %d, off %d", tmpInfo.Inode, off)
+		}()
+	}
+	wg.Wait()
 }
 
 func testXAttrOp(ctx context.Context, vol sdk.IVolume) {
