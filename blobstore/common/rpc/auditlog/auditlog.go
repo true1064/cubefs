@@ -185,8 +185,8 @@ func (j *jsonAuditlog) Handler(w http.ResponseWriter, req *http.Request, f func(
 		logBytes []byte
 		err      error
 	)
-	startTime := time.Now().UnixNano()
 	ctxStartTime := StartTimeFromContext(req.Context())
+	startTime := ctxStartTime.UnixNano()
 
 	span := trace.SpanFromContext(req.Context())
 	if span == nil {
