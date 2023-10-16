@@ -50,6 +50,10 @@ func newCryptor() rpc.ProgressHandler {
 
 // only decode query string and meta headers.
 func (c cryptor) Handler(w http.ResponseWriter, req *http.Request, f func(http.ResponseWriter, *http.Request)) {
+	if isLocalRequest(req) {
+		f(w, req)
+		return
+	}
 	span := trace.SpanFromContextSafe(req.Context())
 
 	metaMaterial := req.Header.Get(drive.HeaderCipherMeta)

@@ -17,7 +17,7 @@ func newTestAuth() rpc.ProgressHandler {
 }
 
 func (m *testAuth) Handler(w http.ResponseWriter, req *http.Request, f func(http.ResponseWriter, *http.Request)) {
-	if isMetricRequest(req) {
+	if isLocalRequest(req) {
 		f(w, req)
 		return
 	}

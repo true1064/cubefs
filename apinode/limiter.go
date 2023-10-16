@@ -27,6 +27,10 @@ func newLimiter(l *rate.Limiter) rpc.ProgressHandler {
 }
 
 func (m *limiter) Handler(w http.ResponseWriter, req *http.Request, f func(http.ResponseWriter, *http.Request)) {
+	if isLocalRequest(req) {
+		f(w, req)
+		return
+	}
 	var (
 		st   = time.Now()
 		span trace.Span

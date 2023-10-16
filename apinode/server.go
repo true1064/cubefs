@@ -260,7 +260,7 @@ func (s *apiNode) handler(resp http.ResponseWriter, req *http.Request) {
 	case servicePosix, serviceS3, serviceHdfs: // TODO
 		resp.WriteHeader(http.StatusMethodNotAllowed)
 	case "":
-		if isMetricRequest(req) {
+		if isLocalRequest(req) {
 			s.router.Drive.handler.ServeHTTP(resp, req)
 			return
 		}
@@ -363,9 +363,11 @@ func registerLogLevel() {
 	})
 }
 
-func isMetricRequest(req *http.Request) bool {
+func isLocalRequest(req *http.Request) bool {
 	addr := req.RemoteAddr
-	if (strings.HasPrefix(addr, "localhost") || strings.HasPrefix(addr, "127.0.0.1")) && req.URL.Path == "/metrics" {
+	path := req.URL.Path
+	if (strings.HasPrefix(addr, "localhost") || strings.HasPrefix(addr, "127.0.0.1")) &&
+		(path == "/metrics" || path == "/log/level" || strings.HasPrefix(path, "/debug/")) {
 		return true
 	}
 	return false
