@@ -693,9 +693,11 @@ func (s *DataNode) registerHandler() {
 	http.HandleFunc("/getMetricsDegrade", s.getMetricsDegrade)
 	http.HandleFunc("/qosEnable", s.setQosEnable())
 	http.HandleFunc("/genClusterVersionFile", s.genClusterVersionFile)
+
 	http.HandleFunc("/setDiskBad", s.setDiskBadAPI)
 	http.HandleFunc("/setDiskQos", s.setDiskQos)
 	http.HandleFunc("/getDiskQos", s.getDiskQos)
+
 	http.HandleFunc("/reloadDataPartition", s.reloadDataPartition)
 	http.HandleFunc("/setDiskExtentReadLimitStatus", s.setDiskExtentReadLimitStatus)
 	http.HandleFunc("/queryDiskExtentReadLimitStatus", s.queryDiskExtentReadLimitStatus)
