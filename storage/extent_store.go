@@ -629,7 +629,7 @@ func (s *ExtentStore) initBaseFileID() error {
 }
 
 // Write writes the given extent to the disk.
-func (s *ExtentStore) Write(extentID uint64, offset, size int64, data []byte, crc uint32, writeType int, isSync bool, isHole bool, isRepair, isBackupWrite bool) (status uint8, err error) {
+func (s *ExtentStore) Write(extentID uint64, offset, size int64, data []byte, crc uint32, writeType int, isSync, isHole, isRepair, isBackupWrite bool) (status uint8, err error) {
 	s.stopMutex.RLock()
 	defer s.stopMutex.RUnlock()
 	if s.IsClosed() {
@@ -1674,6 +1674,7 @@ func (s *ExtentStore) renameStaleExtentStore() (err error) {
 	if err = os.Rename(s.dataPath, staleExtStoreDirName); err != nil {
 		return
 	}
+
 	return
 }
 
