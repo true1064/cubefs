@@ -139,6 +139,10 @@ type ExtentStore struct {
 	partitionType                     int
 	ApplyId                           uint64
 	ApplyIdMutex                      sync.RWMutex
+
+	extentLockMap map[uint64]bool
+	elMutex       sync.RWMutex
+	extentLock    bool
 }
 
 func MkdirAll(name string) (err error) {
@@ -228,6 +232,8 @@ func NewExtentStore(dataDir string, partitionID uint64, storeSize, dpType int, i
 	}
 
 	s.extentInfoMap = make(map[uint64]*ExtentInfo)
+	s.extentLockMap = make(map[uint64]bool)
+
 	s.cache = NewExtentCache(100)
 	if err = s.initBaseFileID(); err != nil {
 		err = fmt.Errorf("init base field ID: %v", err)
@@ -377,12 +383,33 @@ func (s *ExtentStore) initBaseFileID() error {
 }
 
 // Write writes the given extent to the disk.
-func (s *ExtentStore) Write(extentID uint64, offset, size int64, data []byte, crc uint32, writeType int, isSync bool, isHole bool, isRepair bool) (status uint8, err error) {
+func (s *ExtentStore) Write(extentID uint64, offset, size int64, data []byte, crc uint32, writeType int, isSync bool, isHole bool, isRepair bool, isBackupWrite bool) (status uint8, err error) {
 	var (
 		e  *Extent
 		ei *ExtentInfo
 	)
 	status = proto.OpOk
+
+	s.elMutex.Lock()
+	if isBackupWrite {
+		if _, ok := s.extentLockMap[extentID]; !ok {
+			s.elMutex.Unlock()
+			err = fmt.Errorf("extent(%v) is not locked", extentID)
+			log.LogErrorf("[Write] extent[%d] is not locked", extentID)
+			return
+		}
+	} else {
+		if s.extentLock {
+			if _, ok := s.extentLockMap[extentID]; ok {
+				s.elMutex.Unlock()
+				err = fmt.Errorf("extent(%v) is locked", extentID)
+				log.LogErrorf("[Write] extent[%d] is locked", extentID)
+				return
+			}
+		}
+	}
+	s.elMutex.Unlock()
+
 	s.eiMutex.Lock()
 	ei = s.extentInfoMap[extentID]
 	e, err = s.extentWithHeader(ei)
@@ -439,8 +466,29 @@ func IsTinyExtent(extentID uint64) bool {
 }
 
 // Read reads the extent based on the given id.
-func (s *ExtentStore) Read(extentID uint64, offset, size int64, nbuf []byte, isRepairRead bool) (crc uint32, err error) {
+func (s *ExtentStore) Read(extentID uint64, offset, size int64, nbuf []byte, isRepairRead bool, isBackupRead bool) (crc uint32, err error) {
 	var e *Extent
+
+	s.elMutex.Lock()
+	if isBackupRead {
+		if _, ok := s.extentLockMap[extentID]; !ok {
+			s.elMutex.Unlock()
+			err = fmt.Errorf("extent(%v) is not locked", extentID)
+			log.LogErrorf("[Read] extent[%d] is not locked", extentID)
+			return
+		}
+	} else {
+		if s.extentLock {
+			if _, ok := s.extentLockMap[extentID]; ok {
+				s.elMutex.Unlock()
+				err = fmt.Errorf("extent(%v) is locked", extentID)
+				log.LogErrorf("[Read] extent[%d] is locked", extentID)
+				return
+			}
+		}
+	}
+	s.elMutex.Unlock()
+	log.LogInfof("[Read] extent[%d] offset[%d] size[%d] isRepairRead[%v] extentLock[%v]", extentID, offset, size, isRepairRead, s.extentLock)
 	s.eiMutex.RLock()
 	ei := s.extentInfoMap[extentID]
 	s.eiMutex.RUnlock()
@@ -492,6 +540,21 @@ func (s *ExtentStore) punchDelete(extentID uint64, offset, size int64) (err erro
 		return
 	}
 	return
+}
+
+func (s *ExtentStore) IsMarkGc(extId uint64) bool {
+	s.eiMutex.RLock()
+	ei := s.extentInfoMap[extId]
+	s.eiMutex.RUnlock()
+	if ei == nil || ei.IsDeleted {
+		return true
+	}
+
+	s.elMutex.RLock()
+	defer s.elMutex.RUnlock()
+
+	_, ok := s.extentLockMap[extId]
+	return ok
 }
 
 // MarkDelete marks the given extent as deleted.
@@ -1246,5 +1309,84 @@ func (s *ExtentStore) renameStaleExtentStore() (err error) {
 	if err = os.Rename(s.dataPath, staleExtStoreDirName); err != nil {
 		return
 	}
+
 	return
+}
+
+func (s *ExtentStore) GetAllExtents(beforeTime int64) (extents []*ExtentInfo, err error) {
+	start := time.Now()
+	files, err := os.ReadDir(s.dataPath)
+	if err != nil {
+		log.LogErrorf("GetAllExtents: read dir extents failed, path %s, err %s", s.dataPath, err.Error())
+		return nil, err
+	}
+
+	extents = make([]*ExtentInfo, 0, len(files))
+	for _, f := range files {
+		extId, isExtent := s.ExtentID(f.Name())
+		if !isExtent {
+			continue
+		}
+
+		ifo, err1 := f.Info()
+		if err1 != nil {
+			log.LogWarnf("GetAllExtents: get extent info failed, path %s, ext %s, err %s", s.dataPath, f.Name(), err1.Error())
+			continue
+		}
+
+		modTime := ifo.ModTime().Unix()
+		if modTime >= beforeTime {
+			continue
+		}
+
+		extents = append(extents, &ExtentInfo{
+			FileID:     extId,
+			Size:       uint64(ifo.Size()),
+			ModifyTime: modTime,
+		})
+	}
+
+	log.LogWarnf("GetAllExtents: path:%v, beforeTime:%v, extents len:%v, cost %d",
+		s.dataPath, beforeTime, len(extents), time.Since(start).Milliseconds())
+
+	return
+}
+
+func (s *ExtentStore) ExtentBatchLockNormalExtent(ext []*proto.ExtentKey, IsCreate bool) (err error) {
+	s.elMutex.Lock()
+	s.extentLock = true
+	s.elMutex.Unlock()
+
+	s.elMutex.Lock()
+	defer s.elMutex.Unlock()
+	for _, e := range ext {
+		if !IsCreate {
+			extent, err := s.extentWithHeaderByExtentID(e.ExtentId)
+			if err != nil {
+				log.LogErrorf("[ExtentBatchLockNormalExtent] get extent error(%v)", err)
+				return err
+			}
+			if e.Size != uint32(extent.dataSize) {
+				log.LogErrorf("[ExtentBatchLockNormalExtent] extent size not match, extentID(%v), extentSize(%v), extentKeySize(%v)",
+					e.ExtentId, extent.dataSize, e.Size)
+				err = fmt.Errorf("extent size not match, extentID(%v), extentSize(%v), extentKeySize(%v)", e.ExtentId, extent.dataSize, e.Size)
+				return err
+			}
+		}
+		s.extentLockMap[e.ExtentId] = true
+		log.LogDebugf("[ExtentBatchLockNormalExtent] lock extent(%v)", e.ExtentId)
+	}
+	return
+}
+
+func (s *ExtentStore) ExtentBatchUnlockNormalExtent(ext []*proto.ExtentKey) {
+	s.elMutex.Lock()
+	defer s.elMutex.Unlock()
+	for _, e := range ext {
+		delete(s.extentLockMap, e.ExtentId)
+	}
+
+	if len(s.extentLockMap) == 0 {
+		s.extentLock = false
+	}
 }

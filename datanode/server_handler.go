@@ -17,6 +17,9 @@ package datanode
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/cubefs/cubefs/depends/tiglabs/raft"
+	"github.com/cubefs/cubefs/proto"
+	"github.com/cubefs/cubefs/storage"
 	"net/http"
 	"os"
 	"path"
@@ -24,9 +27,6 @@ import (
 	"sync/atomic"
 	"syscall"
 
-	"github.com/cubefs/cubefs/depends/tiglabs/raft"
-	"github.com/cubefs/cubefs/proto"
-	"github.com/cubefs/cubefs/storage"
 	"github.com/cubefs/cubefs/util/config"
 	"github.com/cubefs/cubefs/util/log"
 )
@@ -572,19 +572,7 @@ func (s *DataNode) reloadDataPartition(w http.ResponseWriter, r *http.Request) {
 		s.buildFailureResp(w, http.StatusNotFound, "partition not exist")
 		return
 	}
-	// store disk path and root of dp
-	disk := partition.disk
-	rootDir := partition.path
-	log.LogDebugf("data partition disk %v rootDir %v", disk, rootDir)
-
-	s.space.partitionMutex.Lock()
-	delete(s.space.partitions, partitionID)
-	s.space.partitionMutex.Unlock()
-	partition.Stop()
-	partition.Disk().DetachDataPartition(partition)
-
-	log.LogDebugf("data partition %v is detached", partitionID)
-	_, err = LoadDataPartition(rootDir, disk)
+	err = partition.reload(s.space)
 	if err != nil {
 		s.buildFailureResp(w, http.StatusBadRequest, err.Error())
 	} else {
@@ -812,4 +800,62 @@ func (s *DataNode) markDiskBroken(w http.ResponseWriter, r *http.Request) {
 		partition.checkIsDiskError(syscall.EIO, WriteFlag|ReadFlag)
 	}
 	s.buildSuccessResp(w, "success")
+}
+
+type GcExtent struct {
+	*storage.ExtentInfo
+	GcStatus string `json:"gc_status"`
+}
+
+func (s *DataNode) getAllExtent(w http.ResponseWriter, r *http.Request) {
+	var (
+		partitionID uint64
+		err         error
+		extents     []*storage.ExtentInfo
+	)
+	if err = r.ParseForm(); err != nil {
+		s.buildFailureResp(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	beforeTime, err := strconv.ParseInt(r.FormValue("beforeTime"), 10, 64)
+	if err != nil {
+		s.buildFailureResp(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if partitionID, err = strconv.ParseUint(r.FormValue("id"), 10, 64); err != nil {
+		s.buildFailureResp(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	partition := s.space.Partition(partitionID)
+	if partition == nil {
+		s.buildFailureResp(w, http.StatusNotFound, "partition not exist")
+		return
+	}
+
+	store := partition.ExtentStore()
+	extents, err = store.GetAllExtents(beforeTime)
+	if err != nil {
+		s.buildFailureResp(w, http.StatusInternalServerError, "get all extents failed")
+		return
+	}
+
+	getGcStatus := func(extId uint64) string {
+		if store.IsMarkGc(extId) {
+			return "mark_gc"
+		}
+		return "normal"
+	}
+
+	gcExtents := make([]*GcExtent, len(extents))
+	for idx, e := range extents {
+		gcExtents[idx] = &GcExtent{
+			ExtentInfo: e,
+			GcStatus:   getGcStatus(e.FileID),
+		}
+	}
+
+	s.buildSuccessResp(w, gcExtents)
+	return
 }
