@@ -2,9 +2,10 @@ package metanode
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/cubefs/cubefs/proto"
 	"github.com/cubefs/cubefs/util/log"
-	"time"
 )
 
 func (mp *metaPartition) fsmCreateDirSnapshot(ifo *proto.CreateDirSnapShotInfo) (resp uint8) {
@@ -119,6 +120,7 @@ func (mp *metaPartition) fsmDelDirSnap(e *proto.DirVerItem) (resp uint8) {
 					e, oldDirItem.String(), v)
 			}
 			v.Status = proto.VersionMarkDelete
+			v.DelTime = time.Now().Unix()
 			return proto.OpOk
 		}
 	}
