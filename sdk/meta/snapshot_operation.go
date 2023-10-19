@@ -93,14 +93,14 @@ func (mw *SnapShotMetaWrapper) sendToMeta(mp *MetaPartition, opCode uint8, req, 
 		err = resultPkt.UnmarshalData(resp)
 		if err != nil {
 			log.LogErrorf("%s: packet(%v) mp(%v) req(%v) err(%v) PacketData(%v)",
-				resultPkt.GetOpMsg(), resultPkt, mp, req, err, string(resultPkt.Data))
+				pkt.GetOpMsg(), resultPkt, mp, req, err, string(resultPkt.Data))
 			return
 		}
 	}
 
 	if log.EnableDebug() {
 		log.LogDebugf("%s: pkt(%v) mp(%v) req(%v) result(%v)",
-			resultPkt.GetOpMsg(), resultPkt, mp, req, resultPkt.GetResultMsg())
+			pkt.GetOpMsg(), resultPkt, mp, req, resultPkt.GetResultMsg())
 	}
 	return
 }

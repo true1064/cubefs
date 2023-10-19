@@ -508,16 +508,16 @@ func (mr *MockMetaOpMockRecorder) SetRenameVerInfo(arg0, arg1 interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRenameVerInfo", reflect.TypeOf((*MockMetaOp)(nil).SetRenameVerInfo), arg0, arg1)
 }
 
-// SetVerInfo mocks base method.
-func (m *MockMetaOp) SetVerInfo(arg0 *proto.DelVer) {
+// SetVerInfoEx mocks base method.
+func (m *MockMetaOp) SetVerInfoEx(arg0 *proto.DelVer, arg1 uint64) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetVerInfo", arg0)
+	m.ctrl.Call(m, "SetVerInfoEx", arg0, arg1)
 }
 
-// SetVerInfo indicates an expected call of SetVerInfo.
-func (mr *MockMetaOpMockRecorder) SetVerInfo(arg0 interface{}) *gomock.Call {
+// SetVerInfoEx indicates an expected call of SetVerInfoEx.
+func (mr *MockMetaOpMockRecorder) SetVerInfoEx(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetVerInfo", reflect.TypeOf((*MockMetaOp)(nil).SetVerInfo), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetVerInfoEx", reflect.TypeOf((*MockMetaOp)(nil).SetVerInfoEx), arg0, arg1)
 }
 
 // Setattr mocks base method.

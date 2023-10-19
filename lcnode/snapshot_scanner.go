@@ -273,11 +273,12 @@ func (s *SnapshotScanner) handlVerDelDepthFirst(dentry *proto.ScanDentry) {
 			}
 
 			for _, file := range files {
-				if s.verDelReq.Task.Mode == proto.ModeVol {
-					ino, err = s.mw.Delete_Ver_ll(file.ParentId, file.Name, false, s.getTaskVerSeq())
-				} else {
-					ino, err = s.mw.DeleteVerEx_ll(file.ParentId, file.Name, false, &s.verDelReq.Task.DirVersionInfo.DelVer)
-				}
+				ino, err = s.mw.Delete_Ver_ll(file.ParentId, file.Name, false, s.getTaskVerSeq())
+				// if s.verDelReq.Task.Mode == proto.ModeVol {
+				// 	ino, err = s.mw.Delete_Ver_ll(file.ParentId, file.Name, false, s.getTaskVerSeq())
+				// } else {
+				// 	ino, err = s.mw.DeleteVerEx_ll(file.ParentId, file.Name, false, &s.verDelReq.Task.DirVersionInfo.DelVer)
+				// }
 
 				if err != nil {
 					log.LogErrorf("action[handlVerDelDepthFirst] Delete_Ver_ll failed, file(parent[%v] child name[%v]) verSeq[%v] err[%v]",
@@ -309,11 +310,12 @@ func (s *SnapshotScanner) handlVerDelDepthFirst(dentry *proto.ScanDentry) {
 	}
 
 	if onlyDir {
-		if s.verDelReq.Task.Mode == proto.ModeVol {
-			ino, err = s.mw.Delete_Ver_ll(dentry.ParentId, dentry.Name, os.FileMode(dentry.Type).IsDir(), s.getTaskVerSeq())
-		} else {
-			ino, err = s.mw.DeleteVerEx_ll(dentry.ParentId, dentry.Name, os.FileMode(dentry.Type).IsDir(), &s.verDelReq.Task.DirVersionInfo.DelVer)
-		}
+		ino, err = s.mw.Delete_Ver_ll(dentry.ParentId, dentry.Name, os.FileMode(dentry.Type).IsDir(), s.getTaskVerSeq())
+		// if s.verDelReq.Task.Mode == proto.ModeVol {
+		// 	ino, err = s.mw.Delete_Ver_ll(dentry.ParentId, dentry.Name, os.FileMode(dentry.Type).IsDir(), s.getTaskVerSeq())
+		// } else {
+		// 	ino, err = s.mw.DeleteVerEx_ll(dentry.ParentId, dentry.Name, os.FileMode(dentry.Type).IsDir(), &s.verDelReq.Task.DirVersionInfo.DelVer)
+		// }
 
 		if err != nil {
 			if dentry.ParentId >= 1 {
@@ -399,11 +401,12 @@ func (s *SnapshotScanner) handlVerDelBreadthFirst(dentry *proto.ScanDentry) {
 		}
 
 		for _, file := range scanDentries {
-			if s.verDelReq.Task.Mode == proto.ModeVol {
-				ino, err = s.mw.Delete_Ver_ll(file.ParentId, file.Name, false, s.getTaskVerSeq())
-			} else {
-				ino, err = s.mw.DeleteVerEx_ll(file.ParentId, file.Name, false, &s.verDelReq.Task.DirVersionInfo.DelVer)
-			}
+			ino, err = s.mw.Delete_Ver_ll(file.ParentId, file.Name, false, s.getTaskVerSeq())
+			// if s.verDelReq.Task.Mode == proto.ModeVol {
+			// 	ino, err = s.mw.Delete_Ver_ll(file.ParentId, file.Name, false, s.getTaskVerSeq())
+			// } else {
+			// 	ino, err = s.mw.DeleteVerEx_ll(file.ParentId, file.Name, false, &s.verDelReq.Task.DirVersionInfo.DelVer)
+			// }
 
 			if err != nil {
 				log.LogErrorf("action[handlVerDelBreadthFirst] Delete_Ver_ll failed, file(parent[%v] child name[%v]) verSeq[%v] err[%v]",

@@ -898,6 +898,7 @@ func (p *Packet) WriteToConn(c net.Conn) (err error) {
 				return err
 			}
 		}
+
 		if _, err = c.Write(p.Arg[:int(p.ArgLen)]); err == nil {
 			if p.Data != nil && p.Size != 0 {
 				_, err = c.Write(p.Data[:p.Size])

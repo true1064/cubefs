@@ -706,10 +706,10 @@ func (mw *SnapShotMetaWrapper) DeleteWithCond_ll(parentID, cond uint64, name str
 	return mw.deletewithcond_ll(parentID, cond, name, isDir)
 }
 
-func (mw *SnapShotMetaWrapper) DeleteVerEx_ll(parentID uint64, name string, isDir bool, ver *proto.DelVer) (*proto.InodeInfo, error) {
+// func (mw *SnapShotMetaWrapper) DeleteVerEx_ll(parentID uint64, name string, isDir bool, ver *proto.DelVer) (*proto.InodeInfo, error) {
 
-	return mw.Delete_ll_EX(parentID, name, isDir, ver.DelVer)
-}
+// 	return mw.Delete_ll_EX(parentID, name, isDir, ver.DelVer)
+// }
 
 func (mw *SnapShotMetaWrapper) txDelete_ll(parentID uint64, name string, isDir bool) (info *proto.InodeInfo, err error) {
 	var (
@@ -910,8 +910,14 @@ func (mw *SnapShotMetaWrapper) Delete_ll_EX(parentID uint64, name string, isDir 
 	}
 
 	log.LogDebugf("action[Delete_ll] parentID %v name %v verSeq %v", parentID, name, verSeq)
-
-	status, inode, _, err = mw.ddelete(parentMP, parentID, name, inodeCreateTime, verSeq)
+	req := &proto.DeleteDentryRequest{
+		ParentID: parentID,
+		Name: name,
+		InodeCreateTime: inodeCreateTime,
+		Verseq: verSeq,
+		VerIno: mw.verIno,
+	}
+	status, inode, _, err = mw.ddeleteEx(parentMP, req)
 	if err != nil || status != statusOK {
 		if status == statusNoent {
 			log.LogDebugf("action[Delete_ll] parentID %v name %v verSeq %v", parentID, name, verSeq)

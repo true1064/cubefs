@@ -495,6 +495,7 @@ type DeleteDentryRequest struct {
 	Name            string `json:"name"`
 	InodeCreateTime int64  `json:"inodeCreateTime"`
 	Verseq          uint64 `json:"ver"`
+	VerIno          uint64 `json:"verIno"`
 }
 
 type BatchDeleteDentryRequest struct {

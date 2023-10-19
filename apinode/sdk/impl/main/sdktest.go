@@ -18,13 +18,13 @@ import (
 )
 
 const (
-	cluster = "cfs_dev"
-	addr    = "172.16.1.101:17010,172.16.1.102:17010,172.16.1.103:17010"
-	vol     = "abc"
+	// cluster = "cfs_dev"
+	// addr    = "172.16.1.101:17010,172.16.1.102:17010,172.16.1.103:17010"
+	// vol     = "abc"
 
-	//cluster = "cfs_performance_cross"
-	//addr    = "10.177.217.118:17010"
-	//vol     = "cfa_snapshot"
+	cluster = "cfs_performance_cross"
+	addr    = "10.177.217.118:17010"
+	vol     = "cfa"
 )
 
 func main() {
@@ -228,6 +228,20 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 	}
 	newVol()
 	readDir(ifo.Inode, 3)
+	
+	files := []string{f1, "f2", "f3"}
+	for _, f := range files {
+		err = dirVol.Delete(ctx, ifo.Inode, f, false)
+		if err != nil {
+			span.Fatal("delete file failed, ino %d, name %s, err %s", ifo.Inode, f, err.Error())
+		}
+	}
+
+	err = dirVol.Delete(ctx, proto.RootIno, dir, true)
+	if err != nil {
+		span.Fatal("delete dir failed, dir %s, err %s", dir, err.Error())
+	}
+	span.Info("delete dir success, dir (%s)", dir)
 }
 
 // mkdir, readdir, deleteDir, createFile, deleteFile

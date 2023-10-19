@@ -823,20 +823,15 @@ func (mw *SnapShotMetaWrapper) txDdelete(tx *Transaction, mp *MetaPartition, par
 	return statusOK, resp.Inode, nil
 }
 
-func (mw *SnapShotMetaWrapper) ddelete(mp *MetaPartition, parentID uint64, name string, inodeCreateTime int64, verSeq uint64) (status int, inode uint64, denVer uint64, err error) {
+func (mw *SnapShotMetaWrapper) ddeleteEx(mp *MetaPartition, req *proto.DeleteDentryRequest) (status int, inode uint64, denVer uint64, err error) {
 	bgTime := stat.BeginStat()
 	defer func() {
 		stat.EndStat("ddelete", err, bgTime, 1)
 	}()
 
-	req := &proto.DeleteDentryRequest{
-		VolName:         mw.volname,
-		PartitionID:     mp.PartitionID,
-		ParentID:        parentID,
-		Name:            name,
-		InodeCreateTime: inodeCreateTime,
-		Verseq:          verSeq,
-	}
+	req.PartitionID = mp.PartitionID
+	req.VolName = mw.volname
+
 	log.LogDebugf("action[ddelete] %v", req)
 	packet := proto.NewPacketReqID()
 	packet.Opcode = proto.OpMetaDeleteDentry
@@ -873,6 +868,16 @@ func (mw *SnapShotMetaWrapper) ddelete(mp *MetaPartition, parentID uint64, name 
 	}
 	log.LogDebugf("ddelete: packet(%v) mp(%v) req(%v) ino(%v)", packet, mp, *req, resp.Inode)
 	return statusOK, resp.Inode, packet.VerSeq, nil
+}
+
+func (mw *SnapShotMetaWrapper) ddelete(mp *MetaPartition, parentID uint64, name string, inodeCreateTime int64, verSeq uint64) (status int, inode uint64, denVer uint64, err error) {
+	req := &proto.DeleteDentryRequest{
+		ParentID: parentID,
+		Name: name,
+		InodeCreateTime: inodeCreateTime,
+		Verseq: verSeq,
+	}
+	return mw.ddeleteEx(mp, req)
 }
 
 func (mw *SnapShotMetaWrapper) canDeleteInode(mp *MetaPartition, info *proto.InodeInfo, ino uint64) (can bool, err error) {

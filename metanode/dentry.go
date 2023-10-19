@@ -18,9 +18,10 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"math"
+
 	"github.com/cubefs/cubefs/proto"
 	"github.com/cubefs/cubefs/util/log"
-	"math"
 )
 
 // Dentry wraps necessary properties of the `dentry` information in file system.
@@ -58,6 +59,7 @@ type DentryMultiSnap struct {
 type DirVerDentry struct {
 	Dentry  *Dentry
 	VerList []*proto.VersionInfo
+	VerIno uint64
 }
 
 type Dentry struct {
@@ -356,6 +358,10 @@ func (vd *DirVerDentry) Marshal() (result []byte, err error) {
 		return nil, err
 	}
 
+	if err = binary.Write(buff, binary.BigEndian, vd.VerIno); err != nil {
+		return nil, err
+	}
+
 	if err = binary.Write(buff, binary.BigEndian, uint32(len(vd.VerList)*proto.VersionSimpleSize)); err != nil {
 		return nil, err
 	}
@@ -393,6 +399,10 @@ func (vd *DirVerDentry) Unmarshal(raw []byte) (err error) {
 		return
 	}
 	vd.Dentry = dentry
+
+	if err = binary.Read(buff, binary.BigEndian, &vd.VerIno); err != nil {
+		return
+	}
 
 	if err = binary.Read(buff, binary.BigEndian, &dataLen); err != nil {
 		return

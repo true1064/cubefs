@@ -232,7 +232,7 @@ func (mp *metaPartition) fsmBatchDelDirSnapshot(ifo *BatchDelDirSnapInfo) (resp 
 			ino.SnapshotInode, ino.Dir)
 	}
 
-	log.LogDebugf("fsmBatchDelDirSnapshot: delete snapshot end, stat %d, cnt %d, cost %s",
+	log.LogDebugf("fsmBatchDelDirSnapshot: delete snapshot end, status %d, cnt %d, cost %s",
 		ifo.Status, len(ifo.Items), time.Since(start).String())
 	return proto.OpOk
 }

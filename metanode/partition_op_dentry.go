@@ -288,9 +288,32 @@ func (mp *metaPartition) DeleteDentryByDirVer(req *DeleteDentryReq, p *Packet) (
 			Name:     req.Name,
 		},
 		VerList: p.DirVerList,
+		VerIno: req.VerIno,
 	}
 	dirVerdentry.Dentry.setVerSeq(p.VerSeq)
-	log.LogDebugf("action[DeleteDentry] den param(%v)", dirVerdentry.Dentry)
+	log.LogDebugf("action[DeleteDentry] den param(%v), verIno(%d)", dirVerdentry.Dentry, dirVerdentry.VerIno)
+
+	if req.VerIno != 0 {
+		old, status := mp.getDentry(dirVerdentry.Dentry)
+		if status != proto.OpOk {
+			p.ResultCode = status
+			log.LogWarnf("action[DeleteDentry] dir is arealdy deleted before, req %v", req)
+			return
+		}
+		// means delete dentry for snapshot dir, set as local dir op
+		if old.Inode == req.VerIno {
+			if  len(p.DirVerList) > 1 {
+				p.ResultCode = proto.OpNotEmpty
+				log.LogWarnf("action[DeleteDentry] dir still have snapshot list, can't be deleted, req %v, vers(%v)", req, p.DirVerList)
+				return
+			}
+
+			log.LogDebugf("action[DeleteDentry] set dir version as 0 for snapshot dir ino, ino %d", req.VerIno)
+			dirVerdentry.VerList = make([]*proto.VersionInfo, 0)
+			dirVerdentry.Dentry.setVerSeq(0)
+		}
+	}
+
 
 	val, err := dirVerdentry.Marshal()
 	if err != nil {
@@ -305,7 +328,9 @@ func (mp *metaPartition) DeleteDentryByDirVer(req *DeleteDentryReq, p *Packet) (
 		return
 	}
 
-	if r.(*DentryResponse).Status == proto.OpOk {
+	status := r.(*DentryResponse).Status
+	p.ResultCode = status
+	if status == proto.OpOk {
 		var reply []byte
 		resp := &DeleteDentryResp{
 			Inode: r.(*DentryResponse).Msg.Inode,

@@ -2,6 +2,13 @@ package metanode
 
 import (
 	"fmt"
+	"math"
+	"os"
+	"reflect"
+	"sync"
+	"testing"
+	"time"
+
 	raftstoremock "github.com/cubefs/cubefs/metanode/mocktest/raftstore"
 	"github.com/cubefs/cubefs/proto"
 	"github.com/cubefs/cubefs/util"
@@ -9,12 +16,6 @@ import (
 	"github.com/cubefs/cubefs/util/log"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"math"
-	"os"
-	"reflect"
-	"sync"
-	"testing"
-	"time"
 )
 
 var partitionId uint64 = 10
@@ -1454,6 +1455,7 @@ func TestMarshalDentryDirVer(t *testing.T) {
 			Inode: 10,
 		},
 		VerList: []*proto.VersionInfo{{Ver: 10}, {Ver: 11}},
+		VerIno: 101,
 	}
 	val, err := denVer.Marshal()
 	assert.True(t, err == nil)

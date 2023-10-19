@@ -3,11 +3,12 @@ package impl
 import (
 	"context"
 	"fmt"
+	"path"
+	"strings"
+
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/trace"
 	"github.com/cubefs/cubefs/proto"
-	"path"
-	"strings"
 )
 
 type snapMetaOpImp struct {
@@ -122,13 +123,16 @@ func (m *snapMetaOpImp) isSnapshotDir(ctx context.Context, parentId uint64, name
 	m.hasSetVer = true
 	m.ver = ver
 	m.isNewest = false
-	m.sm.SetVerInfo(ver)
+	m.sm.SetVerInfoEx(ver, parentId)
 	return true, nil
 }
 
 func buildByClientVerItems(clientVerItems []*proto.ClientDirVer) (items []*proto.VersionInfo) {
 	items = make([]*proto.VersionInfo, 0, len(clientVerItems))
 	for _, cv := range clientVerItems {
+		if cv.Ver.Status == proto.VersionDeleting || cv.Ver.Status == proto.VersionMarkDelete {
+			continue
+		}
 		items = append(items, cv.Ver)
 	}
 	return items
@@ -143,7 +147,7 @@ func (m *snapMetaOpImp) resetDirVer(ctx context.Context) {
 	span := trace.SpanFromContextSafe(ctx)
 	span.Debugf("reset dir ver info, ver %s", m.ver.String())
 	m.hasSetVer = false
-	m.sm.SetVerInfo(nil)
+	m.sm.SetVerInfoEx(nil, 0)
 }
 
 func (m *snapMetaOpImp) checkSnapshotIno(dirIno uint64) {
@@ -156,11 +160,10 @@ func (m *snapMetaOpImp) checkSnapshotIno(dirIno uint64) {
 		return
 	}
 
-	m.sm.SetVerInfo(ver)
+	m.sm.SetVerInfoEx(ver, dirIno)
 	m.ver = ver
 	m.isNewest = true
 	m.hasSetVer = true
-	return
 }
 
 func (m *snapMetaOpImp) isSnapshotInode(dirIno uint64) (bool, *proto.DelVer) {

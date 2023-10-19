@@ -24,6 +24,7 @@ type MetaWrapper struct {
 type SnapShotMetaWrapper struct {
 	*metaWrapper
 	verInfo *proto.DelVer
+	verIno uint64
 
 	srcVer *proto.DelVer
 	dstVer *proto.DelVer
@@ -197,6 +198,11 @@ func (mw *SnapShotMetaWrapper) Clone() *SnapShotMetaWrapper {
 
 func (mw *SnapShotMetaWrapper) SetVerInfo(info *proto.DelVer) {
 	mw.verInfo = info
+}
+
+func (mw *SnapShotMetaWrapper) SetVerInfoEx(info *proto.DelVer, ino uint64) {
+	mw.verInfo = info
+	mw.verIno = ino
 }
 
 func (mw *SnapShotMetaWrapper) GetVerInfo() *proto.DelVer {

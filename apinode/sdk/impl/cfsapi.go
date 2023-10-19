@@ -56,7 +56,7 @@ type IXAttr interface {
 }
 
 type DirSnapshot interface {
-	SetVerInfo(info *proto.DelVer)
+	SetVerInfoEx(info *proto.DelVer, ino uint64)
 	SetRenameVerInfo(src, dst *proto.DelVer)
 	GetVerInfo() *proto.DelVer
 
