@@ -19,7 +19,7 @@ import (
 	"fmt"
 	syslog "log"
 	"net/http"
-	_ "net/http/pprof"
+	"net/http/pprof"
 	"os"
 	"os/signal"
 	"path"
@@ -64,6 +64,7 @@ const (
 )
 
 var (
+	_                = pprof.Handler // for import pprof
 	configFile       = flag.String("c", "", "config file path")
 	configVersion    = flag.Bool("v", false, "show version")
 	configForeground = flag.Bool("f", false, "run foreground")

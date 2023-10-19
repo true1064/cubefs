@@ -19,7 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	_ "net/http/pprof"
+	"net/http/pprof"
 	"path"
 	gopath "path"
 	"sync"
@@ -37,6 +37,8 @@ import (
 	"github.com/cubefs/cubefs/util/log"
 	"github.com/cubefs/cubefs/util/stat"
 )
+
+var _ = pprof.Handler // for import pprof
 
 type LimitParameters struct {
 	TraverseDirConcurrency int64

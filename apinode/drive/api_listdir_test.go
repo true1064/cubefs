@@ -109,8 +109,10 @@ func TestHandleListDir(t *testing.T) {
 	client := ts.Client()
 	{
 		tgt := fmt.Sprintf("%s/v1/files", ts.URL)
-		res, err := client.Get(tgt)
-		require.Nil(t, err)
+		req, err := http.NewRequest(http.MethodGet, tgt, nil)
+		require.NoError(t, err)
+		res, err := client.Do(req)
+		require.NoError(t, err)
 		defer res.Body.Close()
 		require.Equal(t, res.StatusCode, http.StatusBadRequest)
 	}

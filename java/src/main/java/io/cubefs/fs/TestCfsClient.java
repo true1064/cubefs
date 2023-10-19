@@ -65,8 +65,8 @@ public class TestCfsClient {
             System.arraycopy(buf, 0, toVerify, 0, (int) readByte);
             String key = "MySecretKey";
             String strToVerify  = new String(toVerify, StandardCharsets.UTF_8);
-            //StringBuilder sb = new StringBuilder();
-            //java.security.MessageDigest md5 = null;
+            // StringBuilder sb = new StringBuilder();
+            // java.security.MessageDigest md5 = null;
             try {
                  byte[] keyBytes = key.getBytes(StandardCharsets.UTF_8);
                  MessageDigest sha = MessageDigest.getInstance("SHA-256");
