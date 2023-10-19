@@ -81,11 +81,6 @@ func NewStreamer(client *ExtentClientVer, inode uint64) *Streamer {
 	return s
 }
 
-func (s *Streamer) SetDirVer(ver uint64) {
-	s.verSeq = ver
-	s.isDirVer = true
-}
-
 func (s *Streamer) SetParentInode(inode uint64) {
 	s.parentInode = inode
 }

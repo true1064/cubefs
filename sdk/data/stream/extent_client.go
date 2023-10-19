@@ -293,9 +293,8 @@ func (client *ExtentClientVer) OpenStreamVer(inode, seq uint64) error {
 	if !ok {
 		s = NewStreamer(client, inode)
 		client.streamers[inode] = s
-		s.isDirVer = true
-		s.verSeq = seq
 	}
+	s.isDirVer = true
 	s.verSeq = seq
 	return s.IssueOpenRequest()
 }

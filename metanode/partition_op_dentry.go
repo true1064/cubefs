@@ -578,7 +578,11 @@ func (mp *metaPartition) Lookup(req *LookupReq, p *Packet) (err error) {
 		ParentId: req.ParentID,
 		Name:     req.Name,
 	}
-	dentry.setVerSeq(req.VerSeq)
+	
+	if p.IsDirVersion() {
+		dentry.setVerSeq(req.VerSeq)
+	}
+
 	var denList []proto.DetryInfo
 	if req.VerAll {
 		denList = mp.getDentryList(dentry)

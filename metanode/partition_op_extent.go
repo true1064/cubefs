@@ -17,9 +17,10 @@ package metanode
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/cubefs/cubefs/util/exporter"
 	"os"
 	"sort"
+
+	"github.com/cubefs/cubefs/util/exporter"
 
 	"github.com/cubefs/cubefs/proto"
 	"github.com/cubefs/cubefs/util/errors"
@@ -161,7 +162,6 @@ func (mp *metaPartition) ExtentAppendWithCheck(req *proto.AppendExtentKeyWithChe
 
 	// extent key verSeq not set value since marshal will not include verseq
 	// use inode verSeq instead
-
 	if p.IsDirSnapshotOperate() {
 		inoParm.setVer(req.VerSeq)
 	} else {
@@ -399,39 +399,43 @@ func (mp *metaPartition) ExtentsList(req *proto.GetExtentsRequest, p *Packet) (e
 		log.LogDebugf("ExtentsList: set version info from pkt, ver %d", p.VerSeq)
 	}
 
-	if status == proto.OpOk {
-		resp := &proto.GetExtentsResponse{}
-		log.LogInfof("action[ExtentsList] inode %v request verseq %v ino ver %v extent size %v ino.Size %v ino %v hist len %v",
-			req.Inode, req.VerSeq, ino.getVer(), len(ino.Extents.eks), ino.Size, ino, ino.getLayerLen())
-
-		if req.VerSeq > 0 && ino.getVer() > 0 && (req.VerSeq < ino.getVer() || isInitSnapVer(req.VerSeq)) {
-			mp.GetExtentByVer(ino, req, resp)
-			vIno := ino.Copy().(*Inode)
-			vIno.setVer(req.VerSeq)
-			if vIno = mp.getInodeByVer(vIno); vIno != nil {
-				resp.Generation = vIno.Generation
-				resp.Size = vIno.Size
-			}
-		} else {
-			ino.DoReadFunc(func() {
-				resp.Generation = ino.Generation
-				resp.Size = ino.Size
-				ino.Extents.Range(func(ek proto.ExtentKey) bool {
-					resp.Extents = append(resp.Extents, ek)
-					log.LogInfof("action[ExtentsList] append ek %v", ek)
-					return true
-				})
-			})
-		}
-		if req.VerAll {
-			resp.LayerInfo = retMsg.Msg.getAllLayerEks()
-		}
-		reply, err = json.Marshal(resp)
-		if err != nil {
-			status = proto.OpErr
-			reply = []byte(err.Error())
-		}
+	if status != proto.OpOk {
+		p.PacketErrorWithBody(status, reply)
+		return
 	}
+
+	resp := &proto.GetExtentsResponse{}
+	log.LogInfof("action[ExtentsList] inode %v request verseq %v ino ver %v extent size %v ino.Size %v ino %v hist len %v",
+		req.Inode, req.VerSeq, ino.getVer(), len(ino.Extents.eks), ino.Size, ino, ino.getLayerLen())
+
+	if req.VerSeq > 0 && ino.getVer() > 0 && (req.VerSeq < ino.getVer() || isInitSnapVer(req.VerSeq)) {
+		mp.GetExtentByVer(ino, req, resp)
+		vIno := ino.Copy().(*Inode)
+		vIno.setVer(req.VerSeq)
+		if vIno = mp.getInodeByVer(vIno); vIno != nil {
+			resp.Generation = vIno.Generation
+			resp.Size = vIno.Size
+		}
+	} else {
+		ino.DoReadFunc(func() {
+			resp.Generation = ino.Generation
+			resp.Size = ino.Size
+			ino.Extents.Range(func(ek proto.ExtentKey) bool {
+				resp.Extents = append(resp.Extents, ek)
+				log.LogInfof("action[ExtentsList] append ek %v", ek)
+				return true
+			})
+		})
+	}
+	if req.VerAll {
+		resp.LayerInfo = retMsg.Msg.getAllLayerEks()
+	}
+	reply, err = json.Marshal(resp)
+	if err != nil {
+		status = proto.OpErr
+		reply = []byte(err.Error())
+	}
+	
 	p.PacketErrorWithBody(status, reply)
 	return
 }

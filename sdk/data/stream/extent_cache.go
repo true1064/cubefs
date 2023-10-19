@@ -125,7 +125,7 @@ func (cache *ExtentCache) update(gen, size uint64, eks []proto.ExtentKey) {
 	}
 }
 
-// Split extent key.
+// SplitExtentKey Split extent key.
 func (cache *ExtentCache) SplitExtentKey(inodeID uint64, ekPivot *proto.ExtentKey) (err error) {
 	cache.Lock()
 	defer cache.Unlock()

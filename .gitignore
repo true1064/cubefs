@@ -21,3 +21,4 @@ blobstore/bin/
 /build/lib/
 /cover.output
 /cubefs_unittest.output
+.version

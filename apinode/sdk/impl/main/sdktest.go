@@ -18,13 +18,13 @@ import (
 )
 
 const (
-	//cluster = "cfs_dev"
-	//addr    = "172.16.1.101:17010,172.16.1.102:17010,172.16.1.103:17010"
-	//vol     = "abc"
+	cluster = "cfs_dev"
+	addr    = "172.16.1.101:17010,172.16.1.102:17010,172.16.1.103:17010"
+	vol     = "abc"
 
-	cluster = "cfs_performance_cross"
-	addr    = "10.177.217.118:17010"
-	vol     = "cfa_snapshot"
+	//cluster = "cfs_performance_cross"
+	//addr    = "10.177.217.118:17010"
+	//vol     = "cfa_snapshot"
 )
 
 func main() {

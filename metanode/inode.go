@@ -19,11 +19,12 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"github.com/cubefs/cubefs/util/log"
 	"io"
 	"math"
 	"sync"
 	"time"
+
+	"github.com/cubefs/cubefs/util/log"
 
 	"github.com/cubefs/cubefs/proto"
 )
@@ -1025,12 +1026,16 @@ func (i *Inode) MultiLayerClearExtByVer(layer int, dVerSeq uint64) (delExtents [
 	ino.Extents.Lock()
 	defer ino.Extents.Unlock()
 
+	newIdx := 0
 	for idx, ek := range ino.Extents.eks {
 		if ek.GetSeq() > dVerSeq {
 			delExtents = append(delExtents, ek)
-			ino.Extents.eks = append(ino.Extents.eks[idx:], ino.Extents.eks[:idx+1]...)
+			continue
 		}
+		ino.Extents.eks[newIdx] = ino.Extents.eks[idx]
+		newIdx++
 	}
+	ino.Extents.eks = ino.Extents.eks[:newIdx]
 	return
 }
 
@@ -1076,7 +1081,7 @@ func (i *Inode) mergeExtentArr(mpId uint64, extentKeysLeft []proto.ExtentKey, ex
 	return sortMergedExts
 }
 
-// Restore ext info to older version or deleted if no right version
+// RestoreExts2NextLayer Restore ext info to older version or deleted if no right version
 // The list(multiSnap.multiVersions) contains all point of modification on inode, each ext must belong to one layer.
 // Once the layer be deleted is top layer ver be changed to upper layer, or else the ext belongs is exclusive and can be dropped
 func (i *Inode) RestoreExts2NextLayer(mpId uint64, delExtentsOrigin []proto.ExtentKey, curVer uint64, idx int) (delExtents []proto.ExtentKey, err error) {
@@ -1450,11 +1455,13 @@ func (i *Inode) getAndDelVer(mpId uint64, dVer uint64, mpVer uint64, verlist *pr
 			dVer = 0
 		}
 		inode := i.multiSnap.multiVersions[inoVerLen-1]
+		// TODO delete oldest not exist version in list
 		if inode.getVer() != dVer {
 			log.LogDebugf("action[getAndDelVer] ino %v idx %v is %v and cann't be dropped tail  ver %v",
 				i.Inode, inoVerLen-1, inode.getVer(), tailVer)
 			return
 		}
+
 		i.Lock()
 		defer i.Unlock()
 		i.multiSnap.multiVersions = i.multiSnap.multiVersions[:inoVerLen-1]
@@ -1470,48 +1477,50 @@ func (i *Inode) getAndDelVer(mpId uint64, dVer uint64, mpVer uint64, verlist *pr
 			return
 		}
 
-		if mIno.getVer() == dVer {
-			// 1.
-			if i.isTailIndexInList(id) { // last layer then need delete all and unlink inode
-				i.multiSnap.multiVersions = i.multiSnap.multiVersions[:id]
-				return mIno.Extents.eks, mIno
-			}
-			log.LogDebugf("action[getAndDelVer] ino %v ver %v step 3", i.Inode, mIno.getVer())
-			// 2. get next version should according to verList but not only self multi list
-			var nVerSeq uint64
-			if nVerSeq, err = i.getNextOlderVer(dVer, verlist); id == -1 || err != nil {
-				log.LogDebugf("action[getAndDelVer] get next version failed, err %v", err)
+		if mIno.getVer() != dVer {
+			continue
+		}
+
+		// 1.
+		if i.isTailIndexInList(id) { // last layer then need delete all and unlink inode
+			i.multiSnap.multiVersions = i.multiSnap.multiVersions[:id]
+			return mIno.Extents.eks, mIno
+		}
+		log.LogDebugf("action[getAndDelVer] ino %v ver %v step 3", i.Inode, mIno.getVer())
+		// 2. get next version should according to verList but not only self multi list
+		var nVerSeq uint64
+		if nVerSeq, err = i.getNextOlderVer(dVer, verlist); id == -1 || err != nil {
+			log.LogDebugf("action[getAndDelVer] get next version failed, err %v", err)
+			return
+		}
+
+		log.LogDebugf("action[getAndDelVer] ino %v ver %v nextVerSeq %v step 3 ver ", i.Inode, mIno.getVer(), nVerSeq)
+		// 2. system next layer not exist in inode ver list. update curr layer to next layer and filter out ek with verSeq
+		// change id layer verSeq to neighbor layer info, omit version delete process
+
+		if nVerSeq != i.multiSnap.multiVersions[id+1].getVer() {
+			log.LogDebugf("action[getAndDelVer] ino %v  get next version in verList update ver from %v to %v.And delete exts with ver %v",
+				i.Inode, i.multiSnap.multiVersions[id].getVer(), nVerSeq, dVer)
+
+			i.multiSnap.multiVersions[id].setVer(nVerSeq)
+			delExtents, ino = i.MultiLayerClearExtByVer(id+1, nVerSeq), i.multiSnap.multiVersions[id]
+			if len(i.multiSnap.multiVersions[id].Extents.eks) != 0 {
+				log.LogDebugf("action[getAndDelVer] ino %v   after clear self still have ext and left", i.Inode)
 				return
 			}
-
-			log.LogDebugf("action[getAndDelVer] ino %v ver %v nextVerSeq %v step 3 ver ", i.Inode, mIno.getVer(), nVerSeq)
-			// 2. system next layer not exist in inode ver list. update curr layer to next layer and filter out ek with verSeq
-			// change id layer verSeq to neighbor layer info, omit version delete process
-
-			if i.isTailIndexInList(id) || nVerSeq != i.multiSnap.multiVersions[id+1].getVer() {
-				log.LogDebugf("action[getAndDelVer] ino %v  get next version in verList update ver from %v to %v.And delete exts with ver %v",
-					i.Inode, i.multiSnap.multiVersions[id].getVer(), nVerSeq, dVer)
-
-				i.multiSnap.multiVersions[id].setVer(nVerSeq)
-				delExtents, ino = i.MultiLayerClearExtByVer(id, nVerSeq), i.multiSnap.multiVersions[id]
-				if len(i.multiSnap.multiVersions[id].Extents.eks) != 0 {
-					log.LogDebugf("action[getAndDelVer] ino %v   after clear self still have ext and left", i.Inode)
-					return
-				}
-			} else {
-				log.LogDebugf("action[getAndDelVer] ino %v ver %v nextVer %v step 3 ver ", i.Inode, mIno.getVer(), nVerSeq)
-				// 3. next layer exist. the deleted version and  next version are neighbor in verlist, thus need restore and delete
-				if delExtents, err = i.RestoreExts2NextLayer(mpId, mIno.Extents.eks, dVer, id+1); err != nil {
-					log.LogDebugf("action[getAndDelVer] ino %v RestoreMultiSnapExts split error %v", i.Inode, err)
-					return
-				}
+		} else {
+			log.LogDebugf("action[getAndDelVer] ino %v ver %v nextVer %v step 3 ver ", i.Inode, mIno.getVer(), nVerSeq)
+			// 3. next layer exist. the deleted version and  next version are neighbor in verlist, thus need restore and delete
+			if delExtents, err = i.RestoreExts2NextLayer(mpId, mIno.Extents.eks, dVer, id+1); err != nil {
+				log.LogDebugf("action[getAndDelVer] ino %v RestoreMultiSnapExts split error %v", i.Inode, err)
+				return
 			}
-			// delete layer id
-			i.multiSnap.multiVersions = append(i.multiSnap.multiVersions[:id], i.multiSnap.multiVersions[id+1:]...)
-
-			log.LogDebugf("action[getAndDelVer] ino %v verSeq %v get del exts %v", i.Inode, i.getVer(), delExtents)
-			return delExtents, mIno
 		}
+		// delete layer id
+		i.multiSnap.multiVersions = append(i.multiSnap.multiVersions[:id], i.multiSnap.multiVersions[id+1:]...)
+
+		log.LogDebugf("action[getAndDelVer] ino %v verSeq %v get del exts %v", i.Inode, i.getVer(), delExtents)
+		return delExtents, mIno
 	}
 	return
 }

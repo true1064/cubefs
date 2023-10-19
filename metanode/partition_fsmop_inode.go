@@ -19,10 +19,11 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"github.com/cubefs/cubefs/storage"
-	"github.com/cubefs/cubefs/util"
 	"io"
 	"time"
+
+	"github.com/cubefs/cubefs/storage"
+	"github.com/cubefs/cubefs/util"
 
 	"github.com/cubefs/cubefs/proto"
 	"github.com/cubefs/cubefs/util/log"
@@ -533,15 +534,24 @@ func (mp *metaPartition) fsmAppendExtentsWithCheckDoWork(ino *Inode, verList []*
 
 	log.LogDebugf("action[fsmAppendExtentsWithCheck] ino %v isSplit %v ek %v hist len %v", fsmIno.Inode, isSplit, eks[0], fsmIno.getLayerLen())
 
+	verSeq := mp.verSeq
+	verInfo := mp.multiVersionList
+	if len(verList) > 0 {
+		verSeq = ino.getVer()
+		verInfo = &proto.VolVersionInfoList{
+			VerList: verList,
+		}
+	}
+
 	appendExtParam := &AppendExtParam{
 		mpId:             mp.config.PartitionId,
-		mpVer:            mp.verSeq,
+		mpVer:            verSeq,
 		reqVer:           ino.getVer(),
 		ek:               eks[0],
 		ct:               ino.ModifyTime,
 		discardExtents:   discardExtentKey,
 		volType:          mp.volType,
-		multiVersionList: mp.multiVersionList,
+		multiVersionList: verInfo,
 	}
 
 	if !isSplit {

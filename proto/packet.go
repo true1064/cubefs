@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/cubefs/cubefs/util/log"
 	"io"
 	"math"
 	"net"
@@ -28,6 +27,8 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+
+	"github.com/cubefs/cubefs/util/log"
 
 	"github.com/cubefs/cubefs/util"
 	"github.com/cubefs/cubefs/util/buf"
@@ -749,6 +750,9 @@ func (p *Packet) isVersionPkt() bool {
 	if p.ExtentType&DirVersionFlag == DirVersionFlag {
 		return true
 	}
+	if p.ExtentType&VersionListFlag == VersionListFlag {
+		return true
+	}
 	return false
 }
 
@@ -763,6 +767,11 @@ func (p *Packet) IsVersionList() bool {
 	if p.ExtentType&VersionListFlag == VersionListFlag {
 		return true
 	}
+
+	if p.ExtentType&DirVersionFlag == DirVersionFlag {
+		return true
+	}
+
 	return false
 }
 
@@ -858,26 +867,6 @@ func (p *Packet) UnmarshalData(v interface{}) error {
 	return json.Unmarshal(p.Data, v)
 }
 
-// WriteToNoDeadLineConn writes through the connection without deadline.
-//func (p *Packet) WriteToNoDeadLineConn(c net.Conn) (err error) {
-//	header, err := Buffers.Get(util.PacketHeaderSize)
-//	if err != nil {
-//		header = make([]byte, util.PacketHeaderSize)
-//	}
-//	defer Buffers.Put(header)
-//
-//	p.MarshalHeader(header)
-//	if _, err = c.Write(header); err == nil {
-//		if _, err = c.Write(p.Arg[:int(p.ArgLen)]); err == nil {
-//			if p.Data != nil {
-//				_, err = c.Write(p.Data[:p.Size])
-//			}
-//		}
-//	}
-//
-//	return
-//}
-
 // WriteToConn writes through the given connection.
 func (p *Packet) WriteToConn(c net.Conn) (err error) {
 	headSize := util.PacketHeaderSize
@@ -952,7 +941,7 @@ func (p *Packet) ReadFromConnWithVer(c net.Conn, timeoutSec int) (err error) {
 		return
 	}
 
-	if p.ExtentType&MultiVersionFlag > 0 {
+	if p.isVersionPkt() {
 		ver := make([]byte, 8)
 		if _, err = io.ReadFull(c, ver); err != nil {
 			return

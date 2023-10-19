@@ -649,9 +649,11 @@ func (s *Streamer) doOverwrite(req *ExtentRequest, direct bool) (total int, err 
 			if replyPacket.ResultCode == proto.ErrCodeVersionOpError {
 				e = proto.ErrCodeVersionOp
 				log.LogWarnf("action[doOverwrite] verseq (%v) be updated to (%v) by datanode rsp", s.verSeq, replyPacket.VerSeq)
-				s.verSeq = replyPacket.VerSeq
-				s.extents.verSeq = s.verSeq
-				s.client.UpdateLatestVer(&proto.VolVersionInfoList{VerList: replyPacket.DirVerList})
+				if !s.isDirVer {
+					s.verSeq = replyPacket.VerSeq
+					s.extents.verSeq = s.verSeq
+					s.client.UpdateLatestVer(&proto.VolVersionInfoList{VerList: replyPacket.DirVerList})
+				}
 				return e, false
 			}
 
@@ -685,43 +687,45 @@ func (s *Streamer) doOverwrite(req *ExtentRequest, direct bool) (total int, err 
 func (s *Streamer) tryInitExtentHandlerByLastEk(offset, size int) (find bool) {
 	storeMode := s.GetStoreMod(offset, size)
 
+	if storeMode != proto.NormalExtentType || s.handler != nil && s.handler.fileOffset+s.handler.size == offset {
+		return
+	}
+
 	// && (s.handler == nil || s.handler != nil && s.handler.fileOffset+s.handler.size != offset)  delete ??
-	if storeMode == proto.NormalExtentType && (s.handler == nil || s.handler != nil && s.handler.fileOffset+s.handler.size != offset) {
-		if currentEK := s.extents.GetEndForAppendWrite(uint64(offset), s.verSeq, false); currentEK != nil && !storage.IsTinyExtent(currentEK.ExtentId) {
-			if currentEK.GetSeq() != s.verSeq {
-				log.LogDebugf("tryInitExtentHandlerByLastEk. exist ek seq %v vs request seq %v", currentEK.GetSeq(), s.verSeq)
-				find = true
-			}
-
-			log.LogDebugf("tryInitExtentHandlerByLastEk: found ek in ExtentCache, extent_id(%v) offset(%v) size(%v), ekoffset(%v) eksize(%v) exist ek seq %v vs request seq %v",
-				currentEK.ExtentId, offset, size, currentEK.FileOffset, currentEK.Size, currentEK.GetSeq(), s.verSeq)
-			_, pidErr := s.client.dataWrapper.GetDataPartition(currentEK.PartitionId)
-			if pidErr == nil {
-				seq := currentEK.GetSeq()
-				if find {
-					seq = s.verSeq
-				}
-				handler := NewExtentHandler(s, int(currentEK.FileOffset), storeMode, int(currentEK.Size))
-				handler.key = &proto.ExtentKey{
-					FileOffset:   currentEK.FileOffset,
-					PartitionId:  currentEK.PartitionId,
-					ExtentId:     currentEK.ExtentId,
-					ExtentOffset: currentEK.ExtentOffset,
-					Size:         currentEK.Size,
-					SnapInfo: &proto.ExtSnapInfo{
-						VerSeq: seq,
-					},
-				}
-				s.handler = handler
-				s.dirty = false
-				log.LogDebugf("tryInitExtentHandlerByLastEk: currentEK.PartitionId(%v) found", currentEK.PartitionId)
-			} else {
-				log.LogDebugf("tryInitExtentHandlerByLastEk: currentEK.PartitionId(%v) not found", currentEK.PartitionId)
-			}
-
-		} else {
-			log.LogDebugf("tryInitExtentHandlerByLastEk: not found ek in ExtentCache, offset(%v) size(%v)", offset, size)
+	if currentEK := s.extents.GetEndForAppendWrite(uint64(offset), s.verSeq, false); currentEK != nil && !storage.IsTinyExtent(currentEK.ExtentId) {
+		if currentEK.GetSeq() != s.verSeq {
+			log.LogDebugf("tryInitExtentHandlerByLastEk. exist ek seq %v vs request seq %v", currentEK.GetSeq(), s.verSeq)
+			find = true
 		}
+
+		log.LogDebugf("tryInitExtentHandlerByLastEk: found ek in ExtentCache, extent_id(%v) offset(%v) size(%v), ekoffset(%v) eksize(%v) exist ek seq %v vs request seq %v",
+			currentEK.ExtentId, offset, size, currentEK.FileOffset, currentEK.Size, currentEK.GetSeq(), s.verSeq)
+		_, pidErr := s.client.dataWrapper.GetDataPartition(currentEK.PartitionId)
+		if pidErr == nil {
+			seq := currentEK.GetSeq()
+			if find {
+				seq = s.verSeq
+			}
+			handler := NewExtentHandler(s, int(currentEK.FileOffset), storeMode, int(currentEK.Size))
+			handler.key = &proto.ExtentKey{
+				FileOffset:   currentEK.FileOffset,
+				PartitionId:  currentEK.PartitionId,
+				ExtentId:     currentEK.ExtentId,
+				ExtentOffset: currentEK.ExtentOffset,
+				Size:         currentEK.Size,
+				SnapInfo: &proto.ExtSnapInfo{
+					VerSeq: seq,
+				},
+			}
+			s.handler = handler
+			s.dirty = false
+			log.LogDebugf("tryInitExtentHandlerByLastEk: currentEK.PartitionId(%v) found", currentEK.PartitionId)
+		} else {
+			log.LogDebugf("tryInitExtentHandlerByLastEk: currentEK.PartitionId(%v) not found", currentEK.PartitionId)
+		}
+
+	} else {
+		log.LogDebugf("tryInitExtentHandlerByLastEk: not found ek in ExtentCache, offset(%v) size(%v)", offset, size)
 	}
 
 	return
@@ -958,7 +962,7 @@ func (s *Streamer) truncate(size int) error {
 
 func (s *Streamer) updateVer(verSeq uint64) (err error) {
 	log.LogInfof("action[stream.updateVer] ver %v update to %v", s.verSeq, verSeq)
-	if s.verSeq != verSeq {
+	if s.verSeq != verSeq && !s.isDirVer{
 		//log.LogInfof("action[stream.updateVer] ver %v update to %v", s.verSeq, verSeq)
 		//if s.handler != nil {
 		//	s.handler.verUpdate<-verSeq

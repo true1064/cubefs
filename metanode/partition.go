@@ -638,6 +638,9 @@ func getVerIfo(v, max uint64, items []*snapshotVer) proto.DelVer {
 	}
 
 	for _, v := range items {
+		if v.Status == proto.VersionMarkDelete || v.Status == proto.VersionDeleting{
+			continue
+		}
 		e.Vers = append(e.Vers, &proto.VersionInfo{
 			Ver:     v.Ver,
 			DelTime: v.DelTime,

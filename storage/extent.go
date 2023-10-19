@@ -314,8 +314,6 @@ func (e *Extent) Write(data []byte, offset, size int64, crc uint32, writeType in
 		return
 	}
 
-	blockNo := offset / util.BlockSize
-	offsetInBlock := offset % util.BlockSize
 	defer func() {
 		log.LogDebugf("action[Extent.Write] offset %v size %v writeType %v", offset, size, writeType)
 		if IsAppendWrite(writeType) {
@@ -341,6 +339,9 @@ func (e *Extent) Write(data []byte, offset, size int64, crc uint32, writeType in
 			return
 		}
 	}
+
+	blockNo := offset / util.BlockSize
+	offsetInBlock := offset % util.BlockSize
 	if offsetInBlock == 0 && size == util.BlockSize {
 		err = crcFunc(e, int(blockNo), crc)
 		log.LogDebugf("action[Extent.Write] offset %v size %v writeType %v err %v", offset, size, writeType, err)

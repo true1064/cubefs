@@ -1,6 +1,9 @@
 package meta
 
 import (
+	"sync"
+	"time"
+
 	"github.com/cubefs/cubefs/proto"
 	authSDK "github.com/cubefs/cubefs/sdk/auth"
 	"github.com/cubefs/cubefs/sdk/data/wrapper"
@@ -12,8 +15,6 @@ import (
 	"github.com/cubefs/cubefs/util/log"
 	"golang.org/x/sync/singleflight"
 	"golang.org/x/time/rate"
-	"sync"
-	"time"
 )
 
 type MetaWrapper struct {
@@ -149,6 +150,8 @@ func newMetaWrapper(config *MetaConfig) (*metaWrapper, error) {
 	mw.DirChildrenNumLimit = proto.DefaultDirChildrenNumLimit
 	//mw.EnableTransaction = config.EnableTransaction
 	mw.VerReadSeq = config.VerReadSeq
+	mw.uniqidRangeMap = make(map[uint64]*uniqidRange, 0)
+	// mw.qc = NewQuotaCache(DefaultQuotaExpiration, MaxQuotaCache)
 
 	limit := 0
 

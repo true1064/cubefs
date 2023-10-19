@@ -92,18 +92,18 @@ func (mr *MockDataOpMockRecorder) Read(arg0, arg1, arg2, arg3 interface{}) *gomo
 }
 
 // Write mocks base method.
-func (m *MockDataOp) Write(arg0 uint64, arg1 int, arg2 []byte, arg3 int) (int, error) {
+func (m *MockDataOp) Write(arg0 uint64, arg1 int, arg2 []byte, arg3 int, arg4 func() error) (int, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Write", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "Write", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(int)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Write indicates an expected call of Write.
-func (mr *MockDataOpMockRecorder) Write(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockDataOpMockRecorder) Write(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Write", reflect.TypeOf((*MockDataOp)(nil).Write), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Write", reflect.TypeOf((*MockDataOp)(nil).Write), arg0, arg1, arg2, arg3, arg4)
 }
 
 // MockMetaOp is a mock of MetaOp interface.
@@ -321,18 +321,18 @@ func (mr *MockMetaOpMockRecorder) InitMultipart_ll(arg0, arg1 interface{}) *gomo
 }
 
 // InodeCreate_ll mocks base method.
-func (m *MockMetaOp) InodeCreate_ll(arg0, arg1, arg2 uint32, arg3 []byte, arg4 []uint64) (*proto.InodeInfo, error) {
+func (m *MockMetaOp) InodeCreate_ll(arg0 uint64, arg1, arg2, arg3 uint32, arg4 []byte, arg5 []uint64) (*proto.InodeInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InodeCreate_ll", arg0, arg1, arg2, arg3, arg4)
+	ret := m.ctrl.Call(m, "InodeCreate_ll", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].(*proto.InodeInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // InodeCreate_ll indicates an expected call of InodeCreate_ll.
-func (mr *MockMetaOpMockRecorder) InodeCreate_ll(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+func (mr *MockMetaOpMockRecorder) InodeCreate_ll(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InodeCreate_ll", reflect.TypeOf((*MockMetaOp)(nil).InodeCreate_ll), arg0, arg1, arg2, arg3, arg4)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InodeCreate_ll", reflect.TypeOf((*MockMetaOp)(nil).InodeCreate_ll), arg0, arg1, arg2, arg3, arg4, arg5)
 }
 
 // InodeDelete_ll mocks base method.

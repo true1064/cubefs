@@ -3,8 +3,9 @@ package metanode
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/cubefs/cubefs/util/log"
 	"sync"
+
+	"github.com/cubefs/cubefs/util/log"
 
 	"github.com/cubefs/cubefs/storage"
 
