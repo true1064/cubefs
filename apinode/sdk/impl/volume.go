@@ -2,11 +2,12 @@ package impl
 
 import (
 	"context"
+	"strings"
+
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/trace"
 	"github.com/cubefs/cubefs/sdk/data/stream"
 	"github.com/cubefs/cubefs/sdk/meta"
-	"strings"
 )
 
 var (
@@ -98,9 +99,9 @@ func newVolume(ctx context.Context, name, owner, addr string) (sdk.IVolume, erro
 		return nil, sdk.ErrInternalServerError
 	}
 
-	if mw1, ok := mw.(*metaOpImp); ok {
-		mw1.Client = ec.(*dataOpImp)
-	}
+	// if mw1, ok := mw.(*metaOpImp); ok {
+	// 	mw1.Client = ec.(*dataOpImp)
+	// }
 
 	v := &volume{
 		mw:    mw,
