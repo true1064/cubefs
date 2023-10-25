@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
+	"github.com/cubefs/cubefs/blobstore/common/memcache"
 	"github.com/cubefs/cubefs/blobstore/common/trace"
 )
 
@@ -37,23 +38,68 @@ type verifyTokenResponse struct {
 	Data   respData `json:"data"`
 }
 
+type tokenCache struct {
+	cache *memcache.MemCache
+	exp   time.Duration
+}
+
+type tokenValue struct {
+	value string
+	ctime time.Time
+}
+
+func (tc *tokenCache) Get(key string) string {
+	if tc.exp < time.Second {
+		return ""
+	}
+	value := tc.cache.Get(key)
+	if value == nil {
+		return ""
+	}
+	val, ok := value.(*tokenValue)
+	if ok && time.Since(val.ctime) < tc.exp {
+		return val.value
+	}
+	tc.cache.Remove(key)
+	return ""
+}
+
+func (tc *tokenCache) Set(key string, val string) {
+	if tc.exp < time.Second {
+		return
+	}
+	tc.cache.Set(key, &tokenValue{value: val, ctime: time.Now()})
+}
+
 type auth struct {
 	url    string
 	appKey string
 	client *http.Client
+
+	tokenCache *tokenCache
 }
 
-func NewAuth(hostport, appkey string) Auth {
+func NewAuth(hostport, appkey string, tokenExp string) Auth {
+	exp, _ := time.ParseDuration(tokenExp)
+	cache, _ := memcache.NewMemCache(1 << 20)
 	return &auth{
 		url:    fmt.Sprintf("https://%s/sub/token/v1/auth", hostport),
 		appKey: appkey,
 		client: &http.Client{
 			Timeout: 30 * time.Second,
 		},
+		tokenCache: &tokenCache{
+			cache: cache,
+			exp:   exp,
+		},
 	}
 }
 
 func (s *auth) VerifyToken(ctx context.Context, token string) (string, error) {
+	if ssoid := s.tokenCache.Get(token); ssoid != "" {
+		return ssoid, nil
+	}
+
 	span := trace.SpanFromContextSafe(ctx)
 	args := &verifyTokenArgs{
 		SubToken:  token,
@@ -131,5 +177,8 @@ func (s *auth) VerifyToken(ctx context.Context, token string) (string, error) {
 		span.Errorf("verify token error: %v, origin str is %s", err, signStr)
 		return "", err
 	}
-	return res.Data.Ssoid, nil
+
+	ssoid := res.Data.Ssoid
+	s.tokenCache.Set(token, ssoid)
+	return ssoid, nil
 }

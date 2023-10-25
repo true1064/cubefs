@@ -69,7 +69,8 @@ func (d *DriveNode) makeBlockedReader(ctx context.Context, vol sdk.IVolume, ino,
 }
 
 func (d *DriveNode) blockReaderFirst(ctx context.Context, vol sdk.IVolume, inode *proto.InodeInfo, off uint64,
-	cipherKey []byte) (io.Reader, uint64, error) {
+	cipherKey []byte,
+) (io.Reader, uint64, error) {
 	remain := off % crypto.BlockSize
 	fixedSize := remain
 	if inode.Size <= off {
@@ -89,7 +90,8 @@ func (d *DriveNode) blockReaderFirst(ctx context.Context, vol sdk.IVolume, inode
 }
 
 func (d *DriveNode) blockReaderLast(ctx context.Context, vol sdk.IVolume, inode *proto.InodeInfo, off uint64,
-	cipherKey []byte) (io.Reader, uint64, error) {
+	cipherKey []byte,
+) (io.Reader, uint64, error) {
 	if inode.Size <= off {
 		return newFixedReader(nil, 0), 0, nil
 	}

@@ -230,7 +230,8 @@ func (s *apiNode) startRouters(cfg *config.Config) error {
 				if appkey == "" {
 					return fmt.Errorf("not found appkey in config file")
 				}
-				hs = append(hs, newAuthenticator(authServiceAddr, appkey))
+				tokenExp := cfg.GetString("auth_token_expiration")
+				hs = append(hs, newAuthenticator(authServiceAddr, appkey, tokenExp))
 			}
 		}
 		hs = append(hs, newCryptor(), lh)

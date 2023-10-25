@@ -77,7 +77,8 @@ func (c *client) requestWith(method string, uri string, body io.Reader, ret inte
 }
 
 func (c *client) requestWithHeader(method string, uri string, body io.Reader, headers map[string]string,
-	ret interface{}, meta ...string) error {
+	ret interface{}, meta ...string,
+) error {
 	var material string
 	if body != nil {
 		body, material = requester(body)

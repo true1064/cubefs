@@ -33,9 +33,9 @@ func (s queryItemSlice) Len() int           { return len(s) }
 func (s queryItemSlice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 func (s queryItemSlice) Less(i, j int) bool { return s[i].key < s[j].key }
 
-func newAuthenticator(hostport, appkey string) rpc.ProgressHandler {
+func newAuthenticator(hostport, appkey string, tokenExp string) rpc.ProgressHandler {
 	return &authenticator{
-		auth: auth.NewAuth(hostport, appkey),
+		auth: auth.NewAuth(hostport, appkey, tokenExp),
 	}
 }
 
