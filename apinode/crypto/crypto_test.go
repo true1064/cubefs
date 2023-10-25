@@ -16,9 +16,12 @@ package crypto
 
 import (
 	"bytes"
+	"crypto/rand"
+	"fmt"
 	"io"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/dustin/go-humanize"
 	"github.com/stretchr/testify/require"
@@ -29,12 +32,12 @@ const (
 	mb = 1 << 20
 
 	material string = "" +
-		"CoACa0/B6pPpInXLffXsD4RWzAe7JMK94E9pzmMbT8Uq1E0GyiDJ1ssku+U6U3nPHqeMON83vIoeMWey" +
-		"v3jzjEuOgV/cm3IDZe8d6O3mWBZ6F45+LjR/Sc0Gw8Hax3zcsonvTIljWzbiwhEQSw+Wlo5vbkU6IYfS" +
-		"7XHtffyNv1znf9FCY6n9da/MbbNDH0z3jbiy8PZgIucFitna8U2UU6l/U4Az3TRhhm/sEwRuONPgQV4i" +
-		"+rbCbR0cVJsqaLaRfPCPwO1TlMfEIlpejucZyrHdF2HUanuwjIG6EqAlfLaVY6/Occ+XQlE31GExCMFx" +
-		"wk3FYKKkWIg4aKijdOOAsOUfoBIQZjxuARdr1C24eHatCjp0vRo8TAKhluGM6jPoTI/sWPe7rJRqXbVP" +
-		"dSmmzWgPKmxiJ3Pz0Fv1t/UamhB0HzsvpJHg4Bk4H1Vlyc0vQJH4OAE="
+		"CoACYZDO6NI+KIkNDd8iCO/+7OcyS9WqPRWIUsOZPOt+j8OUHdM4bXR+m4qnqHtSEAFcm+p+A++5yznU" +
+		"KNAwf5FT3PJvuaanV9jSpVeI97LHeH7BiZh19LaP6dg48+UuRRqsy4I2cGGPuKajAeELq+sfhul2xDtU" +
+		"4ZAiTHCD63hNFcDjvAboanCw4+x57Q8Xj/t4iFUtvIeFGJAMV3sdAS33xTeJI8Zr5cEJIdDzTVGhrN1b" +
+		"2p8GR1NH7OmaxOO+p2eATPj0gIojyTxKorSYzgW5XJ0rGbZVGCxSnONeMpIFvuNY+MdZBp+55PcNByqF" +
+		"9UsAHkuSaiJcOyJoYMxmwwQ0nRIQslxWbfthHolNe5zF8vU64xo8s4DoDjZrqke6tg9Hc+imFUJhUnp5" +
+		"dre/CW08McuD4Q7cC17XAyBhRPu3oOZIbv2ySH6tubFGZO2QRp7JOAE="
 )
 
 var (
@@ -46,6 +49,23 @@ func name(block, size uint64) string {
 	return humanize.IBytes(block) + "-" + humanize.IBytes(size)
 }
 
+func timed(t time.Time, n int) string {
+	return duration(time.Since(t), n)
+}
+
+func duration(d time.Duration, n int) string {
+	var dur int64
+	var idx int
+	var unit string
+	e := [3]int64{1e6, 1e3, 1}
+	for idx, unit = range [3]string{"ms", "us", "ns"} {
+		if dur = int64(d) / e[idx]; dur > 0 {
+			break
+		}
+	}
+	return fmt.Sprintf("%d%s(%.2f%s)", dur, unit, float64(dur)/float64(n), unit)
+}
+
 func setBlock(block uint64) {
 	BlockSize = block
 	cacheSize = 32 * int(BlockSize)
@@ -53,6 +73,64 @@ func setBlock(block uint64) {
 		New: func() interface{} {
 			return make([]byte, cacheSize)
 		},
+	}
+}
+
+func TestCryptoGCM(t *testing.T) {
+	require.NoError(t, Init(Configure{}))
+
+	c := NewCryptor()
+	st := time.Now()
+	const n = 200
+	for range [n]struct{}{} {
+		_, err := c.Transmitter(material)
+		require.NoError(t, err)
+	}
+	t.Logf("CreateGCM: n=%d, duration=%s", n, timed(st, n))
+
+	trans, err := c.Transmitter(material)
+	require.NoError(t, err)
+	for _, size := range []uint64{1 << 9, 1 << 10, 1 << 20} {
+		buff := make([]byte, size)
+		rand.Read(buff)
+		ciphertext, err := trans.Encrypt(string(buff), true)
+		require.NoError(t, err)
+
+		st = time.Now()
+		for range [n]struct{}{} {
+			_, err := trans.Decrypt(ciphertext, true)
+			require.NoError(t, err)
+		}
+		t.Logf("CipherGCM-%s: n=%d, duration=%s", humanize.IBytes(size), n, timed(st, n))
+	}
+}
+
+func TestCryptoStream(t *testing.T) {
+	require.NoError(t, Init(Configure{}))
+
+	c := NewCryptor()
+	st := time.Now()
+	const n = 200
+	for range [n]struct{}{} {
+		_, err := c.TransDecryptor(material, nil)
+		require.NoError(t, err)
+	}
+	t.Logf("CreateStream: n=%d, duration=%s", n, timed(st, n))
+
+	for _, size := range []uint64{1 << 9, 1 << 10, 512 << 10, 1 << 20} {
+		buff := make([]byte, size)
+		buffr := make([]byte, size)
+		rand.Read(buff)
+		var d time.Duration
+		for range [n]struct{}{} {
+			pr, err := c.TransDecryptor(material, bytes.NewBuffer(buff))
+			require.NoError(t, err)
+			st = time.Now()
+			_, err = io.ReadFull(pr, buffr)
+			d += time.Since(st)
+			require.NoError(t, err)
+		}
+		t.Logf("CipherStream-%s: n=%d, duration=%s", humanize.IBytes(size), n, duration(d, n))
 	}
 }
 
