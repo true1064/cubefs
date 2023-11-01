@@ -102,6 +102,7 @@ type ZoneView struct {
 	DataNodesetSelector string
 	MetaNodesetSelector string
 	NodeSet             map[uint64]*NodeSetView
+	MediaType           string
 }
 
 func newZoneView(name string) *ZoneView {
@@ -359,6 +360,7 @@ func (m *Server) getTopology(w http.ResponseWriter, r *http.Request) {
 		cv.Status = zone.getStatusToString()
 		cv.DataNodesetSelector = zone.GetDataNodesetSelector()
 		cv.MetaNodesetSelector = zone.GetMetaNodesetSelector()
+		cv.MediaType = zone.GetMediaTypeString()
 		tv.Zones = append(tv.Zones, cv)
 		nsc := zone.getAllNodeSet()
 		for _, ns := range nsc {
