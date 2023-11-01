@@ -85,8 +85,8 @@ func (d *DriveNode) RegisterAPIRouters() *rpc.Router {
 func (d *DriveNode) setHeaders(c *rpc.Context) {
 	rid := c.Request.Header.Get(HeaderRequestID)
 	uid := UserID{ID: c.Request.Header.Get(HeaderUserID)}
-	if publicUser := c.Request.Header.Get(HeaderPublicUser); publicUser != "" {
-		uid.ID = publicUser
+	if app := c.Request.Header.Get(HeaderPublicApp); app != "" {
+		uid.ID = app
 		uid.Public = true
 	}
 	c.Set(HeaderRequestID, rid)

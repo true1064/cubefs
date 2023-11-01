@@ -50,7 +50,7 @@ func (d *DriveNode) handleSetProperties(c *rpc.Context) {
 	span.Info("to set xattrs:", xattrs)
 
 	ur, vol, err := d.getUserRouterAndVolume(ctx, uid)
-	if d.checkError(c, func(err error) { span.Errorf("get user router uid=%s error: %v", uid, err) }, err, ur.CanWrite()) {
+	if d.checkError(c, func(err error) { span.Errorf("get user router uid=%v error: %v", uid, err) }, err, ur.CanWrite()) {
 		return
 	}
 	root := ur.RootFileID
@@ -94,7 +94,7 @@ func (d *DriveNode) handleDelProperties(c *rpc.Context) {
 	span.Info("to del xattrs:", keys)
 
 	ur, vol, err := d.getUserRouterAndVolume(ctx, uid)
-	if d.checkError(c, func(err error) { span.Errorf("get user router uid=%s error: %v", uid, err) }, err, ur.CanWrite()) {
+	if d.checkError(c, func(err error) { span.Errorf("get user router uid=%v error: %v", uid, err) }, err, ur.CanWrite()) {
 		return
 	}
 	root := ur.RootFileID
@@ -119,7 +119,7 @@ func (d *DriveNode) handleGetProperties(c *rpc.Context) {
 	}
 
 	ur, vol, err := d.getUserRouterAndVolume(ctx, uid)
-	if d.checkError(c, func(err error) { span.Errorf("get user router uid=%s error: %v", uid, err) }, err) {
+	if d.checkError(c, func(err error) { span.Errorf("get user router uid=%v error: %v", uid, err) }, err) {
 		return
 	}
 	root := ur.RootFileID

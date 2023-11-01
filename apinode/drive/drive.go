@@ -51,10 +51,10 @@ const (
 	HeaderCrc32     = "x-cfa-content-crc32"
 	HeaderMD5       = "x-cfa-content-md5"
 	ChecksumPrefix  = "x-cfa-content-"
+	HeaderPublicApp = "x-cfa-public-app"
 
 	HeaderCipherMeta = "x-cfa-cipher-meta"
 	HeaderCipherBody = "x-cfa-cipher-body"
-	HeaderPublicUser = "x-cfa-public-user"
 
 	UserPropertyPrefix = "x-cfa-meta-"
 
@@ -192,9 +192,9 @@ type DriveNode struct {
 	groupMulti  singleflight.Group // for multipart complete
 	limiter     *rate.Limiter
 
-	mu          sync.RWMutex
-	clusters    []string            // all cluster id
-	publicUsers map[string]struct{} // public user in the cluster
+	mu         sync.RWMutex
+	clusters   []string            // all cluster id
+	publicApps map[string]struct{} // public app in the cluster
 
 	out      *oplog.Output
 	recorder io.Writer
@@ -549,14 +549,14 @@ func (d *DriveNode) initClusterConfig() error {
 		clusters[i], clusters[j] = clusters[j], clusters[i]
 	})
 
-	publicUsers := make(map[string]struct{})
-	for userID := range cfg.PublicUsers {
-		publicUsers[userID] = struct{}{}
+	publicApps := make(map[string]struct{})
+	for userID := range cfg.PublicApps {
+		publicApps[userID] = struct{}{}
 	}
 
 	d.mu.Lock()
 	d.clusters = clusters
-	d.publicUsers = publicUsers
+	d.publicApps = publicApps
 	d.mu.Unlock()
 	return nil
 }

@@ -69,6 +69,7 @@ func init() {
 var (
 	host string = "http://localhost:9999"
 	user string = "test"
+	uapp string = ""
 	pass string = ""
 
 	metaMaterial string = "" +
@@ -142,6 +143,7 @@ func registerUser(app *grumble.App) {
 			if key == "" && val == "" {
 				fmt.Println("host :", host)
 				fmt.Println("user :", user)
+				fmt.Println("app  :", uapp)
 				fmt.Println("pass :", pass != "")
 				fmt.Println("crypto")
 				return nil
@@ -152,6 +154,8 @@ func registerUser(app *grumble.App) {
 				host = val
 			case "user":
 				user = val
+			case "app":
+				uapp = val
 			case "pass":
 				if val != "" {
 					if len(val) > 16 {

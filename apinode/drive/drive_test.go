@@ -36,7 +36,7 @@ var (
 	Ctx = context.Background()
 
 	testUserID  = UserID{ID: "test-user-1"}
-	testUserIDP = UserID{ID: "test-user-1", Public: true}
+	testUserAPP = UserID{ID: "test-user-app", Public: true}
 
 	e1, e2, e3, e4 = randError(1), randError(2), randError(3), randError(4)
 )
@@ -345,7 +345,7 @@ func TestCreateUserRouteInfo(t *testing.T) {
 		require.Error(t, err)
 		require.Equal(t, sdk.ErrNotFound.Code, err.(*sdk.Error).Code, uid.String())
 	}
-	d.publicUsers = map[string]struct{}{uid.ID: {}}
+	d.publicApps = map[string]struct{}{uid.ID: {}}
 
 	node.Volume.EXPECT().Lookup(A, A, A).DoAndReturn(
 		func(_ context.Context, _ uint64, name string) (*sdk.DirInfo, error) {

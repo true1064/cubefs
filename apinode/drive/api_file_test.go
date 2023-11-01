@@ -150,7 +150,7 @@ func TestHandleFileUploadPublic(t *testing.T) {
 	doRequest := func(body *mockBody, queries ...string) *http.Response {
 		url := genURL(server.URL, "/v1/files/upload", queries...)
 		req, _ := http.NewRequest(http.MethodPut, url, body)
-		req.Header.Add(HeaderPublicUser, testUserIDP.ID)
+		req.Header.Add(HeaderPublicApp, testUserAPP.ID)
 		req.Header.Add(HeaderCrc32, fmt.Sprint(body.Sum32()))
 		req.Header.Add(EncodeMetaHeader("public"), EncodeMeta("Public-"))
 		resp, err := client.Do(Ctx, req)
@@ -162,7 +162,7 @@ func TestHandleFileUploadPublic(t *testing.T) {
 			resp := doRequest(newMockBody(64), "path", "/f")
 			defer resp.Body.Close()
 			return resp2Error(resp)
-		}, testUserIDP)
+		}, testUserAPP)
 	}
 	{
 		node.OnceGetUser()

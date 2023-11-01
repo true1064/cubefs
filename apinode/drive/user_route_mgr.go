@@ -73,7 +73,7 @@ type ClusterConfig struct {
 	RequestLimit int                    `json:"requestLimit"` // the number of request per second
 	LimiterBrust int                    `json:"limiterBrust"` // the size of token bucket
 	Clusters     []ClusterInfo          `json:"clusters"`
-	PublicUsers  map[string]interface{} `json:"publicUsers"`
+	PublicApps   map[string]interface{} `json:"publicApps"`
 }
 
 const (
@@ -168,7 +168,7 @@ func (d *DriveNode) assignVolume(ctx context.Context, uid UserID) (cluster sdk.I
 
 	if uid.Public {
 		d.mu.RLock()
-		_, publicExists := d.publicUsers[uid.ID]
+		_, publicExists := d.publicApps[uid.ID]
 		d.mu.RUnlock()
 		if !publicExists {
 			err = sdk.ErrNotFound.Extend("public user", uid.ID)
@@ -179,7 +179,7 @@ func (d *DriveNode) assignVolume(ctx context.Context, uid UserID) (cluster sdk.I
 	data := md5.Sum([]byte(uid.ID))
 	val := crc32.ChecksumIEEE(data[0:])
 	volumeid = vols[int(val)%len(vols)].Name
-	span.Infof("assign cluster=%s volume=%s for user=%s", clusterid, volumeid, uid)
+	span.Infof("assign cluster=%s volume=%s for user=%v", clusterid, volumeid, uid)
 	return
 }
 

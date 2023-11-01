@@ -51,7 +51,7 @@ func (d *DriveNode) handleMkDir(c *rpc.Context) {
 	span.Info("to makedir", args)
 	_, _, err = d.createDir(ctx, vol, root, args.Path.String(), args.Recursive)
 	if d.checkError(c, func(err error) {
-		span.Errorf("create dir %s error: %s, uid=%s recursive=%v", args.Path, err.Error(), uid, args.Recursive)
+		span.Errorf("create dir %s error: %s, uid=%v recursive=%v", args.Path, err.Error(), uid, args.Recursive)
 	}, err) {
 		return
 	}
@@ -260,7 +260,7 @@ func (d *DriveNode) handleBatchDelete(c *rpc.Context) {
 			}
 			ch <- result{arg, err}
 			if err != nil {
-				span.Errorf("delete %s error: %v, uid=%s", name, err, d.userID(c))
+				span.Errorf("delete %s error: %v, uid=%v", name, err, d.userID(c))
 			}
 		})
 	}
