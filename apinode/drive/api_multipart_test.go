@@ -42,7 +42,7 @@ func TestHandleMultipartUploads(t *testing.T) {
 		url := genURL(server.URL, "/v1/files/multipart", queries...)
 		req, _ := http.NewRequest(http.MethodPost, url, body)
 		req.ContentLength = int64(len(body.buff))
-		req.Header.Add(HeaderUserID, testUserID)
+		req.Header.Add(HeaderUserID, testUserID.ID)
 		req.Header.Add(HeaderCrc32, fmt.Sprint(body.Sum32()))
 		req.Header.Add(EncodeMetaHeader("multipart"), EncodeMeta("MultiPart"))
 		if contentMD5 != "" {
@@ -280,7 +280,7 @@ func TestHandleMultipartParts(t *testing.T) {
 		url := genURL(server.URL, "/v1/files/multipart", queries...)
 		req, _ := http.NewRequest(http.MethodPut, url, body)
 		req.ContentLength = int64(len(body.buff))
-		req.Header.Add(HeaderUserID, testUserID)
+		req.Header.Add(HeaderUserID, testUserID.ID)
 		req.Header.Add(HeaderCrc32, fmt.Sprint(body.Sum32()))
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
@@ -322,7 +322,7 @@ func TestHandleMultipartList(t *testing.T) {
 	doRequest := func(r interface{}, queries ...string) rpc.HTTPError {
 		url := genURL(server.URL, "/v1/files/multipart", queries...)
 		req, _ := http.NewRequest(http.MethodGet, url, nil)
-		req.Header.Add(HeaderUserID, testUserID)
+		req.Header.Add(HeaderUserID, testUserID.ID)
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
 		defer resp.Body.Close()
@@ -366,7 +366,7 @@ func TestHandleMultipartAbort(t *testing.T) {
 	doRequest := func(queries ...string) rpc.HTTPError {
 		url := genURL(server.URL, "/v1/files/multipart", queries...)
 		req, _ := http.NewRequest(http.MethodDelete, url, nil)
-		req.Header.Add(HeaderUserID, testUserID)
+		req.Header.Add(HeaderUserID, testUserID.ID)
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
 		defer resp.Body.Close()

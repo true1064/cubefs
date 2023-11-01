@@ -40,7 +40,7 @@ func TestHandleFileUpload(t *testing.T) {
 	doRequest := func(body *mockBody, queries ...string) *http.Response {
 		url := genURL(server.URL, "/v1/files/upload", queries...)
 		req, _ := http.NewRequest(http.MethodPut, url, body)
-		req.Header.Add(HeaderUserID, testUserID)
+		req.Header.Add(HeaderUserID, testUserID.ID)
 		req.Header.Add(HeaderCrc32, fmt.Sprint(body.Sum32()))
 		req.Header.Add(EncodeMetaHeader("upload"), EncodeMeta("Uploaded-"))
 		resp, err := client.Do(Ctx, req)
@@ -101,7 +101,7 @@ func TestHandleFileUpload(t *testing.T) {
 		node.Volume.EXPECT().Lookup(A, A, A).Return(&sdk.DirInfo{Inode: 1000}, nil)
 		url := genURL(server.URL, "/v1/files/upload", "path", "/dir/a/../filename")
 		req, _ := http.NewRequest(http.MethodPost, url, newMockBody(64))
-		req.Header.Add(HeaderUserID, testUserID)
+		req.Header.Add(HeaderUserID, testUserID.ID)
 		req.Header.Add(HeaderCrc32, "invalid-crc-32")
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
@@ -141,6 +141,52 @@ func TestHandleFileUpload(t *testing.T) {
 	}
 }
 
+func TestHandleFileUploadPublic(t *testing.T) {
+	node := newMockNode(t)
+	d := node.DriveNode
+	server, client := newTestServer(d)
+	defer server.Close()
+
+	doRequest := func(body *mockBody, queries ...string) *http.Response {
+		url := genURL(server.URL, "/v1/files/upload", queries...)
+		req, _ := http.NewRequest(http.MethodPut, url, body)
+		req.Header.Add(HeaderPublicUser, testUserIDP.ID)
+		req.Header.Add(HeaderCrc32, fmt.Sprint(body.Sum32()))
+		req.Header.Add(EncodeMetaHeader("public"), EncodeMeta("Public-"))
+		resp, err := client.Do(Ctx, req)
+		require.NoError(t, err)
+		return resp
+	}
+	{
+		node.TestGetUser(t, func() rpc.HTTPError {
+			resp := doRequest(newMockBody(64), "path", "/f")
+			defer resp.Body.Close()
+			return resp2Error(resp)
+		}, testUserIDP)
+	}
+	{
+		node.OnceGetUser()
+		node.OnceLookup(true)
+		node.Volume.EXPECT().UploadFile(A, A).DoAndReturn(
+			func(_ context.Context, req *sdk.UploadFileReq) (*sdk.InodeInfo, uint64, error) {
+				req.Callback()
+				return &sdk.InodeInfo{Inode: node.GenInode()}, uint64(100), nil
+			})
+		node.Volume.EXPECT().Lookup(A, A, A).Return(&sdk.DirInfo{Inode: 1000}, nil)
+		// uploda file error
+		resp := doRequest(newMockBody(64), "path", "/dir/a/../publicfile")
+		defer resp.Body.Close()
+		require.Equal(t, 200, resp.StatusCode)
+
+		buff, _ := io.ReadAll(resp.Body)
+		var file FileInfo
+		require.NoError(t, json.Unmarshal(buff, &file))
+		require.Equal(t, "publicfile", file.Name)
+		require.Equal(t, "Public-", file.Properties["public"])
+		require.Equal(t, 32, len(file.Properties[internalMetaMD5]))
+	}
+}
+
 func TestHandleFileVerify(t *testing.T) {
 	node := newMockNode(t)
 	d := node.DriveNode
@@ -154,7 +200,7 @@ func TestHandleFileVerify(t *testing.T) {
 		}
 		url := genURL(server.URL, "/v1/files/verify", "path", p)
 		req, _ := http.NewRequest(http.MethodGet, url, nil)
-		req.Header.Add(HeaderUserID, testUserID)
+		req.Header.Add(HeaderUserID, testUserID.ID)
 		if ranged != "" {
 			req.Header.Add(headerRange, ranged)
 		}
@@ -245,7 +291,7 @@ func TestHandleFileWrite(t *testing.T) {
 	doRequest := func(body *mockBody, ranged string, queries ...string) *http.Response {
 		url := genURL(server.URL, "/v1/files/content", queries...)
 		req, _ := http.NewRequest(http.MethodPut, url, body)
-		req.Header.Add(HeaderUserID, testUserID)
+		req.Header.Add(HeaderUserID, testUserID.ID)
 		req.Header.Add(HeaderCrc32, fmt.Sprint(body.Sum32()))
 		if ranged != "" {
 			req.Header.Add(headerRange, ranged)
@@ -374,7 +420,7 @@ func TestHandleFileDownload(t *testing.T) {
 	doRequest := func(body *mockBody, ranged string, queries ...string) *http.Response {
 		url := genURL(server.URL, "/v1/files/content", queries...)
 		req, _ := http.NewRequest(http.MethodGet, url, body)
-		req.Header.Add(HeaderUserID, testUserID)
+		req.Header.Add(HeaderUserID, testUserID.ID)
 		if ranged != "" {
 			req.Header.Add(headerRange, ranged)
 		}
@@ -512,7 +558,7 @@ func TestHandleFileDownloadConfig(t *testing.T) {
 	doRequest := func() *http.Response {
 		url := genURL(server.URL, "/v1/files/content", "path", volumeConfigPath)
 		req, _ := http.NewRequest(http.MethodGet, url, nil)
-		req.Header.Add(HeaderUserID, testUserID)
+		req.Header.Add(HeaderUserID, testUserID.ID)
 		req.Header.Add(HeaderVolume, "default")
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
@@ -560,7 +606,7 @@ func TestHandleFileRename(t *testing.T) {
 	doRequest := func(queries ...string) rpc.HTTPError {
 		url := genURL(server.URL, "/v1/files/rename", queries...)
 		req, _ := http.NewRequest(http.MethodPost, url, nil)
-		req.Header.Add(HeaderUserID, testUserID)
+		req.Header.Add(HeaderUserID, testUserID.ID)
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
 		defer resp.Body.Close()
@@ -644,7 +690,7 @@ func TestHandleFileCopy(t *testing.T) {
 	doRequest := func(queries ...string) rpc.HTTPError {
 		url := genURL(server.URL, "/v1/files/copy", queries...)
 		req, _ := http.NewRequest(http.MethodPost, url, nil)
-		req.Header.Add(HeaderUserID, testUserID)
+		req.Header.Add(HeaderUserID, testUserID.ID)
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
 		defer resp.Body.Close()

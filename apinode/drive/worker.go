@@ -18,6 +18,7 @@ type logItem struct {
 	Op        OpCode `json:"op"`
 	Path      string `json:"path"`
 	Uid       string `json:"uid"`
+	Public    bool   `json:"public"`
 	Reqid     string `json:"reqid"`
 	Timestamp int64  `json:"timestamp"`
 }
@@ -41,7 +42,7 @@ func (d *DriveNode) ConsumerEvent(ctx context.Context, e oplog.Event) {
 	// if return false, should retry, return true, don't retry
 	calculate := func() bool {
 		span, sctx := trace.StartSpanFromContextWithTraceID(context.Background(), "consumer", item.Reqid)
-		ur, err := d.GetUserRouteInfo(sctx, UserID(item.Uid))
+		ur, err := d.GetUserRouteInfo(sctx, UserID{ID: item.Uid, Public: item.Public})
 		if err != nil {
 			span.Warnf("get user route info error: %v, %v", err, item)
 			return err == sdk.ErrNotFound

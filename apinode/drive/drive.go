@@ -51,9 +51,10 @@ const (
 	HeaderCrc32     = "x-cfa-content-crc32"
 	HeaderMD5       = "x-cfa-content-md5"
 	ChecksumPrefix  = "x-cfa-content-"
-	// headerSign      = "x-cfa-sign"
+
 	HeaderCipherMeta = "x-cfa-cipher-meta"
 	HeaderCipherBody = "x-cfa-cipher-body"
+	HeaderPublicUser = "x-cfa-public-user"
 
 	UserPropertyPrefix = "x-cfa-meta-"
 
@@ -107,11 +108,21 @@ func (p *FilePath) String() string {
 }
 
 // UserID user id.
-type UserID string
+type UserID struct {
+	ID     string
+	Public bool
+}
 
 // Valid return user id is empty or not.
 func (u *UserID) Valid() bool {
-	return *u != ""
+	return u.ID != ""
+}
+
+func (u *UserID) String() string {
+	if u.Public {
+		return fmt.Sprintf("1-%s", u.ID)
+	}
+	return fmt.Sprintf("0-%s", u.ID)
 }
 
 type FileInfo struct {
@@ -175,13 +186,15 @@ type DriveNode struct {
 	clusterID   string      // default cluster id
 	volumeName  string      // default volume name
 	vol         sdk.IVolume // default volume
-	clusters    []string    // all cluster id
-	mu          sync.RWMutex
 	userRouter  *userRouteMgr
 	clusterMgr  sdk.ClusterManager
 	groupRouter singleflight.Group // for get user route
 	groupMulti  singleflight.Group // for multipart complete
 	limiter     *rate.Limiter
+
+	mu          sync.RWMutex
+	clusters    []string            // all cluster id
+	publicUsers map[string]struct{} // public user in the cluster
 
 	out      *oplog.Output
 	recorder io.Writer
@@ -248,7 +261,7 @@ func (d *DriveNode) GetUserRouteInfo(ctx context.Context, uid UserID) (*UserRout
 	ur := d.userRouter.Get(uid)
 	if ur == nil {
 		// query file and set cache
-		r, err, _ := d.groupRouter.Do(string(uid), func() (interface{}, error) {
+		r, err, _ := d.groupRouter.Do(uid.String(), func() (interface{}, error) {
 			r, err := d.getOrCreateUserRoute(ctx, uid)
 			if err != nil {
 				return nil, err
@@ -536,8 +549,14 @@ func (d *DriveNode) initClusterConfig() error {
 		clusters[i], clusters[j] = clusters[j], clusters[i]
 	})
 
+	publicUsers := make(map[string]struct{})
+	for userID := range cfg.PublicUsers {
+		publicUsers[userID] = struct{}{}
+	}
+
 	d.mu.Lock()
 	d.clusters = clusters
+	d.publicUsers = publicUsers
 	d.mu.Unlock()
 	return nil
 }

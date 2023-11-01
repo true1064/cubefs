@@ -106,6 +106,7 @@ func TestHandleListDir(t *testing.T) {
 	ts := httptest.NewServer(d.RegisterAPIRouters())
 	defer ts.Close()
 
+	testUser := UserID{ID: "test"}
 	client := ts.Client()
 	{
 		tgt := fmt.Sprintf("%s/v1/files", ts.URL)
@@ -141,11 +142,12 @@ func TestHandleListDir(t *testing.T) {
 	}
 
 	{
-		urm.Set("test", &UserRoute{
-			Uid:        UserID("test"),
+		urm.Set(testUser, &UserRoute{
+			Uid:        testUser.ID,
+			Public:     testUser.Public,
 			ClusterID:  "1",
 			VolumeID:   "1",
-			RootPath:   getRootPath("test"),
+			RootPath:   getRootPath(testUser),
 			RootFileID: 4,
 		})
 
@@ -171,15 +173,16 @@ func TestHandleListDir(t *testing.T) {
 		require.Nil(t, err)
 		res.Body.Close()
 		require.Equal(t, res.StatusCode, 452)
-		urm.Remove("test")
+		urm.Remove(testUser)
 	}
 
 	{
-		urm.Set("test", &UserRoute{
-			Uid:        UserID("test"),
+		urm.Set(testUser, &UserRoute{
+			Uid:        testUser.ID,
+			Public:     testUser.Public,
 			ClusterID:  "1",
 			VolumeID:   "1",
-			RootPath:   getRootPath("test"),
+			RootPath:   getRootPath(testUser),
 			RootFileID: 4,
 		})
 
@@ -236,7 +239,7 @@ func TestHandleListDir(t *testing.T) {
 		require.Nil(t, err)
 		res.Body.Close()
 		require.Equal(t, res.StatusCode, http.StatusOK)
-		urm.Remove("test")
+		urm.Remove(testUser)
 	}
 
 	/*

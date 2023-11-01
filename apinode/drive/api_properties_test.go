@@ -18,7 +18,7 @@ func TestHandleSetProperties(t *testing.T) {
 	doRequest := func(path string, metas ...string) rpc.HTTPError {
 		url := genURL(server.URL, "/v1/files/properties", "path", path)
 		req, _ := http.NewRequest(http.MethodPut, url, nil)
-		req.Header.Add(HeaderUserID, testUserID)
+		req.Header.Add(HeaderUserID, testUserID.ID)
 		for ii := 0; ii < len(metas); ii += 2 {
 			req.Header.Add(EncodeMetaHeader(metas[ii]), EncodeMeta(metas[ii+1]))
 		}
@@ -31,7 +31,7 @@ func TestHandleSetProperties(t *testing.T) {
 	{
 		url := genURL(server.URL, "/v1/files/properties", "path", "/a")
 		req, _ := http.NewRequest(http.MethodPut, url, nil)
-		req.Header.Add(HeaderUserID, testUserID)
+		req.Header.Add(HeaderUserID, testUserID.ID)
 		req.Header.Add(UserPropertyPrefix+"not-hex-key", "value")
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
@@ -70,7 +70,7 @@ func TestHandleDelProperties(t *testing.T) {
 	doRequest := func(path string, keys ...string) rpc.HTTPError {
 		url := genURL(server.URL, "/v1/files/properties", "path", path)
 		req, _ := http.NewRequest(http.MethodDelete, url, nil)
-		req.Header.Add(HeaderUserID, testUserID)
+		req.Header.Add(HeaderUserID, testUserID.ID)
 		for _, k := range keys {
 			v := ""
 			if len(k)%2 == 0 {
@@ -87,7 +87,7 @@ func TestHandleDelProperties(t *testing.T) {
 	{
 		url := genURL(server.URL, "/v1/files/properties", "path", "/a")
 		req, _ := http.NewRequest(http.MethodDelete, url, nil)
-		req.Header.Add(HeaderUserID, testUserID)
+		req.Header.Add(HeaderUserID, testUserID.ID)
 		req.Header.Add(UserPropertyPrefix+"not-hex-key", "value")
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
@@ -97,7 +97,7 @@ func TestHandleDelProperties(t *testing.T) {
 	{
 		url := genURL(server.URL, "/v1/files/properties", "path", "/a")
 		req, _ := http.NewRequest(http.MethodDelete, url, nil)
-		req.Header.Add(HeaderUserID, testUserID)
+		req.Header.Add(HeaderUserID, testUserID.ID)
 		req.Header.Add(EncodeMetaHeader("hex-key"), "not-hex-value")
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
@@ -155,7 +155,7 @@ func TestHandleGetProperties(t *testing.T) {
 	doRequest := func(path string, data interface{}) rpc.HTTPError {
 		url := genURL(server.URL, "/v1/files/properties", "path", path)
 		req, _ := http.NewRequest(http.MethodGet, url, nil)
-		req.Header.Add(HeaderUserID, testUserID)
+		req.Header.Add(HeaderUserID, testUserID.ID)
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
 		defer resp.Body.Close()

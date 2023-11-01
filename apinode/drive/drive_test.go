@@ -29,15 +29,14 @@ import (
 	"github.com/cubefs/cubefs/proto"
 )
 
-const (
-	testUserID = "test-user-1"
-)
-
 var (
 	A = gomock.Any()
 	C = gomock.NewController
 
 	Ctx = context.Background()
+
+	testUserID  = UserID{ID: "test-user-1"}
+	testUserIDP = UserID{ID: "test-user-1", Public: true}
 
 	e1, e2, e3, e4 = randError(1), randError(2), randError(3), randError(4)
 )
@@ -59,7 +58,7 @@ type mockNode struct {
 	Cluster    *mocks.MockICluster
 	GenInode   func() uint64
 
-	cachedUser map[string]struct{}
+	cachedUser map[UserID]struct{}
 }
 
 func newMockCryptor(tb testing.TB) *mocks.MockCryptor {
@@ -96,18 +95,18 @@ func newMockNode(tb testing.TB) mockNode {
 		GenInode: func() uint64 {
 			return atomic.AddUint64(&inode, 1)
 		},
-		cachedUser: make(map[string]struct{}),
+		cachedUser: make(map[UserID]struct{}),
 	}
 }
 
-func (node *mockNode) AddUserRoute(uids ...string) {
+func (node *mockNode) AddUserRoute(uids ...UserID) {
 	for _, uid := range uids {
 		if _, ok := node.cachedUser[uid]; ok {
 			continue
 		}
 		node.cachedUser[uid] = struct{}{}
 
-		path := getUserRouteFile(testUserID)
+		path := getUserRouteFile(uid)
 		LookupN := len(strings.Split(strings.Trim(path, "/"), "/"))
 		node.Volume.EXPECT().Lookup(A, A, A).DoAndReturn(
 			func(_ context.Context, _ uint64, name string) (*sdk.DirInfo, error) {
@@ -118,13 +117,13 @@ func (node *mockNode) AddUserRoute(uids ...string) {
 			}).Times(LookupN)
 		node.Volume.EXPECT().GetXAttr(A, A, A).DoAndReturn(
 			func(ctx context.Context, ino uint64, key string) (string, error) {
-				uid := UserID(key)
+				uid := UserID{ID: key}
 				ur := UserRoute{
-					Uid:         uid,
+					Uid:         uid.ID,
 					ClusterType: 1,
 					ClusterID:   "cluster01",
 					VolumeID:    "volume01",
-					DriveID:     string(uid) + "_drive",
+					DriveID:     uid.String() + "_drive",
 					RootPath:    getRootPath(uid),
 					RootFileID:  FileID(ino),
 					Ctime:       time.Now().Unix(),
@@ -135,7 +134,7 @@ func (node *mockNode) AddUserRoute(uids ...string) {
 	}
 }
 
-func (node *mockNode) OnceGetUser(uids ...string) {
+func (node *mockNode) OnceGetUser(uids ...UserID) {
 	node.AddUserRoute(uids...)
 	node.ClusterMgr.EXPECT().GetCluster(A).Return(node.Cluster)
 	node.Cluster.EXPECT().GetVol(A).Return(node.Volume)
@@ -160,7 +159,7 @@ func (node *mockNode) GetUserAny(uids ...string) {
 	node.Volume.EXPECT().GetDirSnapshot(A, A).Return(node.Volume, nil).AnyTimes()
 }
 
-func (node *mockNode) TestGetUser(tb testing.TB, request func() rpc.HTTPError, uids ...string) {
+func (node *mockNode) TestGetUser(tb testing.TB, request func() rpc.HTTPError, uids ...UserID) {
 	node.AddUserRoute(uids...)
 	node.ClusterMgr.EXPECT().GetCluster(A).Return(nil)
 	require.Equal(tb, sdk.ErrNoCluster.Status, request().StatusCode())
@@ -300,7 +299,7 @@ func newMockBody(size int) *mockBody {
 func TestCreateUserRouteInfo(t *testing.T) {
 	node := newMockNode(t)
 	d := node.DriveNode
-	uid := UserID("create-user-id")
+	uid := UserID{ID: "create-user-id"}
 
 	{
 		require.ErrorIs(t, d.createUserRoute(Ctx, uid), sdk.ErrNoCluster)
@@ -338,6 +337,15 @@ func TestCreateUserRouteInfo(t *testing.T) {
 		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e1)
 		require.ErrorIs(t, d.createUserRoute(Ctx, uid), e1)
 	}
+
+	// public
+	uid.Public = true
+	{
+		err := d.createUserRoute(Ctx, uid)
+		require.Error(t, err)
+		require.Equal(t, sdk.ErrNotFound.Code, err.(*sdk.Error).Code, uid.String())
+	}
+	d.publicUsers = map[string]struct{}{uid.ID: {}}
 
 	node.Volume.EXPECT().Lookup(A, A, A).DoAndReturn(
 		func(_ context.Context, _ uint64, name string) (*sdk.DirInfo, error) {
@@ -408,19 +416,20 @@ func TestGetUserRouteInfo(t *testing.T) {
 	_, err = d.GetUserRouteInfo(Ctx, testUserID)
 	require.Equal(t, err.Error(), "internal server error : unexpected end of JSON input")
 
+	testUser1 := UserID{ID: "test1"}
 	ur := UserRoute{
 		Uid:         "test1",
 		ClusterType: 1,
 		ClusterID:   "cluster01",
 		VolumeID:    "volume01",
 		DriveID:     "test1_drive",
-		RootPath:    getRootPath("test1"),
+		RootPath:    getRootPath(testUser1),
 		RootFileID:  10,
 		Ctime:       time.Now().Unix(),
 	}
 	v, _ := json.Marshal(ur)
 	node.Volume.EXPECT().GetXAttr(A, A, A).Return(string(v), nil)
-	ur1, err := d.GetUserRouteInfo(Ctx, "test1")
+	ur1, err := d.GetUserRouteInfo(Ctx, testUser1)
 	require.NoError(t, err)
 	require.Equal(t, *ur1, ur)
 }
@@ -428,6 +437,7 @@ func TestGetUserRouteInfo(t *testing.T) {
 func TestGetUserRouterAndVolume(t *testing.T) {
 	node := newMockNode(t)
 	d := node.DriveNode
+	testUserID1 := UserID{ID: "test1"}
 
 	const uid = "test1"
 
@@ -439,7 +449,7 @@ func TestGetUserRouterAndVolume(t *testing.T) {
 			ClusterID:   "cluster01",
 			VolumeID:    "volume01",
 			DriveID:     "test1_drive",
-			RootPath:    getRootPath("test1"),
+			RootPath:    getRootPath(testUserID1),
 			RootFileID:  10,
 			Ctime:       time.Now().Unix(),
 		}

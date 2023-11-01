@@ -21,13 +21,14 @@ const (
 
 func makeOpLog(op OpCode, reqid string, uid UserID, path string, fields ...interface{}) oplog.Event {
 	event := oplog.Event{
-		Key:       string(uid),
+		Key:       uid.ID,
 		Timestamp: time.Now(),
 		Fields:    make(map[string]interface{}),
 	}
 	event.Fields["op"] = int(op)
 	event.Fields["path"] = path
-	event.Fields["uid"] = string(uid)
+	event.Fields["uid"] = uid.ID
+	event.Fields["public"] = uid.Public
 	event.Fields["timestamp"] = event.Timestamp.UnixMilli()
 	event.Fields["reqid"] = reqid
 

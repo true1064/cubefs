@@ -31,7 +31,8 @@ import (
 )
 
 type UserRoute struct {
-	Uid         UserID `json:"uid"`
+	Uid         string `json:"uid"`
+	Public      bool   `json:"public"`
 	ClusterType int8   `json:"clusterType"`
 	ClusterID   string `json:"clusterId"`
 	VolumeID    string `json:"volumeId"`
@@ -69,9 +70,10 @@ type ClusterInfo struct {
 }
 
 type ClusterConfig struct {
-	Clusters     []ClusterInfo `json:"clusters"`
-	RequestLimit int           `json:"requestLimit"` // the number of request per second
-	LimiterBrust int           `json:"limiterBrust"` // the size of token bucket
+	RequestLimit int                    `json:"requestLimit"` // the number of request per second
+	LimiterBrust int                    `json:"limiterBrust"` // the size of token bucket
+	Clusters     []ClusterInfo          `json:"clusters"`
+	PublicUsers  map[string]interface{} `json:"publicUsers"`
 }
 
 const (
@@ -124,7 +126,8 @@ func (d *DriveNode) createUserRoute(ctx context.Context, uid UserID) error {
 
 	// Locate the user file of the default cluster according to the hash of uid
 	ur := &UserRoute{
-		Uid:         uid,
+		Uid:         uid.ID,
+		Public:      uid.Public,
 		ClusterType: 1,
 		ClusterID:   clusterid,
 		VolumeID:    volumeid,
@@ -163,10 +166,20 @@ func (d *DriveNode) assignVolume(ctx context.Context, uid UserID) (cluster sdk.I
 		return
 	}
 
-	data := md5.Sum([]byte(uid))
+	if uid.Public {
+		d.mu.RLock()
+		_, publicExists := d.publicUsers[uid.ID]
+		d.mu.RUnlock()
+		if !publicExists {
+			err = sdk.ErrNotFound.Extend("public user", uid.ID)
+			return
+		}
+	}
+
+	data := md5.Sum([]byte(uid.ID))
 	val := crc32.ChecksumIEEE(data[0:])
 	volumeid = vols[int(val)%len(vols)].Name
-	span.Infof("assign cluster=%s volume=%s for user=%s", clusterid, volumeid, string(uid))
+	span.Infof("assign cluster=%s volume=%s for user=%s", clusterid, volumeid, uid)
 	return
 }
 
@@ -192,7 +205,7 @@ func (d *DriveNode) setUserRouteToFile(ctx context.Context, uid UserID, ur *User
 		fileIno = uint64(dirInfo.Inode)
 
 		var val string
-		val, err = d.vol.GetXAttr(ctx, fileIno, string(ur.Uid))
+		val, err = d.vol.GetXAttr(ctx, fileIno, ur.Uid)
 		if err != nil {
 			return err
 		}
@@ -208,7 +221,7 @@ func (d *DriveNode) setUserRouteToFile(ctx context.Context, uid UserID, ur *User
 		return err
 	}
 
-	err = d.vol.SetXAttrNX(ctx, fileIno, string(ur.Uid), string(val))
+	err = d.vol.SetXAttrNX(ctx, fileIno, ur.Uid, string(val))
 	if err == sdk.ErrExist {
 		return nil
 	}
@@ -238,7 +251,7 @@ func (d *DriveNode) getUserRouteFromFile(ctx context.Context, uid UserID) (*User
 		}
 		return nil, err
 	}
-	data, err := d.vol.GetXAttr(ctx, dirInfo.Inode, string(uid))
+	data, err := d.vol.GetXAttr(ctx, dirInfo.Inode, uid.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -253,17 +266,23 @@ func (d *DriveNode) getUserRouteFromFile(ctx context.Context, uid UserID) (*User
 }
 
 func getUserRouteFile(uid UserID) string {
+	if uid.Public {
+		return fmt.Sprintf("/usr/clusters/public/%s", uid.ID)
+	}
 	h1, h2 := hashUid(uid)
 	return fmt.Sprintf("/usr/clusters/%d/%d", h1%hashMask, h2%hashMask)
 }
 
 func getRootPath(uid UserID) string {
+	if uid.Public {
+		return fmt.Sprintf("/public/%s", uid.ID)
+	}
 	h1, h2 := hashUid(uid)
-	return fmt.Sprintf("/%d/%d/%s", h1%hashMask, h2%hashMask, string(uid))
+	return fmt.Sprintf("/%d/%d/%s", h1%hashMask, h2%hashMask, uid.ID)
 }
 
 func hashUid(uid UserID) (h1, h2 uint32) {
-	data := md5.Sum([]byte(uid))
+	data := md5.Sum([]byte(uid.ID))
 	h1 = crc32.ChecksumIEEE(data[:])
 
 	s := fmt.Sprintf("%d", h1)
