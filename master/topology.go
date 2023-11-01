@@ -1435,6 +1435,7 @@ type Zone struct {
 	QosIopsWLimit           uint64
 	QosFlowRLimit           uint64
 	QosFlowWLimit           uint64
+	mediaType               uint32
 	sync.RWMutex
 }
 
@@ -1446,9 +1447,10 @@ type zoneValue struct {
 	QosFlowWLimit       uint64
 	DataNodesetSelector string
 	MetaNodesetSelector string
+	MediaType           uint32
 }
 
-func newZone(name string) (zone *Zone) {
+func newZone(name string, mediaType uint32) (zone *Zone) {
 	zone = &Zone{name: name}
 	zone.status = normalZone
 	zone.dataNodes = new(sync.Map)
@@ -1456,6 +1458,7 @@ func newZone(name string) (zone *Zone) {
 	zone.nodeSetMap = make(map[uint64]*nodeSet)
 	zone.dataNodesetSelector = NewNodesetSelector(DefaultNodesetSelectorName, DataNodeType)
 	zone.metaNodesetSelector = NewNodesetSelector(DefaultNodesetSelectorName, MetaNodeType)
+	zone.SetMediaType(mediaType)
 	return
 }
 
@@ -1505,6 +1508,7 @@ func (zone *Zone) getFsmValue() *zoneValue {
 		QosFlowWLimit:       zone.QosFlowWLimit,
 		DataNodesetSelector: zone.GetDataNodesetSelector(),
 		MetaNodesetSelector: zone.GetMetaNodesetSelector(),
+		MediaType:           zone.GetMediaType(),
 	}
 }
 
@@ -1535,7 +1539,7 @@ func (zone *Zone) getNodeSet(setID uint64) (ns *nodeSet, err error) {
 	defer zone.nsLock.RUnlock()
 	ns, ok := zone.nodeSetMap[setID]
 	if !ok {
-		return nil, errors.NewErrorf("set %v not found", setID)
+		return nil, errors.NewErrorf("nodeset %v not found", setID)
 	}
 	return
 }
@@ -2073,6 +2077,18 @@ func (zone *Zone) startDecommissionListTraverse(c *Cluster) (err error) {
 	}
 	log.LogInfof("action[startDecommissionListTraverse] All nodeset from %v start decommission schedule", zone.name)
 	return
+}
+
+func (zone *Zone) GetMediaType() uint32 {
+	return atomic.LoadUint32(&zone.mediaType)
+}
+
+func (zone *Zone) GetMediaTypeString() string {
+	return proto.MediaTypeString(atomic.LoadUint32(&zone.mediaType))
+}
+
+func (zone *Zone) SetMediaType(newMediaType uint32) {
+	atomic.StoreUint32(&zone.mediaType, newMediaType)
 }
 
 type DecommissionDataPartitionList struct {

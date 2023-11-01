@@ -864,7 +864,7 @@ func (c *Cluster) adjustMetaNode(metaNode *MetaNode) {
 	var zone *Zone
 	zone, err = c.t.getZone(metaNode.ZoneName)
 	if err != nil {
-		zone = newZone(metaNode.ZoneName)
+		zone = newZone(metaNode.ZoneName, proto.MediaType_Unspecified)
 		c.t.putZone(zone)
 	}
 	c.nsMutex.Lock()
@@ -1047,7 +1047,7 @@ func (c *Cluster) adjustDataNode(dataNode *DataNode) {
 	var zone *Zone
 	zone, err = c.t.getZone(dataNode.ZoneName)
 	if err != nil {
-		zone = newZone(dataNode.ZoneName)
+		zone = newZone(dataNode.ZoneName, dataNode.MediaType)
 		c.t.putZone(zone)
 	}
 
