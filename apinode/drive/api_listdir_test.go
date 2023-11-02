@@ -297,9 +297,7 @@ func TestHandleListAll(t *testing.T) {
 		node.OnceGetUser()
 		node.Volume.EXPECT().Lookup(A, A, A).DoAndReturn(func(ctx context.Context, ino uint64, name string) (*sdk.DirInfo, error) {
 			inode := uint64(100)
-			if name == "test" {
-				inode = uint64(100)
-			} else {
+			if name != "test" {
 				i, _ := strconv.Atoi(name)
 				inode = uint64(i)
 			}

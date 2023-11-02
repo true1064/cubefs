@@ -193,8 +193,8 @@ type DriveNode struct {
 	limiter     *rate.Limiter
 
 	mu         sync.RWMutex
-	clusters   []string            // all cluster id
-	publicApps map[string]struct{} // public app in the cluster
+	clusters   []string             // all cluster id
+	publicApps map[string]AppVolume // public app in the cluster
 
 	out      *oplog.Output
 	recorder io.Writer
@@ -549,9 +549,20 @@ func (d *DriveNode) initClusterConfig() error {
 		clusters[i], clusters[j] = clusters[j], clusters[i]
 	})
 
-	publicApps := make(map[string]struct{})
-	for userID := range cfg.PublicApps {
-		publicApps[userID] = struct{}{}
+	publicApps := make(map[string]AppVolume)
+	for app, volume := range cfg.PublicApps {
+		if (volume.ClusterID == "" && volume.VolumeID != "") ||
+			(volume.ClusterID != "" && volume.VolumeID == "") {
+			return fmt.Errorf("public volume config is invalid")
+		}
+		if volume.ClusterID != "" && volume.Master != "" {
+			err = d.clusterMgr.AddCluster(context.Background(), volume.ClusterID, volume.Master)
+			if err != nil {
+				log.Errorf("add public app %s volume %v error: %v", app, volume, err)
+				return err
+			}
+		}
+		publicApps[app] = volume
 	}
 
 	d.mu.Lock()

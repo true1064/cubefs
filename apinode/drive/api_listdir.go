@@ -479,9 +479,7 @@ func (d *DriveNode) handleListAll(c *rpc.Context) {
 	limit += 1
 
 	uid := d.userID(c)
-	var (
-		pathIno Inode
-	)
+	var pathIno Inode
 
 	// 1. get user route info
 	ur, vol, err := d.getUserRouterAndVolume(ctx, uid)
@@ -496,10 +494,10 @@ func (d *DriveNode) handleListAll(c *rpc.Context) {
 		pathIno = root
 	} else {
 		// 2. lookup the inode of dir
-		dirInodeInfo, err := d.lookup(ctx, vol, root, path)
-		if err != nil {
-			span.Errorf("lookup path=%s error: %v", path, err)
-			d.respError(c, err)
+		dirInodeInfo, errx := d.lookup(ctx, vol, root, path)
+		if errx != nil {
+			span.Errorf("lookup path=%s error: %v", path, errx)
+			d.respError(c, errx)
 			return
 		}
 		if !dirInodeInfo.IsDir() {

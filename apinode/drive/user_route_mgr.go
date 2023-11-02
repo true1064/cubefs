@@ -64,16 +64,22 @@ func (ur *UserRoute) CanWrite() error {
 }
 
 type ClusterInfo struct {
-	ClusterID string `json:"id"`
+	ClusterID string `json:"clusterId"`
 	Master    string `json:"master"`
 	Priority  int    `json:"priority"`
 }
 
+type AppVolume struct {
+	ClusterID string `json:"clusterId"`
+	Master    string `json:"master"`
+	VolumeID  string `json:"volumeId"`
+}
+
 type ClusterConfig struct {
-	RequestLimit int                    `json:"requestLimit"` // the number of request per second
-	LimiterBrust int                    `json:"limiterBrust"` // the size of token bucket
-	Clusters     []ClusterInfo          `json:"clusters"`
-	PublicApps   map[string]interface{} `json:"publicApps"`
+	RequestLimit int                  `json:"requestLimit"` // the number of request per second
+	LimiterBrust int                  `json:"limiterBrust"` // the size of token bucket
+	Clusters     []ClusterInfo        `json:"clusters"`
+	PublicApps   map[string]AppVolume `json:"publicApps"`
 }
 
 const (
@@ -146,6 +152,28 @@ func (d *DriveNode) createUserRoute(ctx context.Context, uid UserID) error {
 // There is only increment here, and it is not so accurate.
 func (d *DriveNode) assignVolume(ctx context.Context, uid UserID) (cluster sdk.ICluster, clusterid, volumeid string, err error) {
 	span := trace.SpanFromContextSafe(ctx)
+
+	if uid.Public {
+		d.mu.RLock()
+		volume, exists := d.publicApps[uid.ID]
+		d.mu.RUnlock()
+		if !exists {
+			err = sdk.ErrNotFound.Extend("public app", uid.ID)
+			return
+		}
+
+		if volume.ClusterID != "" && volume.VolumeID != "" {
+			clusterid = volume.ClusterID
+			volumeid = volume.VolumeID
+			cluster = d.clusterMgr.GetCluster(clusterid)
+			if cluster == nil {
+				err = sdk.ErrNoCluster
+				return
+			}
+			return
+		}
+	}
+
 	d.mu.RLock()
 	if len(d.clusters) == 0 {
 		d.mu.RUnlock()
@@ -164,16 +192,6 @@ func (d *DriveNode) assignVolume(ctx context.Context, uid UserID) (cluster sdk.I
 	if len(vols) == 0 {
 		err = sdk.ErrNoVolume
 		return
-	}
-
-	if uid.Public {
-		d.mu.RLock()
-		_, publicExists := d.publicApps[uid.ID]
-		d.mu.RUnlock()
-		if !publicExists {
-			err = sdk.ErrNotFound.Extend("public user", uid.ID)
-			return
-		}
 	}
 
 	data := md5.Sum([]byte(uid.ID))

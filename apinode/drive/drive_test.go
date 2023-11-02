@@ -345,7 +345,7 @@ func TestCreateUserRouteInfo(t *testing.T) {
 		require.Error(t, err)
 		require.Equal(t, sdk.ErrNotFound.Code, err.(*sdk.Error).Code, uid.String())
 	}
-	d.publicApps = map[string]struct{}{uid.ID: {}}
+	d.publicApps = map[string]AppVolume{uid.ID: {ClusterID: "cluster", VolumeID: "volume"}}
 
 	node.Volume.EXPECT().Lookup(A, A, A).DoAndReturn(
 		func(_ context.Context, _ uint64, name string) (*sdk.DirInfo, error) {
@@ -639,12 +639,18 @@ func TestInitClusterConfig(t *testing.T) {
 	require.Error(t, d.initClusterConfig())
 
 	cfg := ClusterConfig{}
+	cfg.PublicApps = make(map[string]AppVolume)
 	for i := 0; i < 5; i++ {
 		cfg.Clusters = append(cfg.Clusters, ClusterInfo{
 			ClusterID: fmt.Sprintf("%d", i+1),
 			Master:    "127.0.0.1:9000,127.0.0.1:9001,127.0.0.1:9002",
 			Priority:  10,
 		})
+		cfg.PublicApps[fmt.Sprintf("public-%d", i)] = AppVolume{
+			ClusterID: fmt.Sprintf("%d", i+1),
+			Master:    "127.0.0.1:9000,127.0.0.1:9001,127.0.0.1:9002",
+			VolumeID:  fmt.Sprintf("%d", i+1),
+		}
 	}
 	data, _ := json.Marshal(&cfg)
 	node.Volume.EXPECT().GetInode(A, A).DoAndReturn(
@@ -664,10 +670,15 @@ func TestInitClusterConfig(t *testing.T) {
 	masters := []string{}
 	node.ClusterMgr.EXPECT().AddCluster(A, A, A).DoAndReturn(
 		func(ctx context.Context, clusterid string, master string) error {
+			for _, _clusterid := range clusterIDs {
+				if _clusterid == clusterid {
+					return nil
+				}
+			}
 			clusterIDs = append(clusterIDs, clusterid)
 			masters = append(masters, master)
 			return nil
-		}).Times(5)
+		}).Times(10)
 	require.NoError(t, d.initClusterConfig())
 	require.Equal(t, len(clusterIDs), 5)
 	require.Equal(t, len(masters), 5)
