@@ -88,28 +88,27 @@ func (e *EngineTransCipher) Read(p []byte) (int, error) {
 
 	// 没有数据直接报错
 	if e.reader == nil {
-		return 0, fmt.Errorf("reader is nil.")
+		return 0, fmt.Errorf("reader is nil")
 	}
 
 	// 读取数据
-	data := make([]byte, len(p))
-	n, err := e.reader.Read(data)
+	n, err := e.reader.Read(p)
 	if n > 0 {
 		switch e.cipherMode {
 		case types.ENCRYPT_MODE:
-			cipherErr := e.encrypt(p, data[:n])
+			cipherErr := e.encrypt(p, p[:n])
 			if cipherErr != nil {
 				return 0, cipherErr
 			}
 
 		case types.DECRYPT_MODE:
-			cipherErr := e.decrypt(p, data[:n])
+			cipherErr := e.decrypt(p, p[:n])
 			if cipherErr != nil {
 				return 0, cipherErr
 			}
 
 		default:
-			return 0, fmt.Errorf("Error with cipher mode:%d", e.cipherMode)
+			return 0, fmt.Errorf("error with cipher mode:%d", e.cipherMode)
 		}
 	}
 
@@ -180,8 +179,9 @@ func (e *EngineTransCipher) encrypt(ciphertext, plaintext []byte) error {
 //  @param ciphertext 待解密的用户数据密文。
 //  @return error 如果出错，返回错误原因。
 func (e *EngineTransCipher) decrypt(plaintext, ciphertext []byte) error {
-	e.stream.XORKeyStream(plaintext, ciphertext)
+	defer e.stream.XORKeyStream(plaintext, ciphertext)
 
+	// 对密文做HMAC计算，再解密。
 	if e.needHmac {
 		_, err := e.hashMac.Write(ciphertext)
 		if err != nil {

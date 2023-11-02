@@ -112,11 +112,11 @@ func (e *EngineFileCipher) Read(p []byte) (int, error) {
 
 	// 没有数据直接报错
 	if e.reader == nil {
-		return 0, fmt.Errorf("reader is nil.")
+		return 0, fmt.Errorf("reader is nil")
 	}
 
 	if len(p) < int(e.blockSize) {
-		return 0, fmt.Errorf("data length[%d] is smaller than block size[%d].", len(p), e.blockSize)
+		return 0, fmt.Errorf("data length[%d] is smaller than block size[%d]", len(p), e.blockSize)
 	}
 
 	// 数据已经完成加解密，只读取最后的分组。
@@ -134,7 +134,7 @@ func (e *EngineFileCipher) Read(p []byte) (int, error) {
 		case types.DECRYPT_MODE:
 			n = e.decrypt(p, data[:n])
 		default:
-			return 0, fmt.Errorf("Error with cipher mode:%d", e.cipherMode)
+			return 0, fmt.Errorf("error with cipher mode:%d", e.cipherMode)
 		}
 	}
 
@@ -153,7 +153,7 @@ func (e *EngineFileCipher) Read(p []byte) (int, error) {
 			}
 
 		default:
-			return 0, fmt.Errorf("Error with cipher mode:%d", e.cipherMode)
+			return 0, fmt.Errorf("error with cipher mode:%d", e.cipherMode)
 		}
 
 		return e.finalReader.Read(p)

@@ -63,9 +63,10 @@ type ServiceBasedKMS struct {
 }
 
 // NewServiceBasedKMS 创建服务级KMS加密方案。
-//  @param configure 配置信息。
-//  @return *ServiceBasedKMS 服务级KMS加密方案对象。
-//  @return *errno.Errno 如果出错，返回错误码以及错误信息。
+//
+//	@param configure 配置信息。
+//	@return *ServiceBasedKMS 服务级KMS加密方案对象。
+//	@return *errno.Errno 如果出错，返回错误码以及错误信息。
 func NewServiceBasedKMS(configure *types.Configure) (*ServiceBasedKMS, *errno.Errno) {
 	s := &ServiceBasedKMS{}
 	s.configure = configure
@@ -86,11 +87,12 @@ func NewServiceBasedKMS(configure *types.Configure) (*ServiceBasedKMS, *errno.Er
 }
 
 // NewEngineTransCipher 创建传输加密引擎。
-//  @param cipherMode 工作模式：加密、解密。
-//  @param cipherMaterial 加密材料，它从终端产生。解密模式下，如果为空，将会从reader读取，如果不为空但解析加密材料失败，则返回错误；加密模式下，如果为空则直接返回错误。
-//  @param reader 待处理的数据流。
-//  @return *engine.EngineTransCipher 传输加密引擎对象。
-//  @return *errno.Errno 如果失败，返回错误原因以及错误码。
+//
+//	@param cipherMode 工作模式：加密、解密。
+//	@param cipherMaterial 加密材料，它从终端产生。解密模式下，如果为空，将会从reader读取，如果不为空但解析加密材料失败，则返回错误；加密模式下，如果为空则直接返回错误。
+//	@param reader 待处理的数据流。
+//	@return *engine.EngineTransCipher 传输加密引擎对象。
+//	@return *errno.Errno 如果失败，返回错误原因以及错误码。
 func (s *ServiceBasedKMS) NewEngineTransCipher(cipherMode types.CipherMode, cipherMaterial []byte, reader io.Reader) (*engine.EngineTransCipher, *errno.Errno) {
 	// 如果加密材料为空，则从reader里读取加密材料。
 	if cipherMaterial == nil {
@@ -133,10 +135,13 @@ func (s *ServiceBasedKMS) NewEngineTransCipher(cipherMode types.CipherMode, ciph
 
 	// 如果是加密模式，需要更新IV
 	if cipherMode == types.ENCRYPT_MODE {
-		if _, err := io.ReadFull(rand.Reader, material.IV); err != nil {
+		iv := make([]byte, types.AES_256_CTR_IV_LEN)
+		if _, err := io.ReadFull(rand.Reader, iv); err != nil {
 			return nil, errno.TransCipherIVLengthError.Append(err.Error())
 		}
+		material.IV = iv
 	}
+
 	// 序列化加密材料
 	cipherMaterial, err = proto.Marshal(&material)
 	if err != nil {
@@ -147,12 +152,13 @@ func (s *ServiceBasedKMS) NewEngineTransCipher(cipherMode types.CipherMode, ciph
 }
 
 // NewEngineFileCipher 创建文件加密引擎。
-//  @param cipherMode 工作模式：加密、解密。
-//  @param cipherMaterial 加密材料，它能够在终端或者云端产生。服务级KMS加密方案：如果为空，将重新向KMS申请DEK，如果不为空但解析加密材料失败，则返回错误；
-//  @param reader 待处理的数据流。
-//  @param blockSize 数据分组长度，必须为16的倍数。数据将按设定的分组长度进行分组加密，用户随机解密的最新分段即为该分组大小。
-//  @return *engine.EngineFileCipher 文件加密引擎对象。
-//  @return *errno.Errno 如果失败，返回错误原因以及错误码。
+//
+//	@param cipherMode 工作模式：加密、解密。
+//	@param cipherMaterial 加密材料，它能够在终端或者云端产生。服务级KMS加密方案：如果为空，将重新向KMS申请DEK，如果不为空但解析加密材料失败，则返回错误；
+//	@param reader 待处理的数据流。
+//	@param blockSize 数据分组长度，必须为16的倍数。数据将按设定的分组长度进行分组加密，用户随机解密的最新分段即为该分组大小。
+//	@return *engine.EngineFileCipher 文件加密引擎对象。
+//	@return *errno.Errno 如果失败，返回错误原因以及错误码。
 func (s *ServiceBasedKMS) NewEngineFileCipher(cipherMode types.CipherMode, cipherMaterial []byte, reader io.Reader, blockSize uint64) (*engine.EngineFileCipher, *errno.Errno) {
 	// 加密材料为空：解密模式下，加密材料在reader流里。
 	if cipherMaterial == nil && cipherMode == types.DECRYPT_MODE {
@@ -200,10 +206,11 @@ func (s *ServiceBasedKMS) NewEngineFileCipher(cipherMode types.CipherMode, ciphe
 }
 
 // NewEngineAesGCM NewEngineAesGCMCipher 创建AES-256-GCM加密引擎。
-//  @receiver s
-//  @param cipherMaterial 加密材料，由端侧生成并传输至云端。
-//  @return *engine.EngineAesGCM ES-256-GCM加密引擎对象。
-//  @return *errno.Errno 如果失败，返回错误原因以及错误码。
+//
+//	@receiver s
+//	@param cipherMaterial 加密材料，由端侧生成并传输至云端。
+//	@return *engine.EngineAesGCM ES-256-GCM加密引擎对象。
+//	@return *errno.Errno 如果失败，返回错误原因以及错误码。
 func (s *ServiceBasedKMS) NewEngineAesGCMCipher(cipherMaterial []byte) (*engine.EngineAesGCMCipher, *errno.Errno) {
 	// 加密材料protobuf反序列化
 	material := CipherMaterial{}
@@ -223,10 +230,10 @@ func (s *ServiceBasedKMS) NewEngineAesGCMCipher(cipherMaterial []byte) (*engine.
 
 // initKMSEx KMS3.0初始化。
 //
-//  @receiver s
-//  @param authParam AUTH配置参数。
-//  @param env 运行环境。
-//  @return *errno.Errno 如果出错，返回错误码以及错误信息。
+//	@receiver s
+//	@param authParam AUTH配置参数。
+//	@param env 运行环境。
+//	@return *errno.Errno 如果出错，返回错误码以及错误信息。
 func (s *ServiceBasedKMS) initKMSEx(authParam types.AuthParam, env types.EnvironmentType) *errno.Errno {
 	// param := okey.Params{
 	// 	AppName: authParam.appName,
@@ -250,10 +257,10 @@ func (s *ServiceBasedKMS) initKMSEx(authParam types.AuthParam, env types.Environ
 
 // initKmsNxg KMS-NXG初始化。
 //
-//  @receiver s
-//  @param authParam KMS初始化参数。
-//  @param env 运行环境。
-//  @return *errno.Errno 如果出错，返回错误码以及详细信息。
+//	@receiver s
+//	@param authParam KMS初始化参数。
+//	@param env 运行环境。
+//	@return *errno.Errno 如果出错，返回错误码以及详细信息。
 func (s *ServiceBasedKMS) initKmsNxg(authParam types.AuthParam, env types.EnvironmentType) *errno.Errno {
 	var err error
 	s.kmsClient, err = kms.New(authParam.AK, authParam.SK, int(env))
