@@ -53,8 +53,7 @@ const (
 	ChecksumPrefix  = "x-cfa-content-"
 	HeaderPublicApp = "x-cfa-public-app"
 
-	HeaderCipherMeta = "x-cfa-cipher-meta"
-	HeaderCipherBody = "x-cfa-cipher-body"
+	HeaderCipherMaterial = "x-cfa-cipher-material"
 
 	UserPropertyPrefix = "x-cfa-meta-"
 

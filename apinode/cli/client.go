@@ -54,8 +54,7 @@ func setHeaders(req *http.Request, material string, meta []string) error {
 		req.Header.Set(drive.HeaderPublicApp, uapp)
 	}
 	if len(pass) > 0 {
-		req.Header.Set(drive.HeaderCipherMeta, pass)
-		req.Header.Set(drive.HeaderCipherBody, material)
+		req.Header.Set(drive.HeaderCipherMaterial, "1"+pass)
 	}
 	for i := 0; i < len(meta); i += 2 {
 		k, err := encoder.Encrypt(meta[i], false)
@@ -105,7 +104,7 @@ func (c *client) requestWithHeader(method string, uri string, body io.Reader, he
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode/100 == 2 {
-		resp.Body = readCloser{Reader: responser(resp.Body, resp.Header.Get(drive.HeaderCipherBody)), Closer: resp.Body}
+		resp.Body = readCloser{Reader: responser(resp.Body, resp.Header.Get(drive.HeaderCipherMaterial)), Closer: resp.Body}
 	}
 	return newStatusError(rpc.ParseData(resp, ret), resp.Header.Get("x-cfa-trace-id"))
 }
@@ -195,7 +194,7 @@ func (c *client) FileDownload(path string, from, to int, w io.Writer) (err error
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == 200 || resp.StatusCode == 206 {
-		if _, err = io.Copy(w, responser(resp.Body, resp.Header.Get(drive.HeaderCipherBody))); err == io.EOF {
+		if _, err = io.Copy(w, responser(resp.Body, resp.Header.Get(drive.HeaderCipherMaterial))); err == io.EOF {
 			err = nil
 		}
 		return

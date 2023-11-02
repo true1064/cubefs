@@ -72,20 +72,13 @@ var (
 	uapp string = ""
 	pass string = ""
 
-	metaMaterial string = "" +
-		"CoACa0/B6pPpInXLffXsD4RWzAe7JMK94E9pzmMbT8Uq1E0GyiDJ1ssku+U6U3nPHqeMON83vIoeMWey" +
-		"v3jzjEuOgV/cm3IDZe8d6O3mWBZ6F45+LjR/Sc0Gw8Hax3zcsonvTIljWzbiwhEQSw+Wlo5vbkU6IYfS" +
-		"7XHtffyNv1znf9FCY6n9da/MbbNDH0z3jbiy8PZgIucFitna8U2UU6l/U4Az3TRhhm/sEwRuONPgQV4i" +
-		"+rbCbR0cVJsqaLaRfPCPwO1TlMfEIlpejucZyrHdF2HUanuwjIG6EqAlfLaVY6/Occ+XQlE31GExCMFx" +
-		"wk3FYKKkWIg4aKijdOOAsOUfoBo8TAKhluGM6jPoTI/sWPe7rJRqXbVPdSmmzWgPKmxiJ3Pz0Fv1t/Ua" +
-		"mhB0HzsvpJHg4Bk4H1Vlyc0vQJH4"
-	bodyMaterial string = "" +
-		"CoACa0/B6pPpInXLffXsD4RWzAe7JMK94E9pzmMbT8Uq1E0GyiDJ1ssku+U6U3nPHqeMON83vIoeMWey" +
-		"v3jzjEuOgV/cm3IDZe8d6O3mWBZ6F45+LjR/Sc0Gw8Hax3zcsonvTIljWzbiwhEQSw+Wlo5vbkU6IYfS" +
-		"7XHtffyNv1znf9FCY6n9da/MbbNDH0z3jbiy8PZgIucFitna8U2UU6l/U4Az3TRhhm/sEwRuONPgQV4i" +
-		"+rbCbR0cVJsqaLaRfPCPwO1TlMfEIlpejucZyrHdF2HUanuwjIG6EqAlfLaVY6/Occ+XQlE31GExCMFx" +
-		"wk3FYKKkWIg4aKijdOOAsOUfoBIQZjxuARdr1C24eHatCjp0vRo8TAKhluGM6jPoTI/sWPe7rJRqXbVP" +
-		"dSmmzWgPKmxiJ3Pz0Fv1t/UamhB0HzsvpJHg4Bk4H1Vlyc0vQJH4OAE="
+	material string = "" +
+		"CoACNgL9twBlPW4SdH+LWNZ6+rOwdU8etZacpMa+a+X7e8BUp1sRntIfQ5sYunwseYYaY/w8rTOewY9P" +
+		"wM5jH1ZQYukXakbWfjLzNsJ0pS4YaBIfNaDxlxqNEoygXvrn/9oon16xyuii0TGNtENyTRB3jmqgAwi3" +
+		"zexjyTvYO8S5sMUnoADxPgGAA7cKofpjZTRPl1LI+LACuL7EHELYWBQvFmUV8Q7HkYCIOUZpzyXNDRNl" +
+		"GAGKwKf6lnvFh++PVI/ob+JEWsXnlxyt62he2Cy243E6/fchWK8TCgjUKM4G6HAuv8+zxhonWq1j3xlv" +
+		"ic6l0hwLoqAiwiKTE8yo+RXytxIQW0iIZ07iyG4F9XfHcffgeBo9AM4ncZ/9Kj7faFUN5qmUjdO3/iTH" +
+		"YAEfloLSyXjEcsrX/oMOe+3gOd0U8fe0Q4AmRstQ5wUfJ62b60ks/TgB"
 
 	cryptor   = crypto.NoneCryptor()
 	encoder   = newTransmitter()
@@ -106,7 +99,7 @@ func newTransFuncEncoder() func(io.Reader) (io.Reader, string) {
 		if pass == "" {
 			return r, ""
 		}
-		rr, newMaterial, err := cryptor.TransEncryptor(bodyMaterial, r)
+		rr, newMaterial, err := cryptor.TransEncryptor("", r)
 		if err != nil {
 			panic(err)
 		}
@@ -119,7 +112,7 @@ func newTransFuncDecoder() func(io.Reader, string) io.Reader {
 		if respMaterial == "" {
 			return r
 		}
-		rr, err := cryptor.TransDecryptor(respMaterial, r)
+		rr, err := cryptor.TransDecryptor("", r)
 		if err != nil {
 			panic(err)
 		}
@@ -161,7 +154,7 @@ func registerUser(app *grumble.App) {
 					if len(val) > 16 {
 						pass = val
 					} else {
-						pass = metaMaterial
+						pass = material
 					}
 					crypto.Init(crypto.Configure{})
 					cryptor = crypto.NewCryptor()

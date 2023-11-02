@@ -126,14 +126,14 @@ func (*DriveNode) userID(c *rpc.Context) UserID {
 func (d *DriveNode) encryptResponse(c *rpc.Context, body io.Reader) (io.Reader, error) {
 	st := time.Now()
 	_, span := d.ctxSpan(c)
-	r, respMaterial, err := d.cryptor.TransEncryptor(c.Request.Header.Get(HeaderCipherBody), body)
+	r, respMaterial, err := d.cryptor.TransEncryptor(c.Request.Header.Get(HeaderCipherMaterial), body)
 	span.AppendTrackLog("ctnb", st, err)
 	if err != nil {
 		span.Warn("make encrypt transmitter", err)
 		return nil, sdk.ErrTransCipher
 	}
 	if respMaterial != "" {
-		c.Writer.Header().Set(HeaderCipherBody, respMaterial)
+		c.Writer.Header().Set(HeaderCipherMaterial, respMaterial)
 	}
 	return r, err
 }
