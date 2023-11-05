@@ -1278,3 +1278,5 @@ func MediaTypeString(mediaType uint32) (value string) {
 	}
 	return
 }
+
+const ForbiddenMigrationRenewalPeriod = 2 * time.Minute
