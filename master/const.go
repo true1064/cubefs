@@ -140,6 +140,8 @@ const (
 	markDiskBrokenThresholdKey = "markDiskBrokenThreshold"
 	decommissionTypeKey        = "decommissionType"
 	mediaTypeKey               = "mediaType"
+	allowedStorageClassKey     = "allowedStorageClass"
+	volStorageClassKey         = "volStorageClass"
 )
 
 const (
