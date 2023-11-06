@@ -142,6 +142,8 @@ const (
 	autoDpMetaRepairKey        = "autoDpMetaRepair"
 	dpTimeoutKey               = "dpTimeout"
 	mediaTypeKey               = "mediaType"
+	allowedStorageClassKey     = "allowedStorageClass"
+	volStorageClassKey         = "volStorageClass"
 )
 
 const (
