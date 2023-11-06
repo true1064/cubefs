@@ -166,10 +166,10 @@ type MetaWrapper struct {
 
 	qc *QuotaCache
 
-	VerReadSeq       uint64
-	LastVerSeq       uint64
-	Client           wrapper.SimpleClientInfo
-	DefaultMediaType uint32
+	VerReadSeq          uint64
+	LastVerSeq          uint64
+	Client              wrapper.SimpleClientInfo
+	DefaultStorageClass uint32
 }
 
 type uniqidRange struct {
@@ -223,6 +223,7 @@ func NewMetaWrapper(config *MetaConfig) (*MetaWrapper, error) {
 	mw.uniqidRangeMap = make(map[uint64]*uniqidRange, 0)
 	mw.qc = NewQuotaCache(DefaultQuotaExpiration, MaxQuotaCache)
 	mw.VerReadSeq = config.VerReadSeq
+	mw.DefaultStorageClass = proto.StorageClass_Unspecified
 
 	limit := 0
 	for limit < MaxMountRetryLimit {

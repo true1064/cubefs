@@ -104,33 +104,33 @@ var volNameErr = errors.New("name can only start and end with number or letters,
 
 // Server represents the server in a cluster
 type Server struct {
-	id               uint64
-	clusterName      string
-	ip               string
-	bindIp           bool
-	port             string
-	logDir           string
-	walDir           string
-	storeDir         string
-	bStoreAddr       string
-	servicePath      string
-	retainLogs       uint64
-	tickInterval     int
-	raftRecvBufSize  int
-	electionTick     int
-	leaderInfo       *LeaderInfo
-	config           *clusterConfig
-	cluster          *Cluster
-	user             *User
-	rocksDBStore     *raftstore_db.RocksDBStore
-	raftStore        raftstore.RaftStore
-	fsm              *MetadataFsm
-	partition        raftstore.Partition
-	wg               sync.WaitGroup
-	reverseProxy     *httputil.ReverseProxy
-	metaReady        bool
-	apiServer        *http.Server
-	defaultMediaType uint32
+	id                   uint64
+	clusterName          string
+	ip                   string
+	bindIp               bool
+	port                 string
+	logDir               string
+	walDir               string
+	storeDir             string
+	bStoreAddr           string
+	servicePath          string
+	retainLogs           uint64
+	tickInterval         int
+	raftRecvBufSize      int
+	electionTick         int
+	leaderInfo           *LeaderInfo
+	config               *clusterConfig
+	cluster              *Cluster
+	user                 *User
+	rocksDBStore         *raftstore_db.RocksDBStore
+	raftStore            raftstore.RaftStore
+	fsm                  *MetadataFsm
+	partition            raftstore.Partition
+	wg                   sync.WaitGroup
+	reverseProxy         *httputil.ReverseProxy
+	metaReady            bool
+	apiServer            *http.Server
+	defaultDataMediaType uint32
 }
 
 // NewServer creates a new server
@@ -375,10 +375,16 @@ func (m *Server) checkConfig(cfg *config.Config) (err error) {
 	}
 	m.config.volDeletionDentryThreshold = uint64(threshold)
 
+<<<<<<< HEAD
 	enableDirectDeleteVol = cfg.GetBoolWithDefault(cfgEnableDirectDeleteVol, true)
 
 	m.defaultMediaType = uint32(cfg.GetInt64WithDefault(defaultStorageClass, 0))
 	syslog.Println("defaultMediaType=", m.defaultMediaType)
+=======
+	//TODO:tangjingyu: deal compatibility, old version vol hot type convert to storageClass
+	m.defaultDataMediaType = cfg.GetUint32WithDefault(cfgDefaultDataMediaType, proto.MediaType_SSD)
+	syslog.Println("defaultDataMediaType=", m.defaultDataMediaType)
+>>>>>>> fa0ee5123 (feat(master, client, cli): [hybrid cloud] add property volStorageClass and allowedStorageClass to volume)
 	return
 }
 
@@ -423,8 +429,12 @@ func (m *Server) initFsm() {
 }
 
 func (m *Server) initCluster() {
+<<<<<<< HEAD
 	log.LogInfo("action[initCluster] begin")
 	m.cluster = newCluster(m.clusterName, m.leaderInfo, m.fsm, m.partition, m.config)
+=======
+	m.cluster = newCluster(m.clusterName, m.leaderInfo, m.fsm, m.partition, m.config, m)
+>>>>>>> fa0ee5123 (feat(master, client, cli): [hybrid cloud] add property volStorageClass and allowedStorageClass to volume)
 	m.cluster.retainLogs = m.retainLogs
 	log.LogInfo("action[initCluster] end")
 

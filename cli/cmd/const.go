@@ -125,6 +125,8 @@ const (
 	CliFlagClientIDKey             = "clientIDKey"
 	CliFlagMarkDiskBrokenThreshold = "markBrokenDiskThreshold"
 	CliFlagForce                   = "force"
+	CliFlagAllowedStorageClass     = "allowedStorageClass"
+	CliFlagVolStorageClass         = "volStorageClass"
 
 	// CliFlagSetDataPartitionCount	= "count" use dp-count instead
 

@@ -137,6 +137,8 @@ const (
 	dpRepairBlockSizeKey       = "dpRepairBlockSize"
 	markDiskBrokenThresholdKey = "markDiskBrokenThreshold"
 	mediaTypeKey               = "mediaType"
+	allowedStorageClassKey     = "allowedStorageClass"
+	volStorageClassKey         = "volStorageClass"
 )
 
 const (

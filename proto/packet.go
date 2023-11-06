@@ -252,7 +252,7 @@ const (
 	OpLimitedIoErr uint8 = 0xB1
 
 	//hybirdCloud
-	OpDismatchMediaType uint8 = 0xD8
+	OpDismatchMediaType uint8 = 0xD8 //TODO:tangjingyu should rename to storageClass?
 )
 
 const (
