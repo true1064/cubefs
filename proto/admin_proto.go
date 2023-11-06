@@ -888,7 +888,6 @@ type DataPartitionResponse struct {
 	IsRecover     bool
 	PartitionTTL  int64
 	IsDiscard     bool
-	MediaType     uint32
 }
 
 // DataPartitionsView defines the view of a data partition
@@ -1122,7 +1121,9 @@ type SimpleVolView struct {
 	EnableAutoDpMetaRepair bool
 
 	// hybrid cloud
-	DefaultMediaType uint32
+	VolStorageClass     uint32
+	AllowedStorageClass []uint32
+	CacheDpStorageClass uint32
 }
 
 type NodeSetInfo struct {
@@ -1195,7 +1196,6 @@ type ZoneView struct {
 	DataNodesetSelector string
 	MetaNodesetSelector string
 	NodeSet             map[uint64]*NodeSetView
-	MediaType           string
 }
 
 type NodeSetView struct {
@@ -1280,44 +1280,6 @@ var mediaTypeStringMap = map[uint32]string{
 
 func MediaTypeString(mediaType uint32) (value string) {
 	value, ok := mediaTypeStringMap[mediaType]
-	if !ok {
-		value = "InvalidValue"
-	}
-	return
-}
-
-const ForbiddenMigrationRenewalPeriod = 2 * time.Minute
-
-func IsValidMediaType(mediaType uint32) bool {
-	if mediaType >= MediaType_SSD && mediaType <= MediaType_HDD {
-		return true
-	}
-
-	return false
-}
-
-type StorageClass uint32
-
-const (
-	StorageClass_Unspecified uint32 = 0
-	StorageClass_Replica_SSD uint32 = 1
-	StorageClass_Replica_HDD uint32 = 2
-	StorageClass_Blobtore    uint32 = 3
-
-	//Types may be added later:
-	//StorageClass_S3
-	//StorageClass_ARCHIV
-	//StorageClass_HDFS
-)
-
-var storageClassStringMap = map[uint32]string{
-	StorageClass_Unspecified: "Unspecified",
-	StorageClass_Replica_SSD: "ReplicaSSD",
-	StorageClass_Replica_HDD: "ReplicaHDD",
-}
-
-func StorageClassStringMap(storageClass uint32) (value string) {
-	value, ok := storageClassStringMap[storageClass]
 	if !ok {
 		value = "InvalidValue"
 	}

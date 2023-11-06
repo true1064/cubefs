@@ -137,6 +137,8 @@ const (
 	CliFlagAutoDpMetaRepair        = "autoDpMetaRepair"
 	CliFlagDpRepairTimeout         = "dpRepairTimeout"
 	CliFlagDpTimeout               = "dpTimeout"
+	CliFlagAllowedStorageClass     = "allowedStorageClass"
+	CliFlagVolStorageClass         = "volStorageClass"
 
 	// CliFlagSetDataPartitionCount	= "count" use dp-count instead
 
