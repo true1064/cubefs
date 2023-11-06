@@ -465,7 +465,7 @@ func (eh *ExtentHandler) appendExtentKey() (err error) {
 				return
 			}
 			discard := eh.stream.extents.Append(eh.key, true)
-			status, err := eh.stream.client.appendExtentKey(eh.stream.parentInode, eh.inode, *eh.key, discard, eh.stream.isCache)
+			status, err := eh.stream.client.appendExtentKey(eh.stream.parentInode, eh.inode, *eh.key, discard, eh.stream.isCache, eh.mediaType)
 
 			ekey := *eh.key
 			doAppend := func() (err error) {
