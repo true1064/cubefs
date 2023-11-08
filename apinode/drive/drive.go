@@ -127,6 +127,7 @@ func (u *UserID) String() string {
 
 type FileInfo struct {
 	ID         uint64            `json:"fileId"`
+	Ino        uint64            `json:"-"`
 	Name       string            `json:"name"`
 	Type       string            `json:"type"`
 	Size       int64             `json:"size"`

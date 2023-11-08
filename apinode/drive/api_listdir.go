@@ -15,13 +15,16 @@
 package drive
 
 import (
+	"container/list"
 	"context"
 	"fmt"
 	"math"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
@@ -29,12 +32,27 @@ import (
 	"github.com/cubefs/cubefs/util"
 )
 
-type ListDirResult struct {
-	ID         uint64            `json:"fileId"`
+type DirProperty struct {
+	ID         uint64            `json:fileId"`
 	Type       string            `json:"type"`
-	NextMarker string            `json:"nextMarker"`
 	Properties map[string]string `json:"properties"`
-	Files      []FileInfo        `json:"files"`
+}
+
+type ListDirResult struct {
+	DirProperty
+	NextMarker string     `json:"nextMarker"`
+	Files      []FileInfo `json:"files"`
+}
+
+type ArgsListAll struct {
+	Path   FilePath `json:"path"`
+	Limit  int      `json:"limit,omitempty"`
+	Marker string   `json:"marker,omitempty"`
+}
+
+type ListAllResult struct {
+	NextMarker string     `json:"nextMarker"`
+	Files      []FileInfo `json:"files"`
 }
 
 type filterBuilder struct {
@@ -212,10 +230,12 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 	}
 
 	res := ListDirResult{
-		ID:         fileID,
-		Type:       typeFolder,
-		Properties: make(map[string]string),
-		Files:      []FileInfo{},
+		DirProperty: DirProperty{
+			ID:         fileID,
+			Type:       typeFolder,
+			Properties: make(map[string]string),
+		},
+		Files: []FileInfo{},
 	}
 
 	var wg sync.WaitGroup
@@ -326,6 +346,7 @@ func (d *DriveNode) listDir(ctx context.Context, ino uint64, vol sdk.IVolume, ma
 
 		files = append(files, FileInfo{
 			ID:         dirInfos[i].FileId,
+			Ino:        ino,
 			Name:       dirInfos[i].Name,
 			Type:       typ,
 			Size:       int64(inoInfo[i].Size),
@@ -356,4 +377,210 @@ func (d *DriveNode) listDir(ctx context.Context, ino uint64, vol sdk.IVolume, ma
 	sort.Sort(FileInfoSlice(files))
 	//
 	return
+}
+
+type stackElement struct {
+	ino    uint64
+	name   string
+	marker string
+}
+
+func getDirList(ctx context.Context, vol sdk.IVolume, ino uint64, marker string) (*list.List, *sdk.DirInfo, error) {
+	var info *sdk.DirInfo
+	stack := list.New()
+	curMarker := ""
+	stack.PushBack(&stackElement{ino, "", curMarker})
+	dirs := strings.Split(marker, "/")
+	for i, dir := range dirs {
+		if dir == "" || dir == "." {
+			continue
+		}
+		dirInfo, err := vol.Lookup(ctx, ino, dir)
+		if err == sdk.ErrNotFound {
+			break
+		} else if err != nil {
+			return nil, nil, err
+		}
+
+		fileType := typeFile
+		curMarker = filepath.Join(curMarker, dirInfo.Name)
+		if dirInfo.IsDir() {
+			fileType = typeFolder
+			stack.PushBack(&stackElement{dirInfo.Inode, dirInfo.Name, curMarker})
+		}
+		ino = dirInfo.Inode
+		if i == len(dirs)-1 {
+			info = dirInfo
+		}
+		if fileType == typeFile {
+			break
+		}
+	}
+	return stack, info, nil
+}
+
+func recursiveScan(ctx context.Context, vol sdk.IVolume, stack *list.List, marker string, limit int, result *ListAllResult) error {
+	for stack.Len() > 0 {
+		elem := stack.Back()
+		e := elem.Value.(*stackElement)
+
+		dirInfos, err := vol.ReadDirAll(ctx, e.ino)
+		if err != nil {
+			return err
+		}
+		needPop := true
+		for _, dirInfo := range dirInfos {
+			if filepath.Join(e.marker, dirInfo.Name) <= marker {
+				continue
+			}
+
+			fileType := typeFile
+			if dirInfo.IsDir() {
+				fileType = typeFolder
+			}
+
+			marker = filepath.Join(e.marker, dirInfo.Name)
+
+			result.Files = append(result.Files, FileInfo{
+				ID:   dirInfo.FileId,
+				Ino:  dirInfo.Inode,
+				Name: marker,
+				Type: fileType,
+			})
+			if fileType == typeFolder {
+				stack.PushBack(&stackElement{dirInfo.Inode, dirInfo.Name, marker})
+				needPop = false
+				break
+			}
+			if len(result.Files) >= limit {
+				break
+			}
+		}
+		if needPop {
+			stack.Remove(elem)
+		}
+	}
+	return nil
+}
+
+func (d *DriveNode) handleListAll(c *rpc.Context) {
+	args := new(ArgsListAll)
+	ctx, span := d.ctxSpan(c)
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args), args.Path.Clean()) {
+		return
+	}
+
+	path := args.Path.String()
+	marker := filepath.Clean(args.Marker)
+	limit := args.Limit
+	if limit <= 0 || limit > 10000 {
+		limit = 10000
+	}
+	limit += 1
+
+	uid := d.userID(c)
+	var (
+		pathIno Inode
+	)
+
+	// 1. get user route info
+	ur, vol, err := d.getUserRouterAndVolume(ctx, uid)
+	if err != nil {
+		span.Errorf("Failed to get volume: %v", err)
+		d.respError(c, err)
+		return
+	}
+	root := ur.RootFileID
+
+	if path == "/" {
+		pathIno = root
+	} else {
+		// 2. lookup the inode of dir
+		dirInodeInfo, err := d.lookup(ctx, vol, root, path)
+		if err != nil {
+			span.Errorf("lookup path=%s error: %v", path, err)
+			d.respError(c, err)
+			return
+		}
+		if !dirInodeInfo.IsDir() {
+			span.Errorf("path=%s is not a directory", path)
+			d.respError(c, sdk.ErrNotDir)
+			return
+		}
+		pathIno = Inode(dirInodeInfo.Inode)
+	}
+
+	result := ListAllResult{}
+
+	stack, dirInfo, err := getDirList(ctx, vol, pathIno.Uint64(), marker)
+	if err != nil {
+		d.respError(c, err)
+		return
+	}
+
+	if dirInfo != nil {
+		fileType := typeFile
+		if dirInfo.IsDir() {
+			fileType = typeFolder
+		}
+		result.Files = append(result.Files, FileInfo{
+			ID:   dirInfo.FileId,
+			Ino:  dirInfo.Inode,
+			Name: marker,
+			Type: fileType,
+		})
+		limit -= 1
+	}
+
+	if err = recursiveScan(ctx, vol, stack, marker, limit, &result); err != nil {
+		d.respError(c, err)
+		return
+	}
+
+	n := len(result.Files)
+	pool := taskpool.New(util.Min(n, maxTaskPoolSize), n)
+	var wg sync.WaitGroup
+	var errValue atomic.Value
+	wg.Add(n)
+	for i, file := range result.Files {
+		idx := i
+		ino := file.Ino
+		pool.Run(func() {
+			defer wg.Done()
+			if errValue.Load() != nil {
+				return
+			}
+			inoInfo, err := vol.GetInode(ctx, ino)
+			if err != nil {
+				span.Errorf("get inode error: %v, name: %s, inode: %s", err, result.Files[idx].Name, ino)
+				errValue.Store(err)
+				return
+			}
+			properties, err := vol.GetXAttrMap(ctx, ino)
+			if err != nil {
+				span.Errorf("get xattr error: %v, name: %s, inode: %d", err, result.Files[idx].Name, ino)
+				errValue.Store(err)
+				return
+			}
+			if properties == nil {
+				properties = make(map[string]string)
+			}
+			result.Files[idx].Size = int64(inoInfo.Size)
+			result.Files[idx].Ctime = inoInfo.CreateTime.Unix()
+			result.Files[idx].Mtime = inoInfo.ModifyTime.Unix()
+			result.Files[idx].Atime = inoInfo.AccessTime.Unix()
+			result.Files[idx].Properties = properties
+		})
+	}
+	wg.Wait()
+	pool.Close()
+	if v := errValue.Load(); v != nil {
+		d.respError(c, v.(error))
+		return
+	}
+	if limit <= len(result.Files) {
+		result.NextMarker = result.Files[len(result.Files)-1].Name
+		result.Files = result.Files[0 : len(result.Files)-1]
+	}
+	d.respData(c, result)
 }

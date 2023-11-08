@@ -17,10 +17,12 @@ package drive
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -29,6 +31,7 @@ import (
 
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/apinode/testing/mocks"
+	"github.com/cubefs/cubefs/blobstore/common/rpc"
 	"github.com/cubefs/cubefs/proto"
 )
 
@@ -241,79 +244,116 @@ func TestHandleListDir(t *testing.T) {
 		require.Equal(t, res.StatusCode, http.StatusOK)
 		urm.Remove(testUser)
 	}
+}
 
-	/*
-		{
-			urm.Set("test", &UserRoute{
-				Uid:        UserID("test"),
-				ClusterID:  "1",
-				VolumeID:   "1",
-				RootPath:   getRootPath("test"),
-				RootFileID: 4,
-			})
+func TestHandleListAll(t *testing.T) {
+	node := newMockNode(t)
+	d := node.DriveNode
+	server, client := newTestServer(d)
+	defer server.Close()
 
-			mockClusterMgr.EXPECT().GetCluster(gomock.Any()).Return(mockCluster)
-			mockCluster.EXPECT().GetVol(gomock.Any()).Return(mockVol)
-			mockVol.EXPECT().GetDirSnapshot(A, A).Return(mockVol, nil)
-			mockVol.EXPECT().Lookup(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-				func(ctx context.Context, parentIno uint64, name string) (*sdk.DirInfo, error) {
-					if name == "test" {
-						return &sdk.DirInfo{
-							Name:  name,
-							Inode: parentIno + 1,
-							Type:  uint32(os.ModeDir),
-						}, nil
-					}
-					return nil, sdk.ErrNotFound
-				})
-			mockVol.EXPECT().GetXAttrMap(gomock.Any(), gomock.Any()).Return(nil, nil)
-			mockVol.EXPECT().Readdir(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-				func(ctx context.Context, parIno uint64, marker string, count uint32) ([]sdk.DirInfo, error) {
-					infos := []sdk.DirInfo{}
-					idx, _ := strconv.Atoi(marker)
-					idx = idx - 200
-					for i := idx; i < 100 && count > 0; i++ {
-						info := sdk.DirInfo{
-							Name:  fmt.Sprintf("%d", 200+i),
-							Inode: uint64(100 + i),
-							Type:  uint32(os.ModeIrregular),
-						}
-						infos = append(infos, info)
-						count--
-					}
-					return infos, nil
-				})
-
-			mockVol.EXPECT().BatchGetInodes(gomock.Any(), gomock.Any()).DoAndReturn(
-				func(ctx context.Context, inos []uint64) ([]*sdk.InodeInfo, error) {
-					infos := []*sdk.InodeInfo{}
-					for _, ino := range inos {
-						mode := uint32(os.ModeIrregular)
-						if ino == 100 {
-							mode = uint32(os.ModeDir)
-						}
-						info := &sdk.InodeInfo{
-							Inode:      ino,
-							Size:       1024,
-							Mode:       mode,
-							ModifyTime: time.Now(),
-							CreateTime: time.Now(),
-							AccessTime: time.Now(),
-						}
-						infos = append(infos, info)
-					}
-					return infos, nil
-				})
-			mockVol.EXPECT().GetXAttrMap(gomock.Any(), gomock.Any()).Return(nil, nil).Times(2)
-			tgt := fmt.Sprintf("%s/v1/files?path=%s&limit=10", ts.URL, url.QueryEscape("/test"))
-			req, err := http.NewRequest(http.MethodGet, tgt, nil)
-			require.Nil(t, err)
-			req.Header.Set(HeaderUserID, "test")
-			res, err := client.Do(req)
-			require.Nil(t, err)
-			res.Body.Close()
-			require.Equal(t, res.StatusCode, http.StatusOK)
-			urm.Remove("test")
+	doRequest := func(path string, marker string, limit int) (*ListAllResult, rpc.HTTPError) {
+		url := genURL(server.URL, "/v1/files/recursive", "path", path, "marker", marker, "limit", fmt.Sprintf("%d", limit))
+		req, _ := http.NewRequest(http.MethodGet, url, nil)
+		req.Header.Add(HeaderRequestID, "user_request_id")
+		req.Header.Add(HeaderUserID, testUserID)
+		resp, err := client.Do(Ctx, req)
+		require.NoError(t, err)
+		if resp.StatusCode != http.StatusOK {
+			return nil, rpc.ParseResponseErr(resp).(rpc.HTTPError)
 		}
-	*/
+		defer resp.Body.Close()
+		result := &ListAllResult{}
+		err1 := resp2Data(resp, &result)
+		return result, err1
+	}
+
+	{
+		node.OnceGetUser(testUserID)
+		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotFound)
+		_, err := doRequest("/test", "", 0)
+		require.Equal(t, 404, err.StatusCode())
+	}
+
+	{
+		node.OnceGetUser()
+		node.Volume.EXPECT().Lookup(A, A, A).Return(&sdk.DirInfo{
+			Inode: 100,
+			Type:  uint32(fs.ModeAppend),
+		}, nil)
+		_, err := doRequest("/test", "", 0)
+		require.Equal(t, sdk.ErrNotDir.StatusCode(), err.StatusCode())
+	}
+
+	{
+		inoMap := map[uint64]string{}
+		for i := 0; i < 3; i++ {
+			inode := uint64((i + 1) * 100)
+			inoMap[inode] = typeFolder
+			for j := 1; j <= 10; j++ {
+				inoMap[inode+uint64(j)] = typeFile
+			}
+		}
+		node.OnceGetUser()
+		node.Volume.EXPECT().Lookup(A, A, A).DoAndReturn(func(ctx context.Context, ino uint64, name string) (*sdk.DirInfo, error) {
+			inode := uint64(100)
+			if name == "test" {
+				inode = uint64(100)
+			} else {
+				i, _ := strconv.Atoi(name)
+				inode = uint64(i)
+			}
+			if _, ok := inoMap[inode]; ok {
+				return &sdk.DirInfo{
+					Name:  name,
+					Inode: inode,
+					Type:  uint32(fs.ModeDir),
+				}, nil
+			}
+			return nil, sdk.ErrNotFound
+		}).AnyTimes()
+		node.Volume.EXPECT().ReadDirAll(A, A).DoAndReturn(func(ctx context.Context, ino uint64) ([]sdk.DirInfo, error) {
+			dirInfos := []sdk.DirInfo{}
+			if ino == 100 || ino == 200 || ino == 300 {
+				for i := 1; i <= 10; i++ {
+					dirInfos = append(dirInfos, sdk.DirInfo{
+						Name:  fmt.Sprintf("%d", ino+uint64(i)),
+						Inode: ino + uint64(i),
+						Type:  uint32(fs.ModeAppend),
+					})
+				}
+				if ino != 300 {
+					dirInfos = append(dirInfos, sdk.DirInfo{
+						Name:  fmt.Sprintf("%d", ino+100),
+						Inode: ino + 100,
+						Type:  uint32(fs.ModeDir),
+					})
+				}
+			}
+			return dirInfos, nil
+		}).AnyTimes()
+		node.Volume.EXPECT().GetInode(A, A).DoAndReturn(func(ctx context.Context, ino uint64) (*sdk.InodeInfo, error) {
+			return &sdk.InodeInfo{
+				Inode:      ino,
+				Size:       1024,
+				CreateTime: time.Now(),
+				ModifyTime: time.Now(),
+				AccessTime: time.Now(),
+			}, nil
+		}).AnyTimes()
+		node.Volume.EXPECT().GetXAttrMap(A, A).Return(nil, nil).AnyTimes()
+		result, err := doRequest("/test", "", 0)
+		require.Nil(t, err)
+		require.Equal(t, 32, len(result.Files))
+
+		node.OnceGetUser()
+		result, err = doRequest("/test", "200/209", 0)
+		require.Nil(t, err)
+		require.Equal(t, 13, len(result.Files))
+
+		node.OnceGetUser()
+		result, err = doRequest("/test", "400", 0)
+		require.Nil(t, err)
+		require.Equal(t, 0, len(result.Files))
+	}
 }

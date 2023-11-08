@@ -31,6 +31,7 @@ import (
 // RegisterAPIRouters register drive api handler.
 func (d *DriveNode) RegisterAPIRouters() *rpc.Router {
 	rpc.RegisterArgsParser(&ArgsListDir{}, "json")
+	rpc.RegisterArgsParser(&ArgsListAll{}, "json")
 	rpc.RegisterArgsParser(&ArgsProperties{}, "json")
 	rpc.RegisterArgsParser(&ArgsMkDir{}, "json")
 
@@ -55,6 +56,7 @@ func (d *DriveNode) RegisterAPIRouters() *rpc.Router {
 
 	r.Handle(http.MethodGet, "/v1/files", d.handleListDir, rpc.OptArgsQuery())
 	r.Handle(http.MethodDelete, "/v1/files", d.handleFilesDelete, rpc.OptArgsQuery())
+	r.Handle(http.MethodGet, "/v1/files/recursive", d.handleListAll, rpc.OptArgsQuery())
 	r.Handle(http.MethodDelete, "/v1/files/batch", d.handleBatchDelete, rpc.OptArgsBody())
 	r.Handle(http.MethodPost, "/v1/files/mkdir", d.handleMkDir, rpc.OptArgsQuery())
 
