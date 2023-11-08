@@ -16,7 +16,6 @@ package sdk
 
 import (
 	"fmt"
-	"net/http"
 	"strings"
 
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
@@ -88,33 +87,24 @@ var (
 	ErrWriteOverSize    = &Error{Status: 470, Code: "WriteOverSize", Message: "write over size"}
 	ErrServerCipher     = &Error{Status: 500, Code: "ServerCipher", Message: "server cipher"}
 
-	ErrInvalidPartOrder = newErr(http.StatusBadRequest, "request part order is invalid")
-	ErrInvalidPart      = newErr(http.StatusBadRequest, "request part is invalid")
-	ErrLimitExceed      = newErr(http.StatusTooManyRequests, "request limit exceed")
-	ErrConflict         = newErr(http.StatusConflict, "operation conflict")
-	ErrExist            = newErr(http.StatusConflict, "file already exist")
-	ErrTooLarge         = newErr(http.StatusRequestEntityTooLarge, "request entity too large")
-	ErrWriteSnapshot    = newErr(http.StatusForbidden, "can't write on snapshot dir")
-	ErrSnapshotName     = newErr(http.StatusBadRequest, "name is conflict with snapshot")
+	ErrWriteSnapshot = &Error{Status: 403, Code: "WriteNotAllowed", Message: "can not write on snapshot dir"}
+	ErrSnapshotName = &Error{Status: 400, Code: "BadRequest", Message: "name is conflict with snapshot"}
+	ErrInvalidPartOrder = &Error{Status: 400, Code: "BadRequest", Message: "request part order is invalid"}
+	ErrInvalidPart      = &Error{Status: 400, Code: "BadRequest", Message: "request part is invalid"}
+	ErrLimitExceed      = &Error{Status: 429, Code: "TooManyRequests", Message: "request limit exceed"}
+	ErrConflict         = &Error{Status: 409, Code: "OperationConflict", Message: "operation conflict"}
+	ErrExist            = &Error{Status: 409, Code: "OperationConflict", Message: "operation conflict"}
+	ErrTooLarge         = &Error{Status: 413, Code: "RequestTooLarge", Message: "request entity too large"}
 
 	ErrInternalServerError = &Error{Status: 500, Code: "InternalServerError", Message: "internal server error"}
 	ErrBadGateway          = &Error{Status: 502, Code: "BadGateway", Message: "bad gateway"}
 
-	ErrNoLeader   = newErr(http.StatusInternalServerError, "no valid leader")
-	ErrNoMaster   = newErr(http.StatusInternalServerError, "no valid master")
-	ErrRetryAgain = newErr(http.StatusInternalServerError, "retry again")
-	ErrFull       = newErr(http.StatusInternalServerError, "no available resource")
-	ErrBadFile    = newErr(http.StatusInternalServerError, "request file handle not exist")
-	ErrNoCluster  = newErr(http.StatusInternalServerError, "no valid cluster")
-	ErrNoVolume   = newErr(http.StatusInternalServerError, "no valid volume")
+	ErrNoLeader   = &Error{Status: 500, Code: "InternalServerError", Message: "no valid leader"}
+	ErrNoMaster   = &Error{Status: 500, Code: "InternalServerError", Message: "no valid master"}
+	ErrRetryAgain = &Error{Status: 500, Code: "InternalServerError", Message: "retry again"}
+	ErrFull       = &Error{Status: 500, Code: "InternalServerError", Message: "no available resource"}
+	ErrBadFile    = &Error{Status: 500, Code: "InternalServerError", Message: "request file handle not exist"}
+	ErrNoCluster  = &Error{Status: 500, Code: "InternalServerError", Message: "no valid cluster"}
+	ErrNoVolume   = &Error{Status: 500, Code: "InternalServerError", Message: "no valid volume"}
 )
 
-// newErr with http.statusCode
-func newErr(status int, msg string) *Error {
-	code := http.StatusText(status)
-	if code == "" {
-		code = "UnknownErr"
-	}
-
-	return &Error{Status: status, Code: code, Message: msg}
-}
