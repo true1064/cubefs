@@ -63,7 +63,68 @@ func main() {
 	//testMultiPartOp(ctx, dirVol)
 	//testInodeLock(ctx, dirVol)
 
+	testDirSnapshotLimit(ctx, vol, dirVol)
 	testDirSnapshotOp(ctx, vol, dirVol)
+}
+
+
+func testDirSnapshotLimit(ctx context.Context, vol, dirVol sdk.IVolume) {
+	span := trace.SpanFromContext(ctx)
+	span.Infof("start testDirSnapshotLimit")
+	defer span.Infof("success testDirSnapshotLimit")
+
+	var err error
+
+	newVol := func() {
+		dirVol, err = vol.GetDirSnapshot(ctx, proto.RootIno)
+		if err != nil {
+			span.Fatalf("new dir snapshot failed, err %s", err.Error())
+		}
+	}
+
+	createSnapshot := func(ver int, dir string) {
+		err = dirVol.CreateDirSnapshot(ctx, string(ver), dir)
+		if err != nil {
+			span.Fatalf("create dir snapshot failed, ver %s dir %s, err %s",
+				ver, dir, err.Error())
+		}
+		newVol()
+	}
+
+	createDir := func (dir string)  {
+		_, _, err = dirVol.Mkdir(ctx, proto.RootIno, dir)
+		if err != nil {
+			span.Fatalf("mkdir failed, dir %s, err %s", dir, err.Error())
+		}
+		newVol()
+	}
+
+	delSnapshot := func (ver, dir string)  {
+		err := dirVol.DeleteDirSnapshot(ctx, ver, dir)
+		if err != nil {
+			span.Fatalf("delete dir snapshot failed, dir %s, err %s", dir, err.Error())
+		}
+	}
+
+	for idx := 0; idx < 10; idx ++ {
+		tmpDir := fmt.Sprintf("snapDir_%d_%s", idx, tmpString())
+		createDir(tmpDir)
+		for j := 0; j < 10; j ++ {
+			createSnapshot(j, tmpDir)
+			defer delSnapshot(string(j), tmpDir)
+		}
+		err = dirVol.CreateDirSnapshot(ctx, fmt.Sprintf("%d_1", 11), tmpDir)
+		if err != sdk.ErrSnapshotCntLimit {
+			span.Fatal("mkdir snapshot failed, should over limit, err %v", err)
+		}
+	}
+
+	tmpDir := fmt.Sprintf("snapDir_%d_%s", 101, tmpString())
+	createDir(tmpDir)
+	err = dirVol.CreateDirSnapshot(ctx, "tt", tmpDir)
+	if err != sdk.ErrSnapshotCntLimit {
+		span.Fatal("mkdir snapshot return not expected, err %v", err)
+	}
 }
 
 func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
@@ -74,7 +135,7 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 	dir := "snapDir" + tmpString()
 	ifo, _, err := dirVol.Mkdir(ctx, proto.RootIno, dir)
 	if err != nil {
-		span.Fatalf("mkdir failed, dir %d, err %s", dir, err.Error())
+		span.Fatalf("mkdir failed, dir %s, err %s", dir, err.Error())
 	}
 
 	f1 := "tmp_f1"
@@ -90,6 +151,7 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 		}
 	}
 
+	newVol()
 	createSnapshot := func(ver string) {
 		err = dirVol.CreateDirSnapshot(ctx, ver, dir)
 		if err != nil {

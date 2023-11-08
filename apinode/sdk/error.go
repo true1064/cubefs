@@ -87,8 +87,10 @@ var (
 	ErrWriteOverSize    = &Error{Status: 470, Code: "WriteOverSize", Message: "write over size"}
 	ErrServerCipher     = &Error{Status: 500, Code: "ServerCipher", Message: "server cipher"}
 
-	ErrWriteSnapshot = &Error{Status: 403, Code: "WriteNotAllowed", Message: "can not write on snapshot dir"}
-	ErrSnapshotName = &Error{Status: 400, Code: "BadRequest", Message: "name is conflict with snapshot"}
+	ErrWriteSnapshot    = &Error{Status: 403, Code: "WriteNotAllowed", Message: "can not write on snapshot dir"}
+	ErrSnapshotName     = &Error{Status: 400, Code: "BadRequest", Message: "name is conflict with snapshot"}
+	ErrSnapshotCntLimit = &Error{Status: 400, Code: "TooManySnapshot", Message: "too many dir snapshot"}
+
 	ErrInvalidPartOrder = &Error{Status: 400, Code: "BadRequest", Message: "request part order is invalid"}
 	ErrInvalidPart      = &Error{Status: 400, Code: "BadRequest", Message: "request part is invalid"}
 	ErrLimitExceed      = &Error{Status: 429, Code: "TooManyRequests", Message: "request limit exceed"}
@@ -107,4 +109,3 @@ var (
 	ErrNoCluster  = &Error{Status: 500, Code: "InternalServerError", Message: "no valid cluster"}
 	ErrNoVolume   = &Error{Status: 500, Code: "InternalServerError", Message: "no valid volume"}
 )
-

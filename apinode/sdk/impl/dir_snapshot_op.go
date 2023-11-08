@@ -4,6 +4,15 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
+	"io"
+	"math"
+	"os"
+	"path"
+	"strings"
+	"sync"
+	"syscall"
+	"time"
+
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/trace"
 	"github.com/cubefs/cubefs/blobstore/util/taskpool"
@@ -13,14 +22,6 @@ import (
 	"github.com/cubefs/cubefs/sdk/meta"
 	"github.com/cubefs/cubefs/util"
 	"github.com/google/uuid"
-	"io"
-	"math"
-	"os"
-	"path"
-	"strings"
-	"sync"
-	"syscall"
-	"time"
 )
 
 type dirSnapshotOp struct {
@@ -111,6 +112,12 @@ func (d *dirSnapshotOp) CreateDirSnapshot(ctx context.Context, ver, subPath stri
 		span.Warnf("find snapshot path failed, rootIno %d, subPath %s, err %s",
 			d.rootIno, subPath, err.Error())
 		return syscallToErr(err)
+	}
+
+	err = d.mw.checkSnapshotCntLimit(dirIno)
+	if err != nil {
+		span.Warnf("dir snapshot count is over limited, dirIno %d, err %s", dirIno, err.Error())
+		return sdk.ErrSnapshotCntLimit
 	}
 
 	vId, err := d.v.allocVerId(ctx, d.v.name)

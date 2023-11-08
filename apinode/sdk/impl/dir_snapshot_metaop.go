@@ -442,6 +442,40 @@ func (m *snapMetaOpImp) Rename(ctx context.Context, src, dst string) (err error)
 	return nil
 }
 
+
+const (
+	snapshotCntOneDir = 10
+	snapshotCntOneUser = 100
+)
+
+func (m *snapMetaOpImp) checkSnapshotCntLimit(parIno uint64) error {
+	if m.snapShotItems == nil {
+		return nil
+	}
+
+	total := 0
+	for _, item := range m.snapShotItems {
+		cnt := 0
+		for _, v := range item.Vers {
+			if v.Ver.IsNormal() {
+				cnt ++
+			}
+		}
+
+		// not calc latest version
+		cnt --
+		if item.SnapshotInode == parIno && cnt >= snapshotCntOneDir {
+			return fmt.Errorf("parIno %d snapshot cnt is already over 10, now %d", parIno, cnt)
+		}
+		total += cnt
+	}
+
+	if total >= snapshotCntOneUser {
+		return fmt.Errorf("total snapshot cnt is already over 100, now %d", total)
+	}
+	return nil
+}
+
 func (m *snapMetaOpImp) lookupSubDirVer(parIno uint64, subPath string) (childIno uint64, v *proto.DelVer, err error) {
 
 	getVer := func(ino uint64) {
