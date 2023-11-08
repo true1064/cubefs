@@ -33,7 +33,7 @@ import (
 )
 
 type DirProperty struct {
-	ID         uint64            `json:fileId"`
+	ID         uint64            `json:"fileId"`
 	Type       string            `json:"type"`
 	Properties map[string]string `json:"properties"`
 }
