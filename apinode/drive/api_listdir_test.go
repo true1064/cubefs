@@ -256,7 +256,7 @@ func TestHandleListAll(t *testing.T) {
 		url := genURL(server.URL, "/v1/files/recursive", "path", path, "marker", marker, "limit", fmt.Sprintf("%d", limit))
 		req, _ := http.NewRequest(http.MethodGet, url, nil)
 		req.Header.Add(HeaderRequestID, "user_request_id")
-		req.Header.Add(HeaderUserID, testUserID)
+		req.Header.Add(HeaderUserID, testUserID.ID)
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
 		if resp.StatusCode != http.StatusOK {
