@@ -447,12 +447,12 @@ func recursiveScan(ctx context.Context, vol sdk.IVolume, stack *list.List, marke
 				Name: marker,
 				Type: fileType,
 			})
+			if len(result.Files) >= limit {
+				return nil
+			}
 			if fileType == typeFolder {
 				stack.PushBack(&stackElement{dirInfo.Inode, dirInfo.Name, marker})
 				needPop = false
-				break
-			}
-			if len(result.Files) >= limit {
 				break
 			}
 		}
@@ -529,7 +529,6 @@ func (d *DriveNode) handleListAll(c *rpc.Context) {
 			Name: marker,
 			Type: fileType,
 		})
-		limit -= 1
 	}
 
 	if err = recursiveScan(ctx, vol, stack, marker, limit, &result); err != nil {
@@ -579,8 +578,8 @@ func (d *DriveNode) handleListAll(c *rpc.Context) {
 		return
 	}
 	if limit <= len(result.Files) {
-		result.NextMarker = result.Files[len(result.Files)-1].Name
-		result.Files = result.Files[0 : len(result.Files)-1]
+		result.NextMarker = result.Files[limit-1].Name
+		result.Files = result.Files[0 : limit-1]
 	}
 	d.respData(c, result)
 }
