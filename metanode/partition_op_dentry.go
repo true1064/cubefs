@@ -601,7 +601,7 @@ func (mp *metaPartition) Lookup(req *LookupReq, p *Packet) (err error) {
 	}
 	
 	if p.IsDirVersion() {
-		dentry.setVerSeq(req.VerSeq)
+		dentry.setVerSeq(p.VerSeq)
 	}
 
 	var denList []proto.DetryInfo

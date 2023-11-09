@@ -194,6 +194,11 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 		span.Fatalf("lookup f1 failed, err %s", err.Error())
 	}
 
+	_, err = dirVol.Lookup(ctx, ifo.Inode, f1)
+	if err != nil {
+		span.Fatalf("look up f1 on v1 snapshot failed, err %s", err.Error())
+	}
+
 	log.LogInfof("got v1F1Info %v", v1F1Info)
 	if v1F1Info.ModifyTime != f1Info.ModifyTime {
 		span.Fatalf("get f1 inode info changed, f1Info %v, v1F1Info %v", f1Info, v1F1Info)
@@ -294,7 +299,7 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 
 		if ver == v2 {
 			f2Dentry, err := dirVol.Lookup(ctx, ifo.Inode, f2)
-			if err != nil || f2Dentry.FileId == f2FileId {
+			if err != nil || f2Dentry.FileId == newF2FileId {
 				span.Fatalf("lookup failed or fileId（%v） on v2 may equal newFileId(%d), err (%v)", f2Dentry, newF2FileId, err)
 			}
 
