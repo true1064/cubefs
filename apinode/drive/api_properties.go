@@ -145,7 +145,7 @@ func (d *DriveNode) handleGetProperties(c *rpc.Context) {
 		Ctime:      inoInfo.CreateTime.Unix(),
 		Mtime:      inoInfo.ModifyTime.Unix(),
 		Atime:      inoInfo.AccessTime.Unix(),
-		Properties: xattrs,
+		Properties: removeInternalMeta(xattrs),
 	}
 	if dirInfo.IsDir() {
 		res.Type = typeFolder

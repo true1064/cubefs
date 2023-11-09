@@ -178,6 +178,12 @@ func (fi *FileInfo) IsDir() bool {
 	return fi.Type == typeFolder
 }
 
+// origin map changed.
+func removeInternalMeta(properties map[string]string) map[string]string {
+	delete(properties, internalMetaUploadID)
+	return properties
+}
+
 func inode2file(ino *sdk.InodeInfo, fileID uint64, name string, properties map[string]string) *FileInfo {
 	typ := typeFile
 	if proto.IsDir(ino.Mode) {
@@ -191,7 +197,7 @@ func inode2file(ino *sdk.InodeInfo, fileID uint64, name string, properties map[s
 		Ctime:      ino.CreateTime.Unix(),
 		Mtime:      ino.ModifyTime.Unix(),
 		Atime:      ino.AccessTime.Unix(),
-		Properties: properties,
+		Properties: removeInternalMeta(properties),
 	}
 }
 

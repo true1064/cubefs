@@ -359,7 +359,7 @@ func (d *DriveNode) listDir(ctx context.Context, ino uint64, vol sdk.IVolume, ma
 			defer wg.Done()
 			properties, err := vol.GetXAttrMap(ctx, ino)
 			mu.Lock()
-			res[fileID] = result{properties, err}
+			res[fileID] = result{removeInternalMeta(properties), err}
 			mu.Unlock()
 		})
 	}
@@ -565,7 +565,7 @@ func (d *DriveNode) handleListAll(c *rpc.Context) {
 			result.Files[idx].Ctime = inoInfo.CreateTime.Unix()
 			result.Files[idx].Mtime = inoInfo.ModifyTime.Unix()
 			result.Files[idx].Atime = inoInfo.AccessTime.Unix()
-			result.Files[idx].Properties = properties
+			result.Files[idx].Properties = removeInternalMeta(properties)
 		})
 	}
 	wg.Wait()
