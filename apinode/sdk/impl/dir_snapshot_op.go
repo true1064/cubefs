@@ -8,6 +8,7 @@ import (
 	"math"
 	"os"
 	"path"
+	"regexp"
 	"strings"
 	"sync"
 	"syscall"
@@ -92,12 +93,17 @@ func (d *dirSnapshotOp) IsSnapshotInode(ctx context.Context, ino uint64) bool {
 	return isSnapshot
 }
 
+func isVaildVer(ver string) bool {
+	match, _ := regexp.MatchString("^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$", ver)
+	return match
+}
+
 func (d *dirSnapshotOp) CreateDirSnapshot(ctx context.Context, ver, subPath string) error {
 	span := trace.SpanFromContextSafe(ctx)
 
-	if ver == "" {
-		span.Warnf("request ver is not valid, subPath %s, ver %s", subPath, ver)
-		return sdk.ErrBadRequest
+	if !isVaildVer(ver) {
+		span.Warnf("request ver is not vaild, ver %s", ver)
+		return sdk.ErrSnapshotVerIllegal
 	}
 
 	err := d.checkConflict(ctx, subPath, ver)
