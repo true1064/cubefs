@@ -208,6 +208,7 @@ func (mp *metaPartition) getDentryList(dentry *Dentry) (denList []proto.DetryInf
 				Mode:   den.Type,
 				IsDel:  den.isDeleted(),
 				VerSeq: den.getVerSeq(),
+				FileId: den.FileId,
 			})
 		}
 	}

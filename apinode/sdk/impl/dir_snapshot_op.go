@@ -101,6 +101,7 @@ func isVaildVer(ver string) bool {
 func (d *dirSnapshotOp) CreateDirSnapshot(ctx context.Context, ver, subPath string) error {
 	span := trace.SpanFromContextSafe(ctx)
 
+	span.Infof("start create dirsnapshot, subpath %s, ver %s", subPath, ver)
 	if !isVaildVer(ver) {
 		span.Warnf("request ver is not vaild, ver %s", ver)
 		return sdk.ErrSnapshotVerIllegal

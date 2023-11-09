@@ -533,6 +533,7 @@ type DetryInfo struct {
 	Mode   uint32 `json:"mode"`
 	VerSeq uint64 `json:"seq"`
 	IsDel  bool   `json:"isDel"`
+	FileId uint64 `json:"fileId"`
 }
 
 // LookupResponse defines the response for the loopup request.

@@ -422,14 +422,7 @@ func (m *snapMetaOpImp) Rename(ctx context.Context, src, dst string) (err error)
 	}
 
 	srcParIno, srcName, srcVer := getDir(src)
-	if err != nil {
-		return err
-	}
-
 	dstParIno, dstName, dstVer := getDir(dst)
-	if err != nil {
-		return err
-	}
 
 	m.sm.SetRenameVerInfo(srcVer, dstVer)
 	err = m.sm.Rename_ll(srcParIno, srcName, dstParIno, dstName, false)

@@ -87,7 +87,7 @@ var (
 	ErrWriteOverSize    = &Error{Status: 470, Code: "WriteOverSize", Message: "write over size"}
 	ErrServerCipher     = &Error{Status: 500, Code: "ServerCipher", Message: "server cipher"}
 
-	ErrWriteSnapshot      = &Error{Status: 403, Code: "WriteNotAllowed", Message: "can not write on snapshot dir"}
+	ErrWriteSnapshot      = &Error{Status: 403, Code: "ModifyNotAllowed", Message: "can not modify on snapshot dir"}
 	ErrSnapshotName       = &Error{Status: 400, Code: "BadRequest", Message: "name is conflict with snapshot"}
 	ErrSnapshotCntLimit   = &Error{Status: 400, Code: "TooManySnapshot", Message: "too many dir snapshot"}
 	ErrSnapshotVerIllegal = &Error{Status: 400, Code: "VerIllegal", Message: "snapshot ver is illegal"}

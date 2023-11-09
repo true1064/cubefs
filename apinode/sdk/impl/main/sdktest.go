@@ -139,7 +139,7 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 	}
 
 	f1 := "tmp_f1"
-	f1Info, _, err := dirVol.CreateFile(ctx, ifo.Inode, f1)
+	f1Info, f1FileId, err := dirVol.CreateFile(ctx, ifo.Inode, f1)
 	if err != nil {
 		span.Fatalf("create file failed, ino %d, name %s, err %s", ifo.Inode, f1, err.Error())
 	}
@@ -194,12 +194,12 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 		span.Fatalf("lookup f1 failed, err %s", err.Error())
 	}
 
-	_, err = dirVol.Lookup(ctx, ifo.Inode, f1)
-	if err != nil {
-		span.Fatalf("look up f1 on v1 snapshot failed, err %s", err.Error())
+	v1Dentry, err := dirVol.Lookup(ctx, ifo.Inode, f1)
+	if err != nil || v1Dentry.FileId != f1FileId {
+		span.Fatalf("look up f1 on v1 snapshot failed, v1Dentry(%v), oldFileId(%d) err %v", v1Dentry, f1FileId, err.Error())
 	}
 
-	log.LogInfof("got v1F1Info %v", v1F1Info)
+	span.Infof("got v1F1Info %v, v1Dentry %v", v1F1Info, v1Dentry)
 	if v1F1Info.ModifyTime != f1Info.ModifyTime {
 		span.Fatalf("get f1 inode info changed, f1Info %v, v1F1Info %v", f1Info, v1F1Info)
 	}
