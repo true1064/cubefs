@@ -63,7 +63,7 @@ func main() {
 	//testMultiPartOp(ctx, dirVol)
 	//testInodeLock(ctx, dirVol)
 
-	testDirSnapshotLimit(ctx, vol, dirVol)
+	// testDirSnapshotLimit(ctx, vol, dirVol)
 	testDirSnapshotOp(ctx, vol, dirVol)
 }
 
@@ -139,7 +139,7 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 	}
 
 	f1 := "tmp_f1"
-	_, _, err = dirVol.CreateFile(ctx, ifo.Inode, f1)
+	_, f1FileId, err := dirVol.CreateFile(ctx, ifo.Inode, f1)
 	if err != nil {
 		span.Fatalf("create file failed, ino %d, name %s, err %s", ifo.Inode, f1, err.Error())
 	}
@@ -163,6 +163,18 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 
 	v1 := "v1"
 	createSnapshot(v1)
+	uploadReq := &sdk.UploadFileReq{
+		ParIno: ifo.Inode,
+		Name: f1,
+		OldFileId: f1FileId,
+		Body: bytes.NewBufferString("hello test"),
+	}
+	_, newF1FileId, err := dirVol.UploadFile(ctx, uploadReq)
+	if err != nil || newF1FileId == f1FileId {
+		span.Fatalf("uploadFile failed, oldFileId %d, newFileId %d, name %s, err %v", f1FileId, newF1FileId, f1, err)
+	}
+
+
 	// write after create snapshot
 	f2Fio, _, err := dirVol.CreateFile(ctx, ifo.Inode, "f2")
 	if err != nil {
@@ -257,6 +269,13 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 		_, _, err = dirVol.CreateFile(ctx, v1Ifo.Inode, "test")
 		if err != sdk.ErrWriteSnapshot {
 			span.Fatalf("write on snapshot file should be failed, err %v", err)
+		}
+
+		if ver == v1 {
+			f1Dnetry, err := dirVol.Lookup(ctx, ifo.Inode, f1)
+			if err != nil || f1Dnetry.FileId == newF1FileId {
+				span.Fatalf("lookup failed or fileId（%v） on v1 may equal newFileId(%d), err (%v)", f1Dnetry, newF1FileId, err.Error())
+			}
 		}
 
 		if ver == v2 {

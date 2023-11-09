@@ -136,6 +136,7 @@ func (mp *metaPartition) fsmCreateDentry(dentry *Dentry,
 
 // Insert a dentry while old ino into the dentry tree.
 func (mp *metaPartition) fsmCreateDentryEx(dentry *DentryEx) (status uint8) {
+	log.LogDebugf("action[fsmCreateDentryEx] start createDentryEx, dentry %v", dentry)
 	status = proto.OpOk
 	var parIno *Inode
 	item := mp.inodeTree.CopyGet(NewInode(dentry.ParentId, 0))

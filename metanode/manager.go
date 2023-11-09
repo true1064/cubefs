@@ -133,7 +133,7 @@ func (m *metadataManager) HandleMetadataOperation(conn net.Conn, p *Packet, remo
 
 	audit := enableAudit(p)
 	if audit {
-		log.LogAuditf("HandleMetadataOperation input info op (%s), remote %s, data %s", p.String(), remoteAddr, string(p.Data))
+		log.LogAuditf("HandleMetadataOperation input info op (%s), remote %s, data %s, ver %d", p.String(), remoteAddr, string(p.Data), p.VerSeq)
 	}
 
 	metric := exporter.NewTPCnt(p.GetOpMsg())

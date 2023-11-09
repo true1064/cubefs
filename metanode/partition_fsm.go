@@ -203,7 +203,7 @@ func (mp *metaPartition) Apply(command []byte, index uint64) (resp interface{}, 
 		resp = mp.fsmCreateDentry(den, false)
 	case opCreateDentryEx:
 		den := &DentryEx{}
-		if err = json.Unmarshal(msg.V, den); err != nil {
+		if err = den.UnMarshal(msg.V); err != nil {
 			return
 		}
 		resp = mp.fsmCreateDentryEx(den)

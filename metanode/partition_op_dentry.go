@@ -194,11 +194,7 @@ func (mp *metaPartition) createDentryEx(den *Dentry, oldIno uint64, p *Packet) e
 		OldIno: oldIno,
 	}
 
-	val, err := json.Marshal(dex)
-	if err != nil {
-		return err
-	}
-
+	val, err := dex.Marshal()
 	resp, err := mp.submit(opCreateDentryEx, val)
 	if err != nil {
 		p.PacketErrorWithBody(proto.OpAgain, []byte(err.Error()))

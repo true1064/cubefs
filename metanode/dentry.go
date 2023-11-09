@@ -599,6 +599,27 @@ type DentryEx struct {
 	OldIno uint64
 }
 
+func (d *DentryEx) Marshal() (result []byte, err error) {
+	dByte, err := d.Dentry.Marshal()
+	if err != nil {
+		return nil, err
+	}
+
+	newByte := make([]byte, 8)
+	binary.BigEndian.PutUint64(newByte, d.OldIno)
+	dByte = append(dByte, newByte...)
+	return dByte, nil
+}
+
+func (d *DentryEx) UnMarshal(val []byte) (err error) {
+	size := len(val)
+	d.OldIno = binary.BigEndian.Uint64(val[size-8:])
+
+	d.Dentry = &Dentry{}
+	d.Dentry.Unmarshal(val[:size-8])
+	return 
+}
+
 type DentryBatch []*Dentry
 
 // todo(leon chang), buffer need alloc first before and write directly consider the space and performance

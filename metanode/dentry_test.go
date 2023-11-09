@@ -1,9 +1,10 @@
 package metanode
 
 import (
-	"github.com/stretchr/testify/require"
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestDentry_Marshal(t *testing.T) {
@@ -52,4 +53,37 @@ func TestDentry_Marshal(t *testing.T) {
 	require.Equal(t, dentry.Inode, newDentry.Inode)
 	require.Equal(t, dentry.getSnapListLen(), newDentry.getSnapListLen())
 	require.Equal(t, dentry.getSeqFiled(), newDentry.getSeqFiled())
+}
+
+func Test_addVersion(t *testing.T) {
+	dentry := &Dentry{
+		Inode: 10,
+		FileId: 11,
+	}
+	dentry.setVerSeq(11)
+
+	dentry.addVersion(12)
+	dentry.FileId = 13
+	t.Logf("new dentry, dentry %v", dentry)
+}
+
+func Test_DentryEx_Serialization(t *testing.T) {
+	dentryEx := &DentryEx{
+		Dentry: &Dentry{
+			ParentId: 11,
+			Name:     "test",
+			Inode:    101,
+			Type:     0x644,
+			FileId:   1110,
+		},
+		OldIno: 12,
+	}
+
+	data, err := dentryEx.Marshal()
+	require.NoError(t, err)
+
+	newDentryEx := &DentryEx{}
+	err = newDentryEx.UnMarshal(data)
+	require.NoError(t, err)
+	require.True(t, reflect.DeepEqual(dentryEx, newDentryEx))
 }
