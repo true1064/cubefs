@@ -87,10 +87,6 @@ func (d *DriveNode) RegisterAPIRouters() *rpc.Router {
 func (d *DriveNode) setHeaders(c *rpc.Context) {
 	rid := c.Request.Header.Get(HeaderRequestID)
 	uid := UserID{ID: c.Request.Header.Get(HeaderUserID)}
-	if app := c.Request.Header.Get(HeaderPublicApp); app != "" {
-		uid.ID = app
-		uid.Public = true
-	}
 	c.Set(HeaderRequestID, rid)
 
 	ctx := c.Request.Context()
@@ -118,7 +114,14 @@ func (*DriveNode) requestID(c *rpc.Context) string {
 	return rid.(string)
 }
 
-func (*DriveNode) userID(c *rpc.Context) UserID {
+func (*DriveNode) userID(c *rpc.Context, path *FilePath) UserID {
+	if path != nil {
+		puid, ppath, ok := path.parsePublic()
+		if ok {
+			*path = ppath
+			return puid
+		}
+	}
 	uid, _ := c.Get(HeaderUserID)
 	return uid.(UserID)
 }

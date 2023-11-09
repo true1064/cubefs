@@ -37,11 +37,11 @@ type ArgsMkDir struct {
 func (d *DriveNode) handleMkDir(c *rpc.Context) {
 	ctx, span := d.ctxSpan(c)
 	args := new(ArgsMkDir)
-	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args), args.Path.Clean()) {
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args), args.Path.Clean(false)) {
 		return
 	}
 
-	uid := d.userID(c)
+	uid := d.userID(c, &args.Path)
 	ur, vol, err := d.getUserRouterAndVolume(ctx, uid)
 	if d.checkError(c, func(err error) { span.Warn(err) }, err, ur.CanWrite()) {
 		return
@@ -68,17 +68,18 @@ type ArgsDelete struct {
 func (d *DriveNode) handleFilesDelete(c *rpc.Context) {
 	args := new(ArgsDelete)
 	ctx, span := d.ctxSpan(c)
-	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args), args.Path.Clean()) {
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args), args.Path.Clean(false)) {
 		return
 	}
 	span.Info("to delete", args)
 
+	uid := d.userID(c, &args.Path)
 	if args.Recursive {
-		d.recursivelyDelete(c, args.Path)
+		d.recursivelyDelete(c, uid, args.Path)
 		return
 	}
 
-	ur, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c))
+	ur, vol, err := d.getUserRouterAndVolume(ctx, uid)
 	if d.checkError(c, func(err error) { span.Warn(err) }, err, ur.CanWrite()) {
 		return
 	}
@@ -93,7 +94,7 @@ func (d *DriveNode) handleFilesDelete(c *rpc.Context) {
 	if info.IsDir() {
 		op = OpDeleteDir
 	}
-	d.out.Publish(ctx, makeOpLog(op, d.requestID(c), d.userID(c), args.Path.String()))
+	d.out.Publish(ctx, makeOpLog(op, d.requestID(c), uid, args.Path.String()))
 	c.Respond()
 }
 
@@ -103,10 +104,10 @@ type delDir struct {
 	ignore bool
 }
 
-func (d *DriveNode) recursivelyDelete(c *rpc.Context, path FilePath) {
+func (d *DriveNode) recursivelyDelete(c *rpc.Context, uid UserID, path FilePath) {
 	ctx, span := d.ctxSpan(c)
 
-	ur, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c))
+	ur, vol, err := d.getUserRouterAndVolume(ctx, uid)
 	if d.checkError(c, func(err error) { span.Warn(err) }, err, ur.CanWrite()) {
 		return
 	}
@@ -195,7 +196,7 @@ func (d *DriveNode) recursivelyDelete(c *rpc.Context, path FilePath) {
 		}
 	}
 
-	d.out.Publish(ctx, makeOpLog(OpDeleteDir, d.requestID(c), d.userID(c), path.String()))
+	d.out.Publish(ctx, makeOpLog(OpDeleteDir, d.requestID(c), uid, path.String()))
 	c.Respond()
 }
 
@@ -241,7 +242,7 @@ func (d *DriveNode) handleBatchDelete(c *rpc.Context) {
 		pool.Run(func() {
 			defer wg.Done()
 			arg := name.String()
-			if err := name.Clean(); err != nil {
+			if err := name.Clean(false); err != nil {
 				span.Infof("invalid path %s", arg)
 				ch <- result{arg, err}
 				return
@@ -260,7 +261,7 @@ func (d *DriveNode) handleBatchDelete(c *rpc.Context) {
 			}
 			ch <- result{arg, err}
 			if err != nil {
-				span.Errorf("delete %s error: %v, uid=%v", name, err, d.userID(c))
+				span.Errorf("delete %s error: %v, uid=%v", name, err, d.userID(c, nil))
 			}
 		})
 	}

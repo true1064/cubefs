@@ -111,8 +111,8 @@ func TestHandleFileUpload(t *testing.T) {
 	{
 		node.OnceGetUser()
 		node.OnceLookup(true)
-		node.Volume.EXPECT().UploadFile(A, A).Return(nil, uint64(0), e2)
 		node.Volume.EXPECT().Lookup(A, A, A).Return(&sdk.DirInfo{Inode: 1000}, nil)
+		node.Volume.EXPECT().UploadFile(A, A).Return(nil, uint64(0), e2)
 		// uploda file error
 		resp := doRequest(newMockBody(64), "path", "/dir/a/../filename")
 		defer resp.Body.Close()
@@ -121,13 +121,12 @@ func TestHandleFileUpload(t *testing.T) {
 	{
 		node.OnceGetUser()
 		node.OnceLookup(true)
+		node.Volume.EXPECT().Lookup(A, A, A).Return(&sdk.DirInfo{Inode: 1000}, nil)
 		node.Volume.EXPECT().UploadFile(A, A).DoAndReturn(
 			func(_ context.Context, req *sdk.UploadFileReq) (*sdk.InodeInfo, uint64, error) {
 				req.Callback()
 				return &sdk.InodeInfo{Inode: node.GenInode()}, uint64(100), nil
 			})
-		node.Volume.EXPECT().Lookup(A, A, A).Return(&sdk.DirInfo{Inode: 1000}, nil)
-		// uploda file error
 		resp := doRequest(newMockBody(64), "path", "/dir/a/../filename")
 		defer resp.Body.Close()
 		require.Equal(t, 200, resp.StatusCode)
@@ -150,7 +149,7 @@ func TestHandleFileUploadPublic(t *testing.T) {
 	doRequest := func(body *mockBody, queries ...string) *http.Response {
 		url := genURL(server.URL, "/v1/files/upload", queries...)
 		req, _ := http.NewRequest(http.MethodPut, url, body)
-		req.Header.Add(HeaderPublicApp, testUserAPP.ID)
+		req.Header.Add(HeaderUserID, testUserID.ID)
 		req.Header.Add(HeaderCrc32, fmt.Sprint(body.Sum32()))
 		req.Header.Add(EncodeMetaHeader("public"), EncodeMeta("Public-"))
 		resp, err := client.Do(Ctx, req)
@@ -162,7 +161,7 @@ func TestHandleFileUploadPublic(t *testing.T) {
 			resp := doRequest(newMockBody(64), "path", "/f")
 			defer resp.Body.Close()
 			return resp2Error(resp)
-		}, testUserAPP)
+		}, testUserID, testUserAPP)
 	}
 	{
 		node.OnceGetUser()
@@ -172,9 +171,8 @@ func TestHandleFileUploadPublic(t *testing.T) {
 				req.Callback()
 				return &sdk.InodeInfo{Inode: node.GenInode()}, uint64(100), nil
 			})
-		node.Volume.EXPECT().Lookup(A, A, A).Return(&sdk.DirInfo{Inode: 1000}, nil)
-		// uploda file error
-		resp := doRequest(newMockBody(64), "path", "/dir/a/../publicfile")
+		path := fmt.Sprintf("/%s/%s/a/../publicfile", testUserAPP.ID, publicFolder)
+		resp := doRequest(newMockBody(64), "path", path)
 		defer resp.Body.Close()
 		require.Equal(t, 200, resp.StatusCode)
 
@@ -616,6 +614,8 @@ func TestHandleFileRename(t *testing.T) {
 	{
 		require.Equal(t, 400, doRequest("src", "/a").StatusCode())
 		require.Equal(t, 400, doRequest("src", "/a", "dst", "a/b/../../..").StatusCode())
+		require.Equal(t, sdk.ErrForbidden.Status, doRequest("src", "/dir/"+publicFolder+"/a", "dst", "/dir/b").StatusCode())
+		require.Equal(t, sdk.ErrForbidden.Status, doRequest("src", "/u1/"+publicFolder+"/a", "dst", "/u2/"+publicFolder+"/b").StatusCode())
 	}
 	{
 		node.ClusterMgr.EXPECT().GetCluster(A).Return(nil)
@@ -710,6 +710,8 @@ func TestHandleFileCopy(t *testing.T) {
 		node.GetUserN2()
 		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e1)
 		require.Equal(t, e1.Status, doRequest("src", "/dir/a", "dst", "/dir/b").StatusCode())
+		require.Equal(t, sdk.ErrForbidden.Status, doRequest("src", "/dir/"+publicFolder+"/a", "dst", "/dir/b").StatusCode())
+		require.Equal(t, sdk.ErrForbidden.Status, doRequest("src", "/u1/"+publicFolder+"/a", "dst", "/u2/"+publicFolder+"/b").StatusCode())
 	}
 	node.GetUserAny()
 	{

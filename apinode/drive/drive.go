@@ -51,7 +51,6 @@ const (
 	HeaderCrc32     = "x-cfa-content-crc32"
 	HeaderMD5       = "x-cfa-content-md5"
 	ChecksumPrefix  = "x-cfa-content-"
-	HeaderPublicApp = "x-cfa-public-app"
 
 	HeaderCipherMaterial = "x-cfa-cipher-material"
 
@@ -59,6 +58,8 @@ const (
 
 	typeFile   = "file"
 	typeFolder = "folder"
+
+	publicFolder = "public"
 
 	internalMetaPrefix   = "x-cfa-"
 	internalMetaMD5      = internalMetaPrefix + "md5"
@@ -86,12 +87,29 @@ type FileID = Inode
 type FilePath string
 
 // Clean replace origin path to cleaned path.
-func (p *FilePath) Clean() error {
+func (p *FilePath) Clean(forbiddenPublic bool) error {
 	s := p.String()
+	last := ""
+	if len(s) > 0 && s[len(s)-1] == '/' {
+		last = "/"
+	}
+
 	path := filepath.Clean(s)
 	if path == "" || path[0] != '/' {
 		return sdk.ErrInvalidPath.Extend(path)
 	}
+
+	pp := FilePath(path + last)
+	_, ppath, ok := pp.parsePublic()
+	if ok {
+		if forbiddenPublic {
+			return sdk.ErrForbidden.Extend(pp.String())
+		}
+		if ppath.String() == "/" {
+			path += last // feed path /${app}/public/
+		}
+	}
+
 	*p = FilePath(path)
 	return nil
 }
@@ -100,6 +118,26 @@ func (p *FilePath) Clean() error {
 func (p *FilePath) Split() (FilePath, string) {
 	dir, filename := filepath.Split(string(*p))
 	return FilePath(dir), filename
+}
+
+func (p *FilePath) parsePublic() (uid UserID, path FilePath, ok bool) {
+	s := p.String()[1:]
+	idx := strings.IndexByte(s, '/')
+	if idx < 0 {
+		return
+	}
+	uid.ID = s[:idx]
+	s = s[idx+1:]
+
+	idx = strings.IndexByte(s, '/')
+	if idx < 0 || s[:idx] != publicFolder {
+		return
+	}
+	uid.Public = true
+
+	path = FilePath(s[idx:])
+	ok = true
+	return
 }
 
 func (p *FilePath) String() string {

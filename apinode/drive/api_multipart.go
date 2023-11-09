@@ -60,7 +60,7 @@ type ArgsMPUploads struct {
 func (d *DriveNode) handleMultipartUploads(c *rpc.Context) {
 	args := new(ArgsMPUploads)
 	_, span := d.ctxSpan(c)
-	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args), args.Path.Clean()) {
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args), args.Path.Clean(false)) {
 		return
 	}
 	if args.UploadID == "" {
@@ -77,7 +77,8 @@ type RespMPuploads struct {
 
 func (d *DriveNode) multipartUploads(c *rpc.Context, args *ArgsMPUploads) {
 	ctx, span := d.ctxSpan(c)
-	ur, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c))
+	uid := d.userID(c, &args.Path)
+	ur, vol, err := d.getUserRouterAndVolume(ctx, uid)
 	if d.checkError(c, func(err error) { span.Error(err) }, err, ur.CanWrite()) {
 		return
 	}
@@ -93,7 +94,7 @@ func (d *DriveNode) multipartUploads(c *rpc.Context, args *ArgsMPUploads) {
 		return
 	}
 
-	fullPath := multipartFullPath(d.userID(c), args.Path)
+	fullPath := multipartFullPath(uid, args.Path)
 	uploadID, err := vol.InitMultiPart(ctx, fullPath, extend)
 	if d.checkError(c, func(err error) { span.Error("multipart uploads", args, err) }, err) {
 		return
@@ -123,7 +124,7 @@ func (d *DriveNode) requestParts(c *rpc.Context) (parts []MPPart, err error) {
 	return
 }
 
-func (d *DriveNode) checkParts(c *rpc.Context, vol sdk.IVolume, args *ArgsMPUploads) ([]sdk.Part, error) {
+func (d *DriveNode) checkParts(c *rpc.Context, vol sdk.IVolume, uid UserID, args *ArgsMPUploads) ([]sdk.Part, error) {
 	ctx, span := d.ctxSpan(c)
 	parts, err := d.requestParts(c)
 	if err != nil {
@@ -145,7 +146,7 @@ func (d *DriveNode) checkParts(c *rpc.Context, vol sdk.IVolume, args *ArgsMPUplo
 		reqParts[part.PartNumber] = indexEtag{Index: idx, Etag: part.Etag}
 	}
 
-	fullPath := multipartFullPath(d.userID(c), args.Path)
+	fullPath := multipartFullPath(uid, args.Path)
 	marker := uint64(0)
 	for {
 		listParts, next, _, perr := vol.ListMultiPart(ctx, fullPath, args.UploadID, 400, marker)
@@ -291,7 +292,8 @@ func (d *DriveNode) calculatePartsMD5(c *rpc.Context, vol sdk.IVolume, parts []s
 
 func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 	ctx, span := d.ctxSpan(c)
-	ur, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c))
+	uid := d.userID(c, &args.Path)
+	ur, vol, err := d.getUserRouterAndVolume(ctx, uid)
 	if d.checkError(c, func(err error) { span.Info(err) }, err, ur.CanWrite()) {
 		return
 	}
@@ -326,7 +328,7 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 
 	compFile, err, _ := d.groupMulti.Do(args.UploadID, func() (interface{}, error) {
 		st := time.Now()
-		parts, gerr := d.checkParts(c, vol, args)
+		parts, gerr := d.checkParts(c, vol, uid, args)
 		span.AppendTrackLog("cmcl", st, nil)
 		if gerr != nil {
 			span.Warn("multipart complete check", args, gerr)
@@ -346,7 +348,7 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 		}
 
 		cmReq := &sdk.CompleteMultipartReq{
-			FilePath:  multipartFullPath(d.userID(c), args.Path),
+			FilePath:  multipartFullPath(uid, args.Path),
 			UploadId:  args.UploadID,
 			OldFileId: args.FileID,
 			Parts:     parts,
@@ -366,7 +368,7 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 			return nil, gerr
 		}
 
-		d.out.Publish(ctx, makeOpLog(OpMultiUploadFile, d.requestID(c), d.userID(c),
+		d.out.Publish(ctx, makeOpLog(OpMultiUploadFile, d.requestID(c), uid,
 			args.Path.String(), "size", inode.Size))
 		span.Info("multipart complete", fileMD5, args, parts)
 		_, filename := args.Path.Split()
@@ -390,7 +392,7 @@ type ArgsMPUpload struct {
 func (d *DriveNode) handleMultipartPart(c *rpc.Context) {
 	args := new(ArgsMPUpload)
 	ctx, span := d.ctxSpan(c)
-	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args), args.Path.Clean()) {
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args), args.Path.Clean(false)) {
 		return
 	}
 	if args.PartNumber == 0 || args.PartNumber >= maxMultipartNumber {
@@ -398,7 +400,8 @@ func (d *DriveNode) handleMultipartPart(c *rpc.Context) {
 		return
 	}
 
-	ur, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c))
+	uid := d.userID(c, &args.Path)
+	ur, vol, err := d.getUserRouterAndVolume(ctx, uid)
 	if d.checkError(c, func(err error) { span.Warn(err) }, err, ur.CanWrite()) {
 		return
 	}
@@ -410,7 +413,7 @@ func (d *DriveNode) handleMultipartPart(c *rpc.Context) {
 		return
 	}
 
-	fullPath := multipartFullPath(d.userID(c), args.Path)
+	fullPath := multipartFullPath(uid, args.Path)
 	part, err := vol.UploadMultiPart(ctx, fullPath, args.UploadID, args.PartNumber, reader)
 	if d.checkError(c, func(err error) { span.Error("multipart upload", args, err) }, err) {
 		return
@@ -440,7 +443,7 @@ type RespMPList struct {
 func (d *DriveNode) handleMultipartList(c *rpc.Context) {
 	args := new(ArgsMPList)
 	ctx, span := d.ctxSpan(c)
-	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args), args.Path.Clean()) {
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args), args.Path.Clean(false)) {
 		return
 	}
 	if args.Limit <= 0 {
@@ -450,12 +453,13 @@ func (d *DriveNode) handleMultipartList(c *rpc.Context) {
 		args.Limit = maxMultipartNumber
 	}
 
-	_, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c))
+	uid := d.userID(c, &args.Path)
+	_, vol, err := d.getUserRouterAndVolume(ctx, uid)
 	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
 
-	fullPath := multipartFullPath(d.userID(c), args.Path)
+	fullPath := multipartFullPath(uid, args.Path)
 	sParts, next, _, err := vol.ListMultiPart(ctx, fullPath, args.UploadID, uint64(args.Limit), args.Marker.Uint64())
 	if d.checkError(c, func(err error) { span.Error("multipart list", args, err) }, err) {
 		return
@@ -482,16 +486,17 @@ type ArgsMPAbort struct {
 func (d *DriveNode) handleMultipartAbort(c *rpc.Context) {
 	args := new(ArgsMPAbort)
 	ctx, span := d.ctxSpan(c)
-	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args), args.Path.Clean()) {
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args), args.Path.Clean(false)) {
 		return
 	}
 
-	_, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c))
+	uid := d.userID(c, &args.Path)
+	_, vol, err := d.getUserRouterAndVolume(ctx, uid)
 	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
 
-	fullPath := multipartFullPath(d.userID(c), args.Path)
+	fullPath := multipartFullPath(uid, args.Path)
 	if d.checkFunc(c, func(err error) { span.Error("multipart abort", args, err) },
 		func() error { return vol.AbortMultiPart(ctx, fullPath, args.UploadID) }) {
 		return

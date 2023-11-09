@@ -50,9 +50,6 @@ type client struct {
 func setHeaders(req *http.Request, material string, meta []string) error {
 	req.Header.Set("x-cfa-service", "drive")
 	req.Header.Set(drive.HeaderUserID, user)
-	if uapp != "" {
-		req.Header.Set(drive.HeaderPublicApp, uapp)
-	}
 	if len(pass) > 0 {
 		req.Header.Set(drive.HeaderCipherMaterial, "1"+pass)
 	}

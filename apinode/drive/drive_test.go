@@ -36,7 +36,7 @@ var (
 	Ctx = context.Background()
 
 	testUserID  = UserID{ID: "test-user-1"}
-	testUserAPP = UserID{ID: "test-user-app", Public: true}
+	testUserAPP = UserID{ID: "app", Public: true}
 
 	e1, e2, e3, e4 = randError(1), randError(2), randError(3), randError(4)
 )

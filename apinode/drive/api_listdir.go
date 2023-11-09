@@ -179,13 +179,12 @@ func (builder *filterBuilder) matchFileInfo(f *FileInfo) bool {
 func (d *DriveNode) handleListDir(c *rpc.Context) {
 	args := new(ArgsListDir)
 	ctx, span := d.ctxSpan(c)
-	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args), args.Path.Clean()) {
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args), args.Path.Clean(false)) {
 		return
 	}
 
+	uid := d.userID(c, &args.Path)
 	path, marker, limit := args.Path.String(), args.Marker, args.Limit
-
-	uid := d.userID(c)
 	var (
 		pathIno Inode
 		fileID  uint64
@@ -466,10 +465,11 @@ func recursiveScan(ctx context.Context, vol sdk.IVolume, stack *list.List, marke
 func (d *DriveNode) handleListAll(c *rpc.Context) {
 	args := new(ArgsListAll)
 	ctx, span := d.ctxSpan(c)
-	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args), args.Path.Clean()) {
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args), args.Path.Clean(false)) {
 		return
 	}
 
+	uid := d.userID(c, &args.Path)
 	path := args.Path.String()
 	marker := filepath.Clean(args.Marker)
 	limit := args.Limit
@@ -478,7 +478,6 @@ func (d *DriveNode) handleListAll(c *rpc.Context) {
 	}
 	limit += 1
 
-	uid := d.userID(c)
 	var pathIno Inode
 
 	// 1. get user route info
