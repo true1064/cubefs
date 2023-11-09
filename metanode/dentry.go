@@ -776,7 +776,7 @@ func (d *Dentry) UnmarshalKey(k []byte) (err error) {
 
 func (d *Dentry) MarshalValue() []byte {
 	buff := bytes.NewBuffer(nil)
-	buff.Grow(24 + d.getSnapListLen()*20)
+	buff.Grow(24 + d.getSnapListLen()*28)
 
 	writeBinary := func(data interface{}) {
 		if err := binary.Write(buff, binary.BigEndian, data); err != nil {
@@ -801,6 +801,7 @@ func (d *Dentry) MarshalValue() []byte {
 		for _, dd := range d.multiSnap.dentryList {
 			writeBinary(&dd.Inode)
 			writeBinary(&dd.Type)
+			writeBinary(&dd.FileId)
 			seq = dd.getSeqFiled()
 			writeBinary(&seq)
 		}
@@ -847,6 +848,9 @@ func (d *Dentry) UnmarshalValue(val []byte) (err error) {
 				return
 			}
 			if err = binary.Read(buff, binary.BigEndian, &den.Type); err != nil {
+				return
+			}
+			if err = binary.Read(buff, binary.BigEndian, &den.FileId); err != nil {
 				return
 			}
 			if err = binary.Read(buff, binary.BigEndian, &seq); err != nil {

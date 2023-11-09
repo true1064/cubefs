@@ -19,7 +19,7 @@ func TestDentry_Marshal(t *testing.T) {
 	snap := &DentryMultiSnap{
 		VerSeq: 10,
 		dentryList: DentryBatch{
-			{Inode: 10, Type: 0x655, multiSnap: NewDentrySnap(10), Name: dentry.Name, ParentId: dentry.ParentId},
+			{Inode: 10, Type: 0x655, multiSnap: NewDentrySnap(10), Name: dentry.Name, ParentId: dentry.ParentId, FileId: 11},
 		},
 	}
 
