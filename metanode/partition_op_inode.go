@@ -342,11 +342,6 @@ func (mp *metaPartition) UnlinkInode(req *UnlinkInoReq, p *Packet) (err error) {
 	}
 
 	log.LogDebugf("action[UnlinkInode] ino %v submit", ino)
-	if req.DenVerSeq == item.(*Inode).getVer() {
-		ino.Flag |= InodeDelTop
-	}
-
-	log.LogDebugf("action[UnlinkInode] ino %v submit", ino)
 	r, err = mp.buildAndSubmitInoPacket(ino, opFSMUnlinkInode, opFSMUnlinkByDirVer, p)
 
 	// if req.UniqID > 0 {
@@ -481,7 +476,12 @@ func (mp *metaPartition) InodeGetSplitEk(req *InodeGetSplitReq, p *Packet) (err 
 func (mp *metaPartition) InodeGet(req *InodeGetReq, p *Packet) (err error) {
 
 	ino := NewInode(req.Inode, 0)
+	
 	ino.setVer(req.VerSeq)
+	if p.IsDirVersion() {
+		ino.setVer(p.VerSeq)
+	}
+
 	getAllVerInfo := req.VerAll
 	retMsg := mp.getInode(ino, getAllVerInfo)
 

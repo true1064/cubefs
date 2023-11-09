@@ -139,7 +139,7 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 	}
 
 	f1 := "tmp_f1"
-	_, f1FileId, err := dirVol.CreateFile(ctx, ifo.Inode, f1)
+	f1Info, _, err := dirVol.CreateFile(ctx, ifo.Inode, f1)
 	if err != nil {
 		span.Fatalf("create file failed, ino %d, name %s, err %s", ifo.Inode, f1, err.Error())
 	}
@@ -163,20 +163,10 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 
 	v1 := "v1"
 	createSnapshot(v1)
-	uploadReq := &sdk.UploadFileReq{
-		ParIno: ifo.Inode,
-		Name: f1,
-		OldFileId: f1FileId,
-		Body: bytes.NewBufferString("hello test"),
-	}
-	_, newF1FileId, err := dirVol.UploadFile(ctx, uploadReq)
-	if err != nil || newF1FileId == f1FileId {
-		span.Fatalf("uploadFile failed, oldFileId %d, newFileId %d, name %s, err %v", f1FileId, newF1FileId, f1, err)
-	}
-
 
 	// write after create snapshot
-	f2Fio, _, err := dirVol.CreateFile(ctx, ifo.Inode, "f2")
+	f2 := "tmp_f2"
+	f2Fio, f2FileId, err := dirVol.CreateFile(ctx, ifo.Inode, f2)
 	if err != nil {
 		span.Fatalf("create new file failed, err %s", err.Error())
 	}
@@ -190,6 +180,26 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 	if err != nil {
 		span.Fatalf("delete file failed, err %s", err.Error())
 	}
+
+	// read f1 info
+	v1SnapshotDir := sdk.SnapShotPre + v1
+	newVol()
+	v1Info, err := dirVol.Lookup(ctx, ifo.Inode, v1SnapshotDir)
+	if err != nil || v1Info.Inode != ifo.Inode {
+		span.Fatalf("lookup v1 dir snapshot failed, dir %s, info %v, err %s", v1SnapshotDir, v1Info, err)
+	}
+
+	v1F1Info, err := dirVol.GetInode(ctx, f1Info.Inode)
+	if err != nil {
+		span.Fatalf("lookup f1 failed, err %s", err.Error())
+	}
+
+	log.LogInfof("got v1F1Info %v", v1F1Info)
+	if v1F1Info.ModifyTime != f1Info.ModifyTime {
+		span.Fatalf("get f1 inode info changed, f1Info %v, v1F1Info %v", f1Info, v1F1Info)
+	}
+
+	newVol()
 	_, _, err = dirVol.CreateFile(ctx, ifo.Inode, f1)
 	if err != nil {
 		span.Fatalf("create new file failed, err %s", err.Error())
@@ -198,6 +208,17 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 	v2 := "v2"
 	createSnapshot(v2)
 
+	uploadReq := &sdk.UploadFileReq{
+		ParIno: ifo.Inode,
+		Name: f2,
+		OldFileId: f2FileId,
+		Body: bytes.NewBufferString("hello test"),
+	}
+	_, newF2FileId, err := dirVol.UploadFile(ctx, uploadReq)
+	if err != nil || newF2FileId == f2FileId {
+		span.Fatalf("uploadFile failed, oldFileId %d, newFileId %d, name %s, err %v", f2FileId, newF2FileId, f2, err)
+	}
+
 	err = dirVol.CreateDirSnapshot(ctx, v1, dir)
 	if err != sdk.ErrExist {
 		span.Fatalf("create dir snapshot again, should be bad req, dir %s, err %v", dir, err)
@@ -205,7 +226,7 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 
 	newVol()
 	data2 := []byte("da2")
-	_, err = dirVol.Lookup(ctx, ifo.Inode, "f2")
+	_, err = dirVol.Lookup(ctx, ifo.Inode, f2)
 	if err != nil {
 		span.Fatalf("look up f2 failed, err %s", err.Error())
 	}
@@ -271,14 +292,12 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 			span.Fatalf("write on snapshot file should be failed, err %v", err)
 		}
 
-		if ver == v1 {
-			f1Dnetry, err := dirVol.Lookup(ctx, ifo.Inode, f1)
-			if err != nil || f1Dnetry.FileId == newF1FileId {
-				span.Fatalf("lookup failed or fileId（%v） on v1 may equal newFileId(%d), err (%v)", f1Dnetry, newF1FileId, err.Error())
-			}
-		}
-
 		if ver == v2 {
+			f2Dentry, err := dirVol.Lookup(ctx, ifo.Inode, f2)
+			if err != nil || f2Dentry.FileId == f2FileId {
+				span.Fatalf("lookup failed or fileId（%v） on v2 may equal newFileId(%d), err (%v)", f2Dentry, newF2FileId, err)
+			}
+
 			result1 := make([]byte, len(data1))
 			_, err = dirVol.ReadFile(ctx, f2Fio.Inode, 0, result1)
 			if err != nil {
@@ -321,7 +340,7 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 	newVol()
 	readDir(ifo.Inode, 3)
 	
-	files := []string{f1, "f2", "f3"}
+	files := []string{f1, f2, "f3"}
 	for _, f := range files {
 		err = dirVol.Delete(ctx, ifo.Inode, f, false)
 		if err != nil {
@@ -333,7 +352,7 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 	if err != nil {
 		span.Fatal("delete dir failed, dir %s, err %s", dir, err.Error())
 	}
-	span.Info("delete dir success, dir (%s)", dir)
+	span.Infof("delete dir success, dir (%s)", dir)
 }
 
 // mkdir, readdir, deleteDir, createFile, deleteFile
