@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/cubefs/cubefs/proto"
 	"reflect"
 	"sync"
+
+	"github.com/cubefs/cubefs/proto"
 )
 
 type snapshotVer struct {
@@ -14,6 +15,10 @@ type snapshotVer struct {
 	Ver     uint64 // unixMicro of createTime used as version
 	DelTime int64
 	Status  uint8 // building,normal,deleted,abnormal
+}
+
+func (s *snapshotVer) IsNormal() bool {
+	return s.Status == proto.VersionNormal
 }
 
 func newSnapshotVer(outVer string, ver uint64) *snapshotVer {
@@ -50,7 +55,7 @@ func newDirSnapItem(dirIno, rootIno uint64) *dirSnapshotItem {
 	}
 }
 
-func (d *dirSnapshotItem) buildDirSnapshotIfo() *proto.DirSnapshotInfo {
+func (d *dirSnapshotItem) buildDirSnapshotIfo(all bool) *proto.DirSnapshotInfo {
 	ifo := &proto.DirSnapshotInfo{
 		SnapshotDir:   d.Dir,
 		MaxVer:        d.MaxVer,
@@ -60,10 +65,12 @@ func (d *dirSnapshotItem) buildDirSnapshotIfo() *proto.DirSnapshotInfo {
 	d.RLock()
 	defer d.RUnlock()
 	for _, v := range d.Vers {
-		ifo.Vers = append(ifo.Vers, &proto.ClientDirVer{
-			OutVer: v.OutVer,
-			Ver:    v.buildVerInfo(),
-		})
+		if all || v.IsNormal() {
+			ifo.Vers = append(ifo.Vers, &proto.ClientDirVer{
+				OutVer: v.OutVer,
+				Ver:    v.buildVerInfo(),
+			})
+		}
 	}
 
 	ifo.Vers = append(ifo.Vers, &proto.ClientDirVer{

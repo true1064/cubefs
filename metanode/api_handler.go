@@ -486,7 +486,7 @@ func (m *MetaNode) getDentryHandler(w http.ResponseWriter, r *http.Request) {
 		err  error
 	)
 	if pid, err = strconv.ParseUint(r.FormValue("pid"), 10, 64); err == nil {
-		pIno, err = strconv.ParseUint(r.FormValue("parentIno"), 10, 64)
+		pIno, err = strconv.ParseUint(r.FormValue("?c"), 10, 64)
 	}
 	if err != nil {
 		resp.Msg = err.Error()

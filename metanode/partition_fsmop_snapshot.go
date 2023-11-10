@@ -52,7 +52,7 @@ func (mp *metaPartition) fsmCreateDirSnapshot(ifo *proto.CreateDirSnapShotInfo) 
 
 	// check if conflict witch before
 	for _, v := range oldDirSnap.Vers {
-		if ifo.Ver == v.Ver || ifo.OutVer == v.OutVer || ifo.Ver < v.Ver {
+		if ifo.Ver == v.Ver || ifo.OutVer == v.OutVer && v.IsNormal() || ifo.Ver < v.Ver {
 			log.LogWarnf("fsmCreateDirSnapshot: req is conflict with before, ifo %v, v %v", ifo, v)
 			return proto.OpArgMismatchErr
 		}

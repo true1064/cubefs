@@ -63,7 +63,7 @@ func main() {
 	//testMultiPartOp(ctx, dirVol)
 	//testInodeLock(ctx, dirVol)
 
-	// testDirSnapshotLimit(ctx, vol, dirVol)
+	testDirSnapshotLimit(ctx, vol, dirVol)
 	testDirSnapshotOp(ctx, vol, dirVol)
 }
 
@@ -75,24 +75,30 @@ func testDirSnapshotLimit(ctx context.Context, vol, dirVol sdk.IVolume) {
 
 	var err error
 
+	newIfo, _, err := dirVol.Mkdir(ctx, proto.RootIno, "test_dir" + tmpString())
+	if err != nil {
+		span.Fatalf("create new dir failed, err %s", err.Error())
+	}
+
 	newVol := func() {
-		dirVol, err = vol.GetDirSnapshot(ctx, proto.RootIno)
+		dirVol, err = vol.GetDirSnapshot(ctx, newIfo.Inode)
 		if err != nil {
 			span.Fatalf("new dir snapshot failed, err %s", err.Error())
 		}
 	}
+	newVol()
 
-	createSnapshot := func(ver int, dir string) {
-		err = dirVol.CreateDirSnapshot(ctx, string(ver), dir)
+	createSnapshot := func(ver, dir string) {
+		err = dirVol.CreateDirSnapshot(ctx, ver, dir)
 		if err != nil {
 			span.Fatalf("create dir snapshot failed, ver %s dir %s, err %s",
-				ver, dir, err.Error())
+				string(ver), dir, err.Error())
 		}
 		newVol()
 	}
 
 	createDir := func (dir string)  {
-		_, _, err = dirVol.Mkdir(ctx, proto.RootIno, dir)
+		_, _, err = dirVol.Mkdir(ctx, newIfo.Inode, dir)
 		if err != nil {
 			span.Fatalf("mkdir failed, dir %s, err %s", dir, err.Error())
 		}
@@ -109,9 +115,10 @@ func testDirSnapshotLimit(ctx context.Context, vol, dirVol sdk.IVolume) {
 	for idx := 0; idx < 10; idx ++ {
 		tmpDir := fmt.Sprintf("snapDir_%d_%s", idx, tmpString())
 		createDir(tmpDir)
-		for j := 0; j < 10; j ++ {
-			createSnapshot(j, tmpDir)
-			defer delSnapshot(string(j), tmpDir)
+		for j := 1; j <= 10; j ++ {
+			ver := fmt.Sprintf("v_%d", j)
+			createSnapshot(ver, tmpDir)
+			defer delSnapshot(ver, tmpDir)
 		}
 		err = dirVol.CreateDirSnapshot(ctx, fmt.Sprintf("%d_1", 11), tmpDir)
 		if err != sdk.ErrSnapshotCntLimit {
@@ -132,8 +139,15 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 	span.Infof("start test dir snapshot op")
 	defer span.Infof("success test dir snapshot op")
 
+	rootDir := "snapRootDir" + tmpString()
+	rootIfo, _, err := dirVol.Mkdir(ctx, proto.RootIno, rootDir)
+	if err != nil {
+		span.Fatalf("mkdir failed, dir %s, err %s", rootDir, err.Error())
+	}
+	rootIno := rootIfo.Inode
+	
 	dir := "snapDir" + tmpString()
-	ifo, _, err := dirVol.Mkdir(ctx, proto.RootIno, dir)
+	ifo, _, err := dirVol.Mkdir(ctx, rootIno, dir)
 	if err != nil {
 		span.Fatalf("mkdir failed, dir %s, err %s", dir, err.Error())
 	}
@@ -145,7 +159,7 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 	}
 
 	newVol := func() {
-		dirVol, err = vol.GetDirSnapshot(ctx, proto.RootIno)
+		dirVol, err = vol.GetDirSnapshot(ctx, rootIno)
 		if err != nil {
 			span.Fatalf("new dir snapshot failed, err %s", err.Error())
 		}
@@ -321,12 +335,12 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 	readDirVer(ifo.Inode, v2, 2)
 
 	dir2 := "snapDir2" + tmpString()
-	_, _, err = dirVol.Mkdir(ctx, proto.RootIno, dir2)
+	_, _, err = dirVol.Mkdir(ctx, rootIno, dir2)
 	if err != nil {
 		span.Fatalf("mkdir dir2 failed, dir2 %s, err %s", dir2, err.Error())
 	}
 
-	err = dirVol.Delete(ctx, proto.RootIno, dir2, true)
+	err = dirVol.Delete(ctx, rootIno, dir2, true)
 	if err != nil {
 		span.Fatalf("delete dir2 failed, dir2 %s, err %s", dir2, err.Error())
 	}
@@ -336,7 +350,14 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 		span.Fatalf("delete dir snapshot failed, dir %s, err %s", dir, err.Error())
 	}
 	newVol()
+	// create the same version after create snapshot
+	createSnapshot(v1)
+	err = dirVol.DeleteDirSnapshot(ctx, v1, dir)
+	if err != nil {
+		span.Fatalf("delete dir snapshot failed, dir %s, err %s", dir, err.Error())
+	}
 
+	newVol()
 	readDir(ifo.Inode, 4)
 	err = dirVol.DeleteDirSnapshot(ctx, v2, dir)
 	if err != nil {
@@ -353,7 +374,7 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 		}
 	}
 
-	err = dirVol.Delete(ctx, proto.RootIno, dir, true)
+	err = dirVol.Delete(ctx, rootIno, dir, true)
 	if err != nil {
 		span.Fatal("delete dir failed, dir %s, err %s", dir, err.Error())
 	}
@@ -479,7 +500,7 @@ func testDirOp(ctx context.Context, vol sdk.IVolume) {
 }
 
 func tmpString() string {
-	return fmt.Sprintf("tmp_%s", time.Now().String())
+	return fmt.Sprintf("tmp_%d", time.Now().UnixNano())
 }
 
 // test create, write, read, delete

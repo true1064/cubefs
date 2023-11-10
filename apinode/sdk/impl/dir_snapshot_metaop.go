@@ -80,7 +80,7 @@ func (m *snapMetaOpImp) versionExist(dirIno uint64, outVer string) (bool, *proto
 		}
 
 		for _, v := range e.Vers {
-			if v.OutVer == outVer {
+			if v.Ver.IsNormal() && v.OutVer == outVer {
 				return true, v.Ver
 			}
 		}
@@ -448,15 +448,8 @@ func (m *snapMetaOpImp) checkSnapshotCntLimit(parIno uint64) error {
 
 	total := 0
 	for _, item := range m.snapShotItems {
-		cnt := 0
-		for _, v := range item.Vers {
-			if v.Ver.IsNormal() {
-				cnt ++
-			}
-		}
-
+		cnt := len(item.Vers) - 1
 		// not calc latest version
-		cnt --
 		if item.SnapshotInode == parIno && cnt >= snapshotCntOneDir {
 			return fmt.Errorf("parIno %d snapshot cnt is already over 10, now %d", parIno, cnt)
 		}

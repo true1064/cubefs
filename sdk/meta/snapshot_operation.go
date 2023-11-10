@@ -99,8 +99,12 @@ func (mw *SnapShotMetaWrapper) sendToMeta(mp *MetaPartition, opCode uint8, req, 
 	}
 
 	if log.EnableDebug() {
-		log.LogDebugf("%s: pkt(%v) mp(%v) req(%v) result(%v)",
-			pkt.GetOpMsg(), resultPkt, mp, req, resultPkt.GetResultMsg())
+		dataStr := ""
+		if resp != nil {
+			dataStr = string(resultPkt.Data)
+		}
+		log.LogDebugf("%s: pkt(%v) mp(%v) req(%v) result(%v), data (%v)",
+			pkt.GetOpMsg(), resultPkt, mp, req, resultPkt.GetResultMsg(), dataStr)
 	}
 	return
 }

@@ -16,6 +16,7 @@ package metanode
 
 import (
 	"encoding/json"
+
 	"github.com/cubefs/cubefs/proto"
 	"github.com/cubefs/cubefs/util/log"
 )
@@ -29,7 +30,7 @@ func (mp *metaPartition) ListAllDirSnapshot(rootIno uint64, p *Packet) (err erro
 
 	mp.dirVerTree.AscendRange(startItem, endItem, func(i BtreeItem) bool {
 		dirVer := i.(*dirSnapshotItem)
-		resp.Items = append(resp.Items, dirVer.buildDirSnapshotIfo())
+		resp.Items = append(resp.Items, dirVer.buildDirSnapshotIfo(false))
 		return true
 	})
 
