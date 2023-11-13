@@ -3581,7 +3581,7 @@ func (c *Cluster) createVol(req *createVolReq) (vol *Vol, err error) {
 			req.name, readWriteDataPartitions, proto.MediaTypeString(chosenMediaType))
 	}
 
-	vol.dataPartitions.updateResponseCache(true, 0, vol.VolType)
+	vol.dataPartitions.updateResponseCache(true, 0, vol)
 	vol.updateViewCache(c)
 	// NOTE: update dp view cache
 	vol.dataPartitions.updateResponseCache(true, 0, vol)
