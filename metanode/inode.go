@@ -1140,7 +1140,7 @@ func (inode *Inode) unlinkTopLayer(mpId uint64, ino *Inode, currVer uint64, verI
 			log.LogDebugf("action[unlinkTopLayer] ino %v", ino)
 			return true
 		}
-		log.LogDebugf("action[unlinkTopLayer] inode %v be unlinked, File restore, multiSnap.ekRefMap %v", ino.Inode, inode.multiSnap.ekRefMap)
+		log.LogDebugf("action[unlinkTopLayer] inode %v be unlinked, File restore, multiSnap.ekRefMap %v", ino.Inode, inode.multiSnap)
 		dIno.DecNLink() // dIno should be inode
 		doMore = true
 		return
