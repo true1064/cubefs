@@ -366,6 +366,12 @@ func (mp *metaPartition) Apply(command []byte, index uint64) (resp interface{}, 
 			return
 		}
 		err = mp.fsmRemoveXAttr(extend)
+	case opFSMRemoveXAttrByDir:
+		ext := &DirExtend{}
+		if err = ext.Unmarshal(msg.V); err != nil {
+			return
+		}
+		err = mp.fsmRemoveDirXAttr(ext.E, ext.DirVerList)
 	case opFSMUpdateXAttr:
 		var extend *Extend
 		if extend, err = NewExtendFromBytes(msg.V); err != nil {

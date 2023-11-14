@@ -1,10 +1,11 @@
 package metanode
 
 import (
-	"github.com/cubefs/cubefs/proto"
-	"github.com/stretchr/testify/require"
 	"reflect"
 	"testing"
+
+	"github.com/cubefs/cubefs/proto"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_InodeDirVer_Marshal(t *testing.T) {

@@ -187,22 +187,25 @@ const (
 	opFSMStoreTickV1  = 72
 
 	// dir snapshot
-	opFSMDDentryByDirVer = 73
-	opFSMUnlinkByDirVer = 74
-	opFSMDDentryBatchByDirVer = 75
-	opFSMUnlinkBatchByDirVer = 76
+	opFSMDDentryByDirVer             = 73
+	opFSMUnlinkByDirVer              = 74
+	opFSMDDentryBatchByDirVer        = 75
+	opFSMUnlinkBatchByDirVer         = 76
 	opFSMExtentsAddWithCheckByDirVer = 77
-	opFSMExtentSplitByDir = 78
-	opFSMExtentTruncateByDirVer = 79
+	opFSMExtentSplitByDir            = 78
+	opFSMExtentTruncateByDirVer      = 79
 )
 
 const (
 	opCreateDentryEx = 10001
 	opSetInodeLock   = 10002
 	opFSMSetXAttrEx  = 10010
+
 	opFSMCreateDirSnap   = 11000
 	opFSMMarkDelDirSnap  = 11001
 	opFSMBatchDelDirSnap = 11002
+
+	opFSMRemoveXAttrByDir = 12000
 )
 
 var (

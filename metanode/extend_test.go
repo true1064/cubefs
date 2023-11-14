@@ -20,7 +20,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cubefs/cubefs/proto"
 	"github.com/cubefs/cubefs/util"
+	"github.com/stretchr/testify/require"
 )
 
 func TestExtend_Bytes(t *testing.T) {
@@ -55,3 +57,28 @@ func TestExtend_Bytes(t *testing.T) {
 	}
 
 }
+
+func Test_DirExtendBytes(t *testing.T) {
+
+	e1 := &DirExtend{
+		E: &Extend{
+			verSeq: 11,
+			inode: 13,
+			dataMap: map[string][]byte{
+				"t1":[]byte("tt"),
+				"t2":[]byte("tt2"),
+			},
+		},
+		DirVerList: []*proto.VersionInfo{
+			{Ver: 12, Status: 1, DelTime: 123},
+		},
+	}
+
+	data, err := e1.Marshal()
+	require.NoError(t, err)
+
+	e2 := &DirExtend{}
+	err = e2.Unmarshal(data)
+	require.NoError(t, err)
+	require.True(t, reflect.DeepEqual(e1, e2))
+} 

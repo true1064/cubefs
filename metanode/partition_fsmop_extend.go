@@ -16,11 +16,13 @@ package metanode
 
 import (
 	"fmt"
-	"github.com/cubefs/cubefs/proto"
-	"github.com/cubefs/cubefs/util/log"
+	"math"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/cubefs/cubefs/proto"
+	"github.com/cubefs/cubefs/util/log"
 )
 
 type ExtendOpResult struct {
@@ -29,6 +31,7 @@ type ExtendOpResult struct {
 }
 
 func (mp *metaPartition) fsmSetXAttr(extend *Extend) (err error) {
+	log.LogDebugf("start execute fsmSetXAttr, ino %d, seq %d", extend.inode, extend.verSeq)
 	treeItem := mp.extendTree.CopyGet(extend)
 	var e *Extend
 	if treeItem == nil {
@@ -40,7 +43,7 @@ func (mp *metaPartition) fsmSetXAttr(extend *Extend) (err error) {
 			if extend.verSeq < e.verSeq {
 				return fmt.Errorf("seq error assign %v but less than %v", extend.verSeq, e.verSeq)
 			}
-			e.multiVers = append(e.multiVers, e.Copy().(*Extend))
+			e.multiVers = append([]*Extend{e.Copy().(*Extend)}, e.multiVers...)
 			e.verSeq = extend.verSeq
 		}
 		e.Merge(extend, true)
@@ -50,7 +53,7 @@ func (mp *metaPartition) fsmSetXAttr(extend *Extend) (err error) {
 }
 
 func (mp *metaPartition) fsmSetXAttrEx(extend *Extend) (resp uint8, err error) {
-	log.LogDebugf("start execute fsmSetXAttrEx, ino %d", extend.inode)
+	log.LogDebugf("start execute fsmSetXAttrEx, ino %d, seq %d", extend.inode, extend.verSeq)
 	resp = proto.OpOk
 	treeItem := mp.extendTree.Get(extend)
 	var e *Extend
@@ -62,7 +65,7 @@ func (mp *metaPartition) fsmSetXAttrEx(extend *Extend) (resp uint8, err error) {
 	// attr multi-ver copy all attr for simplify management
 	e = treeItem.(*Extend)
 	for key, v := range extend.dataMap {
-		if oldV, exist := e.Get([]byte(key)); exist {
+		if oldV, exist := e.Get([]byte(key)); exist && e.verSeq == extend.verSeq {
 			log.LogWarnf("fsmSetXAttrEx: target key is already exist, ino %d, key %s, val %s, old %s",
 				extend.inode, key, string(v), string(oldV))
 			resp = proto.OpExistErr
@@ -75,7 +78,7 @@ func (mp *metaPartition) fsmSetXAttrEx(extend *Extend) (resp uint8, err error) {
 	return
 }
 
-// TODO support snap
+// TODO support snap, not use
 func (mp *metaPartition) fsmSetInodeLock(req *proto.InodeLockReq) (status uint8) {
 	if req.LockType == proto.InodeLockStatus {
 		return mp.inodeLock(req)
@@ -163,25 +166,100 @@ func (mp *metaPartition) inodeUnlock(req *proto.InodeLockReq) (status uint8) {
 	return proto.OpArgMismatchErr
 }
 
-// todo(leon chang):check snapshot delete relation with attr
-func (mp *metaPartition) fsmRemoveXAttr(extend *Extend) (err error) {
-	treeItem := mp.extendTree.CopyGet(extend)
+
+func (mp *metaPartition) fsmRemoveDirXAttr(reqExtend *Extend, vers []*proto.VersionInfo) (err error) {
+	if log.EnableDebug() {
+		log.LogDebugf("start delete dir xattr, req %v, vers %v", reqExtend, vers)
+	}
+	treeItem := mp.extendTree.CopyGet(reqExtend)
 	if treeItem == nil {
 		return
 	}
-	e := treeItem.(*Extend)
-	if extend.verSeq < e.verSeq {
-		return fmt.Errorf("seq error assign %v but less than %v", extend.verSeq, e.verSeq)
-	}
-	// attr multi-ver copy all attr for simplify management
-	if e.verSeq > extend.verSeq {
-		e.multiVers = append(e.multiVers, e)
-		e.verSeq = extend.verSeq
+
+	verList := mp.multiVersionList
+	curVer := mp.GetVerSeq()
+	if vers != nil {
+		verList = &proto.VolVersionInfoList{
+			VerList: vers,
+		}
+		curVer = verList.GetLastVer()
 	}
 
-	extend.Range(func(key, value []byte) bool {
-		e.Remove(key)
-		return true
-	})
+	e := treeItem.(*Extend)
+	// remove from newest version
+	if curVer == 0 || (e.verSeq == curVer && reqExtend.verSeq == 0) {
+		reqExtend.Range(func(key, value []byte) bool {
+			e.Remove(key)
+			return true
+		})
+		return
+	}
+
+	if reqExtend.verSeq == 0 {
+		reqExtend.verSeq = curVer
+	}
+	if reqExtend.verSeq == math.MaxUint64 {
+		reqExtend.verSeq = 0
+	}
+
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	// less than minum ver
+	if reqExtend.verSeq < e.GetMinVer() {
+		return
+	}
+
+	// delete ver large than extend ver
+	if reqExtend.verSeq > e.verSeq {
+		e.multiVers = append([]*Extend{e.Copy().(*Extend)}, e.multiVers...)
+		e.verSeq = reqExtend.verSeq
+		reqExtend.Range(func(key, value []byte) bool {
+			e.Remove(key)
+			return true
+		})
+		return
+	}
+
+	// delete ver equal to extend ver
+	if reqExtend.verSeq == e.verSeq {
+		var globalNewVer uint64
+		if globalNewVer, err = verList.GetNextNewerVer(reqExtend.verSeq); err != nil {
+			log.LogErrorf("fsmRemoveXAttr. mp [%v] seq %v req ver %v not found newer seq", mp.config.PartitionId, mp.verSeq, reqExtend.verSeq)
+			return err
+		}
+		e.verSeq = globalNewVer
+		return
+	}
+
+	// delete ver in version list
+	innerLastVer := e.verSeq
+	for id, ele := range e.multiVers {
+		if ele.verSeq > reqExtend.verSeq {
+			innerLastVer = ele.verSeq
+			continue
+		} else if ele.verSeq < reqExtend.verSeq {
+			return
+		} else {
+			var globalNewVer uint64
+			if globalNewVer, err = verList.GetNextNewerVer(ele.verSeq); err != nil {
+				return err
+			}
+			if globalNewVer < innerLastVer {
+				log.LogDebugf("mp %v inode %v extent layer %v update seq %v to %v",
+					mp.config.PartitionId, ele.inode, id, ele.verSeq, globalNewVer)
+				ele.verSeq = globalNewVer
+				return
+			}
+			e.multiVers = append(e.multiVers[:id], e.multiVers[id+1:]...)
+			return
+		}
+	}
+
 	return
+}
+
+// todo(leon chang):check snapshot delete relation with attr
+func (mp *metaPartition) fsmRemoveXAttr(reqExtend *Extend) (err error) {
+	return mp.fsmRemoveDirXAttr(reqExtend, nil)
 }

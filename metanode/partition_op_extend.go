@@ -75,13 +75,12 @@ func (mp *metaPartition) UpdateXAttr(req *proto.UpdateXAttrRequest, p *Packet) (
 
 func (mp *metaPartition) SetXAttr(req *proto.SetXAttrRequest, p *Packet) (err error) {
 	var extend = NewExtend(req.Inode)
-	extend.Put([]byte(req.Key), []byte(req.Value), mp.verSeq)
-	if _, err = mp.putExtend(opFSMSetXAttr, extend); err != nil {
-		p.PacketErrorWithBody(proto.OpErr, []byte(err.Error()))
-		return
+
+	verSeq := mp.verSeq
+	if p.IsDirVersion() {
+		verSeq = p.VerSeq
 	}
-	p.PacketOkReply()
-	extend.Put([]byte(req.Key), []byte(req.Value), p.VerSeq)
+	extend.Put([]byte(req.Key), []byte(req.Value), verSeq)
 
 	if req.OverWrite {
 		if _, err = mp.putExtend(opFSMSetXAttr, extend); err != nil {
@@ -125,10 +124,15 @@ func (mp *metaPartition) BatchSetXAttr(req *proto.BatchSetXAttrRequest, p *Packe
 		extend.Put([]byte(key), []byte(val), mp.verSeq)
 	}
 
+	if p.IsDirVersion() {
+		extend.verSeq = p.VerSeq
+	}
+
 	if _, err = mp.putExtend(opFSMSetXAttr, extend); err != nil {
 		p.PacketErrorWithBody(proto.OpErr, []byte(err.Error()))
 		return
 	}
+
 	p.PacketOkReply()
 	return
 }
@@ -168,6 +172,11 @@ func (mp *metaPartition) GetAllXAttr(req *proto.GetAllXAttrRequest, p *Packet) (
 		Inode:       req.Inode,
 		Attrs:       make(map[string]string),
 	}
+
+	if p.IsDirVersion() {
+		req.VerSeq = req.VerSeq
+	}
+
 	treeItem := mp.extendTree.Get(NewExtend(req.Inode))
 	if treeItem != nil {
 		if extend := treeItem.(*Extend).GetExtentByVersion(req.VerSeq); extend != nil {
@@ -226,17 +235,31 @@ func (mp *metaPartition) BatchGetXAttr(req *proto.BatchGetXAttrRequest, p *Packe
 
 func (mp *metaPartition) RemoveXAttr(req *proto.RemoveXAttrRequest, p *Packet) (err error) {
 	var extend = NewExtend(req.Inode)
+	verSeq := mp.verSeq
+	if p.IsDirVersion() {
+		verSeq = mp.verSeq
+	}
+
 	if len(req.Keys) > 0 {
 		for _, key := range req.Keys {
-			extend.Put([]byte(key), nil, mp.verSeq)
+			extend.Put([]byte(key), nil, verSeq)
 		}
 	} else {
-		extend.Put([]byte(req.Key), nil, mp.verSeq)
+		extend.Put([]byte(req.Key), nil, verSeq)
 	}
-	if _, err = mp.putExtend(opFSMRemoveXAttr, extend); err != nil {
-		p.PacketErrorWithBody(proto.OpErr, []byte(err.Error()))
-		return
+
+	if p.IsDirVersion() {
+		if _, err = mp.putExtend(opFSMRemoveXAttrByDir, extend); err != nil {
+			p.PacketErrorWithBody(proto.OpErr, []byte(err.Error()))
+			return
+		}
+	} else {
+		if _, err = mp.putExtend(opFSMRemoveXAttr, extend); err != nil {
+			p.PacketErrorWithBody(proto.OpErr, []byte(err.Error()))
+			return
+		}
 	}
+
 	p.PacketOkReply()
 	return
 }

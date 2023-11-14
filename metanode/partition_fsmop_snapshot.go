@@ -26,11 +26,7 @@ func (mp *metaPartition) fsmCreateDirSnapshot(ifo *proto.CreateDirSnapShotInfo) 
 	}
 
 	oldDirSnap := oldItem.(*dirSnapshotItem)
-	//if ifo.SnapshotDir != oldDirSnap.Dir {
-	//	log.LogWarnf("fsmCreateDirSnapshot: root inode is conflict with before, req %v, before %v", ifo, oldItem)
-	//	return proto.OpArgMismatchErr
-	//}
-
+	
 	oldDirSnap.Lock()
 	defer oldDirSnap.Unlock()
 

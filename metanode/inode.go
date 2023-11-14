@@ -557,9 +557,15 @@ func (i *InodeDirVer) Marshal() (result []byte, err error) {
 	if err != nil {
 		return nil, err
 	}
+
+	if err = binary.Write(buff, binary.BigEndian, uint32(len(bs))); err != nil {
+		return
+	}
+
 	if _, err := buff.Write(bs); err != nil {
 		return nil, err
 	}
+
 	if err = binary.Write(buff, binary.BigEndian, uint32(len(i.DirVerList)*proto.VersionSimpleSize)); err != nil {
 		return nil, err
 	}
@@ -568,10 +574,10 @@ func (i *InodeDirVer) Marshal() (result []byte, err error) {
 			if err = binary.Write(buff, binary.BigEndian, i.DirVerList[n].Ver); err != nil {
 				return nil, err
 			}
-			if err = binary.Write(buff, binary.BigEndian, i.DirVerList[n].Status); err != nil {
+			if err = binary.Write(buff, binary.BigEndian, i.DirVerList[n].DelTime); err != nil {
 				return nil, err
 			}
-			if err = binary.Write(buff, binary.BigEndian, i.DirVerList[n].DelTime); err != nil {
+			if err = binary.Write(buff, binary.BigEndian, i.DirVerList[n].Status); err != nil {
 				return nil, err
 			}
 		}
@@ -587,7 +593,6 @@ func (i *InodeDirVer) Unmarshal(raw []byte) (err error) {
 
 	var (
 		keyLen uint32
-		valLen uint32
 	)
 	if err = binary.Read(buff, binary.BigEndian, &keyLen); err != nil {
 		return
@@ -596,17 +601,9 @@ func (i *InodeDirVer) Unmarshal(raw []byte) (err error) {
 	if _, err = buff.Read(keyBytes); err != nil {
 		return
 	}
-	if err = i.Ino.UnmarshalKey(keyBytes); err != nil {
+	if err = i.Ino.Unmarshal(keyBytes); err != nil {
 		return
 	}
-	if err = binary.Read(buff, binary.BigEndian, &valLen); err != nil {
-		return
-	}
-	valBytes := make([]byte, valLen)
-	if _, err = buff.Read(valBytes); err != nil {
-		return
-	}
-	err = i.Ino.UnmarshalValue(valBytes)
 
 	var versionLen uint32
 	if err = binary.Read(buff, binary.BigEndian, &versionLen); err != nil {

@@ -57,16 +57,16 @@ func main() {
 		span.Fatalf("get dir snapshot failed, err %s", err.Error())
 	}
 
-	//testDirOp(ctx, dirVol)
-	//testCreateFile(ctx, dirVol)
-	//testXAttrOp(ctx, dirVol)
-	//testMultiPartOp(ctx, dirVol)
+	// testDirOp(ctx, dirVol)
+	// testCreateFile(ctx, dirVol)
+	// testXAttrOp(ctx, dirVol)
+	// testMultiPartOp(ctx, dirVol)
 	//testInodeLock(ctx, dirVol)
 
+	// testXAttrOp(ctx, vol, dirVol)
 	testDirSnapshotLimit(ctx, vol, dirVol)
 	testDirSnapshotOp(ctx, vol, dirVol)
 }
-
 
 func testDirSnapshotLimit(ctx context.Context, vol, dirVol sdk.IVolume) {
 	span := trace.SpanFromContext(ctx)
@@ -158,6 +158,12 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 		span.Fatalf("create file failed, ino %d, name %s, err %s", ifo.Inode, f1, err.Error())
 	}
 
+	k1, val1 := "key1", "val1"
+	err = dirVol.BatchSetXAttr(ctx, f1Info.Inode, map[string]string{k1:val1})
+	if err != nil {
+		span.Fatalf("set f1 xattr batch failed, ino %d, err %s", f1Info.Inode, err.Error())
+	}
+
 	newVol := func() {
 		dirVol, err = vol.GetDirSnapshot(ctx, rootIno)
 		if err != nil {
@@ -190,6 +196,18 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 		span.Fatalf("write file failed, ino %d, err %s", f2Fio.Inode, err.Error())
 	}
 
+	val2 := "val2"
+	err = dirVol.BatchSetXAttr(ctx, f1Info.Inode, map[string]string{k1:val2})
+	if err != nil {
+		span.Fatalf("set f1 xattr batch again failed, ino %d, err %s", f1Info.Inode, err.Error())
+	}
+
+	newVol()
+	v2Val, err := dirVol.GetXAttr(ctx, f1Info.Inode, k1)
+	if err != nil || v2Val != val2{
+		span.Fatalf("getXAttr failed, ino %d, k1 %s, got %s, want %s, err %v", f1Info.Inode, k1, v2Val, val2, err)
+	}
+	
 	err = dirVol.Delete(ctx, ifo.Inode, f1, false)
 	if err != nil {
 		span.Fatalf("delete file failed, err %s", err.Error())
@@ -201,6 +219,11 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 	v1Info, err := dirVol.Lookup(ctx, ifo.Inode, v1SnapshotDir)
 	if err != nil || v1Info.Inode != ifo.Inode {
 		span.Fatalf("lookup v1 dir snapshot failed, dir %s, info %v, err %s", v1SnapshotDir, v1Info, err)
+	}
+
+	v1Val, err := dirVol.GetXAttr(ctx, f1Info.Inode, k1)
+	if err != nil || v1Val != val1{
+		span.Fatalf("getXAttr failed, ino %d, k1 %s, got %s, want %s, err %v", f1Info.Inode, k1, v1Val, val1, err)
 	}
 
 	v1F1Info, err := dirVol.GetInode(ctx, f1Info.Inode)
@@ -522,7 +545,11 @@ func testCreateFile(ctx context.Context, vol sdk.IVolume) {
 	defer func() {
 		err = vol.Delete(ctx, proto.RootIno, tmpDir, true)
 		if err != nil {
-			span.Fatalf("delete dir failed, dir %s err %s", tmpDir, err.Error())
+			items, err1 := vol.ReadDirAll(ctx, dirIfo.Inode)
+			if err1 != nil {
+				span.Fatalf("readdir failed, ino %d, err %s", dirIfo.Inode, err1.Error())
+			}
+			span.Fatalf("delete dir failed, dir %s items (%v), err %s", tmpDir,  items, err.Error())
 		}
 		span.Infof("delete dir success, dir %s", tmpDir)
 	}()
@@ -606,6 +633,13 @@ func testCreateFile(ctx context.Context, vol sdk.IVolume) {
 	}
 	span.Infof("upload file success, info %v", uploadIfo)
 
+	defer func ()  {
+		err = vol.Delete(ctx, req.ParIno, req.Name, false)
+		if err != nil {
+			span.Fatalf("delete upload file failed, name %s, err %s", req.Name, err.Error())
+		}
+	}()
+
 	den, err := vol.Lookup(ctx, req.ParIno, req.Name)
 	if err != nil {
 		span.Fatalf("look up path failed, err %s, name %s", err.Error(), req.Name)
@@ -613,16 +647,16 @@ func testCreateFile(ctx context.Context, vol sdk.IVolume) {
 
 	req.OldFileId = den.FileId
 	req.Body = bytes.NewBuffer(data)
-	uploadIfo, fileId, err := vol.UploadFile(ctx, req)
+	uploadIfo, _, err = vol.UploadFile(ctx, req)
 	if err != nil {
 		span.Fatalf("upload file failed, name %s, err %s", req.Name, err.Error())
 	}
 
 	// test rename dest already exist, should be failed
-	tmpName := "test" + tmpString()
-	_, _, err = vol.CreateFile(ctx, dirIfo.Inode, tmpName)
+	tmpName := "test1" + tmpString()
+	_, tmpId2, err := vol.CreateFile(ctx, dirIfo.Inode, tmpName)
 	newName := "testNewName" + tmpString()
-	srcDir := fmt.Sprintf("%s/%s", tmpDir, req.Name)
+	srcDir := fmt.Sprintf("%s/%s", tmpDir, tmpName)
 	dstDir := fmt.Sprintf("%s/%s", tmpDir, newName)
 	err = vol.Rename(ctx, srcDir, dstDir)
 	if err != nil {
@@ -635,12 +669,12 @@ func testCreateFile(ctx context.Context, vol sdk.IVolume) {
 	}
 	span.Infof("lookup after rename, den %v", den)
 
-	if den.FileId == 0 || den.FileId != fileId {
-		span.Fatalf("lookup file id is not correct after rename, den %v, fileId %d", den, fileId)
+	if den.FileId == 0 || den.FileId != tmpId2 {
+		span.Fatalf("lookup file id is not correct after rename, den %v, fileId %d", den, tmpId2)
 	}
 
 	// test rename dest already exist, should be failed
-	tmpName = "test" + tmpString()
+	tmpName = "test2" + tmpString()
 	_, _, err = vol.CreateFile(ctx, dirIfo.Inode, tmpName)
 	if err != nil {
 		span.Fatalf("create file failed, err %s", err.Error())

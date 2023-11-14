@@ -477,6 +477,10 @@ func (p *Packet) GetOpMsg() (m string) {
 		m = "OpMetaExtentsList"
 	case OpMetaObjExtentsList:
 		m = "OpMetaObjExtentsList"
+	case OpMetaBatchSetXAttr:
+		m = "OpMetaBatchSetXAttr"
+	case OpMetaGetAllXAttr:
+		m = "OpMetaGetAllXAttr"
 	case OpMetaUpdateDentry:
 		m = "OpMetaUpdateDentry"
 	case OpMetaTruncate:

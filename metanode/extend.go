@@ -19,6 +19,7 @@ import (
 	"encoding/binary"
 	"sync"
 
+	"github.com/cubefs/cubefs/proto"
 	"github.com/cubefs/cubefs/util/btree"
 )
 
@@ -34,17 +35,124 @@ type Extend struct {
 	mu        sync.RWMutex
 }
 
+type DirExtend struct {
+	DirVerList []*proto.VersionInfo
+	E          *Extend
+}
+
+func (d *DirExtend) Marshal() (result []byte, err error) {
+	buff := bytes.NewBuffer(make([]byte, 0))
+	bs, err := d.E.Bytes()
+	if err != nil {
+		return nil, err
+	}
+
+	if err = binary.Write(buff, binary.BigEndian, uint32(len(bs))); err != nil {
+		return
+	}
+
+	if _, err := buff.Write(bs); err != nil {
+		return nil, err
+	}
+
+	if err = binary.Write(buff, binary.BigEndian, uint32(len(d.DirVerList))); err != nil {
+		return nil, err
+	}
+
+	if len(d.DirVerList) > 0 {
+		for n := 0; n < len(d.DirVerList); n++ {
+			if err = binary.Write(buff, binary.BigEndian, d.DirVerList[n].Ver); err != nil {
+				return nil, err
+			}
+			if err = binary.Write(buff, binary.BigEndian, d.DirVerList[n].Status); err != nil {
+				return nil, err
+			}
+			if err = binary.Write(buff, binary.BigEndian, d.DirVerList[n].DelTime); err != nil {
+				return nil, err
+			}
+		}
+	}
+	result = buff.Bytes()
+	return
+}
+
+// Unmarshal unmarshals the inode.
+func (d *DirExtend) Unmarshal(raw []byte) (err error) {
+	d.E = NewExtend(0)
+	buff := bytes.NewBuffer(raw)
+
+	var (
+		keyLen uint32
+	)
+
+	if err = binary.Read(buff, binary.BigEndian, &keyLen); err != nil {
+		return
+	}
+
+	keyBytes := make([]byte, keyLen)
+	if _, err = buff.Read(keyBytes); err != nil {
+		return
+	}
+
+	d.E, err = NewExtendFromBytes(keyBytes)
+	if err != nil {
+		return
+	}
+
+	var versionLen uint32
+	if err = binary.Read(buff, binary.BigEndian, &versionLen); err != nil {
+		return
+	}
+	for n := 0; n < int(versionLen); n++ {
+		verInfo := &proto.VersionInfo{}
+		if err = binary.Read(buff, binary.BigEndian, &verInfo.Ver); err != nil {
+			return
+		}
+		if err = binary.Read(buff, binary.BigEndian, &verInfo.Status); err != nil {
+			return
+		}
+		if err = binary.Read(buff, binary.BigEndian, &verInfo.DelTime); err != nil {
+			return
+		}
+		d.DirVerList = append(d.DirVerList, verInfo)
+	}
+
+	return
+}
+
+func (e *Extend) GetMinVer() uint64 {
+	if len(e.multiVers) == 0 {
+		return e.verSeq
+	}
+	return e.multiVers[len(e.multiVers)-1].verSeq
+}
+
 func (e *Extend) GetExtentByVersion(ver uint64) (extend *Extend) {
-	if ver == 0 {
+	if ver == 0 || ver >= e.verSeq && !isInitSnapVer(ver){
 		return e
 	}
+
+	size := len(e.multiVers)
 	if isInitSnapVer(ver) {
-		if e.multiVers[0].verSeq != 0 {
+		if e.verSeq == 0 {
+			return e
+		}
+
+		if size == 0 {
 			return nil
 		}
-		return e.multiVers[0]
+
+		if e.multiVers[size-1].verSeq != 0 {
+			return nil
+		}
+
+		return e.multiVers[size-1]
 	}
-	for i := len(e.multiVers) - 1; i >= 0; i-- {
+
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	
+	for i := 0; i < size; i++ {
 		if e.multiVers[i].verSeq <= ver {
 			return e.multiVers[i]
 		}
@@ -189,6 +297,8 @@ func (e *Extend) Copy() btree.Item {
 	for k, v := range e.dataMap {
 		newExt.dataMap[k] = v
 	}
+	newExt.verSeq = e.verSeq
+	newExt.multiVers = e.multiVers
 	return newExt
 }
 
