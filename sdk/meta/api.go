@@ -605,7 +605,7 @@ func (mw *SnapShotMetaWrapper) BatchInodeGetWith(inodes []uint64) (batchInfos []
 			newInfos[idx] = &proto.InodeInfo{
 				Inode: ino,
 			}
-			continue
+			return nil, syscall.ENOENT
 		}
 		newInfos[idx] = ifo
 	}

@@ -237,7 +237,7 @@ func (mp *metaPartition) RemoveXAttr(req *proto.RemoveXAttrRequest, p *Packet) (
 	var extend = NewExtend(req.Inode)
 	verSeq := mp.verSeq
 	if p.IsDirVersion() {
-		verSeq = mp.verSeq
+		verSeq = p.VerSeq
 	}
 
 	if len(req.Keys) > 0 {

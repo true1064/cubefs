@@ -231,6 +231,11 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 		span.Fatalf("lookup f1 failed, err %s", err.Error())
 	}
 
+	v1Inodes, err := dirVol.BatchGetInodes(ctx, []uint64{f1Info.Inode})
+	if err != nil || f1Info.ModifyTime != v1Inodes[0].ModifyTime {
+		span.Fatalf("batch get inodes failed, f1Info %v, v1Inods %v, err %v", f1Info, v1Inodes, err.Error())
+	}
+
 	v1Dentry, err := dirVol.Lookup(ctx, ifo.Inode, f1)
 	if err != nil || v1Dentry.FileId != f1FileId {
 		span.Fatalf("look up f1 on v1 snapshot failed, v1Dentry(%v), oldFileId(%d) err %v", v1Dentry, f1FileId, err.Error())

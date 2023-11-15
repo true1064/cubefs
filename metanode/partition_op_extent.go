@@ -162,8 +162,8 @@ func (mp *metaPartition) ExtentAppendWithCheck(req *proto.AppendExtentKeyWithChe
 
 	// extent key verSeq not set value since marshal will not include verseq
 	// use inode verSeq instead
-	if p.IsDirSnapshotOperate() {
-		inoParm.setVer(req.VerSeq)
+	if p.IsDirVersion() {
+		inoParm.setVer(p.VerSeq)
 	} else {
 		inoParm.setVer(mp.GetVerSeq())
 	}

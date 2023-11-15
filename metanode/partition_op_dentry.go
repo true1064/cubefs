@@ -352,6 +352,10 @@ func (mp *metaPartition) DeleteDentry(req *DeleteDentryReq, p *Packet) (err erro
 		Name:     req.Name,
 	}
 	dentry.setVerSeq(req.Verseq)
+	if p.IsDirVersion() {
+		dentry.setVerSeq(p.VerSeq)
+	}
+	
 	log.LogDebugf("action[DeleteDentry] den param(%v)", dentry)
 
 	val, err := dentry.Marshal()
