@@ -34,8 +34,9 @@ import (
 	"syscall"
 	"time"
 
-	blog "github.com/cubefs/cubefs/blobstore/util/log"
 	syslog "log"
+
+	blog "github.com/cubefs/cubefs/blobstore/util/log"
 )
 
 type Level uint8
@@ -520,6 +521,8 @@ func LogWarn(v ...interface{}) {
 	s := fmt.Sprintln(v...)
 	s = gLog.SetPrefix(s, levelPrefixes[2])
 	gLog.warnLogger.Output(2, s)
+	gLog.infoLogger.Output(2, s)
+	gLog.debugLogger.Output(2, s)
 }
 
 // LogWarnf indicates the warnings with specific format.
@@ -533,6 +536,8 @@ func LogWarnf(format string, v ...interface{}) {
 	s := fmt.Sprintf(format, v...)
 	s = gLog.SetPrefix(s, levelPrefixes[2])
 	gLog.warnLogger.Output(2, s)
+	gLog.infoLogger.Output(2, s)
+	gLog.debugLogger.Output(2, s)
 }
 
 func LogAuditf(format string, v ...interface{}) {
@@ -548,6 +553,8 @@ func LogAuditf(format string, v ...interface{}) {
 	}
 	s = gLog.SetPrefix(s, levelPrefixes[2])
 	gLog.warnLogger.Output(2, s)
+	gLog.infoLogger.Output(2, s)
+	gLog.debugLogger.Output(2, s)
 }
 
 // LogInfo indicates log the information. TODO explain
@@ -561,6 +568,7 @@ func LogInfo(v ...interface{}) {
 	s := fmt.Sprintln(v...)
 	s = gLog.SetPrefix(s, levelPrefixes[1])
 	gLog.infoLogger.Output(2, s)
+	gLog.debugLogger.Output(2, s)
 }
 
 // LogInfo indicates log the information with specific format. TODO explain
@@ -574,6 +582,7 @@ func LogInfof(format string, v ...interface{}) {
 	s := fmt.Sprintf(format, v...)
 	s = gLog.SetPrefix(s, levelPrefixes[1])
 	gLog.infoLogger.Output(2, s)
+	gLog.debugLogger.Output(2, s)
 }
 
 func EnableInfo() bool {
@@ -594,6 +603,9 @@ func LogError(v ...interface{}) {
 	s := fmt.Sprintln(v...)
 	s = gLog.SetPrefix(s, levelPrefixes[3])
 	gLog.errorLogger.Output(2, s)
+	gLog.warnLogger.Output(2, s)
+	gLog.infoLogger.Output(2, s)
+	gLog.debugLogger.Output(2, s)
 }
 
 // LogErrorf logs the errors with the specified format.
@@ -607,6 +619,9 @@ func LogErrorf(format string, v ...interface{}) {
 	s := fmt.Sprintf(format, v...)
 	s = gLog.SetPrefix(s, levelPrefixes[3])
 	gLog.errorLogger.Print(s)
+	gLog.warnLogger.Output(2, s)
+	gLog.infoLogger.Output(2, s)
+	gLog.debugLogger.Output(2, s)
 }
 
 // LogDebug logs the debug information.

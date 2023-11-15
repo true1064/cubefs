@@ -374,7 +374,9 @@ func (mp *metaPartition) fsmUnlinkInodeDoWork(ino *Inode, uniqID uint64, verList
 		inode.DoWriteFunc(func() {
 			if inode.NLink == 0 {
 				inode.AccessTime = time.Now().Unix()
-				mp.freeList.Push(inode.Inode)
+				if inode.isEmptyVerList() {
+					mp.freeList.Push(inode.Inode)
+				}
 				mp.uidManager.doMinusUidSpace(inode.Uid, inode.Inode, inode.Size)
 			}
 		})
@@ -728,6 +730,9 @@ func (mp *metaPartition) fsmBatchEvictInode(ib InodeBatch) (resp []*InodeRespons
 
 func (mp *metaPartition) checkAndInsertFreeList(ino *Inode) {
 	if proto.IsDir(ino.Type) {
+		return
+	}
+	if !ino.isEmptyVerList() {
 		return
 	}
 	if ino.ShouldDelete() {
