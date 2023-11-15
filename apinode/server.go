@@ -258,15 +258,15 @@ func (s *apiNode) handler(resp http.ResponseWriter, req *http.Request) {
 	case serviceDrive:
 		s.router.Drive.handler.ServeHTTP(resp, req)
 	case servicePosix, serviceS3, serviceHdfs: // TODO
-		panic("Not Implemented")
+		resp.WriteHeader(http.StatusMethodNotAllowed)
 	case "":
 		if isMetricRequest(req) {
 			s.router.Drive.handler.ServeHTTP(resp, req)
 			return
 		}
-		panic("Not Implemented")
+		resp.WriteHeader(http.StatusMethodNotAllowed)
 	default:
-		panic("Not Implemented")
+		resp.WriteHeader(http.StatusMethodNotAllowed)
 	}
 }
 
