@@ -100,8 +100,14 @@ func (mp *metaPartition) fsmCreateDentry(dentry *Dentry,
 		d := item.(*Dentry)
 		if d.isDeleted() {
 			log.LogDebugf("action[fsmCreateDentry] newest dentry %v be set deleted flag", d)
+			
+			if d.getVerSeq() == dentry.getVerSeq() {
+				d.setVerSeq(dentry.getSeqFiled())
+			} else {
+				d.addVersion(dentry.getSeqFiled())
+			}
+
 			d.Inode = dentry.Inode
-			d.setVerSeq(dentry.getSeqFiled())
 			d.Type = dentry.Type
 			d.ParentId = dentry.ParentId
 			d.FileId = dentry.FileId

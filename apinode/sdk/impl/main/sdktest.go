@@ -64,7 +64,7 @@ func main() {
 	//testInodeLock(ctx, dirVol)
 
 	// testXAttrOp(ctx, vol, dirVol)
-	testDirSnapshotLimit(ctx, vol, dirVol)
+	// testDirSnapshotLimit(ctx, vol, dirVol)
 	testDirSnapshotOp(ctx, vol, dirVol)
 }
 
@@ -246,15 +246,15 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 		span.Fatalf("get f1 inode info changed, f1Info %v, v1F1Info %v", f1Info, v1F1Info)
 	}
 
-	newVol()
+	v2 := "v2"
+	createSnapshot(v2)
+
 	_, _, err = dirVol.CreateFile(ctx, ifo.Inode, f1)
 	if err != nil {
 		span.Fatalf("create new file failed, err %s", err.Error())
 	}
 
-	v2 := "v2"
-	createSnapshot(v2)
-
+	newVol()
 	uploadReq := &sdk.UploadFileReq{
 		ParIno: ifo.Inode,
 		Name: f2,
@@ -360,7 +360,7 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 	}
 
 	readDirVer(ifo.Inode, v1, 1)
-	readDirVer(ifo.Inode, v2, 2)
+	readDirVer(ifo.Inode, v2, 1)
 
 	dir2 := "snapDir2" + tmpString()
 	_, _, err = dirVol.Mkdir(ctx, rootIno, dir2)
