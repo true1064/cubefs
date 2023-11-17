@@ -1893,7 +1893,7 @@ func (m *metadataManager) opMetaRemoveXAttr(conn net.Conn, p *Packet, remoteAddr
 	}
 	err = mp.RemoveXAttr(req, p)
 	_ = m.respondToClientWithVer(conn, p)
-	log.LogDebugf("%s [opMetaGetXAttr] req: %d - %v, resp: %v, body: %s",
+	log.LogDebugf("%s [OpMetaRemoveXAttr] req: %d - %v, resp: %v, body: %s",
 		remoteAddr, p.GetReqID(), req, p.GetResultMsg(), p.Data)
 	return
 }

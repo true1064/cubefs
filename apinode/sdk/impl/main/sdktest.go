@@ -207,7 +207,7 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 	if err != nil || v2Val != val2{
 		span.Fatalf("getXAttr failed, ino %d, k1 %s, got %s, want %s, err %v", f1Info.Inode, k1, v2Val, val2, err)
 	}
-	
+
 	err = dirVol.Delete(ctx, ifo.Inode, f1, false)
 	if err != nil {
 		span.Fatalf("delete file failed, err %s", err.Error())
@@ -248,6 +248,11 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 
 	v2 := "v2"
 	createSnapshot(v2)
+
+	err = dirVol.BatchDeleteXAttr(ctx, ifo.Inode, []string{k1})
+	if err != nil {
+		span.Fatal("batch delete xattr failed, err %s", err.Error())
+	}
 
 	_, _, err = dirVol.CreateFile(ctx, ifo.Inode, f1)
 	if err != nil {
