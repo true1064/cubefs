@@ -116,10 +116,11 @@ const (
 	OpAddMetaPartitionRaftMember    uint8 = 0x46
 	OpRemoveMetaPartitionRaftMember uint8 = 0x47
 	OpMetaPartitionTryToLeader      uint8 = 0x48
-	OpMetaDelDirVer                 uint8 = 0x49
-	OpMetaListDirVer                uint8 = 0x4A
-	OpMetaCreateDirVer              uint8 = 0x4B
-	OpMetaBatchDelDirVer            uint8 = 0x4C
+
+	OpMetaDelDirVer      uint8 = 0x49
+	OpMetaListDirVer     uint8 = 0x4A
+	OpMetaCreateDirVer   uint8 = 0x4B
+	OpMetaBatchDelDirVer uint8 = 0x4C
 
 	// Quota
 	OpMetaBatchSetInodeQuota    uint8 = 0x50
@@ -351,13 +352,22 @@ func NewPacketReqID() *Packet {
 	return p
 }
 
+func (p *Packet) isDeleteOp() bool {
+	switch p.Opcode {
+	case OpMetaDeleteDentry, OpMetaUnlinkInode, OpMetaRemoveXAttr:
+		return true
+	}
+
+	return false
+}
+
 func (p *Packet) SetVerInfo(ifo *DelVer) {
 	p.VerSeq = ifo.DelVer
 	if p.VerSeq == 0 {
 		p.VerSeq = math.MaxUint64
 	}
 
-	if (p.Opcode == OpMetaDeleteDentry || p.Opcode == OpMetaUnlinkInode) && ifo.Newest() {
+	if p.isDeleteOp() && ifo.Newest() {
 		p.VerSeq = 0
 	}
 

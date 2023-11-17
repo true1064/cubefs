@@ -174,7 +174,7 @@ func (mp *metaPartition) GetAllXAttr(req *proto.GetAllXAttrRequest, p *Packet) (
 	}
 
 	if p.IsDirVersion() {
-		req.VerSeq = req.VerSeq
+		req.VerSeq = p.VerSeq
 	}
 
 	treeItem := mp.extendTree.Get(NewExtend(req.Inode))

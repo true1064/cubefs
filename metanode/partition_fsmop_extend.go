@@ -166,104 +166,100 @@ func (mp *metaPartition) inodeUnlock(req *proto.InodeLockReq) (status uint8) {
 	return proto.OpArgMismatchErr
 }
 
+// func (mp *metaPartition) clearInodeDirXAttr(reqExtend *Extend, vers []*proto.VersionInfo) (err error){
+// 	if log.EnableDebug() {
+// 		log.LogDebugf("start delete dir xattr, req %v, vers %v", reqExtend, vers)
+// 	}
 
-func (mp *metaPartition) clearInodeDirXAttr(reqExtend *Extend, vers []*proto.VersionInfo) (err error){
-	if log.EnableDebug() {
-		log.LogDebugf("start delete dir xattr, req %v, vers %v", reqExtend, vers)
-	}
+// 	treeItem := mp.extendTree.CopyGet(reqExtend)
+// 	if treeItem == nil {
+// 		return
+// 	}
 
-	treeItem := mp.extendTree.CopyGet(reqExtend)
-	if treeItem == nil {
-		return
-	}
+// 	verList := mp.multiVersionList
+// 	curVer := mp.GetVerSeq()
+// 	if vers != nil {
+// 		verList = &proto.VolVersionInfoList{
+// 			VerList: vers,
+// 		}
+// 		curVer = verList.GetLastVer()
+// 	}
 
-	verList := mp.multiVersionList
-	curVer := mp.GetVerSeq()
-	if vers != nil {
-		verList = &proto.VolVersionInfoList{
-			VerList: vers,
-		}
-		curVer = verList.GetLastVer()
-	}
+// 	e := treeItem.(*Extend)
+// 	// remove from newest version
+// 	if curVer == 0 || (e.verSeq == curVer && reqExtend.verSeq == 0) {
+// 		reqExtend.Range(func(key, value []byte) bool {
+// 			e.Remove(key)
+// 			return true
+// 		})
+// 		return
+// 	}
 
-	e := treeItem.(*Extend)
-	// remove from newest version
-	if curVer == 0 || (e.verSeq == curVer && reqExtend.verSeq == 0) {
-		reqExtend.Range(func(key, value []byte) bool {
-			e.Remove(key)
-			return true
-		})
-		return
-	}
+// 	if reqExtend.verSeq == 0 {
+// 		reqExtend.verSeq = curVer
+// 	}
+// 	if reqExtend.verSeq == math.MaxUint64 {
+// 		reqExtend.verSeq = 0
+// 	}
 
-	if reqExtend.verSeq == 0 {
-		reqExtend.verSeq = curVer
-	}
-	if reqExtend.verSeq == math.MaxUint64 {
-		reqExtend.verSeq = 0
-	}
+// 	e.versionMu.Lock()
+// 	defer e.versionMu.Unlock()
 
-	e.mu.Lock()
-	defer e.mu.Unlock()
+// 	// less than minum ver
+// 	if reqExtend.verSeq < e.GetMinVer() {
+// 		return
+// 	}
 
-	// less than minum ver
-	if reqExtend.verSeq < e.GetMinVer() {
-		return
-	}
+// 	// delete ver large than extend ver
+// 	if reqExtend.verSeq > e.verSeq {
+// 		e.multiVers = append([]*Extend{e.Copy().(*Extend)}, e.multiVers...)
+// 		e.verSeq = reqExtend.verSeq
+// 		reqExtend.Range(func(key, value []byte) bool {
+// 			e.Remove(key)
+// 			return true
+// 		})
+// 		return
+// 	}
 
-	// delete ver large than extend ver
-	if reqExtend.verSeq > e.verSeq {
-		e.multiVers = append([]*Extend{e.Copy().(*Extend)}, e.multiVers...)
-		e.verSeq = reqExtend.verSeq
-		reqExtend.Range(func(key, value []byte) bool {
-			e.Remove(key)
-			return true
-		})
-		return
-	}
+// 	// delete ver equal to extend ver
+// 	if reqExtend.verSeq == e.verSeq {
+// 		var globalNewVer uint64
+// 		if globalNewVer, err = verList.GetNextNewerVer(reqExtend.verSeq); err != nil {
+// 			log.LogErrorf("fsmRemoveXAttr. mp [%v] seq %v req ver %v not found newer seq", mp.config.PartitionId, mp.verSeq, reqExtend.verSeq)
+// 			return err
+// 		}
+// 		e.verSeq = globalNewVer
+// 		return
+// 	}
 
-	// delete ver equal to extend ver
-	if reqExtend.verSeq == e.verSeq {
-		var globalNewVer uint64
-		if globalNewVer, err = verList.GetNextNewerVer(reqExtend.verSeq); err != nil {
-			log.LogErrorf("fsmRemoveXAttr. mp [%v] seq %v req ver %v not found newer seq", mp.config.PartitionId, mp.verSeq, reqExtend.verSeq)
-			return err
-		}
-		e.verSeq = globalNewVer
-		return
-	}
+// 	// delete ver in version list
+// 	innerLastVer := e.verSeq
+// 	for id, ele := range e.multiVers {
+// 		if ele.verSeq > reqExtend.verSeq {
+// 			innerLastVer = ele.verSeq
+// 			continue
+// 		} else if ele.verSeq < reqExtend.verSeq {
+// 			return
+// 		} else {
+// 			var globalNewVer uint64
+// 			if globalNewVer, err = verList.GetNextNewerVer(ele.verSeq); err != nil {
+// 				return err
+// 			}
+// 			if globalNewVer < innerLastVer {
+// 				log.LogDebugf("mp %v inode %v extent layer %v update seq %v to %v",
+// 					mp.config.PartitionId, ele.inode, id, ele.verSeq, globalNewVer)
+// 				ele.verSeq = globalNewVer
+// 				return
+// 			}
+// 			e.multiVers = append(e.multiVers[:id], e.multiVers[id+1:]...)
+// 			return
+// 		}
+// 	}
 
-	// delete ver in version list
-	innerLastVer := e.verSeq
-	for id, ele := range e.multiVers {
-		if ele.verSeq > reqExtend.verSeq {
-			innerLastVer = ele.verSeq
-			continue
-		} else if ele.verSeq < reqExtend.verSeq {
-			return
-		} else {
-			var globalNewVer uint64
-			if globalNewVer, err = verList.GetNextNewerVer(ele.verSeq); err != nil {
-				return err
-			}
-			if globalNewVer < innerLastVer {
-				log.LogDebugf("mp %v inode %v extent layer %v update seq %v to %v",
-					mp.config.PartitionId, ele.inode, id, ele.verSeq, globalNewVer)
-				ele.verSeq = globalNewVer
-				return
-			}
-			e.multiVers = append(e.multiVers[:id], e.multiVers[id+1:]...)
-			return
-		}
-	}
-
-	return
-}
+// 	return
+// }
 
 func (mp *metaPartition) fsmRemoveDirXAttr(reqExtend *Extend, vers []*proto.VersionInfo) (err error) {
-	if log.EnableDebug() {
-		log.LogDebugf("start delete dir xattr, req %v, vers %v", reqExtend, vers)
-	}
 	treeItem := mp.extendTree.CopyGet(reqExtend)
 	if treeItem == nil {
 		return
@@ -279,6 +275,10 @@ func (mp *metaPartition) fsmRemoveDirXAttr(reqExtend *Extend, vers []*proto.Vers
 	}
 
 	e := treeItem.(*Extend)
+	if log.EnableDebug() {
+		log.LogDebugf("fsmRemoveDirXAttr: start delete dir xattr, req %v, vers %v, oldVer %v", reqExtend, vers, e.verSeq)
+	}
+
 	// remove from newest version
 	if curVer == 0 || (e.verSeq == curVer && reqExtend.verSeq == 0) {
 		reqExtend.Range(func(key, value []byte) bool {
@@ -295,8 +295,8 @@ func (mp *metaPartition) fsmRemoveDirXAttr(reqExtend *Extend, vers []*proto.Vers
 		reqExtend.verSeq = 0
 	}
 
-	e.mu.Lock()
-	defer e.mu.Unlock()
+	e.versionMu.Lock()
+	defer e.versionMu.Unlock()
 
 	// less than minum ver
 	if reqExtend.verSeq < e.GetMinVer() {
@@ -311,6 +311,8 @@ func (mp *metaPartition) fsmRemoveDirXAttr(reqExtend *Extend, vers []*proto.Vers
 			e.Remove(key)
 			return true
 		})
+		log.LogDebugf("fsmRemoveDirXAttr: delete xattr success, delSeq %d, e.verLen(%d), ino %d",
+			reqExtend.verSeq, len(e.multiVers), e.inode)
 		return
 	}
 
@@ -318,7 +320,7 @@ func (mp *metaPartition) fsmRemoveDirXAttr(reqExtend *Extend, vers []*proto.Vers
 	if reqExtend.verSeq == e.verSeq {
 		var globalNewVer uint64
 		if globalNewVer, err = verList.GetNextNewerVer(reqExtend.verSeq); err != nil {
-			log.LogErrorf("fsmRemoveXAttr. mp [%v] seq %v req ver %v not found newer seq", mp.config.PartitionId, mp.verSeq, reqExtend.verSeq)
+			log.LogErrorf("fsmRemoveDirXAttr. mp [%v] seq %v req ver %v not found newer seq", mp.config.PartitionId, mp.verSeq, reqExtend.verSeq)
 			return err
 		}
 		e.verSeq = globalNewVer
@@ -339,7 +341,7 @@ func (mp *metaPartition) fsmRemoveDirXAttr(reqExtend *Extend, vers []*proto.Vers
 				return err
 			}
 			if globalNewVer < innerLastVer {
-				log.LogDebugf("mp %v inode %v extent layer %v update seq %v to %v",
+				log.LogDebugf("fsmRemoveDirXAttr：mp %v inode %v extent layer %v update seq %v to %v",
 					mp.config.PartitionId, ele.inode, id, ele.verSeq, globalNewVer)
 				ele.verSeq = globalNewVer
 				return

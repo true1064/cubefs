@@ -441,24 +441,28 @@ const (
 	snapshotCntOneUser = 100
 )
 
-func (m *snapMetaOpImp) checkSnapshotCntLimit(parIno uint64) error {
+func (m *snapMetaOpImp) checkSnapshotCntLimit(ctx context.Context, parIno uint64) error {
 	if m.snapShotItems == nil {
 		return nil
 	}
 
+	span := trace.SpanFromContextSafe(ctx)
 	total := 0
 	for _, item := range m.snapShotItems {
 		cnt := len(item.Vers) - 1
 		// not calc latest version
 		if item.SnapshotInode == parIno && cnt >= snapshotCntOneDir {
-			return fmt.Errorf("parIno %d snapshot cnt is already over 10, now %d", parIno, cnt)
+			span.Warnf("parIno %d snapshot cnt is already over 10, now %d", parIno, cnt)
+			return sdk.ErrDirSnapshotCntLimit
 		}
 		total += cnt
 	}
 
 	if total >= snapshotCntOneUser {
-		return fmt.Errorf("total snapshot cnt is already over 100, now %d", total)
+		span.Warnf("total snapshot cnt is already over 100, now %d", total)
+		return sdk.ErrUserSnapshotCntLimit
 	}
+	
 	return nil
 }
 

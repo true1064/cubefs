@@ -121,7 +121,7 @@ func testDirSnapshotLimit(ctx context.Context, vol, dirVol sdk.IVolume) {
 			defer delSnapshot(ver, tmpDir)
 		}
 		err = dirVol.CreateDirSnapshot(ctx, fmt.Sprintf("%d_1", 11), tmpDir)
-		if err != sdk.ErrSnapshotCntLimit {
+		if err != sdk.ErrDirSnapshotCntLimit {
 			span.Fatal("mkdir snapshot failed, should over limit, err %v", err)
 		}
 	}
@@ -129,7 +129,7 @@ func testDirSnapshotLimit(ctx context.Context, vol, dirVol sdk.IVolume) {
 	tmpDir := fmt.Sprintf("snapDir_%d_%s", 101, tmpString())
 	createDir(tmpDir)
 	err = dirVol.CreateDirSnapshot(ctx, "tt", tmpDir)
-	if err != sdk.ErrSnapshotCntLimit {
+	if err != sdk.ErrUserSnapshotCntLimit {
 		span.Fatal("mkdir snapshot return not expected, err %v", err)
 	}
 }

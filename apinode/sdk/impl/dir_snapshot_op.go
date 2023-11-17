@@ -121,10 +121,9 @@ func (d *dirSnapshotOp) CreateDirSnapshot(ctx context.Context, ver, subPath stri
 		return syscallToErr(err)
 	}
 
-	err = d.mw.checkSnapshotCntLimit(dirIno)
+	err = d.mw.checkSnapshotCntLimit(ctx, dirIno)
 	if err != nil {
-		span.Warnf("dir snapshot count is over limited, dirIno %d, err %s", dirIno, err.Error())
-		return sdk.ErrSnapshotCntLimit
+		return err
 	}
 
 	vId, err := d.v.allocVerId(ctx, d.v.name)
@@ -511,6 +510,7 @@ func (d *dirSnapshotOp) DeleteXAttr(ctx context.Context, ino uint64, key string)
 		return syscallToErr(err)
 	}
 
+	span.Debugf("delete xattr success, ino %d, key %s", ino, key)
 	return nil
 }
 
@@ -733,7 +733,7 @@ func (d *dirSnapshotOp) WriteFile(ctx context.Context, ino, off, size uint64, bo
 	defer func() {
 		closeErr := d.ec.CloseStream(ino)
 		if closeErr != nil {
-			span.Errorf("close stream failed, ino %s, err %s", ino, closeErr.Error())
+			span.Warnf("close stream failed, ino %d, err %s", ino, closeErr.Error())
 		}
 	}()
 
@@ -752,7 +752,7 @@ func (d *dirSnapshotOp) ReadFile(ctx context.Context, ino, off uint64, data []by
 	defer func() {
 		closeErr := d.ec.CloseStream(ino)
 		if closeErr != nil {
-			span.Errorf("close stream failed, ino %s, err %s", ino, closeErr.Error())
+			span.Warnf("close stream failed, ino %d, err %s", ino, closeErr.Error())
 		}
 	}()
 

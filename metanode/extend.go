@@ -33,6 +33,7 @@ type Extend struct {
 	verSeq    uint64
 	multiVers []*Extend
 	mu        sync.RWMutex
+	versionMu sync.RWMutex
 }
 
 type DirExtend struct {
@@ -151,7 +152,7 @@ func (e *Extend) GetExtentByVersion(ver uint64) (extend *Extend) {
 
 	e.mu.RLock()
 	defer e.mu.RUnlock()
-	
+
 	for i := 0; i < size; i++ {
 		if e.multiVers[i].verSeq <= ver {
 			return e.multiVers[i]
