@@ -80,6 +80,7 @@ type DataPartition struct {
 	RepairBlockSize                uint64
 	DecommissionType               uint32
 	RestoreReplica                 uint32
+	MediaType                      uint32
 }
 
 type DataPartitionPreLoad struct {
@@ -94,7 +95,8 @@ func (d *DataPartitionPreLoad) toString() string {
 		d.PreloadCacheTTL, d.preloadCacheCapacity, d.preloadReplicaNum, d.preloadZoneName)
 }
 
-func newDataPartition(ID uint64, replicaNum uint8, volName string, volID uint64, partitionType int, partitionTTL int64) (partition *DataPartition) {
+func newDataPartition(ID uint64, replicaNum uint8, volName string, volID uint64,
+	partitionType int, partitionTTL int64, mediaType uint32) (partition *DataPartition) {
 	partition = new(DataPartition)
 	partition.ReplicaNum = replicaNum
 	partition.PartitionID = ID
@@ -122,6 +124,7 @@ func newDataPartition(ID uint64, replicaNum uint8, volName string, volID uint64,
 	partition.LeaderReportTime = now
 	partition.RepairBlockSize = util.DefaultDataPartitionSize
 	partition.RestoreReplica = RestoreReplicaMetaStop
+	partition.MediaType = mediaType
 	return
 }
 
@@ -296,7 +299,7 @@ func (partition *DataPartition) createTaskToCreateDataPartition(addr string, dat
 	task = proto.NewAdminTask(proto.OpCreateDataPartition, addr, newCreateDataPartitionRequest(
 		partition.VolName, partition.PartitionID, int(partition.ReplicaNum),
 		peers, int(dataPartitionSize), leaderSize, hosts, createType,
-		partitionType, decommissionedDisks, partition.VerSeq))
+		partitionType, decommissionedDisks, partition.VerSeq, partition.MediaType))
 	partition.resetTaskID(task)
 	return
 }
@@ -465,7 +468,7 @@ func (partition *DataPartition) convertToDataPartitionResponse() (dpr *proto.Dat
 	dpr.LeaderAddr = partition.getLeaderAddr()
 	dpr.IsRecover = partition.isRecover
 	dpr.IsDiscard = partition.IsDiscard
-
+	dpr.MediaType = partition.MediaType
 	return
 }
 
@@ -1057,6 +1060,7 @@ func (partition *DataPartition) buildDpInfo(c *Cluster) *proto.DataPartitionInfo
 		IsDiscard:                partition.IsDiscard,
 		SingleDecommissionStatus: partition.GetSpecialReplicaDecommissionStep(),
 		Forbidden:                forbidden,
+		MediaType:                partition.MediaType,
 	}
 }
 
@@ -1808,6 +1812,7 @@ func (partition *DataPartition) TryAcquireDecommissionToken(c *Cluster) bool {
 			result = true
 			return true
 		}
+
 		excludeHosts := partition.Hosts
 		// if dp rollback success, DecommissionSrcAddr is not contained in dp.hosts, so we must prevent
 		// to create new replica on DecommissionSrcAddr, eg 3 replica dp recover failed, but dp hosts do
@@ -1817,7 +1822,7 @@ func (partition *DataPartition) TryAcquireDecommissionToken(c *Cluster) bool {
 		}
 		log.LogDebugf("action[TryAcquireDecommissionToken]dp %v excludeHosts %v",
 			partition.PartitionID, excludeHosts)
-		targetHosts, _, err = ns.getAvailDataNodeHosts(excludeHosts, 1)
+		targetHosts, _, err = ns.getAvailDataNodeHosts(excludeHosts, 1, partition.MediaType)
 		if err != nil {
 			log.LogWarnf("action[TryAcquireDecommissionToken] dp %v choose from src nodeset failed:%v",
 				partition.PartitionID, err.Error())
@@ -1842,7 +1847,7 @@ func (partition *DataPartition) TryAcquireDecommissionToken(c *Cluster) bool {
 				} else {
 					excludeZone = append(excludeZone, zones[0])
 				}
-				if targetHosts, _, err = c.getHostFromNormalZone(TypeDataPartition, excludeZone, excludeNodeSets, excludeHosts, 1, 1, ""); err != nil {
+				if targetHosts, _, err = c.getHostFromNormalZone(TypeDataPartition, excludeZone, excludeNodeSets, excludeHosts, 1, 1, "", partition.MediaType); err != nil {
 					log.LogWarnf("action[TryAcquireDecommissionToken] dp %v getHostFromNormalZone failed:%v",
 						partition.PartitionID, err.Error())
 					goto errHandler
