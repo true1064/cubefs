@@ -162,6 +162,7 @@ type NodeView struct {
 	DomainAddr string
 	ID         uint64
 	IsWritable bool
+	MediaType  uint32
 }
 
 type DpRepairInfo struct {
@@ -279,6 +280,7 @@ type DataPartitionInfo struct {
 	RdOnly                   bool
 	IsDiscard                bool
 	Forbidden                bool
+	MediaType                uint32
 }
 
 // FileInCore define file in data partition

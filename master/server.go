@@ -375,16 +375,11 @@ func (m *Server) checkConfig(cfg *config.Config) (err error) {
 	}
 	m.config.volDeletionDentryThreshold = uint64(threshold)
 
-<<<<<<< HEAD
 	enableDirectDeleteVol = cfg.GetBoolWithDefault(cfgEnableDirectDeleteVol, true)
 
-	m.defaultMediaType = uint32(cfg.GetInt64WithDefault(defaultStorageClass, 0))
-	syslog.Println("defaultMediaType=", m.defaultMediaType)
-=======
 	//TODO:tangjingyu: deal compatibility, old version vol hot type convert to storageClass
 	m.defaultDataMediaType = cfg.GetUint32WithDefault(cfgDefaultDataMediaType, proto.MediaType_SSD)
 	syslog.Println("defaultDataMediaType=", m.defaultDataMediaType)
->>>>>>> fa0ee5123 (feat(master, client, cli): [hybrid cloud] add property volStorageClass and allowedStorageClass to volume)
 	return
 }
 
@@ -429,12 +424,8 @@ func (m *Server) initFsm() {
 }
 
 func (m *Server) initCluster() {
-<<<<<<< HEAD
 	log.LogInfo("action[initCluster] begin")
-	m.cluster = newCluster(m.clusterName, m.leaderInfo, m.fsm, m.partition, m.config)
-=======
 	m.cluster = newCluster(m.clusterName, m.leaderInfo, m.fsm, m.partition, m.config, m)
->>>>>>> fa0ee5123 (feat(master, client, cli): [hybrid cloud] add property volStorageClass and allowedStorageClass to volume)
 	m.cluster.retainLogs = m.retainLogs
 	log.LogInfo("action[initCluster] end")
 
