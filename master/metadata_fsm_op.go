@@ -164,6 +164,7 @@ type dataPartitionValue struct {
 	DecommissionNeedRollbackTimes  uint32
 	DecommissionType               uint32
 	RestoreReplica                 uint32
+	MediaType                      uint32
 }
 
 func (dpv *dataPartitionValue) Restore(c *Cluster) (dp *DataPartition) {
@@ -173,7 +174,8 @@ func (dpv *dataPartitionValue) Restore(c *Cluster) (dp *DataPartition) {
 			dpv.Peers[i].ID = dn.(*DataNode).ID
 		}
 	}
-	dp = newDataPartition(dpv.PartitionID, dpv.ReplicaNum, dpv.VolName, dpv.VolID, dpv.PartitionType, dpv.PartitionTTL)
+	dp = newDataPartition(dpv.PartitionID, dpv.ReplicaNum, dpv.VolName, dpv.VolID,
+		dpv.PartitionType, dpv.PartitionTTL, dpv.MediaType)
 	dp.Hosts = strings.Split(dpv.Hosts, underlineSeparator)
 	dp.Peers = dpv.Peers
 	dp.OfflinePeerID = dpv.OfflinePeerID
@@ -196,6 +198,7 @@ func (dpv *dataPartitionValue) Restore(c *Cluster) (dp *DataPartition) {
 	dp.DecommissionErrorMessage = dpv.DecommissionErrorMessage
 	dp.DecommissionType = dpv.DecommissionType
 	dp.RestoreReplica = dpv.RestoreReplica
+	dp.MediaType = dpv.MediaType
 	for _, rv := range dpv.Replicas {
 		if !contains(dp.Hosts, rv.Addr) {
 			continue
@@ -242,6 +245,7 @@ func newDataPartitionValue(dp *DataPartition) (dpv *dataPartitionValue) {
 		DecommissionNeedRollbackTimes:  dp.DecommissionNeedRollbackTimes,
 		DecommissionType:               dp.DecommissionType,
 		RestoreReplica:                 atomic.LoadUint32(&dp.RestoreReplica),
+		MediaType:                      dp.MediaType,
 	}
 	for _, replica := range dp.Replicas {
 		rv := &replicaValue{Addr: replica.Addr, DiskPath: replica.DiskPath}
@@ -1618,7 +1622,8 @@ func (c *Cluster) loadDataPartitions() (err error) {
 		c.addBadDataPartitionIdMap(dp)
 		// add to nodeset decommission list
 		go dp.addToDecommissionList(c)
-		log.LogInfof("action[loadDataPartitions],vol[%v],dp[%v] ", vol.Name, dp.PartitionID)
+		log.LogInfof("action[loadDataPartitions],vol[%v],dp[%v],mediaType[%v]",
+			vol.Name, dp.PartitionID, proto.MediaTypeString(dp.MediaType))
 	}
 	return
 }
