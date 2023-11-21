@@ -2,6 +2,10 @@ package stream
 
 import (
 	"container/list"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/cubefs/cubefs/proto"
 	"github.com/cubefs/cubefs/sdk/data/manager"
 	"github.com/cubefs/cubefs/sdk/data/wrapper"
@@ -9,9 +13,6 @@ import (
 	"github.com/cubefs/cubefs/util/errors"
 	"github.com/cubefs/cubefs/util/log"
 	"golang.org/x/time/rate"
-	"strings"
-	"sync"
-	"time"
 )
 
 type extentClient struct {
@@ -72,7 +73,7 @@ retry:
 	}
 
 	client.streamers = make(map[uint64]*Streamer)
-	client.multiVerMgr = &MultiVerMgr{}
+	client.multiVerMgr = &MultiVerMgr{verList: &proto.VolVersionInfoList{}}
 	client.dataWrapper.InitFollowerRead(config.FollowerRead)
 	client.dataWrapper.SetNearRead(config.NearRead)
 	client.volumeType = config.VolumeType

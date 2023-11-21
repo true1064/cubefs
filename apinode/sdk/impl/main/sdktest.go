@@ -58,7 +58,7 @@ func main() {
 	}
 
 	// testDirOp(ctx, dirVol)
-	// testCreateFile(ctx, dirVol)
+	testCreateFile(ctx, dirVol)
 	// testXAttrOp(ctx, dirVol)
 	// testMultiPartOp(ctx, dirVol)
 	//testInodeLock(ctx, dirVol)
@@ -625,6 +625,13 @@ func testCreateFile(ctx context.Context, vol sdk.IVolume) {
 
 	if string(data) != string(out[:readN]) {
 		span.Fatalf("read file data not equal to input")
+	}
+
+	// test overwrite
+	tmpData := []byte("testTmp")
+	err = vol.WriteFile(ctx, tmpInfo.Inode, 0, uint64(len(tmpData)), bytes.NewBuffer(tmpData))
+	if err != nil {
+		span.Fatalf("overwrite file failed, err %s", err.Error())
 	}
 
 	// test file upload

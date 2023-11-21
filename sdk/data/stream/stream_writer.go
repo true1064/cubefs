@@ -613,8 +613,10 @@ func (s *Streamer) doOverwrite(req *ExtentRequest, direct bool) (total int, err 
 
 	for total < size {
 		reqPacket := NewOverwritePacket(dp, req.ExtentKey.ExtentId, offset-ekFileOffset+total+ekExtOffset, s.inode, offset)
-		reqPacket.VerSeq = s.client.multiVerMgr.latestVerSeq
-		reqPacket.DirVerList = s.client.multiVerMgr.verList.VerList
+		if !s.isDirVer {
+			reqPacket.VerSeq = s.client.multiVerMgr.latestVerSeq
+			reqPacket.DirVerList = s.client.multiVerMgr.verList.VerList
+		}
 		reqPacket.ExtentType |= proto.MultiVersionFlag
 		reqPacket.ExtentType |= proto.VersionListFlag
 
@@ -962,7 +964,7 @@ func (s *Streamer) truncate(size int) error {
 
 func (s *Streamer) updateVer(verSeq uint64) (err error) {
 	log.LogInfof("action[stream.updateVer] ver %v update to %v", s.verSeq, verSeq)
-	if s.verSeq != verSeq && !s.isDirVer{
+	if s.verSeq != verSeq && !s.isDirVer {
 		//log.LogInfof("action[stream.updateVer] ver %v update to %v", s.verSeq, verSeq)
 		//if s.handler != nil {
 		//	s.handler.verUpdate<-verSeq
