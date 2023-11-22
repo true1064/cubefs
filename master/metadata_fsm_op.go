@@ -317,6 +317,7 @@ type volValue struct {
 
 	VolStorageClass     uint32
 	AllowedStorageClass []uint32
+	CacheDpStorageClass uint32
 }
 
 func (v *volValue) Bytes() (raw []byte, err error) {
@@ -386,7 +387,8 @@ func newVolValue(vol *Vol) (vv *volValue) {
 		User:                  vol.user,
 		DpRepairBlockSize:     vol.dpRepairBlockSize,
 
-		VolStorageClass: vol.volStorageClass,
+		VolStorageClass:     vol.volStorageClass,
+		CacheDpStorageClass: vol.cacheDpStorageClass,
 	}
 	vv.AllowedStorageClass = make([]uint32, len(vol.allowedStorageClass))
 	copy(vv.AllowedStorageClass, vol.allowedStorageClass)
