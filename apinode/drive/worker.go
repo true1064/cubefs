@@ -56,7 +56,7 @@ func (d *DriveNode) ConsumerEvent(ctx context.Context, e oplog.Event) {
 			span.Warnf("not found volume %v", item)
 			return true
 		}
-		volume, err = volume.GetDirSnapshot(sctx, 1)
+		volume, err = volume.GetDirSnapshot(sctx, uint64(ur.RootFileID))
 		if err != nil {
 			span.Warnf("get snapshot volume error: %v", err)
 			return false
