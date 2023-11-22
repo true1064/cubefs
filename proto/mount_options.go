@@ -305,6 +305,7 @@ type MountOptions struct {
 	TxTimeout                    int64
 	TxConflictRetryNum           int64
 	TxConflictRetryInterval      int64
+	CacheDpStorageClass          uint32
 	VolType                      int
 	EbsEndpoint                  string
 	EbsServicePath               string
