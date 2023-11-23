@@ -330,6 +330,6 @@ type MountOptions struct {
 	MinWriteAbleDataPartitionCnt int
 	FileSystemName               string
 	VerReadSeq                   uint64
-	// disable mount subtype
-	DisableMountSubtype bool
+	DisableMountSubtype          bool // disable mount subtype
+	AllowedStorageClass          []uint32
 }
