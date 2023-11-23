@@ -336,4 +336,5 @@ type MountOptions struct {
 	VerReadSeq uint64
 	// disable mount subtype
 	DisableMountSubtype bool
+	AllowedStorageClass []uint32
 }
