@@ -342,11 +342,11 @@ func (client *ExtentClientVer) EvictStream(inode uint64) error {
 		return nil
 	}
 	if s.isOpen {
-		s.isOpen = false
 		err := s.IssueEvictRequest()
 		if err != nil {
 			return err
 		}
+		s.isOpen = false
 		s.done <- struct{}{}
 	} else {
 		delete(s.client.streamers, s.inode)
