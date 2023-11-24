@@ -1011,49 +1011,7 @@ func (p *Packet) ReadFromConnWithVer(c net.Conn, timeoutSec int) (err error) {
 
 // ReadFromConn reads the data from the given connection.
 func (p *Packet) ReadFromConn(c net.Conn, timeoutSec int) (err error) {
-	if timeoutSec != NoReadDeadlineTime {
-		c.SetReadDeadline(time.Now().Add(time.Second * time.Duration(timeoutSec)))
-	} else {
-		c.SetReadDeadline(time.Time{})
-	}
-	header, err := Buffers.Get(util.PacketHeaderSize)
-	if err != nil {
-		header = make([]byte, util.PacketHeaderSize)
-	}
-	defer Buffers.Put(header)
-	var n int
-	if n, err = io.ReadFull(c, header); err != nil {
-		return
-	}
-	if n != util.PacketHeaderSize {
-		return syscall.EBADMSG
-	}
-	if err = p.UnmarshalHeader(header); err != nil {
-		return
-	}
-
-	if p.ArgLen > 0 {
-		p.Arg = make([]byte, int(p.ArgLen))
-		if _, err = io.ReadFull(c, p.Arg[:int(p.ArgLen)]); err != nil {
-			return err
-		}
-	}
-
-	if p.Size < 0 {
-		return syscall.EBADMSG
-	}
-	size := p.Size
-	if (p.Opcode == OpRead || p.Opcode == OpStreamRead || p.Opcode == OpExtentRepairRead || p.Opcode == OpStreamFollowerRead) && p.ResultCode == OpInitResultCode {
-		size = 0
-	}
-	p.Data = make([]byte, size)
-	if n, err = io.ReadFull(c, p.Data[:size]); err != nil {
-		return err
-	}
-	if n != int(size) {
-		return syscall.EBADMSG
-	}
-	return nil
+	return p.ReadFromConnWithVer(c, timeoutSec)
 }
 
 // PacketOkReply sets the result code as OpOk, and sets the body as empty.

@@ -3,7 +3,10 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
+	"math/rand"
 	"path"
 	"strings"
 	"time"
@@ -58,14 +61,78 @@ func main() {
 	}
 
 	// testDirOp(ctx, dirVol)
-	testCreateFile(ctx, dirVol)
+	// testCreateFile(ctx, dirVol)
 	// testXAttrOp(ctx, dirVol)
 	// testMultiPartOp(ctx, dirVol)
 	//testInodeLock(ctx, dirVol)
 
-	// testXAttrOp(ctx, vol, dirVol)
+	// testXAttrOp(ctx, dirVol)
 	// testDirSnapshotLimit(ctx, vol, dirVol)
 	testDirSnapshotOp(ctx, vol, dirVol)
+	// testOverWrite(ctx, vol, dirVol)
+}
+
+func testOverWrite(ctx context.Context, vol, dirVol sdk.IVolume) {
+	span := trace.SpanFromContext(ctx)
+	span.Infof("start testOverWrite")
+	defer span.Infof("success testOverWrite")
+
+	genData := func(size int) []byte {
+		result := make([]byte, size)
+		for idx := 0; idx < size; idx++ {
+			result[idx] = byte(rand.Intn(size+idx))
+		}
+		return result
+	}
+
+	md5Val := func(val []byte) string {
+		h := md5.New()
+		h.Write(val)
+		span.Infof("cal md5 val size %d", len(val))
+		return hex.EncodeToString(h.Sum(nil))
+	}
+
+	f1 := "tmp_f1_" + tmpString()
+	ino, _, err := dirVol.CreateFile(ctx, proto.RootIno, f1)
+	if err != nil {
+		span.Fatalf("create file failed, err %s", err.Error())
+	}
+
+	defer func(){
+		err = dirVol.Delete(ctx, proto.RootIno, f1, false)
+		if err != nil {
+			span.Fatalf("delet file failed, f1 %s, err %s", f1, err.Error())
+		}
+	}()
+
+	size := 1024 * 10
+	data := genData(size)
+	off := 0
+
+	totalData := data
+	for idx := 0; idx < 200; idx++ {
+		oldMd5 := md5Val(totalData)
+		err = dirVol.WriteFile(ctx, ino.Inode, uint64(off), uint64(len(data)), bytes.NewBuffer(data))
+		if err != nil {
+			span.Fatalf("write file failed, err %s", err.Error())
+		}
+
+		downData := make([]byte, size)
+		readN, err := dirVol.ReadFile(ctx, ino.Inode, 0, downData)
+		if err != nil || readN != size {
+			span.Fatalf("read file failed, err %s", err.Error())
+		}
+
+		downMd5 := md5Val(downData)
+		if oldMd5 != downMd5 {
+			span.Errorf("check file md5 failed, old %s, new %s, idx %d", oldMd5, downMd5, idx)
+			return
+		}
+
+		off = 1024 * rand.Intn(8)
+		data = genData(1024)
+		copy(totalData[off:], data)
+	}
 }
 
 func testDirSnapshotLimit(ctx context.Context, vol, dirVol sdk.IVolume) {
@@ -75,7 +142,7 @@ func testDirSnapshotLimit(ctx context.Context, vol, dirVol sdk.IVolume) {
 
 	var err error
 
-	newIfo, _, err := dirVol.Mkdir(ctx, proto.RootIno, "test_dir" + tmpString())
+	newIfo, _, err := dirVol.Mkdir(ctx, proto.RootIno, "test_dir"+tmpString())
 	if err != nil {
 		span.Fatalf("create new dir failed, err %s", err.Error())
 	}
@@ -97,7 +164,7 @@ func testDirSnapshotLimit(ctx context.Context, vol, dirVol sdk.IVolume) {
 		newVol()
 	}
 
-	createDir := func (dir string)  {
+	createDir := func(dir string) {
 		_, _, err = dirVol.Mkdir(ctx, newIfo.Inode, dir)
 		if err != nil {
 			span.Fatalf("mkdir failed, dir %s, err %s", dir, err.Error())
@@ -105,17 +172,17 @@ func testDirSnapshotLimit(ctx context.Context, vol, dirVol sdk.IVolume) {
 		newVol()
 	}
 
-	delSnapshot := func (ver, dir string)  {
+	delSnapshot := func(ver, dir string) {
 		err := dirVol.DeleteDirSnapshot(ctx, ver, dir)
 		if err != nil {
 			span.Fatalf("delete dir snapshot failed, dir %s, err %s", dir, err.Error())
 		}
 	}
 
-	for idx := 0; idx < 10; idx ++ {
+	for idx := 0; idx < 10; idx++ {
 		tmpDir := fmt.Sprintf("snapDir_%d_%s", idx, tmpString())
 		createDir(tmpDir)
-		for j := 1; j <= 10; j ++ {
+		for j := 1; j <= 10; j++ {
 			ver := fmt.Sprintf("v_%d", j)
 			createSnapshot(ver, tmpDir)
 			defer delSnapshot(ver, tmpDir)
@@ -145,7 +212,7 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 		span.Fatalf("mkdir failed, dir %s, err %s", rootDir, err.Error())
 	}
 	rootIno := rootIfo.Inode
-	
+
 	dir := "snapDir" + tmpString()
 	ifo, _, err := dirVol.Mkdir(ctx, rootIno, dir)
 	if err != nil {
@@ -159,7 +226,7 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 	}
 
 	k1, val1 := "key1", "val1"
-	err = dirVol.BatchSetXAttr(ctx, f1Info.Inode, map[string]string{k1:val1})
+	err = dirVol.BatchSetXAttr(ctx, f1Info.Inode, map[string]string{k1: val1})
 	if err != nil {
 		span.Fatalf("set f1 xattr batch failed, ino %d, err %s", f1Info.Inode, err.Error())
 	}
@@ -197,14 +264,14 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 	}
 
 	val2 := "val2"
-	err = dirVol.BatchSetXAttr(ctx, f1Info.Inode, map[string]string{k1:val2})
+	err = dirVol.BatchSetXAttr(ctx, f1Info.Inode, map[string]string{k1: val2})
 	if err != nil {
 		span.Fatalf("set f1 xattr batch again failed, ino %d, err %s", f1Info.Inode, err.Error())
 	}
 
 	newVol()
 	v2Val, err := dirVol.GetXAttr(ctx, f1Info.Inode, k1)
-	if err != nil || v2Val != val2{
+	if err != nil || v2Val != val2 {
 		span.Fatalf("getXAttr failed, ino %d, k1 %s, got %s, want %s, err %v", f1Info.Inode, k1, v2Val, val2, err)
 	}
 
@@ -222,7 +289,7 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 	}
 
 	v1Val, err := dirVol.GetXAttr(ctx, f1Info.Inode, k1)
-	if err != nil || v1Val != val1{
+	if err != nil || v1Val != val1 {
 		span.Fatalf("getXAttr failed, ino %d, k1 %s, got %s, want %s, err %v", f1Info.Inode, k1, v1Val, val1, err)
 	}
 
@@ -261,10 +328,10 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 
 	newVol()
 	uploadReq := &sdk.UploadFileReq{
-		ParIno: ifo.Inode,
-		Name: f2,
+		ParIno:    ifo.Inode,
+		Name:      f2,
 		OldFileId: f2FileId,
-		Body: bytes.NewBufferString("hello test"),
+		Body:      bytes.NewBufferString("hello test"),
 	}
 	_, newF2FileId, err := dirVol.UploadFile(ctx, uploadReq)
 	if err != nil || newF2FileId == f2FileId {
@@ -398,7 +465,7 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 	}
 	newVol()
 	readDir(ifo.Inode, 3)
-	
+
 	files := []string{f1, f2, "f3"}
 	for _, f := range files {
 		err = dirVol.Delete(ctx, ifo.Inode, f, false)
@@ -559,7 +626,7 @@ func testCreateFile(ctx context.Context, vol sdk.IVolume) {
 			if err1 != nil {
 				span.Fatalf("readdir failed, ino %d, err %s", dirIfo.Inode, err1.Error())
 			}
-			span.Fatalf("delete dir failed, dir %s items (%v), err %s", tmpDir,  items, err.Error())
+			span.Fatalf("delete dir failed, dir %s items (%v), err %s", tmpDir, items, err.Error())
 		}
 		span.Infof("delete dir success, dir %s", tmpDir)
 	}()
@@ -650,7 +717,7 @@ func testCreateFile(ctx context.Context, vol sdk.IVolume) {
 	}
 	span.Infof("upload file success, info %v", uploadIfo)
 
-	defer func ()  {
+	defer func() {
 		err = vol.Delete(ctx, req.ParIno, req.Name, false)
 		if err != nil {
 			span.Fatalf("delete upload file failed, name %s, err %s", req.Name, err.Error())

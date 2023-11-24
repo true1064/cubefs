@@ -101,6 +101,29 @@ func (k *ExtentKey) SetSeq(seq uint64) {
 	k.SnapInfo.VerSeq = seq
 }
 
+func (k *ExtentKey) Equals(ek *ExtentKey) bool {
+	if k == nil && ek == nil {
+		return true
+	} else if k == nil || ek == nil {
+		return false
+	}
+	if k.PartitionId != ek.PartitionId ||
+		k.Size != ek.Size ||
+		k.ExtentOffset != ek.ExtentOffset ||
+		k.FileOffset != ek.FileOffset ||
+		k.ExtentId != ek.ExtentId ||
+		k.CRC != ek.CRC {
+		return false
+	}
+	if k.SnapInfo == nil && ek.SnapInfo == nil {
+		return true
+	} else if k.SnapInfo == nil || ek.SnapInfo == nil {
+		return false
+	}
+	return k.SnapInfo.IsSplit == ek.SnapInfo.IsSplit &&
+		k.SnapInfo.VerSeq == ek.SnapInfo.VerSeq
+}
+
 func (k *ExtentKey) SetSplit(split bool) {
 	if !split && k.SnapInfo == nil {
 		return

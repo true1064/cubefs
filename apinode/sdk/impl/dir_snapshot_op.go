@@ -635,7 +635,7 @@ func (d *dirSnapshotOp) UploadFile(ctx context.Context, req *sdk.UploadFileReq) 
 
 	_, err = d.writeAt(ctx, tmpIno, 0, -1, req.Body)
 	if err != nil {
-		span.Errorf("writeAt file failed, ino %s, err %s", tmpIno, err.Error())
+		span.Errorf("writeAt file failed, ino %d, err %s", tmpIno, err.Error())
 		return nil, 0, err
 	}
 
@@ -698,7 +698,7 @@ func (d *dirSnapshotOp) writeAt(ctx context.Context, ino uint64, off, size int, 
 		n, err := body.Read(buf)
 		if err != nil && err != io.EOF {
 			span.Errorf("read file from body failed, err %s", err.Error())
-			return 0, sdk.ErrBadRequest
+			return 0, err
 		}
 
 		if n > 0 {

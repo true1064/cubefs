@@ -82,7 +82,7 @@ func newVolume(ctx context.Context, name, owner, addr string) (sdk.IVolume, erro
 	ecCfg := &stream.ExtentConfig{
 		Volume:       name,
 		Masters:      addrList,
-		FollowerRead: true,
+		FollowerRead: false,
 		NearRead:     true,
 		OnGetExtents: mw.GetExtents,
 		OnTruncate:   mw.Truncate,

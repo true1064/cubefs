@@ -27,6 +27,7 @@ import (
 
 	"github.com/cubefs/cubefs/proto"
 	"github.com/cubefs/cubefs/util/log"
+	"github.com/cubefs/cubefs/util/timeutil"
 )
 
 type InodeResponse struct {
@@ -70,7 +71,6 @@ func (mp *metaPartition) fsmTxCreateInode(txIno *TxInode, quotaIds []uint32) (st
 
 // Create and inode and attach it to the inode tree.
 func (mp *metaPartition) fsmCreateInode(ino *Inode) (status uint8) {
-	log.LogDebugf("action[fsmCreateInode] inode  %v be created", ino.Inode)
 	if status = mp.uidManager.addUidSpace(ino.Uid, ino.Inode, nil); status != proto.OpOk {
 		return
 	}
@@ -150,11 +150,7 @@ func (mp *metaPartition) getInodeByVer(ino *Inode) (i *Inode) {
 		log.LogDebugf("action[getInodeByVer] not found ino %v verseq %v", ino.Inode, ino.getVer())
 		return
 	}
-	log.LogDebugf("action[getInodeByVer] ino %v verseq %v hist len %v request ino ver %v",
-		ino.Inode, item.(*Inode).getVer(), item.(*Inode).getLayerLen(), ino.getVer())
 	i, _ = item.(*Inode).getInoByVer(ino.getVer(), false)
-
-	log.LogDebugf("action[getInodeByVer] ino %v verseq %v fin,i %v", ino.Inode, item.(*Inode).getVer(), i)
 	return
 }
 
@@ -169,7 +165,7 @@ func (mp *metaPartition) getInodeTopLayer(ino *Inode) (resp *InodeResponse) {
 		return
 	}
 	i := item.(*Inode)
-	ctime := Now.GetCurrentTime().Unix()
+	ctime := timeutil.GetCurrentTimeUnix()
 	/*
 	 * FIXME: not protected by lock yet, since nothing is depending on atime.
 	 * Shall add inode lock in the future.
@@ -193,7 +189,7 @@ func (mp *metaPartition) getInode(ino *Inode, listAll bool) (resp *InodeResponse
 		return
 	}
 
-	ctime := Now.GetCurrentTime().Unix()
+	ctime := timeutil.GetCurrentTimeUnix()
 
 	/*
 	 * FIXME: not protected by lock yet, since nothing is depending on atime.
@@ -321,11 +317,11 @@ func (mp *metaPartition) fsmUnlinkInodeDoWork(ino *Inode, uniqID uint64, verList
 	resp.Msg = inode
 
 	if !mp.uniqChecker.legalIn(uniqID) {
-		log.LogWarnf("fsmUnlinkInode repeat, ino %v uniqID %v nlink %v", ino.Inode, uniqID, ino.GetNLink())
+		log.LogWarnf("fsmUnlinkInode repeat, mp %v ino %v uniqID %v nlink %v", mp.config.PartitionId, ino.Inode, uniqID, ino.GetNLink())
 		return
 	}
 
-	log.LogDebugf("action[fsmUnlinkInode] get inode %v", inode)
+	log.LogDebugf("action[fsmUnlinkInode] mp %v get inode %v", mp.config.PartitionId, inode)
 	var (
 		doMore bool
 		status = proto.OpOk
@@ -343,10 +339,10 @@ func (mp *metaPartition) fsmUnlinkInodeDoWork(ino *Inode, uniqID uint64, verList
 	if ino.getVer() == 0 {
 		ext2Del, doMore, status = inode.unlinkTopLayer(mp.config.PartitionId, ino, curVer, verItems)
 	} else { // means drop snapshot
-		log.LogDebugf("action[fsmUnlinkInode] req drop assigned snapshot reqseq %v inode seq %v", ino.getVer(), inode.getVer())
+		log.LogDebugf("action[fsmUnlinkInode] mp %v req drop assigned snapshot reqseq %v inode seq %v", mp.config.PartitionId, ino.getVer(), inode.getVer())
 		if ino.getVer() > inode.getVer() && !isInitSnapVer(ino.getVer()) {
-			log.LogDebugf("action[fsmUnlinkInode] inode %v unlink not exist snapshot and return do nothing.reqSeq %v larger than inode seq %v",
-				ino.Inode, ino.getVer(), inode.getVer())
+			log.LogDebugf("action[fsmUnlinkInode] mp %v inode %v unlink not exist snapshot and return do nothing.reqSeq %v larger than inode seq %v",
+				mp.config.PartitionId, ino.Inode, ino.getVer(), inode.getVer())
 			return
 		} else {
 			ext2Del, doMore, status = inode.unlinkVerInList(mp.config.PartitionId, ino, curVer, verItems)
@@ -357,13 +353,12 @@ func (mp *metaPartition) fsmUnlinkInodeDoWork(ino *Inode, uniqID uint64, verList
 		return
 	}
 
-	if ino.getVer() == 0 && inode.IsEmptyDirAndNoSnapshot() { // normal deletion
-		log.LogDebugf("action[fsmUnlinkInode] ino %v really be deleted, empty dir", inode)
+	topLayerEmpty := inode.IsTopLayerEmptyDir()
+	if ino.getVer() == 0 && topLayerEmpty && inode.IsEmptyDirAndNoSnapshot() { // normal deletion
+		log.LogDebugf("action[fsmUnlinkInode] mp %v ino %v really be deleted, empty dir", mp.config.PartitionId, inode)
 		mp.inodeTree.Delete(inode)
-		return
-	}
-	if ino.getVer() > 0 && inode.IsEmptyDirAndNoSnapshot() { // snapshot deletion
-		log.LogDebugf("action[fsmUnlinkInode] ino %v really be deleted, empty dir", inode)
+	} else if ino.getVer() > 0 && inode.IsEmptyDirAndNoSnapshot() { // snapshot deletion
+		log.LogDebugf("action[fsmUnlinkInode] mp %v ino %v really be deleted, empty dir", mp.config.PartitionId, inode)
 		mp.inodeTree.Delete(inode)
 		mp.updateUsedInfo(0, -1, inode.Inode)
 	}
@@ -383,10 +378,10 @@ func (mp *metaPartition) fsmUnlinkInodeDoWork(ino *Inode, uniqID uint64, verList
 
 		// all snapshot between create to last deletion cleaned
 		if inode.NLink == 0 && inode.getLayerLen() == 0 {
-			log.LogDebugf("action[fsmUnlinkInode] unlink inode %v and push to freeList", inode)
+			log.LogDebugf("action[fsmUnlinkInode] mp %v unlink inode %v and push to freeList", mp.config.PartitionId, inode)
 			inode.AccessTime = time.Now().Unix()
 			mp.freeList.Push(inode.Inode)
-			log.LogDebugf("action[fsmUnlinkInode] ino %v", inode)
+			log.LogDebugf("action[fsmUnlinkInode] mp %v ino %v", mp.config.PartitionId, inode)
 		}
 	}
 
@@ -395,7 +390,7 @@ func (mp *metaPartition) fsmUnlinkInodeDoWork(ino *Inode, uniqID uint64, verList
 		inode.DecSplitExts(mp.config.PartitionId, ext2Del)
 		mp.extDelCh <- ext2Del
 	}
-	log.LogDebugf("action[fsmUnlinkInode] ino %v left", inode)
+	log.LogDebugf("action[fsmUnlinkInode] mp %v ino %v left", mp.config.PartitionId, inode)
 	return
 }
 
@@ -482,10 +477,10 @@ func (mp *metaPartition) fsmAppendExtents(ino *Inode) (status uint8) {
 	}
 	delExtents := ino2.AppendExtents(eks, ino.ModifyTime, mp.volType)
 	mp.updateUsedInfo(int64(ino2.Size)-oldSize, 0, ino2.Inode)
-	log.LogInfof("fsmAppendExtents inode(%v) deleteExtents(%v)", ino2.Inode, delExtents)
+	log.LogInfof("fsmAppendExtents mpId[%v].inode(%v) deleteExtents(%v)", mp.config.PartitionId, ino2.Inode, delExtents)
 	mp.uidManager.minusUidSpace(ino2.Uid, ino2.Inode, delExtents)
 
-	log.LogInfof("fsmAppendExtents inode(%v) DecSplitExts deleteExtents(%v)", ino2.Inode, delExtents)
+	log.LogInfof("fsmAppendExtents mpId[%v].inode(%v) DecSplitExts deleteExtents(%v)", mp.config.PartitionId, ino2.Inode, delExtents)
 	ino2.DecSplitExts(mp.config.PartitionId, delExtents)
 	mp.extDelCh <- delExtents
 	return
@@ -530,7 +525,7 @@ func (mp *metaPartition) fsmAppendExtentsWithCheckDoWork(ino *Inode, verList []*
 	}
 
 	if status = mp.uidManager.addUidSpace(fsmIno.Uid, fsmIno.Inode, eks[:1]); status != proto.OpOk {
-		log.LogErrorf("fsmAppendExtentsWithCheck.addUidSpace status %v", status)
+		log.LogErrorf("fsmAppendExtentsWithCheck.mp %v addUidSpace status %v", mp.config.PartitionId, status)
 		return
 	}
 
@@ -548,7 +543,6 @@ func (mp *metaPartition) fsmAppendExtentsWithCheckDoWork(ino *Inode, verList []*
 	appendExtParam := &AppendExtParam{
 		mpId:             mp.config.PartitionId,
 		mpVer:            verSeq,
-		reqVer:           ino.getVer(),
 		ek:               eks[0],
 		ct:               ino.ModifyTime,
 		discardExtents:   discardExtentKey,
@@ -586,11 +580,12 @@ func (mp *metaPartition) fsmAppendExtentsWithCheckDoWork(ino *Inode, verList []*
 	if status == proto.OpConflictExtentsErr {
 		mp.extDelCh <- eks[:1]
 		mp.uidManager.minusUidSpace(fsmIno.Uid, fsmIno.Inode, eks[:1])
-		log.LogDebugf("fsmAppendExtentsWithCheck delExtents inode(%v) ek(%v)", fsmIno.Inode, delExtents)
+		log.LogDebugf("fsmAppendExtentsWithCheck mp %v delExtents inode(%v) ek(%v)", mp.config.PartitionId, fsmIno.Inode, delExtents)
 	}
 
 	mp.updateUsedInfo(int64(fsmIno.Size)-oldSize, 0, fsmIno.Inode)
-	log.LogInfof("fsmAppendExtentWithCheck inode(%v) ek(%v) deleteExtents(%v) discardExtents(%v) status(%v)", fsmIno.Inode, eks[0], delExtents, discardExtentKey, status)
+	log.LogInfof("fsmAppendExtentWithCheck mp %v inode(%v) ek(%v) deleteExtents(%v) discardExtents(%v) status(%v)",
+		mp.config.PartitionId, fsmIno.Inode, eks[0], delExtents, discardExtentKey, status)
 
 	return
 }
@@ -653,6 +648,11 @@ func (mp *metaPartition) fsmExtentsTruncateDoWork(ino *Inode, verList []*proto.V
 		eks = append(eks, *lastKey)
 		mp.uidManager.minusUidSpace(i.Uid, i.Inode, eks)
 	}
+
+	insertSplitKey := func(ek *proto.ExtentKey) {
+		i.insertEkRefMap(mp.config.PartitionId, ek)
+	}
+
 	if i.getVer() != ino.getVer() {
 		i.CreateVer(ino.getVer())
 	}
@@ -666,7 +666,7 @@ func (mp *metaPartition) fsmExtentsTruncateDoWork(ino *Inode, verList []*proto.V
 		return
 	}
 	oldSize := int64(i.Size)
-	delExtents := i.ExtentsTruncate(ino.Size, ino.ModifyTime, doOnLastKey)
+	delExtents := i.ExtentsTruncate(ino.Size, ino.ModifyTime, doOnLastKey, insertSplitKey)
 
 	if len(delExtents) == 0 {
 		return
