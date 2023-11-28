@@ -52,6 +52,7 @@ type VolVarargs struct {
 	txOpLimit               int
 	trashInterval           int64
 	crossZone               bool
+	volStorageClass         uint32
 }
 
 // Vol represents a set of meta partitionMap and data partitionMap
@@ -1710,6 +1711,7 @@ func setVolFromArgs(args *VolVarargs, vol *Vol) {
 	vol.dpSelectorName = args.dpSelectorName
 	vol.dpSelectorParm = args.dpSelectorParm
 	vol.TrashInterval = args.trashInterval
+	vol.volStorageClass = args.volStorageClass
 }
 
 func getVolVarargs(vol *Vol) *VolVarargs {
@@ -1745,6 +1747,7 @@ func getVolVarargs(vol *Vol) *VolVarargs {
 		txOpLimit:               vol.txOpLimit,
 		coldArgs:                args,
 		dpReadOnlyWhenVolFull:   vol.DpReadOnlyWhenVolFull,
+		volStorageClass:         vol.volStorageClass,
 	}
 }
 
