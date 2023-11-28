@@ -3232,7 +3232,6 @@ func (c *Cluster) deleteMetaNodeFromCache(metaNode *MetaNode) {
 	go metaNode.clean()
 }
 
-//TODO:tangjingyu: need to update volStorageClass or allowedStorageClass?
 func (c *Cluster) updateVol(name, authKey string, newArgs *VolVarargs) (err error) {
 	var (
 		vol                        *Vol
