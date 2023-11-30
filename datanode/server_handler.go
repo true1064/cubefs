@@ -17,9 +17,6 @@ package datanode
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/cubefs/cubefs/depends/tiglabs/raft"
-	"github.com/cubefs/cubefs/proto"
-	"github.com/cubefs/cubefs/storage"
 	"net/http"
 	"os"
 	"path"
@@ -27,6 +24,9 @@ import (
 	"sync/atomic"
 	"syscall"
 
+	"github.com/cubefs/cubefs/depends/tiglabs/raft"
+	"github.com/cubefs/cubefs/proto"
+	"github.com/cubefs/cubefs/storage"
 	"github.com/cubefs/cubefs/util/config"
 	"github.com/cubefs/cubefs/util/log"
 )
