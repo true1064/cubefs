@@ -1636,8 +1636,6 @@ func (c *Cluster) isFaultDomain(vol *Vol) bool {
 // - Otherwise, throw errors
 
 func (c *Cluster) createDataPartition(volName string, preload *DataPartitionPreLoad, mediaType uint32) (dp *DataPartition, err error) {
-	log.LogInfof("action[createDataPartition] vol(%v) preload(%v) mediType(%v)",
-		volName, preload, proto.MediaTypeString(mediaType))
 	var (
 		vol          *Vol
 		partitionID  uint64
@@ -1648,6 +1646,9 @@ func (c *Cluster) createDataPartition(volName string, preload *DataPartitionPreL
 		partitionTTL int64
 		ok           bool
 	)
+
+	log.LogInfof("action[createDataPartition] vol(%v) preload(%v) mediType(%v)",
+		volName, preload, proto.MediaTypeString(mediaType))
 
 	c.volMutex.RLock()
 	if vol, ok = c.vols[volName]; !ok {
@@ -3286,11 +3287,10 @@ func (c *Cluster) deleteMetaNodeFromCache(metaNode *MetaNode) {
 
 func (c *Cluster) updateVol(name, authKey string, newArgs *VolVarargs) (err error) {
 	var (
-		vol                        *Vol
-		serverAuthKey              string
-		volUsedSpace               uint64
-		oldArgs                    *VolVarargs
-		isMultiReplicaStorageClass bool
+		vol           *Vol
+		serverAuthKey string
+		volUsedSpace  uint64
+		oldArgs       *VolVarargs
 	)
 
 	if vol, err = c.getVol(name); err != nil {
@@ -3320,9 +3320,8 @@ func (c *Cluster) updateVol(name, authKey string, newArgs *VolVarargs) (err erro
 		goto errHandler
 	}
 
-	isMultiReplicaStorageClass = c.server.HasMultiReplicaStorageClass(vol.allowedStorageClass)
 	log.LogInfof("[checkZoneName] name [%s], zone [%s]", name, newArgs.zoneName)
-	if newArgs.zoneName, err = c.checkZoneName(name, newArgs.crossZone, vol.defaultPriority, newArgs.zoneName, vol.domainId, isMultiReplicaStorageClass); err != nil {
+	if newArgs.zoneName, err = c.checkZoneName(name, newArgs.crossZone, vol.defaultPriority, newArgs.zoneName, vol.domainId); err != nil {
 		goto errHandler
 	}
 
@@ -3378,8 +3377,7 @@ func (c *Cluster) checkZoneName(name string,
 	crossZone bool,
 	defaultPriority bool,
 	zoneName string,
-	domainId uint64,
-	isMultiReplicaStorageClass bool) (newZoneName string, err error,
+	domainId uint64) (newZoneName string, err error,
 ) {
 	zoneList := strings.Split(zoneName, ",")
 	newZoneName = zoneName
@@ -3413,16 +3411,10 @@ func (c *Cluster) checkZoneName(name string,
 		}
 	} else { // cross zone disable means not use domain at the time vol be created
 		if newZoneName == "" {
-			if isMultiReplicaStorageClass {
-				return
-			}
-
 			if !c.needFaultDomain {
 				if _, err = c.t.getZone(DefaultZoneName); err != nil {
 					return newZoneName, fmt.Errorf("action[checkZoneName] the vol is not cross zone and didn't set zone name,but there's no default zone")
 				}
-				log.LogInfof("action[checkZoneName] vol [%v] use default zone", name)
-				newZoneName = DefaultZoneName
 			}
 		} else {
 			if len(zoneList) > 1 {
@@ -3499,7 +3491,7 @@ func (c *Cluster) initDataPartitionsForCreateVol(vol *Vol, dpCount int, mediaTyp
 	for retryCount := 0; readWriteDataPartitions < defaultInitDataPartitionCnt && retryCount < 3; retryCount++ {
 		err = vol.initDataPartitions(c, dpCount, mediaType)
 		if err != nil {
-			log.LogError("action[createVol] init dataPartition error:",
+			log.LogError("action[initDataPartitionsForCreateVol] init dataPartition error:",
 				err.Error(), retryCount, len(vol.dataPartitions.partitionMap))
 		}
 
@@ -3507,16 +3499,16 @@ func (c *Cluster) initDataPartitionsForCreateVol(vol *Vol, dpCount int, mediaTyp
 	}
 
 	if len(vol.dataPartitions.partitionMap) < defaultInitDataPartitionCnt {
-		err = fmt.Errorf("action[createVol] vol[%v] initDataPartitions failed, less than %d",
+		err = fmt.Errorf("action[initDataPartitionsForCreateVol] vol[%v] initDataPartitions failed, less than %d",
 			vol.Name, defaultInitDataPartitionCnt)
 
 		oldVolStatus := vol.Status
 		vol.Status = proto.VolStatusMarkDelete
 		if errSync := c.syncUpdateVol(vol); errSync != nil {
-			log.LogErrorf("action[createVol] vol[%v] after init dataPartition error, mark vol delete persist failed", vol.Name)
+			log.LogErrorf("action[initDataPartitionsForCreateVol] vol[%v] after init dataPartition error, mark vol delete persist failed", vol.Name)
 			vol.Status = oldVolStatus
 		} else {
-			log.LogErrorf("action[createVol] vol[%v] mark vol delete after init dataPartition error", vol.Name)
+			log.LogErrorf("action[initDataPartitionsForCreateVol] vol[%v] mark vol delete after init dataPartition error", vol.Name)
 		}
 
 		return readWriteDataPartitions, err
@@ -3535,7 +3527,7 @@ func (c *Cluster) createVol(req *createVolReq) (vol *Vol, err error) {
 
 	var readWriteDataPartitions int
 
-	if req.zoneName, err = c.checkZoneName(req.name, req.crossZone, req.normalZonesFirst, req.zoneName, req.domainId, req.hasMultiReplicaStorageClass); err != nil {
+	if req.zoneName, err = c.checkZoneName(req.name, req.crossZone, req.normalZonesFirst, req.zoneName, req.domainId); err != nil {
 		return
 	}
 
