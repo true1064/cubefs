@@ -584,12 +584,12 @@ func (d *dirSnapshotOp) UploadFile(ctx context.Context, req *sdk.UploadFileReq) 
 	if req.OldFileId != 0 {
 		//oldIno, mode, err := v.mw.Lookup_ll(req.ParIno, req.Name)
 		den, err := d.mw.LookupEx(ctx, req.ParIno, req.Name)
-		if err != nil && err != syscall.ENOENT {
+		if err != nil {
 			span.Errorf("lookup file failed, ino %d, name %s, err %s", req.ParIno, req.Name, err.Error())
 			return nil, 0, syscallToErr(err)
 		}
 
-		if den == nil || den.FileId != req.OldFileId || proto.IsDir(den.Type) {
+		if den.FileId != req.OldFileId || proto.IsDir(den.Type) {
 			span.Errorf("target file already exist but conflict, den %v, reqOld %d",
 				den, req.OldFileId)
 			return nil, 0, sdk.ErrConflict
