@@ -507,14 +507,13 @@ func (d *DriveNode) handleListAll(c *rpc.Context) {
 		pathIno = Inode(dirInodeInfo.Inode)
 	}
 
-	result := ListAllResult{}
-
 	stack, dirInfo, err := getDirList(ctx, vol, pathIno.Uint64(), marker)
 	if err != nil {
 		d.respError(c, err)
 		return
 	}
 
+	result := ListAllResult{Files: []FileInfo{}}
 	if dirInfo != nil {
 		fileType := typeFile
 		if dirInfo.IsDir() {
