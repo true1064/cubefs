@@ -2,6 +2,7 @@
 Copyright OPPO Corp. All Rights Reserved.
 */
 
+// package errno 定义了加解密SDK可能出现的错误信息以及错误码。
 package errno
 
 // 定义错误码

@@ -2,8 +2,7 @@
 Copyright OPPO Corp. All Rights Reserved.
 */
 
-// package engine is used to define all interfaces exposed to users, and different
-// encryption schemes should implement these interfaces.
+// package engine 基础引擎，封装了多种加密算法以及签名算法。
 package engine
 
 import (

@@ -2,8 +2,7 @@
 Copyright OPPO Corp. All Rights Reserved.
 */
 
-// package andescryptokit is used to define all interfaces exposed to users, and different
-// encryption schemes should implement these interfaces.
+// package types 定义了多种基础类型
 package types
 
 // EnvironmentType For describing the usage environment.
@@ -62,6 +61,9 @@ type CustomMasterKey struct {
 	// FileKeyId 安全密钥控制台创建的CMK ID，类型为对称密钥，用于EngineFileCipherStream密钥派生。
 	// 某些加密方案（如ServiceBasedTEE）的EngineFileCipherStream密钥与终端TEE/SE绑定，因此不需要此参数，传入空字符串即可。
 	FileKeyId string
+
+	// CipherPrivateKey 私钥密文【CFA性能优化场景】
+	CipherPrivateKey string
 }
 
 // Configure KmsParam KMS鉴权参数，这些参数在云平台安全密钥控制台能够查询到。
@@ -92,9 +94,13 @@ const (
 const (
 	AuthUrl = "https://datasec-auth-cn.heytapmobi.com"
 
-	// SERVICE_BASED_KMS_CIPHER_MATERIAL_LEN 加密材料长度
+	// SERVICE_BASED_KMS_CIPHER_MATERIAL_LEN 服务级加密KMS传输加密材料长度
 	SERVICE_BASED_KMS_TRNAS_CIPHER_MATERIAL_LEN = 342
 
+	// SERVICE_BASED_TEE_TRNAS_CIPHER_MATERIAL_LEN 服务级加密TEE传输加密材料长度
+	SERVICE_BASED_TEE_TRNAS_CIPHER_MATERIAL_LEN = 425
+
+	// SERVICE_BASED_KMS_FILE_CIPHER_MATERIAL_LEN 服务级加密KMS文件加密材料长度
 	SERVICE_BASED_KMS_FILE_CIPHER_MATERIAL_LEN = 251
 
 	// AES_256_CTR_IV_LEN AES-256-CTR IV长度

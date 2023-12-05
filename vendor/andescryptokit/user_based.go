@@ -22,8 +22,8 @@ type UserBased struct {
 //  @param reader 待处理的数据流。
 //  @return *engine.EngineTransCipher 传输加密引擎对象。
 //  @return *errno.Errno 如果失败，返回错误原因以及错误码。
-func (u *UserBased)NewEngineTransCipher(cipherMode types.CipherMode, cipherMaterial []byte, reader io.Reader) (*engine.EngineTransCipher, *errno.Errno){
-		return engine.NewEngineTransCipher(cipherMode, cipherMaterial, reader, nil, nil, false)
+func (u *UserBased) NewEngineTransCipher(cipherMode types.CipherMode, cipherMaterial []byte, reader io.Reader) (*engine.EngineTransCipher, *errno.Errno) {
+	return engine.NewEngineTransCipher(cipherMode, cipherMaterial, reader, nil, nil, false)
 }
 
 // NewEngineFileCipher 创建文件加密引擎。

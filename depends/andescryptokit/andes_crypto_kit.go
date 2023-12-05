@@ -68,7 +68,7 @@ func New(cipherScheme types.CipherScheme, configure types.Configure) (AndesCrypt
 	case types.CipherScheme_ServiceBasedKMS:
 		return NewServiceBasedKMS(&configure)
 	case types.CipherScheme_ServiceBasedTEE:
-		return NewServiceBasedKMS(&configure)
+		return NewServiceBasedTEE(&configure)
 	case types.CipherScheme_User:
 		return &UserBased{}, errno.UnsupportedCipherSchemeError
 	case types.CipherScheme_Device:

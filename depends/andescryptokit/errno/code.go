@@ -2,6 +2,7 @@
 Copyright OPPO Corp. All Rights Reserved.
 */
 
+// package errno 定义了加解密SDK可能出现的错误信息以及错误码。
 package errno
 
 var (
@@ -25,6 +26,15 @@ var (
 
 	// KmsNxgInitError KMS NXG初始化出错。
 	KmsNxgInitError = &Errno{code: 20003, message: "KMS NXG init error."}
+
+	// KmsNxgGernerateDataKeyError KMS NXG生成数据密钥出错。
+	KmsNxgGernerateDataKeyError = &Errno{code: 20004, message: "KMS NXG generate data key error."}
+
+	// KmsNxgDataKeyBase64DecodeError KMS NXG密钥base64解码失败。
+	KmsNxgDataKeyBase64DecodeError = &Errno{code: 20005, message: "KMS NXG data key base64 decode error."}
+
+	// KmsNxgDecryptDataKeyError KMS NXG解密数据密钥出错。
+	KmsNxgDecryptDataKeyError = &Errno{code: 20006, message: "KMS NXG decrypt data key error."}
 
 	/* 传输加密错误，前缀为 300 */
 	// TransCipherKeyBase64DecodeError 传输加密密钥base64解码出错。
@@ -76,13 +86,21 @@ var (
 	TransCipherMaterialUnexpectedEOfError = &Errno{code: 30016, message: "tran cipher material len error: unexpected EOF."}
 
 	// TransCipherStreamModeNilStreamError 传输加密传入空流错误。
-	TransCipherStreamModeNilStreamError = &Errno{code: 40010, message: "trans cipher stream mode nil stream error."}
+	TransCipherStreamModeNilStreamError = &Errno{code: 30017, message: "trans cipher stream mode nil stream error."}
 
 	// TransCipherStreamModeSetDataReaderError 传输加密设置新数据流为空错误
-	TransCipherStreamModeSetNilDataReaderError = &Errno{code: 40011, message: "trans cipher stream mode set nil data reader error."}
+	TransCipherStreamModeSetNilDataReaderError = &Errno{code: 30018, message: "trans cipher stream mode set nil data reader error."}
 
 	// TransCipherStreamModeSetDataReaderError 传输加密设置新数据流错误
-	TransCipherStreamModeSetDataReaderError = &Errno{code: 40011, message: "trans cipher stream mode set data reader error."}
+	TransCipherStreamModeSetDataReaderError = &Errno{code: 30019, message: "trans cipher stream mode set data reader error."}
+
+	TransCipherPrivateKeyDecryptError = &Errno{code: 30020, message: "trans cipher private key decrypt error."}
+
+	TransCipherRSADecryptError = &Errno{code: 30021, message: "trans cipher RSA decrypt error."}
+
+	TransCipherRSADecryptParsePKCS8PrivateKeyError = &Errno{code: 30022, message: "trans cipher RSA decrypt parse PKCS8 private key error."}
+
+	TransCipherRSADecryptDecryptOAEPError = &Errno{code: 30023, message: "trans cipher RSA decrypt decrypt OAEP error."}
 
 	/*  文件存储错误，前缀为 400 */
 	// FileCipherKeyLengthError 文件加密密钥长度错误，必须为32字节或者64字节。
@@ -120,6 +138,10 @@ var (
 	FileCipherDecryptModeMaterialUnexpectedEOfError = &Errno{code: 40012, message: "file cipher decrypt mode material unexpected EOF error."}
 
 	FileCipherMaterialUnmarshalError = &Errno{code: 40013, message: "file cipher material unmarshal error."}
+
+	FileCipherMaterialMarshalError = &Errno{code: 40014, message: "file cipher material unmarshal error."}
+
+	FileCipherGernerateDekError = &Errno{code: 40015, message: "file cipher gernerate dek error."}
 
 	/*  文件存储错误，前缀为 500 */
 	ServiceBasedDataEncryptKeyError = &Errno{code: 50001, message: "service based scheme data encrypt key(DEK) get error."}

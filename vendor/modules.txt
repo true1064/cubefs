@@ -3,6 +3,7 @@
 andescryptokit
 andescryptokit/engine
 andescryptokit/errno
+andescryptokit/kms
 andescryptokit/osec/go-kms/kms
 andescryptokit/osec/seckit-go/signer/v2
 andescryptokit/types
