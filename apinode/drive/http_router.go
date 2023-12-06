@@ -63,8 +63,10 @@ func (d *DriveNode) RegisterAPIRouters() *rpc.Router {
 	// file
 	r.Handle(http.MethodPut, "/v1/files/upload", d.handleFileUpload, rpc.OptArgsQuery())
 	r.Handle(http.MethodPost, "/v1/files/upload", d.handleFileUpload, rpc.OptArgsQuery())
+	r.Handle(http.MethodPost, "/v1/files/uploads", d.handleFileUploadBatch)
 	r.Handle(http.MethodPut, "/v1/files/content", d.handleFileWrite, rpc.OptArgsQuery())
 	r.Handle(http.MethodGet, "/v1/files/content", d.handleFileDownload, rpc.OptArgsQuery())
+	r.Handle(http.MethodGet, "/v1/files/contents", d.handleFileDownloadBatch, rpc.OptArgsBody())
 	r.Handle(http.MethodGet, "/v1/files/verify", d.handleFileVerify, rpc.OptArgsQuery())
 	r.Handle(http.MethodPost, "/v1/files/copy", d.handleFileCopy, rpc.OptArgsQuery())
 	r.Handle(http.MethodPost, "/v1/files/rename", d.handleFileRename, rpc.OptArgsQuery())
@@ -171,6 +173,27 @@ func (d *DriveNode) getProperties(c *rpc.Context) (map[string]string, error) {
 				return nil, sdk.ErrBadRequest.Extend("meta key or value was too long")
 			}
 			properties[k] = v
+			if len(properties) > 16 {
+				return nil, sdk.ErrBadRequest.Extend("meta length was more than rated size")
+			}
+		}
+	}
+	return properties, nil
+}
+
+func (d *DriveNode) getPropertiesTar(xattrs map[string]string) (map[string]string, error) {
+	properties := make(map[string]string)
+	for key, val := range xattrs {
+		if len(key) > len(UserPropertyPrefix) && strings.HasPrefix(key, UserPropertyPrefix) {
+			k := key[len(UserPropertyPrefix):]
+			if strings.HasPrefix(k, internalMetaPrefix) {
+				return nil, sdk.ErrBadRequest.Extend("meta key was internal prefix")
+			}
+
+			if len(k) > 1024 || len(val) > 1024 {
+				return nil, sdk.ErrBadRequest.Extend("meta key or value was too long")
+			}
+			properties[k] = val
 			if len(properties) > 16 {
 				return nil, sdk.ErrBadRequest.Extend("meta length was more than rated size")
 			}

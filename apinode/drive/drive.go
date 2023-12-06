@@ -65,6 +65,10 @@ const (
 	internalMetaMD5      = internalMetaPrefix + "md5"
 	internalMetaUploadID = internalMetaPrefix + "uploadid"
 
+	PAXFileID = "x-cfa-file-id"
+	PAXCrc32  = HeaderCrc32
+	PAXMD5    = HeaderMD5
+
 	maxMultipartNumber = 10000
 )
 
