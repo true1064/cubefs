@@ -353,14 +353,14 @@ func (mp *metaPartition) fsmUnlinkInodeDoWork(ino *Inode, uniqID uint64, verList
 		return
 	}
 
-	topLayerEmpty := inode.IsTopLayerEmptyDir()
-	if ino.getVer() == 0 && topLayerEmpty && inode.IsEmptyDirAndNoSnapshot() { // normal deletion
+
+	if inode.IsEmptyDirAndNoSnapshot() {
 		log.LogDebugf("action[fsmUnlinkInode] mp %v ino %v really be deleted, empty dir", mp.config.PartitionId, inode)
-		mp.inodeTree.Delete(inode)
-	} else if ino.getVer() > 0 && inode.IsEmptyDirAndNoSnapshot() { // snapshot deletion
-		log.LogDebugf("action[fsmUnlinkInode] mp %v ino %v really be deleted, empty dir", mp.config.PartitionId, inode)
-		mp.inodeTree.Delete(inode)
-		mp.updateUsedInfo(0, -1, inode.Inode)
+		if inode.NLink < 2 {
+			log.LogDebugf("action[fsmUnlinkInode] mp %v ino %v really be deleted", mp.config.PartitionId, inode.Inode)
+			mp.inodeTree.Delete(inode)
+		}
+		return
 	}
 
 	//Fix#760: when nlink == 0, push into freeList and delay delete inode after 7 days

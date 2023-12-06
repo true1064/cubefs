@@ -549,9 +549,9 @@ func (mp *metaPartition) InodeGetBatch(req *InodeGetReqBatch, p *Packet) (err er
 		var quotaInfos map[uint32]*proto.MetaQuotaInfo
 		ino.Inode = inoId
 		
-		ino.setVer(req.VerSeq)
+		ino.setVerNoCheck(req.VerSeq)
 		if p.IsDirVersion() {
-			ino.setVer(p.VerSeq)
+			ino.setVerNoCheck(p.VerSeq)
 		}
 
 		retMsg := mp.getInode(ino, false)
