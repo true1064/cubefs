@@ -301,6 +301,29 @@ func (d *DriveNode) Start(cfg *config.Config) error {
 	return nil
 }
 
+// LoadCipherPrivateKey load cipher key from default volume.
+func (d *DriveNode) LoadCipherPrivateKey(ctx context.Context, path string) ([]byte, error) {
+	dirInfo, err := d.lookup(ctx, d.vol, volumeRootIno, path)
+	if err != nil {
+		log.Errorf("lookup CipherPrivatePath:%s error:%s", path, err.Error())
+		return nil, err
+	}
+	inoInfo, err := d.vol.GetInode(ctx, dirInfo.Inode)
+	if err != nil {
+		return nil, err
+	}
+	data := make([]byte, inoInfo.Size)
+	n, err := d.vol.ReadFile(ctx, dirInfo.Inode, 0, data)
+	if err != nil {
+		return nil, err
+	}
+	if n != int(inoInfo.Size) {
+		return nil, fmt.Errorf("odd data %d != %d", inoInfo.Size, n)
+	}
+	log.Infof("loaded from CipherPrivatePath:%s", path)
+	return data, nil
+}
+
 func (d *DriveNode) GetUserRouteInfo(ctx context.Context, uid UserID) (*UserRoute, error) {
 	ur := d.userRouter.Get(uid)
 	if ur == nil {

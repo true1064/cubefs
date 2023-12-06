@@ -58,6 +58,9 @@ type Configure struct {
 	SK          string `json:"sk"`
 	FileKeyID   string `json:"fileKeyId"`
 	TransKeyID  string `json:"transKeyId"`
+
+	CipherPrivateKey  string `json:"cipherPrivateKey"`
+	CipherPrivatePath string `json:"cipherPrivatePath"`
 }
 
 func transError(en *errno.Errno) error {
@@ -91,6 +94,37 @@ func initOnce(conf Configure) error {
 		conf.SK = "51c03043bf791f2b122a32ac9dfef335ec06aa583509a2dbf895153c65c1f2fb"
 		conf.FileKeyID = "24b7a5ff-5a82-4606-b394-94755798deab"
 		conf.TransKeyID = "dc907f16-8cec-4873-bc78-bb227868a0ef"
+		conf.CipherPrivateKey = "" +
+			"eyJ2ZXJzaW9uIjowLCJhbGciOiJBRVMtMjU2LUdDTSIsInBhZGRpbmciOiJOb1BhZGRpbmciLCJpdiI6" +
+			"IndwNUt2dmdLT3ZtWm1vNXgiLCJhYWQiOiIiLCJ0YWciOiIxelJwMEZCdjlTQzlTSldvYkdkU29BPT0i" +
+			"LCJlbmNyeXB0ZWRfZGF0YSI6InByR0kvdzByMjRkbEkyREZkRlFwSEYxYjRQd1ZMcGRPVGJCdzZIdHJ5" +
+			"NWNHL0dMamtkSVRhNVBSZURaZ1A1UmlsSjluemh0eWdVZFdpKzdyVXZaRTJqd1ZBb092cW1uRFVNN2RM" +
+			"MytjbURFMEY5cW0vVmEvaHQrSVlaR2hCS0ZQNTBubGRINmNQWW1Pdm13aCtHTXVnekYzNXRER1RNeW1t" +
+			"dWRvUisvdEd6OWpYNW82NWRhVkFtcG9lWEs1UnllN2dQQ29jQ05NcmF2NWRWSzZlejQzdW8rVUNtRlZw" +
+			"Y0JiQlpDTHA3d08vSWRoUTRlRDdLSkh1QWEzRzMrNHhXOHBUemVBeE1SVjF6aTRKVHFvSjJ0dmsvV240" +
+			"L0Iwc2JKZFo2SGttMUM4aCtZcHpMczFaVitNMUNuWi9QbXNZTng4bXk3cHA5VEUyaWtYVGJXdUhIQmo5" +
+			"ZTlJLzF3U0UxckRmRHpwazZSZ0Y4cmdJREdvcFk5bUpnWS9QQnd5aGdUU1ptam5Sa2p3dmtMZXQrU05r" +
+			"RTdHRytacytmUmNNdU0xUUpidzZ0WHF6ZCs3bGNpSEUxWGErUG91UlEwUjhZeG5IdTFqVjZ5RWhoTW12" +
+			"dEs1N3drTXJONE4wQlE3K0NJcGdleWxldmZSVC9tUWJNTXgzV0JhL3M5Ti95UlpsUGJhNzRiS1k0Yi9n" +
+			"QjBraFlGVnI3cUhKbVV4UVRKNjVRcVJuWWJaZUFYNFQyYzdQY3VFYld4aXkrQndDMEw5bG9OK21ERy91" +
+			"UnhPUllkVE95V0RERzVaRVBCMXAvVnp2VFQvSElHYWJhYld2S2ZKaHFVOGpHcnExNWVwdjFQbEVrdnB5" +
+			"M1JGOVNGZDhobzdWdkNuV2hzSjBzY0dQMFArUnB3cUtuMkFjWGd3R0tGNEVhVGpDS1A5NFlGdUx1MmJX" +
+			"WlZxZm9vei8xV2kycDFweVY1Q2ZtejdHbDJ2aHJMdExVNThLU3o5NjZ2RG9TcGhKb3Q2djhSYjhuNXRC" +
+			"YlEvUnRPeG9kOVV6bEpGY0tqZS9rNFM1WElsZWJUME9lQXBtbThzRG9XRG9KZzFLbStRV2U0d0pSdGZV" +
+			"S2VKV0c0b0k4N29KRm5LU1dvczZ4clFvRUZ6aTR4WGNzVWNIaGtEMmVPSkRSdTNkOEhDK1RQWksyK2M3" +
+			"T0R3L3NjZmxEb1F5bDBvMTMvczlxM3VRblF3MTZ4VHRnRUZ5OWhSQTdGZERxR2VzeURVWUc3MldoWVh1" +
+			"M2pDd2dua09ENkFjV1dDOVROei9kTHNQU0FUTEMveFBlQzdHS2NOeC9lODlldm04M1F2YXhEY2dIYnRs" +
+			"Z2NrNkc5MmQ0dml5Uzloc2JXbHU2ZU1oY1QvQXJDK2NZZnJCWDhtek90R2Rqc2JrRHhWa0FNVEowT2Zx" +
+			"bzloK3A3SzNXRmNLeU45YkpNUWQ1aUtpSndRUXRsaTB1bGxHZU5TU2VldVZURWJiR0xGNUVDL010QnlO" +
+			"UHhCWkl3RDZaaWp3aWRHemNQZHhnTzBZbXVlTEZ6L0U2MEhlWWhrZ1hQZGE4MGVubnZUcitiOXQ0bEk1" +
+			"THdnYVZyK2x5cldzVHVWR0tETnB5MUpXcFVRaTFvaUtwL29tVHJJQXZTcjN6dkhXOE5UcGpXNmFiLzd1" +
+			"NWJVa21uTFlOTUhzUjIwdjBsREJndzhCV3BPTi9hSUU4bmJZNEFjWmczcFNBcm5KMEtMVm5hczJETlhB" +
+			"Z2pNdTgwNHFwSEdiSnczR2IrbjJLejc4WWMxSy8vMWU4cERpaDlva1h4WWViVFMwcGZyUVJKN0lSUHpG" +
+			"UGpaNzB2UVBhOTZoSVhOTG9lQUltdGdIZjhXVlZua2xWTFBocEttQWtKazNCZGlBZG5oNkNiQ0lmR0Zm" +
+			"RXdqSFRVSWJoVCswOFJSaExVclg4VnNOYnM1OTkzRkF0WTkrWnBOREJ0SERtNWlYMU1XWkNXdlQ1OVh1" +
+			"UmxEa2tUbXRVZzNMUUpPRXBwbWdEc2R3dG8vODlCcWxJalFvcGFmSjhtRmdQTE5iZTVGZDJNcEYzRmFp" +
+			"RkVRWUQ2TUN2WWp6SzNyNlRYUFU0VjlxcVZkRUx4cDZoZDBFblZMTnpCYVQ3dXlYNzA5bEJkckQyamlk" +
+			"S3dGM20wZmhNVmpnVmFGd0lOaDlwaz0ifQ=="
 	}
 
 	var err *errno.Errno
@@ -103,8 +137,9 @@ func initOnce(conf Configure) error {
 				SK:      conf.SK,
 			},
 			CustomMasterKey: types.CustomMasterKey{
-				FileKeyId:  conf.FileKeyID,
-				TransKeyId: conf.TransKeyID,
+				FileKeyId:        conf.FileKeyID,
+				TransKeyId:       conf.TransKeyID,
+				CipherPrivateKey: conf.CipherPrivateKey,
 			},
 		}
 		if cryptoKit, err = kit.New(types.CipherScheme_ServiceBasedKMS, configure); err != errno.OK {
@@ -196,9 +231,6 @@ func NoneCryptor() Cryptor {
 
 // NewCryptor returns the encryption and decryption object.
 func NewCryptor() Cryptor {
-	if cryptoKit == nil {
-		panic("please init cryptor kit firstly")
-	}
 	return cryptor{}
 }
 

@@ -32,12 +32,12 @@ const (
 	mb = 1 << 20
 
 	material string = "" +
-		"CoACYZDO6NI+KIkNDd8iCO/+7OcyS9WqPRWIUsOZPOt+j8OUHdM4bXR+m4qnqHtSEAFcm+p+A++5yznU" +
-		"KNAwf5FT3PJvuaanV9jSpVeI97LHeH7BiZh19LaP6dg48+UuRRqsy4I2cGGPuKajAeELq+sfhul2xDtU" +
-		"4ZAiTHCD63hNFcDjvAboanCw4+x57Q8Xj/t4iFUtvIeFGJAMV3sdAS33xTeJI8Zr5cEJIdDzTVGhrN1b" +
-		"2p8GR1NH7OmaxOO+p2eATPj0gIojyTxKorSYzgW5XJ0rGbZVGCxSnONeMpIFvuNY+MdZBp+55PcNByqF" +
-		"9UsAHkuSaiJcOyJoYMxmwwQ0nRIQslxWbfthHolNe5zF8vU64xo8s4DoDjZrqke6tg9Hc+imFUJhUnp5" +
-		"dre/CW08McuD4Q7cC17XAyBhRPu3oOZIbv2ySH6tubFGZO2QRp7JOAE="
+		"CoACxgB8YF+43uKf1J7yuVtL1vfYHUYS3/s1ek5LOchxCen8YIRvumRPTieThba/iiO7dlnwBlFsey4U" +
+		"IO4AByGMx3+xhru04q3YCfN/YCf9H/8mMkwldsOafMHgs9J9PhGA6B0w84EIQJk72jAelj+qPJ/eEm1M" +
+		"m1uSt0m/xf+whKmQgkma3Hp0C93nhc8yKc6PczD5onQqrtqJIgf5xTcGC7ebEd3Qge0lwwxIcB0Y1cD/" +
+		"rxHtgRXhk+kzZSifVYYDp8WcZ0itV2X3QFHNvadDSnoGzyWZq/er7KLHP4xJvXq3dlZ3xODON4N7W6IO" +
+		"pE0DPuput+K2RackS9wrgXWc3xIQqtBvoklkzifqz46BN5djsxo9AAAAAAAAAAAAAAAAAAAAAAAAAAAA" +
+		"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADgB"
 )
 
 var (
@@ -109,10 +109,13 @@ func TestCryptoStream(t *testing.T) {
 	require.NoError(t, Init(Configure{}))
 
 	c := NewCryptor()
+	_, err := c.GenKey()
+	require.NoError(t, err)
+
 	st := time.Now()
 	const n = 200
 	for range [n]struct{}{} {
-		_, err := c.TransDecryptor(material, nil)
+		_, err := c.TransDecryptor(material, io.MultiReader())
 		require.NoError(t, err)
 	}
 	t.Logf("CreateStream: n=%d, duration=%s", n, timed(st, n))

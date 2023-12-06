@@ -187,7 +187,6 @@ func getCryptoConfig(cfg *config.Config) (crypto.Configure, error) {
 	if err != nil {
 		return conf, err
 	}
-
 	if err = json.Unmarshal(data, &conf); err != nil {
 		return conf, err
 	}
@@ -197,9 +196,6 @@ func getCryptoConfig(cfg *config.Config) (crypto.Configure, error) {
 func (s *apiNode) startRouters(cfg *config.Config) error {
 	conf, err := getCryptoConfig(cfg)
 	if err != nil {
-		return err
-	}
-	if err := crypto.Init(conf); err != nil {
 		return err
 	}
 
@@ -248,8 +244,20 @@ func (s *apiNode) startRouters(cfg *config.Config) error {
 		if err := node.Start(cfg); err != nil {
 			return err
 		}
+
+		if conf.CipherPrivateKey == "" && conf.CipherPrivatePath != "" {
+			key, err := node.LoadCipherPrivateKey(context.Background(), conf.CipherPrivatePath)
+			if err != nil {
+				return err
+			}
+			conf.CipherPrivateKey = string(key)
+		}
 	}
 	// TODO: new posix, hdfs, s3
+
+	if err := crypto.Init(conf); err != nil {
+		return err
+	}
 	return nil
 }
 

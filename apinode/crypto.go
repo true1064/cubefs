@@ -115,7 +115,9 @@ func (c cryptor) Handler(w http.ResponseWriter, req *http.Request, f func(http.R
 		err = errNew
 		return
 	}
-	span.AppendTrackLog("tnq", st, nil)
+	if metaMaterial != "" {
+		span.AppendTrackLog("tnq", st, nil)
+	}
 
 	st = time.Now()
 	querys := req.URL.Query()
@@ -158,7 +160,9 @@ func (c cryptor) Handler(w http.ResponseWriter, req *http.Request, f func(http.R
 		req.Header.Del(key)
 		req.Header.Set(drive.EncodeMetaHeader(k), drive.EncodeMeta(v))
 	}
-	span.AppendTrackLog("tdq", st, nil)
+	if metaMaterial != "" {
+		span.AppendTrackLog("tdq", st, nil)
+	}
 
 	f(w, req)
 }

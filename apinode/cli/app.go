@@ -72,12 +72,12 @@ var (
 	pass string = ""
 
 	material string = "" +
-		"CoACNgL9twBlPW4SdH+LWNZ6+rOwdU8etZacpMa+a+X7e8BUp1sRntIfQ5sYunwseYYaY/w8rTOewY9P" +
-		"wM5jH1ZQYukXakbWfjLzNsJ0pS4YaBIfNaDxlxqNEoygXvrn/9oon16xyuii0TGNtENyTRB3jmqgAwi3" +
-		"zexjyTvYO8S5sMUnoADxPgGAA7cKofpjZTRPl1LI+LACuL7EHELYWBQvFmUV8Q7HkYCIOUZpzyXNDRNl" +
-		"GAGKwKf6lnvFh++PVI/ob+JEWsXnlxyt62he2Cy243E6/fchWK8TCgjUKM4G6HAuv8+zxhonWq1j3xlv" +
-		"ic6l0hwLoqAiwiKTE8yo+RXytxIQW0iIZ07iyG4F9XfHcffgeBo9AM4ncZ/9Kj7faFUN5qmUjdO3/iTH" +
-		"YAEfloLSyXjEcsrX/oMOe+3gOd0U8fe0Q4AmRstQ5wUfJ62b60ks/TgB"
+		"CoACxgB8YF+43uKf1J7yuVtL1vfYHUYS3/s1ek5LOchxCen8YIRvumRPTieThba/iiO7dlnwBlFsey4U" +
+		"IO4AByGMx3+xhru04q3YCfN/YCf9H/8mMkwldsOafMHgs9J9PhGA6B0w84EIQJk72jAelj+qPJ/eEm1M" +
+		"m1uSt0m/xf+whKmQgkma3Hp0C93nhc8yKc6PczD5onQqrtqJIgf5xTcGC7ebEd3Qge0lwwxIcB0Y1cD/" +
+		"rxHtgRXhk+kzZSifVYYDp8WcZ0itV2X3QFHNvadDSnoGzyWZq/er7KLHP4xJvXq3dlZ3xODON4N7W6IO" +
+		"pE0DPuput+K2RackS9wrgXWc3xIQqtBvoklkzifqz46BN5djsxo9AAAAAAAAAAAAAAAAAAAAAAAAAAAA" +
+		"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADgB"
 
 	cryptor   = crypto.NoneCryptor()
 	encoder   = newTransmitter()
