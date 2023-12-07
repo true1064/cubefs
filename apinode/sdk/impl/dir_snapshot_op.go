@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"math"
 	"os"
@@ -153,6 +154,7 @@ func (d *dirSnapshotOp) CreateDirSnapshot(ctx context.Context, ver, subPath stri
 
 func (d *dirSnapshotOp) checkConflict(ctx context.Context, subPath, outVer string) error {
 	span := trace.SpanFromContextSafe(ctx)
+	// check if conflict with parent dir
 	dirIno, ver, err := d.mw.lookupSubDirVer(d.rootIno, subPath)
 	if err != nil {
 		span.Warnf("find snapshot path failed, rootIno %d, subPath %s, err %s",
@@ -290,7 +292,12 @@ func (d *dirSnapshotOp) Lookup(ctx context.Context, parentIno uint64, name strin
 
 	den, err := d.mw.LookupEx(ctx, parentIno, name)
 	if err != nil {
-		span.Errorf("look up file failed, parIno %d, name %s, err %s", parentIno, name, err.Error())
+		msg := fmt.Sprintf("look up file failed, parIno %d, name %s, err %s", parentIno, name, err.Error())
+		if err == syscall.ENOENT {
+			span.Infof(msg)
+		} else {
+			span.Error(msg)
+		}
 		return nil, syscallToErr(err)
 	}
 

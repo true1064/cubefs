@@ -97,7 +97,7 @@ var (
 	ErrInvalidPart      = &Error{Status: 400, Code: "BadRequest", Message: "request part is invalid"}
 	ErrLimitExceed      = &Error{Status: 429, Code: "TooManyRequests", Message: "request limit exceed"}
 	ErrConflict         = &Error{Status: 409, Code: "OperationConflict", Message: "operation conflict"}
-	ErrExist            = &Error{Status: 409, Code: "OperationConflict", Message: "operation conflict"}
+	ErrExist            = &Error{Status: 409, Code: "OperationConflict", Message: "already exist"}
 	ErrTooLarge         = &Error{Status: 413, Code: "RequestTooLarge", Message: "request entity too large"}
 
 	ErrInternalServerError = &Error{Status: 500, Code: "InternalServerError", Message: "internal server error"}
