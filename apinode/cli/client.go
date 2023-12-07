@@ -15,6 +15,7 @@
 package cli
 
 import (
+	"archive/tar"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -22,6 +23,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 
 	"github.com/cubefs/cubefs/apinode/drive"
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
@@ -222,6 +224,85 @@ func (c *client) FileBatchDelete(paths []string) (r drive.BatchDeleteResult, err
 		panic(err)
 	}
 	err = c.requestWith(del, genURI("/v1/files/batch"), bytes.NewReader(b), &r)
+	return
+}
+
+type cliFile struct {
+	path    string
+	content string
+	fileID  string
+	meta    []string
+}
+
+func (c *client) FileBatchUpload(files []cliFile) (r drive.BatchUploadFileResult, err error) {
+	buf := new(bytes.Buffer)
+	tw := tar.NewWriter(buf)
+	for _, file := range files {
+		headers := make(map[string]string)
+		if file.fileID != "" {
+			headers[drive.PAXFileID] = file.fileID
+		}
+		if len(file.meta)%2 == 1 {
+			file.meta = append(file.meta, "")
+		}
+		for i := 0; i < len(file.meta); i += 2 {
+			headers[drive.UserPropertyPrefix+file.meta[i]] = file.meta[i+1]
+		}
+		if err = tw.WriteHeader(&tar.Header{
+			Format:     tar.FormatPAX,
+			Name:       file.path,
+			Size:       int64(len(file.content)),
+			PAXRecords: headers,
+		}); err != nil {
+			panic(err)
+		}
+		if _, err = tw.Write([]byte(file.content)); err != nil {
+			panic(err)
+		}
+	}
+	err = c.requestWith(post, genURI("/v1/files/uploads"), buf, &r)
+	return
+}
+
+func (c *client) FileBatchDownload(files []string) (err error) {
+	data, _ := json.Marshal(files)
+	req, err := http.NewRequest(get, host+genURI("/v1/files/contents"), bytes.NewReader(data))
+	if err != nil {
+		return
+	}
+	_, material := requester(io.MultiReader())
+	setHeaders(req, material, nil)
+
+	resp, err := c.Do(context.Background(), req)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		err = newStatusError(rpc.ParseData(resp, nil), resp.Header.Get("x-cfa-trace-id"))
+		return
+	}
+
+	tr := tar.NewReader(responser(resp.Body, resp.Header.Get(drive.HeaderCipherMaterial)))
+	for {
+		var hdr *tar.Header
+		hdr, err = tr.Next()
+		if err == io.EOF {
+			err = nil
+			break
+		}
+		if err != nil {
+			return
+		}
+		fmt.Println("- - - - - - - - - -")
+		fmt.Println("file name:", hdr.Name)
+		fmt.Println("file size:", hdr.Size)
+		fmt.Println("file content:")
+		if _, err = io.Copy(os.Stdout, tr); err != nil {
+			return
+		}
+		fmt.Println()
+	}
 	return
 }
 

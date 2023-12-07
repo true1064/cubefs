@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/desertbit/grumble"
 
@@ -282,6 +283,36 @@ func addCmdFile(cmd *grumble.Command) {
 			err := cli.FileDownload(c.Flags.String("path"), from, to, w)
 			printSting()
 			return err
+		},
+	})
+	fileCommand.AddCommand(&grumble.Command{
+		Name: "batchupload",
+		Help: "batch upload file",
+		Args: func(a *grumble.Args) {
+			a.StringList("files", "[path content fileid metas|...]")
+		},
+		Run: func(c *grumble.Context) error {
+			var files []cliFile
+			for _, line := range c.Args.StringList("files") {
+				file := strings.Split(line, " ")
+				files = append(files, cliFile{
+					path:    file[0],
+					content: file[1],
+					fileID:  file[2],
+					meta:    file[3:],
+				})
+			}
+			return show(cli.FileBatchUpload(files))
+		},
+	})
+	fileCommand.AddCommand(&grumble.Command{
+		Name: "batchdownload",
+		Help: "batch download file",
+		Args: func(a *grumble.Args) {
+			a.StringList("files", "path path path")
+		},
+		Run: func(c *grumble.Context) error {
+			return cli.FileBatchDownload(c.Args.StringList("files"))
 		},
 	})
 }
