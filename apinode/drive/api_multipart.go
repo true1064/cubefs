@@ -303,7 +303,7 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 	if err == sdk.ErrNotFound {
 		if args.FileID != 0 {
 			span.Warn("not found file with id", args.FileID)
-			d.respError(c, sdk.ErrConflict)
+			d.respError(c, sdk.Conflicted(0))
 			return
 		}
 	} else if err != nil {
@@ -321,7 +321,7 @@ func (d *DriveNode) multipartComplete(c *rpc.Context, args *ArgsMPUploads) {
 			return
 		} else if fileInfo.FileId != args.FileID {
 			span.Warn("fileid mismatch", args.FileID, fileInfo.FileId)
-			d.respError(c, sdk.ErrConflict)
+			d.respError(c, sdk.Conflicted(fileInfo.FileId))
 			return
 		}
 	}

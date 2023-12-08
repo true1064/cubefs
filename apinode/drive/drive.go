@@ -417,14 +417,14 @@ func (d *DriveNode) lookupFileID(ctx context.Context, vol sdk.IVolume, parentIno
 	dirInfo, err := d.lookup(ctx, vol, parentIno, path)
 	if err == sdk.ErrNotFound {
 		if fileID != 0 {
-			return sdk.ErrConflict
+			return sdk.Conflicted(0)
 		}
 		return nil
 	} else if err != nil {
 		return err
 	}
 	if dirInfo.FileId != fileID {
-		return sdk.ErrConflict
+		return sdk.Conflicted(dirInfo.FileId)
 	}
 	return nil
 }

@@ -238,7 +238,7 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 	dirInfo, err := d.lookupFile(ctx, vol, root, args.Path.String())
 	if err != nil {
 		if err == sdk.ErrNotFound {
-			err = sdk.ErrConflict
+			err = sdk.Conflicted(0)
 		}
 		span.Warn("lookup file", args, err)
 		d.respError(c, err)
@@ -246,7 +246,7 @@ func (d *DriveNode) handleFileWrite(c *rpc.Context) {
 	}
 	if dirInfo.FileId != args.FileID {
 		span.Warn("fileid mismatch", args.FileID, dirInfo.FileId)
-		d.respError(c, sdk.ErrConflict)
+		d.respError(c, sdk.Conflicted(dirInfo.FileId))
 		return
 	}
 
@@ -657,10 +657,10 @@ func (d *DriveNode) handleFileRename(c *rpc.Context) {
 		}
 		dstParentIno = Inode(dstParent.Inode)
 	}
-	_, err = d.lookup(ctx, vol, dstParentIno, dstName)
+	dstInfo, err := d.lookup(ctx, vol, dstParentIno, dstName)
 	if err == nil {
 		span.Info("check dst exist:", args.Dst.String())
-		d.respError(c, sdk.ErrConflict)
+		d.respError(c, sdk.Conflicted(dstInfo.FileId))
 		return
 	} else if err != sdk.ErrNotFound {
 		span.Warn("check dst", err)

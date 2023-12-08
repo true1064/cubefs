@@ -111,3 +111,11 @@ var (
 	ErrNoCluster  = &Error{Status: 500, Code: "InternalServerError", Message: "no valid cluster"}
 	ErrNoVolume   = &Error{Status: 500, Code: "InternalServerError", Message: "no valid volume"}
 )
+
+func Conflicted(id uint64) *Error {
+	return &Error{
+		Status:  ErrConflict.Status,
+		Code:    fmt.Sprintf("%s:%d", ErrConflict.Code, id),
+		Message: ErrConflict.Message,
+	}
+}
