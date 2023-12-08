@@ -206,7 +206,8 @@ type ArgsBatchDelete struct {
 
 type ErrorEntry struct {
 	Path    string `json:"path"`
-	Code    int    `json:"code"`
+	Status  int    `json:"status"`
+	Code    string `json:"code"`
 	Message string `json:"message"`
 }
 
@@ -277,10 +278,12 @@ func (d *DriveNode) handleBatchDelete(c *rpc.Context) {
 		if r.err == nil {
 			res.Deleted = append(res.Deleted, r.path)
 		} else {
+			rpcErr := rpc.Error2HTTPError(r.err)
 			res.Errors = append(res.Errors, ErrorEntry{
 				Path:    r.path,
-				Code:    rpc.Error2HTTPError(r.err).StatusCode(),
-				Message: r.err.Error(),
+				Status:  rpcErr.StatusCode(),
+				Code:    rpcErr.ErrorCode(),
+				Message: rpcErr.Error(),
 			})
 		}
 	}

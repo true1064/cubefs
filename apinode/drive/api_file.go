@@ -16,6 +16,7 @@ package drive
 
 import (
 	"archive/tar"
+	"bytes"
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
@@ -24,11 +25,18 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
 	"github.com/cubefs/cubefs/blobstore/common/rpc"
 )
+
+var bytesPool = sync.Pool{
+	New: func() interface{} {
+		return new(bytes.Buffer)
+	},
+}
 
 // ArgsFileUpload file upload argument.
 type ArgsFileUpload struct {
@@ -105,81 +113,136 @@ type BatchUploadFileResult struct {
 	Errors   []ErrorEntry `json:"error"`
 }
 
+type uploadFilePipe struct {
+	hdr     *tar.Header
+	content *bytes.Buffer
+}
+
 func (d *DriveNode) handleFileUploadBatch(c *rpc.Context) {
 	ctx, span := d.ctxSpan(c)
 
 	uid := d.userID(c, nil)
-	ur, vol, err := d.getUserRouterAndVolume(ctx, uid)
-	if d.checkError(c, func(err error) { span.Warn(err) }, err, ur.CanWrite()) {
+	ur, vol, errx := d.getUserRouterAndVolume(ctx, uid)
+	if d.checkError(c, func(err error) { span.Warn(err) }, errx, ur.CanWrite()) {
 		return
 	}
 	root := ur.RootFileID
 
+	var respLock sync.Mutex
 	resp := BatchUploadFileResult{
 		Uploaded: []FileInfo{},
 		Errors:   []ErrorEntry{},
 	}
 
-	st := time.Now()
-	var args ArgsFileUpload
 	tr := tar.NewReader(c.Request.Body)
-	for {
-		hdr, errx := tr.Next()
-		if errx == io.EOF {
-			break // End of archive
-		}
-		if errx != nil {
-			span.Warn(errx)
-			err = sdk.ErrBadRequest.Extend("file header", errx)
-			break
-		}
+	addErr := func(path string, e error) {
+		rpcErr := rpc.Error2HTTPError(e)
+		respLock.Lock()
+		resp.Errors = append(resp.Errors, ErrorEntry{
+			Path:    path,
+			Status:  rpcErr.StatusCode(),
+			Code:    rpcErr.ErrorCode(),
+			Message: rpcErr.Error(),
+		})
+		respLock.Unlock()
+	}
 
-		args.Path = FilePath(hdr.Name)
-		if err = args.Path.Clean(true); err != nil {
-			break
+	const cc = 8
+	filePipe := make(chan uploadFilePipe, cc)
+	go func() {
+		st := time.Now()
+		defer func() {
+			close(filePipe)
+			span.AppendTrackLog("cfubr", st, nil)
+		}()
+
+		for {
+			hdr, err := tr.Next()
+			if err == io.EOF {
+				return // end of archive
+			}
+			if err != nil {
+				span.Warn(err)
+				addErr("", sdk.ErrBadRequest.Extend("file header", err))
+				return
+			}
+
+			if hdr.Size > 32<<20 { // 32M
+				span.Errorf("skip over size file %s %d", hdr.Name, hdr.Size)
+				addErr(hdr.Name, sdk.ErrBadRequest.Extend("file over size"))
+				if _, err = io.CopyN(io.Discard, tr, hdr.Size); err != nil {
+					return
+				}
+				continue
+			}
+
+			content := bytesPool.Get().(*bytes.Buffer)
+			if _, err = io.CopyN(content, tr, hdr.Size); err != nil {
+				addErr(hdr.Name, sdk.ErrBadRequest.Extend("read body"))
+				return
+			}
+			filePipe <- uploadFilePipe{hdr: hdr, content: content}
 		}
-		args.FileID = 0
+	}()
+
+	uploadFile := func(tarFile uploadFilePipe) {
+		hdr := tarFile.hdr
+		content := tarFile.content
+		defer func() {
+			content.Reset()
+			bytesPool.Put(content)
+		}()
+
+		args := ArgsFileUpload{Path: FilePath(hdr.Name)}
+		if err := args.Path.Clean(true); err != nil {
+			addErr(args.Path.String(), err)
+			return
+		}
+		path := args.Path.String()
+
 		if fileID := hdr.PAXRecords[PAXFileID]; fileID != "" {
 			id, errx := strconv.ParseUint(fileID, 10, 64)
 			if errx != nil {
-				err = sdk.ErrBadRequest.Extend("parse fileid", errx)
-				break
+				addErr(path, sdk.ErrBadRequest.Extend("parse fileid", errx))
+				return
 			}
 			args.FileID = id
 		}
 
 		dir, filename := args.Path.Split()
-		var ino Inode
-		ino, _, err = d.createDir(ctx, vol, root, dir.String(), true)
+		ino, _, err := d.createDir(ctx, vol, root, dir.String(), true)
 		if err != nil {
 			span.Warn(root, dir, err)
-			break
+			addErr(path, err)
+			return
 		}
 
 		if err = d.lookupFileID(ctx, vol, ino, filename, args.FileID); err != nil {
 			span.Errorf("lookup %+v error: %v", args, err)
-			break
+			addErr(path, err)
+			return
 		}
 
 		hasher := md5.New()
-		var reader io.Reader = io.TeeReader(newFixedReader(tr, hdr.Size), hasher)
+		var reader io.Reader = io.TeeReader(newFixedReader(content, hdr.Size), hasher)
 		paxHeader := make(http.Header)
 		paxHeader.Set(HeaderCrc32, hdr.PAXRecords[PAXCrc32])
 		paxHeader.Set(HeaderMD5, hdr.PAXRecords[PAXMD5])
 		if reader, err = newCrc32Reader(paxHeader, reader, span.Warnf); err != nil {
-			break
+			addErr(path, err)
+			return
 		}
 		if reader, err = d.getFileEncryptor(ctx, ur.CipherKey, reader); err != nil {
-			break
+			addErr(path, err)
+			return
 		}
 		var extend map[string]string
 		if extend, err = d.getPropertiesTar(hdr.PAXRecords); err != nil {
-			break
+			addErr(path, err)
+			return
 		}
 
-		var inode *sdk.InodeInfo
-		var fileID uint64
-		inode, fileID, err = vol.UploadFile(ctx, &sdk.UploadFileReq{
+		inode, fileID, err := vol.UploadFile(ctx, &sdk.UploadFileReq{
 			ParIno:    ino.Uint64(),
 			Name:      filename,
 			OldFileId: args.FileID,
@@ -197,22 +260,33 @@ func (d *DriveNode) handleFileUploadBatch(c *rpc.Context) {
 		span.Info("to uploads file", args, extend)
 		if err != nil {
 			span.Error("uploads file", err)
-			break
+			addErr(path, err)
+			return
 		}
 
 		d.out.Publish(ctx, makeOpLog(OpUploadFile, d.requestID(c), uid, args.Path.String(), "size", inode.Size))
+		respLock.Lock()
 		resp.Uploaded = append(resp.Uploaded, *inode2file(inode, fileID, args.Path.String(), extend))
+		respLock.Unlock()
 	}
 
-	if err != nil {
-		ee := rpc.Error2HTTPError(err)
-		resp.Errors = append(resp.Errors, ErrorEntry{
-			Path:    args.Path.String(),
-			Code:    ee.StatusCode(),
-			Message: ee.Error(),
-		})
+	st := time.Now()
+	var wg sync.WaitGroup
+	wg.Add(cc)
+	for range [cc]struct{}{} {
+		go func() {
+			defer wg.Done()
+			for {
+				tarFile, ok := <-filePipe
+				if !ok {
+					return
+				}
+				uploadFile(tarFile)
+			}
+		}()
 	}
-	span.AppendTrackLog("cfub", st, err)
+	wg.Wait()
+	span.AppendTrackLog("cfubw", st, nil)
 	d.respData(c, resp)
 }
 
@@ -515,6 +589,11 @@ func (d *DriveNode) handleFileDownload(c *rpc.Context) {
 // ArgsFileDownloadBatch files download.
 type ArgsFileDownloadBatch []FilePath
 
+type downloadFilePipe struct {
+	hdr     *tar.Header
+	content io.Reader
+}
+
 func (d *DriveNode) handleFileDownloadBatch(c *rpc.Context) {
 	files := ArgsFileDownloadBatch{}
 	ctx, span := d.ctxSpan(c)
@@ -541,59 +620,92 @@ func (d *DriveNode) handleFileDownloadBatch(c *rpc.Context) {
 		return
 	}
 
-	c.Writer.Header().Set(rpc.HeaderContentType, rpc.MIMEStream)
+	c.Writer.Header().Set(rpc.HeaderContentType, "application/x-tar")
 	c.RespondStatus(http.StatusOK)
 
 	done := make(chan struct{})
-	go func() {
+	go func() { // write to client
 		st := time.Now()
-		_, err = io.Copy(c.Writer, body)
-		if err != nil {
-			span.Info("download copy failed", err)
+		if _, errx := io.Copy(c.Writer, body); errx != nil {
+			span.Info("download copy failed", errx)
 		}
 		dur := time.Since(st).Nanoseconds() / 1e6
 		span.AppendRPCTrackLog([]string{fmt.Sprintf("cfdb:%d", dur)})
 		close(done)
 	}()
 
-	tw := tar.NewWriter(pipeW)
-	for _, path := range files {
+	const cc = 8
+	filePipe := make(chan downloadFilePipe, cc)
+
+	downloadFile := func(path string) { // read a file to pipeline
 		span.Debug("to download", path)
-		file, err := d.lookupFile(ctx, vol, root, path.String())
-		if err != nil {
-			span.Warn(path, err)
-			break
+		file, errd := d.lookupFile(ctx, vol, root, path)
+		if errd != nil {
+			span.Warn(path, errd)
+			return
 		}
 
-		inode, err := vol.GetInode(ctx, file.Inode)
-		if err != nil {
-			span.Warn(file.Inode, err)
-			break
+		inode, errd := vol.GetInode(ctx, file.Inode)
+		if errd != nil {
+			span.Warn(file.Inode, errd)
+			return
 		}
-		hdr := &tar.Header{
-			Name:   path.String(),
-			Size:   int64(inode.Size),
-			Format: tar.FormatPAX,
-		}
+		hdr := &tar.Header{Name: path, Size: int64(inode.Size)}
 		if inode.Size == 0 {
-			if err = tw.WriteHeader(hdr); err != nil {
-				span.Warn(err)
+			filePipe <- downloadFilePipe{hdr: hdr, content: io.MultiReader()}
+			return
+		}
+
+		fileBody, errd := d.makeBlockedReader(ctx, vol, inode.Inode, 0, ur.CipherKey)
+		if errd != nil {
+			span.Warn(errd)
+			return
+		}
+		filePipe <- downloadFilePipe{hdr: hdr, content: fileBody}
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(cc)
+	pathPipe := make(chan string)
+	for range [cc]struct{}{} { // workers
+		go func() {
+			defer wg.Done()
+			path, ok := <-pathPipe
+			if !ok {
+				return
+			}
+			downloadFile(path)
+		}()
+	}
+
+	cancelCh := make(chan struct{})
+	go func() {
+		var canceled bool
+		for _, path := range files {
+			select {
+			case <-cancelCh:
+				canceled = true
+			case pathPipe <- path.String():
+			}
+			if canceled {
 				break
 			}
-			continue
 		}
+		close(pathPipe)
+		wg.Wait()
+		close(filePipe)
+	}()
 
-		fileBody, err := d.makeBlockedReader(ctx, vol, inode.Inode, 0, ur.CipherKey)
-		if err != nil {
+	tw := tar.NewWriter(pipeW)
+	for tarFile := range filePipe {
+		if err = tw.WriteHeader(tarFile.hdr); err != nil {
 			span.Warn(err)
+			close(cancelCh)
 			break
 		}
-		if err = tw.WriteHeader(hdr); err != nil {
-			span.Warn(err)
-			break
-		}
-		if _, err = io.CopyN(tw, fileBody, int64(inode.Size)); err != nil {
+		if _, err = io.CopyN(tw, tarFile.content, tarFile.hdr.Size); err != nil {
 			span.Warn("write body", err)
+			close(cancelCh)
 			break
 		}
 	}

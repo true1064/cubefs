@@ -162,7 +162,7 @@ func TestHandleFileBatchUpload(t *testing.T) {
 	var res BatchUploadFileResult
 	hasError := func(status int) {
 		require.Equal(t, 1, len(res.Errors))
-		require.Equal(t, status, res.Errors[0].Code, res.Errors[0].Message)
+		require.Equal(t, status, res.Errors[0].Status, res.Errors[0].Message)
 	}
 	{
 		node.TestGetUser(t, func() rpc.HTTPError {
@@ -271,6 +271,32 @@ func TestHandleFileBatchUpload(t *testing.T) {
 			})
 		require.NoError(t, doRequest(buf, &res))
 		hasError(sdk.ErrMismatchChecksum.Status)
+		buf.Reset()
+	}
+	{
+		hdr.PAXRecords[PAXMD5] = "md5"
+		tw := tar.NewWriter(buf)
+		require.NoError(t, tw.WriteHeader(hdr))
+		_, err := tw.Write(body.buff[:])
+		require.NoError(t, err)
+		require.NoError(t, tw.WriteHeader(hdr))
+		_, err = tw.Write(body.buff[:])
+		require.NoError(t, err)
+		delete(hdr.PAXRecords, PAXMD5)
+		require.NoError(t, tw.WriteHeader(hdr))
+		_, err = tw.Write(body.buff[:])
+		require.NoError(t, err)
+
+		node.OnceGetUser()
+		node.Volume.EXPECT().UploadFile(A, A).DoAndReturn(
+			func(_ context.Context, req *sdk.UploadFileReq) (*sdk.InodeInfo, uint64, error) {
+				err := req.Callback()
+				return &sdk.InodeInfo{Inode: node.GenInode()}, uint64(100), err
+			}).Times(3)
+		require.NoError(t, doRequest(buf, &res))
+		require.Equal(t, 1, len(res.Uploaded))
+		require.Equal(t, 2, len(res.Errors))
+		require.Equal(t, sdk.ErrMismatchChecksum.Status, res.Errors[1].Status, res.Errors[1].Message)
 		buf.Reset()
 	}
 	hasher := md5.New()
@@ -746,15 +772,15 @@ func TestHandleFileBatchDownload(t *testing.T) {
 	body, _ := json.Marshal([]string{"/a", "/b", "/c"})
 	{
 		node.OnceGetUser()
-		node.OnceLookup(true)
+		node.LookupDirN(3)
 		resp := doRequest(body)
 		resp.Body.Close()
 		require.Equal(t, 200, resp.StatusCode)
 	}
 	{
 		node.OnceGetUser()
-		node.OnceLookup(false)
-		node.Volume.EXPECT().GetInode(A, A).Return(nil, e1)
+		node.LookupN(3)
+		node.Volume.EXPECT().GetInode(A, A).Return(nil, e1).Times(3)
 		resp := doRequest(body)
 		buff, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
