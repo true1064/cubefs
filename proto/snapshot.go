@@ -27,15 +27,16 @@ type SnapshotVerDelTask struct {
 	Mode           SnapshotMode
 	Id             string
 	VolName        string
-	UpdateTime     int64
 	VolVersionInfo *VersionInfo
 	DirVersionInfo *DirVersionInfoTask
 }
 
 type SnapshotVerDelTaskResponse struct {
 	ID                 string
+	LcNode             string
 	StartTime          *time.Time
 	EndTime            *time.Time
+	UpdateTime         *time.Time
 	Done               bool
 	Status             uint8
 	Result             string
