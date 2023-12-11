@@ -15,6 +15,7 @@
 package drive
 
 import (
+	"context"
 	"crypto/md5"
 	"crypto/sha1"
 	"crypto/sha256"
@@ -279,4 +280,16 @@ func verifyMD5(header http.Header, fileMD5 string) error {
 		return sdk.ErrMismatchChecksum.Extend("md5 mismatch", fileMD5, md5Header)
 	}
 	return nil
+}
+
+type traceLogKey struct{}
+
+var noTraceLog = traceLogKey{}
+
+func withNoTraceLog(ctx context.Context) context.Context {
+	return context.WithValue(ctx, noTraceLog, struct{}{})
+}
+
+func hasTraceLog(ctx context.Context) bool {
+	return ctx.Value(noTraceLog) == nil
 }

@@ -66,7 +66,7 @@ func (d *DriveNode) RegisterAPIRouters() *rpc.Router {
 	r.Handle(http.MethodPost, "/v1/files/uploads", d.handleFileUploadBatch)
 	r.Handle(http.MethodPut, "/v1/files/content", d.handleFileWrite, rpc.OptArgsQuery())
 	r.Handle(http.MethodGet, "/v1/files/content", d.handleFileDownload, rpc.OptArgsQuery())
-	r.Handle(http.MethodGet, "/v1/files/contents", d.handleFileDownloadBatch, rpc.OptArgsBody())
+	r.Handle(http.MethodPost, "/v1/files/contents", d.handleFileDownloadBatch, rpc.OptArgsBody())
 	r.Handle(http.MethodGet, "/v1/files/verify", d.handleFileVerify, rpc.OptArgsQuery())
 	r.Handle(http.MethodPost, "/v1/files/copy", d.handleFileCopy, rpc.OptArgsQuery())
 	r.Handle(http.MethodPost, "/v1/files/rename", d.handleFileRename, rpc.OptArgsQuery())

@@ -746,7 +746,7 @@ func TestHandleFileBatchDownload(t *testing.T) {
 
 	doRequest := func(body []byte) *http.Response {
 		url := genURL(server.URL, "/v1/files/contents")
-		req, _ := http.NewRequest(http.MethodGet, url, bytes.NewReader(body))
+		req, _ := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 		req.Header.Add(HeaderUserID, testUserID.ID)
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
@@ -785,8 +785,16 @@ func TestHandleFileBatchDownload(t *testing.T) {
 		buff, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
 		require.NoError(t, err)
-		require.Equal(t, 0, len(buff))
 		require.Equal(t, 200, resp.StatusCode)
+		tr := tar.NewReader(bytes.NewReader(buff))
+		for range [3]struct{}{} {
+			hdr, err := tr.Next()
+			require.NoError(t, err)
+			require.Equal(t, int64(0), hdr.Size)
+			require.Equal(t, fmt.Sprintf("%d", e1.Status), hdr.PAXRecords[PAXDownloadStatus])
+			require.Equal(t, e1.ErrorCode(), hdr.PAXRecords[PAXDownloadCode])
+			require.Equal(t, e1.Error(), hdr.PAXRecords[PAXDownloadError])
+		}
 	}
 	{
 		size := 1024
@@ -823,6 +831,34 @@ func TestHandleFileBatchDownload(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, size, len(buff))
 			}
+		}
+	}
+	{
+		const n = 100
+		node.OnceGetUser()
+		node.LookupN(n)
+		node.Volume.EXPECT().GetInode(A, A).DoAndReturn(
+			func(_ context.Context, ino uint64) (*proto.InodeInfo, error) {
+				return &proto.InodeInfo{
+					Size:  0,
+					Inode: ino,
+				}, nil
+			}).Times(n)
+
+		var files []string
+		for range [n]struct{}{} {
+			files = append(files, "/a")
+		}
+		reqBody, _ := json.Marshal(files)
+		resp := doRequest(reqBody)
+		defer resp.Body.Close()
+
+		tr := tar.NewReader(resp.Body)
+		for range [n]struct{}{} {
+			hdr, err := tr.Next()
+			require.NoError(t, err)
+			require.Equal(t, int64(0), hdr.Size)
+			require.Equal(t, 0, len(hdr.PAXRecords))
 		}
 	}
 }

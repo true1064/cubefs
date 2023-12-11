@@ -17,6 +17,7 @@ package drive
 import (
 	"archive/tar"
 	"bytes"
+	"context"
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
@@ -210,15 +211,15 @@ func (d *DriveNode) handleFileUploadBatch(c *rpc.Context) {
 		}
 
 		dir, filename := args.Path.Split()
-		ino, _, err := d.createDir(ctx, vol, root, dir.String(), true)
+		ino, _, err := d.createDir(withNoTraceLog(ctx), vol, root, dir.String(), true)
 		if err != nil {
 			span.Warn(root, dir, err)
 			addErr(path, err)
 			return
 		}
 
-		if err = d.lookupFileID(ctx, vol, ino, filename, args.FileID); err != nil {
-			span.Errorf("lookup %+v error: %v", args, err)
+		if err = d.lookupFileID(withNoTraceLog(ctx), vol, ino, filename, args.FileID); err != nil {
+			span.Warnf("lookup %+v error: %v", args, err)
 			addErr(path, err)
 			return
 		}
@@ -232,7 +233,7 @@ func (d *DriveNode) handleFileUploadBatch(c *rpc.Context) {
 			addErr(path, err)
 			return
 		}
-		if reader, err = d.getFileEncryptor(ctx, ur.CipherKey, reader); err != nil {
+		if reader, err = d.getFileEncryptor(withNoTraceLog(ctx), ur.CipherKey, reader); err != nil {
 			addErr(path, err)
 			return
 		}
@@ -257,14 +258,14 @@ func (d *DriveNode) handleFileUploadBatch(c *rpc.Context) {
 				return nil
 			},
 		})
-		span.Info("to uploads file", args, extend)
+		span.Infof("to uploads file %+v extend %v", args, extend)
 		if err != nil {
 			span.Error("uploads file", err)
 			addErr(path, err)
 			return
 		}
 
-		d.out.Publish(ctx, makeOpLog(OpUploadFile, d.requestID(c), uid, args.Path.String(), "size", inode.Size))
+		d.out.Publish(context.Background(), makeOpLog(OpUploadFile, d.requestID(c), uid, args.Path.String(), "size", inode.Size))
 		respLock.Lock()
 		resp.Uploaded = append(resp.Uploaded, *inode2file(inode, fileID, args.Path.String(), extend))
 		respLock.Unlock()
@@ -287,6 +288,8 @@ func (d *DriveNode) handleFileUploadBatch(c *rpc.Context) {
 	}
 	wg.Wait()
 	span.AppendTrackLog("cfubw", st, nil)
+
+	span.Infof("batch uploaded(%d) error(%d)", len(resp.Uploaded), len(resp.Errors))
 	d.respData(c, resp)
 }
 
@@ -639,7 +642,27 @@ func (d *DriveNode) handleFileDownloadBatch(c *rpc.Context) {
 
 	downloadFile := func(path string) { // read a file to pipeline
 		span.Debug("to download", path)
-		file, errd := d.lookupFile(ctx, vol, root, path)
+
+		hdr := &tar.Header{Name: path}
+		var errd error
+		defer func() {
+			if errd == nil {
+				return
+			}
+
+			hdr.Size = 0
+			hdr.Format = tar.FormatPAX
+
+			rpcErr := rpc.Error2HTTPError(errd)
+			hdr.PAXRecords = map[string]string{
+				PAXDownloadStatus: fmt.Sprintf("%d", rpcErr.StatusCode()),
+				PAXDownloadCode:   rpcErr.ErrorCode(),
+				PAXDownloadError:  rpcErr.Error(),
+			}
+			filePipe <- downloadFilePipe{hdr: hdr, content: io.MultiReader()}
+		}()
+
+		file, errd := d.lookupFile(withNoTraceLog(ctx), vol, root, path)
 		if errd != nil {
 			span.Warn(path, errd)
 			return
@@ -650,13 +673,13 @@ func (d *DriveNode) handleFileDownloadBatch(c *rpc.Context) {
 			span.Warn(file.Inode, errd)
 			return
 		}
-		hdr := &tar.Header{Name: path, Size: int64(inode.Size)}
 		if inode.Size == 0 {
 			filePipe <- downloadFilePipe{hdr: hdr, content: io.MultiReader()}
 			return
 		}
+		hdr.Size = int64(inode.Size)
 
-		fileBody, errd := d.makeBlockedReader(ctx, vol, inode.Inode, 0, ur.CipherKey)
+		fileBody, errd := d.makeBlockedReader(withNoTraceLog(ctx), vol, inode.Inode, 0, ur.CipherKey)
 		if errd != nil {
 			span.Warn(errd)
 			return
@@ -670,11 +693,9 @@ func (d *DriveNode) handleFileDownloadBatch(c *rpc.Context) {
 	for range [cc]struct{}{} { // workers
 		go func() {
 			defer wg.Done()
-			path, ok := <-pathPipe
-			if !ok {
-				return
+			for path := range pathPipe {
+				downloadFile(path)
 			}
-			downloadFile(path)
 		}()
 	}
 
@@ -708,6 +729,9 @@ func (d *DriveNode) handleFileDownloadBatch(c *rpc.Context) {
 			close(cancelCh)
 			break
 		}
+	}
+
+	for range filePipe {
 	}
 	tw.Flush()
 	pipeW.Close()

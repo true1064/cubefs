@@ -266,7 +266,7 @@ func (c *client) FileBatchUpload(files []cliFile) (r drive.BatchUploadFileResult
 
 func (c *client) FileBatchDownload(files []string) (err error) {
 	data, _ := json.Marshal(files)
-	req, err := http.NewRequest(get, host+genURI("/v1/files/contents"), bytes.NewReader(data))
+	req, err := http.NewRequest(post, host+genURI("/v1/files/contents"), bytes.NewReader(data))
 	if err != nil {
 		return
 	}
@@ -297,6 +297,10 @@ func (c *client) FileBatchDownload(files []string) (err error) {
 		fmt.Println("- - - - - - - - - -")
 		fmt.Println("file name:", hdr.Name)
 		fmt.Println("file size:", hdr.Size)
+		fmt.Println("file pax :")
+		for k, v := range hdr.PAXRecords {
+			fmt.Printf("    %s:%s\n", k, v)
+		}
 		fmt.Println("file content:")
 		if _, err = io.Copy(os.Stdout, tr); err != nil {
 			return
