@@ -353,7 +353,7 @@ func (se *SortedExtents) AppendWithCheck(inodeID uint64, ek proto.ExtentKey, add
 		return
 	}
 
-	if lastKey.FileOffset == ek.FileOffset &&
+	if lastKey.FileOffset == ek.FileOffset && lastKey.ExtentId == ek.ExtentId &&
 		lastKey.PartitionId == ek.PartitionId &&
 		lastKey.ExtentOffset == ek.ExtentOffset && lastKey.Size < ek.Size &&
 		lastKey.GetSeq() < ek.GetSeq() {
