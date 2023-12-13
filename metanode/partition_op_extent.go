@@ -256,6 +256,13 @@ func (mp *metaPartition) checkVerList(masterListInfo *proto.VolVersionInfoList, 
 			info2.Status = vms.Status
 			needUpdate = true
 		}
+
+		if _, ok := verMapLocal[info2.Ver]; ok {
+			log.LogWarnf("checkVerList. vol %v, mp %d, ver %v already exist", mp.config.VolName, mp.config.PartitionId, info2.String())
+			needUpdate = true
+			continue
+		}
+
 		VerList = append(VerList, info2)
 		verMapLocal[info2.Ver] = info2.Status
 	}

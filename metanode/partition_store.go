@@ -260,6 +260,9 @@ func (mp *metaPartition) loadDirSnapshot(rootDir string) (err error) {
 		}
 
 		mp.dirVerTree.ReplaceOrInsert(item, true)
+		if log.EnableDebug() {
+			log.LogDebugf("loadDirSnapshot: load dir snapshot success, item %s", item.String())
+		}
 	}
 
 }
@@ -850,8 +853,9 @@ func (mp *metaPartition) loadMultiVer(rootDir string) (err error) {
 		err = errors.NewErrorf("[loadMultiVer] ReadVerList: %s", err.Error())
 		return
 	}
+
 	log.LogInfof("loadMultiVer: load complete: partitionID(%v) volume(%v) applyID(%v) filename(%v) data(%v) versionlist %v",
-		mp.config.PartitionId, mp.config.VolName, mp.applyID, filename, verData, mp.multiVersionList)
+		mp.config.PartitionId, mp.config.VolName, mp.applyID, filename, len(verData), mp.multiVersionList)
 
 	var verList []proto.VersionInfo
 	if err = json.Unmarshal([]byte(verData), &verList); err != nil {
@@ -869,7 +873,7 @@ func (mp *metaPartition) loadMultiVer(rootDir string) (err error) {
 	}
 
 	log.LogInfof("loadMultiVer: load complete: partitionID(%v) volume(%v) applyID(%v) filename(%v) verlist (%v) mp Ver(%v)",
-		mp.config.PartitionId, mp.config.VolName, mp.applyID, filename, mp.multiVersionList.VerList, mp.verSeq)
+		mp.config.PartitionId, mp.config.VolName, mp.applyID, filename, len(mp.multiVersionList.VerList), mp.verSeq)
 	return
 }
 
@@ -1211,6 +1215,10 @@ func (mp *metaPartition) storeDirSnapshot(rootDir string,
 		}
 		if _, err = sign.Write(data); err != nil {
 			return false
+		}
+
+		if log.EnableDebug() {
+			log.LogDebugf("storeDirSnapshot: store dir snapshot success, item %s", dir.String())
 		}
 		return true
 	})
