@@ -223,7 +223,7 @@ func (mp *metaPartition) fsmBatchDelDirSnapshot(ifo *BatchDelDirSnapInfo) (resp 
 	}
 
 	for _, ino := range delInoSlice {
-		mp.dirVerTree.Delete(ino)
+		// mp.dirVerTree.Delete(ino)
 		log.LogDebugf("fsmBatchDelDirSnapshot: delete dir snapshot, dir ino(%d), dir %s",
 			ino.SnapshotInode, ino.Dir)
 	}

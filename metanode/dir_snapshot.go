@@ -55,7 +55,7 @@ func newDirSnapItem(dirIno, rootIno uint64) *dirSnapshotItem {
 	}
 }
 
-func (d *dirSnapshotItem) buildDirSnapshotIfo(all bool) *proto.DirSnapshotInfo {
+func (d *dirSnapshotItem) buildDirSnapshotIfo() *proto.DirSnapshotInfo {
 	ifo := &proto.DirSnapshotInfo{
 		SnapshotDir:   d.Dir,
 		MaxVer:        d.MaxVer,
@@ -65,12 +65,10 @@ func (d *dirSnapshotItem) buildDirSnapshotIfo(all bool) *proto.DirSnapshotInfo {
 	d.RLock()
 	defer d.RUnlock()
 	for _, v := range d.Vers {
-		if all || v.IsNormal() {
-			ifo.Vers = append(ifo.Vers, &proto.ClientDirVer{
-				OutVer: v.OutVer,
-				Ver:    v.buildVerInfo(),
-			})
-		}
+		ifo.Vers = append(ifo.Vers, &proto.ClientDirVer{
+			OutVer: v.OutVer,
+			Ver:    v.buildVerInfo(),
+		})
 	}
 
 	ifo.Vers = append(ifo.Vers, &proto.ClientDirVer{

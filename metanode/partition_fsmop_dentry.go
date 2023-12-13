@@ -99,7 +99,9 @@ func (mp *metaPartition) fsmCreateDentry(dentry *Dentry,
 		// other when renaming
 		d := item.(*Dentry)
 		if d.isDeleted() {
-			log.LogDebugf("action[fsmCreateDentry] newest dentry %v be set deleted flag", d)
+			if log.EnableDebug() {
+				log.LogDebugf("action[fsmCreateDentry] newest dentry %v be set deleted flag", d)
+			}
 			
 			if d.getVerSeq() == dentry.getVerSeq() {
 				d.setVerSeq(dentry.getSeqFiled())
@@ -111,7 +113,9 @@ func (mp *metaPartition) fsmCreateDentry(dentry *Dentry,
 			d.Type = dentry.Type
 			d.ParentId = dentry.ParentId
 			d.FileId = dentry.FileId
-			log.LogDebugf("action[fsmCreateDentry.ver] latest dentry already deleted.Now create new one [%v]", dentry)
+			if log.EnableDebug() {
+				log.LogDebugf("action[fsmCreateDentry.ver] latest dentry already deleted.Now create new one [%v], d [%v]", dentry, d)
+			}
 
 			if !forceUpdate {
 				parIno.IncNLink(dentry.getVerSeq())

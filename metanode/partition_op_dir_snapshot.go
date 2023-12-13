@@ -30,7 +30,7 @@ func (mp *metaPartition) ListAllDirSnapshot(rootIno uint64, p *Packet) (err erro
 
 	mp.dirVerTree.AscendRange(startItem, endItem, func(i BtreeItem) bool {
 		dirVer := i.(*dirSnapshotItem)
-		resp.Items = append(resp.Items, dirVer.buildDirSnapshotIfo(false))
+		resp.Items = append(resp.Items, dirVer.buildDirSnapshotIfo())
 		return true
 	})
 

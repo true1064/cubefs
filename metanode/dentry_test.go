@@ -20,6 +20,8 @@ func TestDentry_Marshal(t *testing.T) {
 		VerSeq: 10,
 		dentryList: DentryBatch{
 			{Inode: 10, Type: 0x655, multiSnap: NewDentrySnap(10), Name: dentry.Name, ParentId: dentry.ParentId, FileId: 11},
+			{Inode: 10, Type: 0x655, multiSnap: NewDentrySnap(21), Name: dentry.Name, ParentId: dentry.ParentId, FileId: 13},
+			{Inode: 10, Type: 0x655, multiSnap: NewDentrySnap(31), Name: dentry.Name, ParentId: dentry.ParentId, FileId: 14},
 		},
 	}
 
@@ -53,6 +55,13 @@ func TestDentry_Marshal(t *testing.T) {
 	require.Equal(t, dentry.Inode, newDentry.Inode)
 	require.Equal(t, dentry.getSnapListLen(), newDentry.getSnapListLen())
 	require.Equal(t, dentry.getSeqFiled(), newDentry.getSeqFiled())
+	require.Equal(t, snap.VerSeq, newDentry.multiSnap.VerSeq)
+
+	for idx, s := range snap.dentryList {
+		ns := newDentry.multiSnap.dentryList[idx]
+		require.Equal(t, s, ns)
+		require.Equal(t, s.multiSnap.VerSeq, ns.multiSnap.VerSeq)
+	}
 }
 
 func Test_addVersion(t *testing.T) {
