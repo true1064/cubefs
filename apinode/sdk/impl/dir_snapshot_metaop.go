@@ -287,10 +287,32 @@ func (m *snapMetaOpImp) CreateDentryEx(ctx context.Context, req *sdk.CreateDentr
 	return fileId, nil
 }
 
+// check whether child snapshot info
+func (m *snapMetaOpImp) checkChildInoVer(parIno uint64, name string) error {
+	den, err := m.sm.LookupEx_ll(parIno, name)
+	if err != nil {
+		return err
+	}
+
+	ino := den.Inode
+	m.checkSnapshotIno(ino)
+	if m.hasSetVer && len(m.ver.Vers) > 1 {
+		return sdk.ErrNotEmpty
+	}
+
+	return nil
+}
+
 func (m *snapMetaOpImp) Delete(parentID uint64, name string, isDir bool) (*proto.InodeInfo, error) {
 	m.checkSnapshotIno(parentID)
 	if isSnapshotName(name) || !m.newestVer() {
 		return nil, sdk.ErrWriteSnapshot
+	}
+
+	if isDir && !m.hasSetVer {
+		if err := m.checkChildInoVer(parentID, name); err != nil {
+			return nil, err
+		}
 	}
 
 	return m.sm.Delete_ll(parentID, name, isDir)
