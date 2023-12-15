@@ -275,6 +275,8 @@ func statusToErrno(status int) error {
 		return syscall.EAGAIN
 	case statusUploadPartConflict:
 		return syscall.EEXIST
+	case statusSnapshotConflict:
+		return syscall.ENOTSUP
 	default:
 	}
 	return syscall.EIO
