@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/cubefs/cubefs/apinode/sdk"
@@ -82,8 +83,11 @@ type auth struct {
 func NewAuth(hostport, appkey string, tokenExp string) Auth {
 	exp, _ := time.ParseDuration(tokenExp)
 	cache, _ := memcache.NewMemCache(1 << 20)
+	if !strings.HasPrefix(hostport, "http") {
+		hostport = "https://" + hostport
+	}
 	return &auth{
-		url:    fmt.Sprintf("https://%s/sub/token/v1/auth", hostport),
+		url:    fmt.Sprintf("%s/sub/token/v1/auth", hostport),
 		appKey: appkey,
 		client: &http.Client{
 			Timeout: 30 * time.Second,
