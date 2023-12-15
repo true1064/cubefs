@@ -241,53 +241,6 @@ func (d *Dentry) deleteTopLayer(mpVerSeq uint64) (rd *Dentry, dmore bool, clean 
 		return nil, false, false
 	}
 
-  
-  
-  
-        
-  
-  
-      
-    
-
-  
-  
-    Check warning
-        on line 219
-        in metanode/dentry.go
-  
-
-
-
-  
-    
-      
-    
-
-    
-  
-
-  
-    
-    Codecov / codecov/patch
-  
-
-  
-    
-      metanode/dentry.go#L217-L219
-    
-  
-
-  
-    Added lines #L217 - L219 were not covered by tests
-  
-
-
-
-
-  
-
-
 	// if there's no snapshot itself, nor have snapshot after dentry's ver then need unlink directly and make no snapshot
 	// just move to upper layer,the request snapshot be dropped
 	if d.getSnapListLen() == 0 {
@@ -308,52 +261,6 @@ func (d *Dentry) deleteTopLayer(mpVerSeq uint64) (rd *Dentry, dmore bool, clean 
 		d.setVerSeq(mpVerSeq)
 	}
 
-  
-  
-  
-        
-  
-  
-      
-    
-
-  
-  
-    Check warning
-        on line 239
-        in metanode/dentry.go
-  
-
-
-
-  
-    
-      
-    
-
-    
-  
-
-  
-    
-    Codecov / codecov/patch
-  
-
-  
-    
-      metanode/dentry.go#L238-L239
-    
-  
-
-  
-    Added lines #L238 - L239 were not covered by tests
-  
-
-
-
-
-  
-
 	d.setVerSeq(mpVerSeq)
 	d.setDeleted() // denParm create at the same version.no need to push to history list
 	log.LogDebugf("action[deleteTopLayer.delSeq_0] den %v be set deleted at version seq %v", d, mpVerSeq)
@@ -361,7 +268,7 @@ func (d *Dentry) deleteTopLayer(mpVerSeq uint64) (rd *Dentry, dmore bool, clean 
 	return d, true, false
 }
 
-func (d *Dentry) updateTopLayerSeq(delVerSeq uint64, verlist []*proto.VolVersionInfo) (rd *Dentry, dmore bool, clean bool) {
+func (d *Dentry) updateTopLayerSeq(delVerSeq uint64, verlist []*proto.VersionInfo) (rd *Dentry, dmore bool, clean bool) {
 	if !isSeqEqual(delVerSeq, d.getVerSeq()) {
 		// header layer do nothing and be depends on should not be dropped
 		log.LogDebugf("action[updateTopLayerSeq.inSnapList_del_%v] den %v first layer do nothing", delVerSeq, d)
