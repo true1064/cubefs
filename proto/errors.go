@@ -93,12 +93,13 @@ var (
 	ErrVolNotDelete                            = errors.New("vol was not previously deleted or already deleted")
 	ErrVolHasDeleted                           = errors.New("vol has been deleted")
 	ErrCodeVersionOp                           = errors.New("version op failed")
-	ErrNoSuchLifecycleConfiguration            = errors.New("The lifecycle configuration does not exist")
 	ErrNoNodeSetToUpdateDecommissionDiskFactor = errors.New("no node set available for updating decommission disk factor")
 	ErrNoNodeSetToQueryDecommissionDiskLimit   = errors.New("no node set available for query decommission disk limit")
 	ErrNodeSetNotExists                        = errors.New("node set not exists")
 	ErrCompressFailed                          = errors.New("compress data failed")
 	ErrDecompressFailed                        = errors.New("decompress data failed")
+	ErrNoSuchLifecycleConfiguration            = errors.New("The lifecycle configuration does not exist")
+	ErrNoSupportStorageClass                   = errors.New("Lifecycle storage class not allowed")
 )
 
 // http response error code and error message definitions
@@ -168,6 +169,8 @@ const (
 	ErrCodeZoneNumError
 	ErrCodeVersionOpError
 	ErrCodeNodeSetNotExists
+	ErrCodeNoSuchLifecycleConfiguration
+	ErrCodeNoSupportStorageClass
 )
 
 // Err2CodeMap error map to code
@@ -233,6 +236,8 @@ var Err2CodeMap = map[error]int32{
 	ErrZoneNum:                         ErrCodeZoneNumError,
 	ErrCodeVersionOp:                   ErrCodeVersionOpError,
 	ErrNodeSetNotExists:                ErrCodeNodeSetNotExists,
+	ErrNoSuchLifecycleConfiguration:    ErrCodeNoSuchLifecycleConfiguration,
+	ErrNoSupportStorageClass:           ErrCodeNoSupportStorageClass,
 }
 
 func ParseErrorCode(code int32) error {
@@ -307,6 +312,8 @@ var code2ErrMap = map[int32]error{
 	ErrCodeNodeSetNotExists:                ErrNodeSetNotExists,
 	ErrCodeVolNotDelete:                    ErrVolNotDelete,
 	ErrCodeVolHasDeleted:                   ErrVolHasDeleted,
+	ErrCodeNoSuchLifecycleConfiguration:    ErrNoSuchLifecycleConfiguration,
+	ErrCodeNoSupportStorageClass:           ErrNoSupportStorageClass,
 }
 
 type GeneralResp struct {

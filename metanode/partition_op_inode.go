@@ -1136,7 +1136,7 @@ func (mp *metaPartition) InodeGetWithEk(req *InodeGetReq, p *Packet) (err error)
 			resp.LayAll = inode.Msg.getAllInodesInfo()
 		}
 		// get cache ek
-		ino.Extents.Range(func(ek proto.ExtentKey) bool {
+		ino.Extents.Range(func(_ int, ek proto.ExtentKey) bool {
 			resp.CacheExtents = append(resp.CacheExtents, ek)
 			log.LogInfof("action[InodeGetWithEk] Cache Extents append ek %v", ek)
 			return true
@@ -1145,7 +1145,7 @@ func (mp *metaPartition) InodeGetWithEk(req *InodeGetReq, p *Packet) (err error)
 		if ino.HybridCouldExtents.sortedEks != nil {
 			if proto.IsStorageClassReplica(ino.StorageClass) {
 				extents := ino.HybridCouldExtents.sortedEks.(*SortedExtents)
-				extents.Range(func(ek proto.ExtentKey) bool {
+				extents.Range(func(_ int, ek proto.ExtentKey) bool {
 					resp.HybridCloudExtents = append(resp.HybridCloudExtents, ek)
 					log.LogInfof("action[InodeGetWithEk] Extents append ek %v", ek)
 					return true
@@ -1162,7 +1162,7 @@ func (mp *metaPartition) InodeGetWithEk(req *InodeGetReq, p *Packet) (err error)
 		if ino.HybridCouldExtentsMigration.sortedEks != nil {
 			if proto.IsStorageClassReplica(ino.HybridCouldExtentsMigration.storageClass) {
 				extents := ino.HybridCouldExtentsMigration.sortedEks.(*SortedExtents)
-				extents.Range(func(ek proto.ExtentKey) bool {
+				extents.Range(func(_ int, ek proto.ExtentKey) bool {
 					resp.MigrationExtents = append(resp.MigrationExtents, ek)
 					log.LogInfof("action[ExtentsList] migrationExtents append ek %v", ek)
 					return true
