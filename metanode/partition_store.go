@@ -819,7 +819,7 @@ func (mp *metaPartition) loadUniqChecker(rootDir string, crc uint32) (err error)
 }
 
 func (mp *metaPartition) loadMultiVer(rootDir string) (err error) {
-	filename := path.Join(mp.config.RootDir, verdataFile)
+	filename := path.Join(rootDir, verdataFile)
 	if _, err = os.Stat(filename); err != nil {
 
 		err = nil
@@ -920,7 +920,7 @@ func (mp *metaPartition) storeInitMultiversion() (err error) {
 }
 
 func (mp *metaPartition) storeMultiversion(rootDir string, sm *storeMsg) (err error) {
-	filename := path.Join(mp.config.RootDir, verdataFile)
+	filename := path.Join(rootDir, verdataFile)
 	fp, err := os.OpenFile(filename, os.O_RDWR|os.O_APPEND|os.O_TRUNC|os.
 		O_CREATE, 0755)
 	if err != nil {

@@ -638,7 +638,7 @@ func getVerIfo(v, max uint64, items []*snapshotVer) proto.DelVer {
 	}
 
 	for _, v := range items {
-		if v.Status == proto.VersionMarkDelete || v.Status == proto.VersionDeleting{
+		if v.Status == proto.VersionMarkDelete || v.Status == proto.VersionDeleting {
 			continue
 		}
 		e.Vers = append(e.Vers, &proto.VersionInfo{
@@ -830,10 +830,10 @@ func (mp *metaPartition) versionInit(isCreate bool) (err error) {
 			mp.multiVersionList.VerList = append(mp.multiVersionList.VerList, info)
 		}
 
-		log.LogDebugf("action[onStart] verList %v", mp.multiVersionList.VerList)
-		if err = mp.storeInitMultiversion(); err != nil {
-			return
-		}
+		// log.LogDebugf("action[onStart] verList %v", mp.multiVersionList.VerList)
+		// if err = mp.storeInitMultiversion(); err != nil {
+		// 	return
+		// }
 	}
 
 	vlen := len(mp.multiVersionList.VerList)
@@ -1244,11 +1244,12 @@ func (mp *metaPartition) LoadSnapshot(snapshotPath string) (err error) {
 		}
 	}
 
-	if err = mp.loadApplyID(snapshotPath); err != nil {
-		return
-	}
 	err = mp.loadMultiVer(snapshotPath)
 	if err != nil {
+		return
+	}
+
+	if err = mp.loadApplyID(snapshotPath); err != nil {
 		return
 	}
 
@@ -1277,10 +1278,10 @@ func (mp *metaPartition) load(isCreate bool) (err error) {
 		return nil
 
 	}
-	if err = mp.loadMultiVer(snapshotPath); err != nil {
-		log.LogErrorf("laod error %v", err)
-		return
-	}
+	// if err = mp.loadMultiVer(snapshotPath); err != nil {
+	// 	log.LogErrorf("laod error %v", err)
+	// 	return
+	// }
 	return mp.LoadSnapshot(snapshotPath)
 }
 
