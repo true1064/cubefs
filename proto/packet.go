@@ -71,6 +71,7 @@ const (
 	OpGetMaxExtentIDAndPartitionSize uint8 = 0x16
 	OpSnapshotExtentRepairRead       uint8 = 0x17
 	OpSnapshotExtentRepairRsp        uint8 = 0x18
+	// 0x19 is occupied by OpMetaUpdateExtentKeyAfterMigration
 
 	// Operations: Client -> MetaNode.
 	OpMetaCreateInode   uint8 = 0x20
@@ -102,10 +103,10 @@ const (
 	OpMetaListXAttr                     uint8 = 0x38
 	OpMetaBatchGetXAttr                 uint8 = 0x39
 	OpMetaExtentAddWithCheck            uint8 = 0x3A // Append extent key with discard extents check
-	OpMetaRenewalForbiddenMigration     uint8 = 0x3B // for hybrid cloud
-	OpMetaUpdateExtentKeyAfterMigration uint8 = 0x3C // for hybrid cloud
 	OpMetaReadDirLimit                  uint8 = 0x3D
 	OpMetaLockDir                       uint8 = 0x3E
+	OpMetaRenewalForbiddenMigration     uint8 = 0x3F // for hybrid cloud
+	OpMetaUpdateExtentKeyAfterMigration uint8 = 0x19 // for hybrid cloud
 
 	// Operations: Master -> MetaNode
 	OpCreateMetaPartition           uint8 = 0x40

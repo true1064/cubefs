@@ -407,7 +407,7 @@ func main() {
 	}
 
 	proto.InitBufferPool(opt.BuffersTotalLimit)
-	if proto.IsStorageClassBlobStore(opt.VolStorageClass) {
+	if proto.VolSupportsBlobStore(opt.AllowedStorageClass) {
 		buf.InitCachePool(opt.EbsBlockSize)
 	}
 	if opt.EnableBcache {
