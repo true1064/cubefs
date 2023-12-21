@@ -479,7 +479,7 @@ func (mp *metaPartition) InodeGetSplitEk(req *InodeGetSplitReq, p *Packet) (err 
 func (mp *metaPartition) InodeGet(req *InodeGetReq, p *Packet) (err error) {
 
 	ino := NewInode(req.Inode, 0)
-	
+
 	ino.setVer(req.VerSeq)
 	if p.IsDirVersion() {
 		ino.setVer(p.VerSeq)
@@ -548,7 +548,7 @@ func (mp *metaPartition) InodeGetBatch(req *InodeGetReqBatch, p *Packet) (err er
 	for _, inoId := range req.Inodes {
 		var quotaInfos map[uint32]*proto.MetaQuotaInfo
 		ino.Inode = inoId
-		
+
 		ino.setVerNoCheck(req.VerSeq)
 		if p.IsDirVersion() {
 			ino.setVerNoCheck(p.VerSeq)

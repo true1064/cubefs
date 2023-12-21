@@ -348,11 +348,11 @@ func (mp *metaPartition) fsmUnlinkInodeDoWork(ino *Inode, uniqID uint64, verList
 			ext2Del, doMore, status = inode.unlinkVerInList(mp.config.PartitionId, ino, curVer, verItems)
 		}
 	}
+
 	if !doMore {
 		resp.Status = status
 		return
 	}
-
 
 	if inode.IsEmptyDirAndNoSnapshot() {
 		log.LogDebugf("action[fsmUnlinkInode] mp %v ino %v really be deleted, empty dir", mp.config.PartitionId, inode)
@@ -369,20 +369,15 @@ func (mp *metaPartition) fsmUnlinkInodeDoWork(ino *Inode, uniqID uint64, verList
 		inode.DoWriteFunc(func() {
 			if inode.NLink == 0 {
 				inode.AccessTime = time.Now().Unix()
+				inode.SetDeleteMark()
+				log.LogDebugf("action[fsmUnlinkInode] mp %v unlink inode %v and push to freeList", mp.config.PartitionId, inode)
 				if inode.isEmptyVerList() {
 					mp.freeList.Push(inode.Inode)
+					log.LogDebugf("action[fsmUnlinkInode] mp %v ino %v", mp.config.PartitionId, inode)
 				}
 				mp.uidManager.doMinusUidSpace(inode.Uid, inode.Inode, inode.Size)
 			}
 		})
-
-		// all snapshot between create to last deletion cleaned
-		if inode.NLink == 0 && inode.getLayerLen() == 0 {
-			log.LogDebugf("action[fsmUnlinkInode] mp %v unlink inode %v and push to freeList", mp.config.PartitionId, inode)
-			inode.AccessTime = time.Now().Unix()
-			mp.freeList.Push(inode.Inode)
-			log.LogDebugf("action[fsmUnlinkInode] mp %v ino %v", mp.config.PartitionId, inode)
-		}
 	}
 
 	if len(ext2Del) > 0 {
