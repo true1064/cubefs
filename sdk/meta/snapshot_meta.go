@@ -24,7 +24,7 @@ type MetaWrapper struct {
 type SnapShotMetaWrapper struct {
 	*metaWrapper
 	verInfo *proto.DelVer
-	verIno uint64
+	verIno  uint64
 
 	srcVer *proto.DelVer
 	dstVer *proto.DelVer

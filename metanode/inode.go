@@ -1315,7 +1315,7 @@ func (inode *Inode) unlinkVerInList(mpId uint64, ino *Inode, mpVer uint64, verli
 	// need consider next ver
 	nextVer, err := verlist.GetNextNewerVer(delVer)
 	if err != nil {
-		log.LogErrorf("action[getAndDelVer] ino %d no newer ver, dVer %d, err %s", ino.Inode, dVer, err.Error())
+		log.LogErrorf("action[getAndDelVer] ino %d no newer ver, dVer %d, err %s", ino.Inode, delVer, err.Error())
 		return
 	}
 

@@ -178,7 +178,7 @@ func (mp *metaPartition) fsmCreateDentryEx(dentry *DentryEx) (status uint8) {
 		status = proto.OpNotExistErr
 		return
 	}
-	
+
 	parIno = parItem.(*Inode)
 	if parIno.ShouldDelete() {
 		log.LogErrorf("action[fsmCreateDentry] ParentId [%v] get [%v] but should del, dentry name [%v], inode [%v]", dentry.ParentId, parIno, dentry.Name, dentry.Inode)

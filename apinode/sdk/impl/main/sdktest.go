@@ -64,12 +64,99 @@ func main() {
 	// testCreateFile(ctx, dirVol)
 	// testXAttrOp(ctx, dirVol)
 	// testMultiPartOp(ctx, dirVol)
-	//testInodeLock(ctx, dirVol)
+	// testInodeLock(ctx, dirVol)
 
 	// testXAttrOp(ctx, dirVol)
 	// testDirSnapshotLimit(ctx, vol, dirVol)
-	testDirSnapshotOp(ctx, vol, dirVol)
+	// testDirSnapshotOp(ctx, vol, dirVol)
 	// testOverWrite(ctx, vol, dirVol)
+	testSnapshotOverWrite(ctx, vol, dirVol)
+}
+
+func testSnapshotOverWrite(ctx context.Context, vol, dirVol sdk.IVolume) {
+	span := trace.SpanFromContext(ctx)
+	span.Infof("start testSnapshotOverWrite")
+	defer span.Infof("success testSnapshotOverWrite")
+
+	genData := func(size int) []byte {
+		result := make([]byte, size)
+		for idx := 0; idx < size; idx++ {
+			result[idx] = byte(rand.Intn(size + idx))
+		}
+		return result
+	}
+
+	md5Val := func(val []byte) string {
+		h := md5.New()
+		h.Write(val)
+		return hex.EncodeToString(h.Sum(nil))
+	}
+
+	newIfo, _, err := dirVol.Mkdir(ctx, proto.RootIno, "test_dir"+tmpString())
+	if err != nil {
+		span.Fatalf("create new dir failed, err %s", err.Error())
+	}
+	newVol := func() {
+		dirVol, err = vol.GetDirSnapshot(ctx, newIfo.Inode)
+		if err != nil {
+			span.Fatalf("new dir snapshot failed, err %s", err.Error())
+		}
+	}
+	newVol()
+
+	createSnapshot := func(ver, dir string) {
+		err = dirVol.CreateDirSnapshot(ctx, ver, dir)
+		if err != nil {
+			span.Fatalf("create dir snapshot failed, ver %s dir %s, err %s",
+				string(ver), dir, err.Error())
+		}
+		newVol()
+	}
+
+	f1 := "tmp_f1_" + tmpString()
+	ino, _, err := dirVol.CreateFile(ctx, newIfo.Inode, f1)
+	if err != nil {
+		span.Fatalf("create file failed, err %s", err.Error())
+	}
+
+	defer func() {
+		err = dirVol.Delete(ctx, newIfo.Inode, f1, false)
+		if err != nil {
+			span.Fatalf("delet file failed, f1 %s, err %s", f1, err.Error())
+		}
+	}()
+
+	size := 1024 * 1024
+	data := genData(size)
+	off := 0
+
+	totalData := data
+	for idx := 0; idx < 10; idx++ {
+		for j := 0; j < 100; j++ {
+			oldMd5 := md5Val(totalData)
+			err = dirVol.WriteFile(ctx, ino.Inode, uint64(off), uint64(len(data)), bytes.NewBuffer(data))
+			if err != nil {
+				span.Fatalf("write file failed, err %s", err.Error())
+			}
+
+			downData := make([]byte, size)
+			readN, err := dirVol.ReadFile(ctx, ino.Inode, 0, downData)
+			if err != nil || readN != size {
+				span.Fatalf("read file failed, err %s", err.Error())
+			}
+
+			downMd5 := md5Val(downData)
+			if oldMd5 != downMd5 {
+				span.Errorf("check file md5 failed, old %s, new %s, idx %d", oldMd5, downMd5, idx)
+				return
+			}
+
+			off = 1024 * 128
+			data = genData(1024 * 132)
+			copy(totalData[off:], data)
+		}
+
+	}
 }
 
 func testOverWrite(ctx context.Context, vol, dirVol sdk.IVolume) {
@@ -80,7 +167,7 @@ func testOverWrite(ctx context.Context, vol, dirVol sdk.IVolume) {
 	genData := func(size int) []byte {
 		result := make([]byte, size)
 		for idx := 0; idx < size; idx++ {
-			result[idx] = byte(rand.Intn(size+idx))
+			result[idx] = byte(rand.Intn(size + idx))
 		}
 		return result
 	}
@@ -98,19 +185,19 @@ func testOverWrite(ctx context.Context, vol, dirVol sdk.IVolume) {
 		span.Fatalf("create file failed, err %s", err.Error())
 	}
 
-	defer func(){
+	defer func() {
 		err = dirVol.Delete(ctx, proto.RootIno, f1, false)
 		if err != nil {
 			span.Fatalf("delet file failed, f1 %s, err %s", f1, err.Error())
 		}
 	}()
 
-	size := 1024 * 10
+	size := 1024 * 1024
 	data := genData(size)
 	off := 0
 
 	totalData := data
-	for idx := 0; idx < 200; idx++ {
+	for idx := 0; idx < 3; idx++ {
 		oldMd5 := md5Val(totalData)
 		err = dirVol.WriteFile(ctx, ino.Inode, uint64(off), uint64(len(data)), bytes.NewBuffer(data))
 		if err != nil {
@@ -129,8 +216,8 @@ func testOverWrite(ctx context.Context, vol, dirVol sdk.IVolume) {
 			return
 		}
 
-		off = 1024 * rand.Intn(8)
-		data = genData(1024)
+		off = 1024 * 128
+		data = genData(1024 * 132)
 		copy(totalData[off:], data)
 	}
 }
@@ -586,7 +673,7 @@ func testDirOp(ctx context.Context, vol sdk.IVolume) {
 	}
 
 	var inoInfos []*proto.InodeInfo
-	inos = append(inos, 101010)
+	// inos = append(inos, 101010)
 	inoInfos, err = vol.BatchGetInodes(ctx, inos)
 	if err != nil {
 		span.Fatalf("execute BatchGetInodes failed, err %s", err.Error())

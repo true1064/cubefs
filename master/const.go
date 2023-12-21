@@ -282,8 +282,8 @@ const (
 	opSyncDeleteQuota  uint32 = 0x42
 	opSyncAllocFileId  uint32 = 0x43
 
-	opSyncMulitVersion uint32 = 0x53
-	opSyncDirVersion   uint32 = 0x54
+	opSyncMulitVersion  uint32 = 0x53
+	opSyncDirVersion    uint32 = 0x54
 	opSyncDirDelVerInfo uint32 = 0x55
 
 	opSyncS3QosSet    uint32 = 0x60
@@ -312,7 +312,7 @@ const (
 	maxCommonIDKey         = keySeparator + "max_common_id"
 	maxClientIDKey         = keySeparator + "client_id"
 	maxQuotaIDKey          = keySeparator + "quota_id"
-	maxFileIDKey          = keySeparator + "file_id"
+	maxFileIDKey           = keySeparator + "file_id"
 	metaNodePrefix         = keySeparator + metaNodeAcronym + keySeparator
 	dataNodePrefix         = keySeparator + dataNodeAcronym + keySeparator
 	dataPartitionPrefix    = keySeparator + dataPartitionAcronym + keySeparator
@@ -329,21 +329,21 @@ const (
 	AclPrefix        = keySeparator + "acl" + keySeparator
 	UidPrefix        = keySeparator + "uid" + keySeparator
 
-	akAcronym        = "ak"
-	userAcronym      = "user"
-	volUserAcronym   = "voluser"
-	volNameAcronym   = "volname"
-	akPrefix         = keySeparator + akAcronym + keySeparator
-	userPrefix       = keySeparator + userAcronym + keySeparator
-	volUserPrefix    = keySeparator + volUserAcronym + keySeparator
-	volWarnUsedRatio = 0.9
-	volCachePrefix   = keySeparator + volNameAcronym + keySeparator
-	quotaPrefix      = keySeparator + "quota" + keySeparator
-	lcNodePrefix     = keySeparator + lcNodeAcronym + keySeparator
-	lcConfPrefix     = keySeparator + lcConfigurationAcronym + keySeparator
-	DirVerPrefix     = keySeparator + "dirVer" + keySeparator
+	akAcronym           = "ak"
+	userAcronym         = "user"
+	volUserAcronym      = "voluser"
+	volNameAcronym      = "volname"
+	akPrefix            = keySeparator + akAcronym + keySeparator
+	userPrefix          = keySeparator + userAcronym + keySeparator
+	volUserPrefix       = keySeparator + volUserAcronym + keySeparator
+	volWarnUsedRatio    = 0.9
+	volCachePrefix      = keySeparator + volNameAcronym + keySeparator
+	quotaPrefix         = keySeparator + "quota" + keySeparator
+	lcNodePrefix        = keySeparator + lcNodeAcronym + keySeparator
+	lcConfPrefix        = keySeparator + lcConfigurationAcronym + keySeparator
+	DirVerPrefix        = keySeparator + "dirVer" + keySeparator
 	DirVerDelInfoPrefix = keySeparator + "dirVerDel" + keySeparator
-	S3QoSPrefix      = keySeparator + S3QoS + keySeparator
+	S3QoSPrefix         = keySeparator + S3QoS + keySeparator
 )
 
 // selector enum

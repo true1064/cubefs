@@ -140,7 +140,6 @@ func (d *Dentry) setDeleted() {
 	d.multiSnap.VerSeq |= uint64(1) << 63
 }
 
-
 func isSeqEqual(ver_1 uint64, ver_2 uint64) bool {
 	if isInitSnapVer(ver_1) {
 		ver_1 = 0

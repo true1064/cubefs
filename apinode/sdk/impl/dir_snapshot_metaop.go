@@ -457,9 +457,8 @@ func (m *snapMetaOpImp) Rename(ctx context.Context, src, dst string) (err error)
 	return nil
 }
 
-
 const (
-	snapshotCntOneDir = 10
+	snapshotCntOneDir  = 10
 	snapshotCntOneUser = 100
 )
 
@@ -484,7 +483,7 @@ func (m *snapMetaOpImp) checkSnapshotCntLimit(ctx context.Context, parIno uint64
 		span.Warnf("total snapshot cnt is already over 100, now %d", total)
 		return sdk.ErrUserSnapshotCntLimit
 	}
-	
+
 	return nil
 }
 

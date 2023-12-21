@@ -911,11 +911,11 @@ func (mw *SnapShotMetaWrapper) Delete_ll_EX(parentID uint64, name string, isDir 
 
 	log.LogDebugf("action[Delete_ll] parentID %v name %v verSeq %v", parentID, name, verSeq)
 	req := &proto.DeleteDentryRequest{
-		ParentID: parentID,
-		Name: name,
+		ParentID:        parentID,
+		Name:            name,
 		InodeCreateTime: inodeCreateTime,
-		Verseq: verSeq,
-		VerIno: mw.verIno,
+		Verseq:          verSeq,
+		VerIno:          mw.verIno,
 	}
 	status, inode, _, err = mw.ddeleteEx(parentMP, req)
 	if err != nil || status != statusOK {

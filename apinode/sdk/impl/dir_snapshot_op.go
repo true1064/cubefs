@@ -282,7 +282,7 @@ func (d *dirSnapshotOp) DeleteDirSnapshot(ctx context.Context, ver, filePath str
 		return syscallToErr(err)
 	}
 
-	span.Infof("delete dir snapshot success, ver %s, seq %d, path %s, rootIno %d", 
+	span.Infof("delete dir snapshot success, ver %s, seq %d, path %s, rootIno %d",
 		ver, verInfo.Ver, filePath, d.rootIno)
 	return nil
 }

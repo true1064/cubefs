@@ -250,7 +250,7 @@ func (mp *metaPartition) RemoveXAttr(req *proto.RemoveXAttrRequest, p *Packet) (
 
 	if p.IsDirVersion() {
 		dirExt := &DirExtend{
-			E: extend,
+			E:          extend,
 			DirVerList: p.DirVerList,
 		}
 		data, err := dirExt.Marshal()
@@ -258,7 +258,7 @@ func (mp *metaPartition) RemoveXAttr(req *proto.RemoveXAttrRequest, p *Packet) (
 			p.PacketErrorWithBody(proto.OpErr, []byte(err.Error()))
 			return err
 		}
-		
+
 		_, err = mp.submit(opFSMRemoveXAttrByDir, data)
 		if err != nil {
 			p.PacketErrorWithBody(proto.OpErr, []byte(err.Error()))

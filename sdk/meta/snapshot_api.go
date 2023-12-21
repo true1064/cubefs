@@ -1,9 +1,10 @@
 package meta
 
 import (
+	"syscall"
+
 	"github.com/cubefs/cubefs/proto"
 	"github.com/cubefs/cubefs/util/log"
-	"syscall"
 )
 
 func (mw *SnapShotMetaWrapper) ListAllDirSnapshot(rootIno uint64) (items []*proto.DirSnapshotInfo, err error) {
@@ -45,7 +46,7 @@ func (mw *SnapShotMetaWrapper) DeleteDirSnapshot(ifo *proto.DirVerItem) (err err
 		return syscall.EINVAL
 	}
 
-	err = mw.delDirSnapshot(mp, ifo)
+	err = mw.delDirSnapshot(mp, *ifo)
 	if err != nil {
 		log.LogErrorf("DeleteDirSnapshot: ifo(%v) err(%v)", ifo, err)
 		return err

@@ -442,7 +442,7 @@ func (mp *metaPartition) ExtentsList(req *proto.GetExtentsRequest, p *Packet) (e
 		status = proto.OpErr
 		reply = []byte(err.Error())
 	}
-	
+
 	p.PacketErrorWithBody(status, reply)
 	return
 }

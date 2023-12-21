@@ -41,7 +41,7 @@ func (mw *SnapShotMetaWrapper) createDirSnapshot(mp *MetaPartition, info *proto.
 	return mw.sendToMeta(mp, proto.OpMetaCreateDirVer, req, nil)
 }
 
-func (mw *SnapShotMetaWrapper) delDirSnapshot(mp *MetaPartition, info *proto.DirVerItem) (err error) {
+func (mw *SnapShotMetaWrapper) delDirSnapshot(mp *MetaPartition, info proto.DirVerItem) (err error) {
 	bgTime := stat.BeginStat()
 	defer func() {
 		stat.EndStat("delDirSnapshot", err, bgTime, 1)

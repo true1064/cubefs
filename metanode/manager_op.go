@@ -2651,7 +2651,7 @@ func (m *metadataManager) opDirSnapshotDel(conn net.Conn, p *Packet, remote stri
 		return
 	}
 
-	err = mp.DelDirSnapshot(req.Item, p)
+	err = mp.DelDirSnapshot(&req.Item, p)
 	_ = m.respondToClient(conn, p)
 	log.LogInfof("[opDirSnapshotDel] info [%v] success, remote %s", req.Item, remote)
 	return

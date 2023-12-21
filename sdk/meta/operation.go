@@ -872,10 +872,10 @@ func (mw *SnapShotMetaWrapper) ddeleteEx(mp *MetaPartition, req *proto.DeleteDen
 
 func (mw *SnapShotMetaWrapper) ddelete(mp *MetaPartition, parentID uint64, name string, inodeCreateTime int64, verSeq uint64) (status int, inode uint64, denVer uint64, err error) {
 	req := &proto.DeleteDentryRequest{
-		ParentID: parentID,
-		Name: name,
+		ParentID:        parentID,
+		Name:            name,
 		InodeCreateTime: inodeCreateTime,
-		Verseq: verSeq,
+		Verseq:          verSeq,
 	}
 	return mw.ddeleteEx(mp, req)
 }

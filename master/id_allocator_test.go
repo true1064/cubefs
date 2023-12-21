@@ -36,7 +36,6 @@ func Test_AllocFileID(t *testing.T) {
 	require.Equal(t, id.End, idAlloc.fileId)
 }
 
-
 func SelfIncreaseIdAllocTest(t *testing.T, allocator *IDAllocator, allocFunc func() (uint64, error)) {
 	var id uint64
 	for i := 0; i != idallocTestCount; i++ {

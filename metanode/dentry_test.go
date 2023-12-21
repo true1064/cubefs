@@ -66,7 +66,7 @@ func TestDentry_Marshal(t *testing.T) {
 
 func Test_addVersion(t *testing.T) {
 	dentry := &Dentry{
-		Inode: 10,
+		Inode:  10,
 		FileId: 11,
 	}
 	dentry.setVerSeq(11)

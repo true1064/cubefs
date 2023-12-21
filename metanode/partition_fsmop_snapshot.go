@@ -26,7 +26,7 @@ func (mp *metaPartition) fsmCreateDirSnapshot(ifo *proto.CreateDirSnapShotInfo) 
 	}
 
 	oldDirSnap := oldItem.(*dirSnapshotItem)
-	
+
 	oldDirSnap.Lock()
 	defer oldDirSnap.Unlock()
 

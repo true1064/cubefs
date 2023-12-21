@@ -284,7 +284,7 @@ func (mp *metaPartition) DeleteDentryByDirVer(req *DeleteDentryReq, p *Packet) (
 			Name:     req.Name,
 		},
 		VerList: p.DirVerList,
-		VerIno: req.VerIno,
+		VerIno:  req.VerIno,
 	}
 	dirVerdentry.Dentry.setVerSeq(p.VerSeq)
 	log.LogDebugf("action[DeleteDentry] den param(%v), verIno(%d)", dirVerdentry.Dentry, dirVerdentry.VerIno)
@@ -298,7 +298,7 @@ func (mp *metaPartition) DeleteDentryByDirVer(req *DeleteDentryReq, p *Packet) (
 		}
 		// means delete dentry for snapshot dir, set as local dir op
 		if old.Inode == req.VerIno {
-			if  len(p.DirVerList) > 1 {
+			if len(p.DirVerList) > 1 {
 				p.ResultCode = proto.OpNotEmpty
 				log.LogWarnf("action[DeleteDentry] dir still have snapshot list, can't be deleted, req %v, vers(%v)", req, p.DirVerList)
 				return
@@ -309,7 +309,6 @@ func (mp *metaPartition) DeleteDentryByDirVer(req *DeleteDentryReq, p *Packet) (
 			dirVerdentry.Dentry.setVerSeq(0)
 		}
 	}
-
 
 	val, err := dirVerdentry.Marshal()
 	if err != nil {
@@ -355,7 +354,7 @@ func (mp *metaPartition) DeleteDentry(req *DeleteDentryReq, p *Packet) (err erro
 	if p.IsDirVersion() {
 		dentry.setVerSeq(p.VerSeq)
 	}
-	
+
 	log.LogDebugf("action[DeleteDentry] den param(%v)", dentry)
 
 	val, err := dentry.Marshal()
@@ -603,7 +602,7 @@ func (mp *metaPartition) Lookup(req *LookupReq, p *Packet) (err error) {
 		ParentId: req.ParentID,
 		Name:     req.Name,
 	}
-	
+
 	if p.IsDirVersion() {
 		dentry.setVerSeq(p.VerSeq)
 	}

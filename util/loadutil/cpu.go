@@ -25,6 +25,6 @@ func GetCpuUtilPercent(sampleDuration time.Duration) float64 {
 	if len(utils) == 0 {
 		return 0
 	}
-	
+
 	return utils[0]
 }

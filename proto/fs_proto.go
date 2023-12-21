@@ -567,9 +567,9 @@ type DirVerItem struct {
 }
 
 type DirVerDelReq struct {
-	VolName     string      `json:"vol"`
-	PartitionID uint64      `json:"pid"`
-	Item        *DirVerItem `json:"item"`
+	VolName     string     `json:"vol"`
+	PartitionID uint64     `json:"pid"`
+	Item        DirVerItem `json:"item"`
 }
 
 type ListDirSnapshotReq struct {

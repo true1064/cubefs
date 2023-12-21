@@ -22,7 +22,7 @@ type DeviceBased struct {
 //  @param reader 待处理的数据流。
 //  @return *engine.EngineTransCipher 传输加密引擎对象。
 //  @return *errno.Errno 如果失败，返回错误原因以及错误码。
-func (s *DeviceBased)NewEngineTransCipher(cipherMode types.CipherMode, cipherMaterial []byte, reader io.Reader) (*engine.EngineTransCipher, *errno.Errno){
+func (s *DeviceBased) NewEngineTransCipher(cipherMode types.CipherMode, cipherMaterial []byte, reader io.Reader) (*engine.EngineTransCipher, *errno.Errno) {
 	return engine.NewEngineTransCipher(cipherMode, cipherMaterial, reader, nil, nil, false)
 }
 
@@ -34,7 +34,7 @@ func (s *DeviceBased)NewEngineTransCipher(cipherMode types.CipherMode, cipherMat
 //  @return *engine.EngineFileCipher 文件加密引擎对象。
 //  @return *errno.Errno 如果失败，返回错误原因以及错误码。
 func (s *DeviceBased) NewEngineFileCipher(cipherMode types.CipherMode, cipherMaterial []byte, reader io.Reader, blockSize uint64) (*engine.EngineFileCipher, *errno.Errno) {
-return engine.NewEngineFileCipher(cipherMode, nil, reader, blockSize, nil)
+	return engine.NewEngineFileCipher(cipherMode, nil, reader, blockSize, nil)
 }
 
 func (s *DeviceBased) NewEngineAesGCMCipher(cipherMaterial []byte) (*engine.EngineAesGCMCipher, *errno.Errno) {

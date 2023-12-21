@@ -1455,7 +1455,7 @@ func TestMarshalDentryDirVer(t *testing.T) {
 			Inode: 10,
 		},
 		VerList: []*proto.VersionInfo{{Ver: 10}, {Ver: 11}},
-		VerIno: 101,
+		VerIno:  101,
 	}
 	val, err := denVer.Marshal()
 	assert.True(t, err == nil)

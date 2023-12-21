@@ -129,7 +129,7 @@ func (e *Extend) GetMinVer() uint64 {
 }
 
 func (e *Extend) GetExtentByVersion(ver uint64) (extend *Extend) {
-	if ver == 0 || ver >= e.verSeq && !isInitSnapVer(ver){
+	if ver == 0 || ver >= e.verSeq && !isInitSnapVer(ver) {
 		return e
 	}
 

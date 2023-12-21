@@ -147,7 +147,7 @@ type MetaItemIterator struct {
 	txTree            *BTree
 	txRbInodeTree     *BTree
 	txRbDentryTree    *BTree
-	dirVerTree *BTree
+	dirVerTree        *BTree
 	uniqChecker       *uniqChecker
 
 	filenames []string

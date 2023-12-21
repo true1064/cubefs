@@ -1,10 +1,11 @@
 package metanode
 
 import (
-	"github.com/cubefs/cubefs/proto"
-	"github.com/stretchr/testify/require"
 	"reflect"
 	"testing"
+
+	"github.com/cubefs/cubefs/proto"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSnapshotVer_marshal(t *testing.T) {
@@ -58,6 +59,7 @@ func TestDirSnapshotItem_Marshal(t *testing.T) {
 		require.True(t, ds.equal(nds))
 		cds := ds.Copy()
 		require.True(t, ds.equal(cds.(*dirSnapshotItem)))
+		t.Logf("items %s", nds.String())
 	}
 }
 
