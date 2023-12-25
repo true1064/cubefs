@@ -344,19 +344,6 @@ func (mp *metaPartition) UnlinkInode(req *UnlinkInoReq, p *Packet) (err error) {
 	log.LogDebugf("action[UnlinkInode] ino %v submit", ino)
 	r, err = mp.buildAndSubmitInoPacket(ino, opFSMUnlinkInode, opFSMUnlinkByDirVer, p)
 
-	// if req.UniqID > 0 {
-	// 	val = InodeOnceUnlinkMarshal(req)
-	// 	r, err = mp.submit(opFSMUnlinkInodeOnce, val)
-	// } else {
-	// 	log.LogDebugf("action[UnlinkInode] ino %v submit", ino)
-	// 	if req.DenVerSeq == item.(*Inode).getVer() {
-	// 		ino.Flag |= InodeDelTop
-	// 	}
-
-	// 	log.LogDebugf("action[UnlinkInode] ino %v submit", ino)
-	// 	r, err = mp.buildAndSubmitInoPacket(ino, opFSMUnlinkInode, opFSMUnlinkByDirVer, p)
-	// }
-
 	if err != nil {
 		p.PacketErrorWithBody(proto.OpAgain, []byte(err.Error()))
 		return

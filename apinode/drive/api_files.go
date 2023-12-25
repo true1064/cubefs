@@ -222,7 +222,7 @@ func (d *DriveNode) handleBatchDelete(c *rpc.Context) {
 		return
 	}
 	ctx, span := d.ctxSpan(c)
-	ur, _, err := d.getUserRouterAndVolume(ctx, d.userID(c))
+	ur, _, err := d.getUserRouterAndVolume(ctx, d.userID(c, nil))
 	if d.checkError(c, func(err error) { span.Warnf("get root inode and volume return error: %v", err) }, err, ur.CanWrite()) {
 		return
 	}
@@ -248,7 +248,7 @@ func (d *DriveNode) handleBatchDelete(c *rpc.Context) {
 				ch <- result{arg, err}
 				return
 			}
-			_, volDel, err := d.getUserRouterAndVolume(ctx, d.userID(c))
+			_, volDel, err := d.getUserRouterAndVolume(ctx, d.userID(c, nil))
 			if err != nil {
 				ch <- result{arg, err}
 				return

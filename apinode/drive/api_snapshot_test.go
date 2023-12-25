@@ -17,7 +17,7 @@ func TestHandleCreateDirSnapshot(t *testing.T) {
 	doRequest := func(path, ver string) rpc.HTTPError {
 		url := genURL(server.URL, "/v1/snapshot", "path", path, "ver", ver)
 		req, _ := http.NewRequest(http.MethodPost, url, nil)
-		req.Header.Add(HeaderUserID, testUserID)
+		req.Header.Add(HeaderUserID, testUserID.ID)
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
 		defer resp.Body.Close()
@@ -48,7 +48,7 @@ func TestHandleDeleteDirSnapshot(t *testing.T) {
 	doRequest := func(path, ver string) rpc.HTTPError {
 		url := genURL(server.URL, "/v1/snapshot", "path", path, "ver", ver)
 		req, _ := http.NewRequest(http.MethodDelete, url, nil)
-		req.Header.Add(HeaderUserID, testUserID)
+		req.Header.Add(HeaderUserID, testUserID.ID)
 		resp, err := client.Do(Ctx, req)
 		require.NoError(t, err)
 		defer resp.Body.Close()

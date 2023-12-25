@@ -105,14 +105,14 @@ func testSnapshotOverWrite(ctx context.Context, vol, dirVol sdk.IVolume) {
 	}
 	newVol()
 
-	createSnapshot := func(ver, dir string) {
-		err = dirVol.CreateDirSnapshot(ctx, ver, dir)
-		if err != nil {
-			span.Fatalf("create dir snapshot failed, ver %s dir %s, err %s",
-				string(ver), dir, err.Error())
-		}
-		newVol()
-	}
+	// createSnapshot := func(ver, dir string) {
+	// 	err = dirVol.CreateDirSnapshot(ctx, ver, dir)
+	// 	if err != nil {
+	// 		span.Fatalf("create dir snapshot failed, ver %s dir %s, err %s",
+	// 			string(ver), dir, err.Error())
+	// 	}
+	// 	newVol()
+	// }
 
 	f1 := "tmp_f1_" + tmpString()
 	ino, _, err := dirVol.CreateFile(ctx, newIfo.Inode, f1)

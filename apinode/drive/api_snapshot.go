@@ -12,11 +12,11 @@ type ArgsSnapshot struct {
 func (d *DriveNode) handleCreateSnapshot(c *rpc.Context) {
 	args := new(ArgsSnapshot)
 	ctx, span := d.ctxSpan(c)
-	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args), args.Path.Clean()) {
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args), args.Path.Clean(true)) {
 		return
 	}
 
-	uid := d.userID(c)
+	uid := d.userID(c, nil)
 	ur, vol, err := d.getUserRouterAndVolume(ctx, uid)
 	if d.checkError(c, func(err error) { span.Warn(err) }, err, ur.CanWrite()) {
 		return
@@ -34,11 +34,11 @@ func (d *DriveNode) handleDeleteSnapshot(c *rpc.Context) {
 	ctx, span := d.ctxSpan(c)
 
 	if d.checkError(c, func(err error) { span.Info(args, err) },
-		c.ParseArgs(args), args.Path.Clean()) {
+		c.ParseArgs(args), args.Path.Clean(true)) {
 		return
 	}
 
-	uid := d.userID(c)
+	uid := d.userID(c, nil)
 	ur, vol, err := d.getUserRouterAndVolume(ctx, uid)
 	if d.checkError(c, func(err error) { span.Warn(err) }, err, ur.CanWrite()) {
 		return

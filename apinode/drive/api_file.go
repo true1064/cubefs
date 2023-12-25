@@ -761,8 +761,8 @@ func (d *DriveNode) handleFileRename(c *rpc.Context) {
 		return
 	}
 
-	ur, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c))
-	_, volSrc, errSrc := d.getUserRouterAndVolume(ctx, d.userID(c))
+	ur, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c, nil))
+	_, volSrc, errSrc := d.getUserRouterAndVolume(ctx, d.userID(c, nil))
 	if d.checkError(c, func(err error) { span.Warn(err) }, err, errSrc, ur.CanWrite()) {
 		return
 	}
@@ -849,7 +849,8 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 		return
 	}
 
-	ur, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c))
+	ur, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c, nil))
+	_, volSrc, errSrc := d.getUserRouterAndVolume(ctx, d.userID(c, nil))
 	if d.checkError(c, func(err error) { span.Warn(err) }, err, errSrc, ur.CanWrite()) {
 		return
 	}

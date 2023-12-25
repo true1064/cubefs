@@ -141,18 +141,18 @@ func (node *mockNode) OnceGetUser(uids ...UserID) {
 	node.Volume.EXPECT().GetDirSnapshot(A, A).Return(node.Volume, nil)
 }
 
-func (node *mockNode) GetUserN(n int, uids ...string) {
+func (node *mockNode) GetUserN(n int, uids ...UserID) {
 	node.AddUserRoute(uids...)
 	node.ClusterMgr.EXPECT().GetCluster(A).Return(node.Cluster).Times(n)
 	node.Cluster.EXPECT().GetVol(A).Return(node.Volume).Times(n)
 	node.Volume.EXPECT().GetDirSnapshot(A, A).Return(node.Volume, nil).Times(n)
 }
 
-func (node *mockNode) GetUserN2(uids ...string) {
+func (node *mockNode) GetUserN2(uids ...UserID) {
 	node.GetUserN(2, uids...)
 }
 
-func (node *mockNode) GetUserAny(uids ...string) {
+func (node *mockNode) GetUserAny(uids ...UserID) {
 	node.AddUserRoute(uids...)
 	node.ClusterMgr.EXPECT().GetCluster(A).Return(node.Cluster).AnyTimes()
 	node.Cluster.EXPECT().GetVol(A).Return(node.Volume).AnyTimes()
@@ -444,7 +444,7 @@ func TestGetUserRouterAndVolume(t *testing.T) {
 	node.AnyLookup()
 	node.Volume.EXPECT().GetXAttr(A, A, A).DoAndReturn(func(context.Context, uint64, string) (string, error) {
 		ur := UserRoute{
-			Uid:         UserID(uid),
+			Uid:         uid,
 			ClusterType: 1,
 			ClusterID:   "cluster01",
 			VolumeID:    "volume01",
@@ -458,21 +458,21 @@ func TestGetUserRouterAndVolume(t *testing.T) {
 	}).AnyTimes()
 
 	node.ClusterMgr.EXPECT().GetCluster(A).Return(nil)
-	_, _, err := d.getUserRouterAndVolume(Ctx, uid)
+	_, _, err := d.getUserRouterAndVolume(Ctx, testUserID1)
 	require.ErrorIs(t, err, sdk.ErrNoCluster)
 
 	node.ClusterMgr.EXPECT().GetCluster(A).Return(node.Cluster).AnyTimes()
 	node.Cluster.EXPECT().GetVol(A).Return(nil)
-	_, _, err = d.getUserRouterAndVolume(Ctx, uid)
+	_, _, err = d.getUserRouterAndVolume(Ctx, testUserID1)
 	require.ErrorIs(t, err, sdk.ErrNoVolume)
 
 	node.Cluster.EXPECT().GetVol(A).Return(node.Volume).AnyTimes()
 	node.Volume.EXPECT().GetDirSnapshot(A, A).Return(nil, e1)
-	_, _, err = d.getUserRouterAndVolume(Ctx, uid)
+	_, _, err = d.getUserRouterAndVolume(Ctx, testUserID1)
 	require.ErrorIs(t, err, e1)
 
 	node.Volume.EXPECT().GetDirSnapshot(A, A).Return(node.Volume, nil)
-	ur, vol, err := d.getUserRouterAndVolume(Ctx, uid)
+	ur, vol, err := d.getUserRouterAndVolume(Ctx, testUserID1)
 	require.NoError(t, err)
 	require.Equal(t, ur.RootFileID, Inode(10))
 	require.Equal(t, vol, node.Volume)
