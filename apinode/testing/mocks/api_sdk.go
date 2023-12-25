@@ -80,6 +80,21 @@ func (mr *MockIVolumeMockRecorder) BatchGetInodes(arg0, arg1 interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BatchGetInodes", reflect.TypeOf((*MockIVolume)(nil).BatchGetInodes), arg0, arg1)
 }
 
+// BatchGetXAttr mocks base method.
+func (m *MockIVolume) BatchGetXAttr(arg0 context.Context, arg1 []uint64) ([]*proto.XAttrInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BatchGetXAttr", arg0, arg1)
+	ret0, _ := ret[0].([]*proto.XAttrInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BatchGetXAttr indicates an expected call of BatchGetXAttr.
+func (mr *MockIVolumeMockRecorder) BatchGetXAttr(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BatchGetXAttr", reflect.TypeOf((*MockIVolume)(nil).BatchGetXAttr), arg0, arg1)
+}
+
 // BatchSetXAttr mocks base method.
 func (m *MockIVolume) BatchSetXAttr(arg0 context.Context, arg1 uint64, arg2 map[string]string) error {
 	m.ctrl.T.Helper()

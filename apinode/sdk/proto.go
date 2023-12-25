@@ -44,8 +44,10 @@ type DirSnapshotList struct {
 	Items []proto.DirSnapshotInfo
 }
 
-const SnapShotPre = ".cfa_snapshot_"
-const SnapShotFileId = 0
+const (
+	SnapShotPre    = ".cfa_snapshot_"
+	SnapShotFileId = 0
+)
 
 type DirInfo = proto.Dentry
 

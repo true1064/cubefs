@@ -872,6 +872,7 @@ type BatchGetXAttrRequest struct {
 	Inodes      []uint64 `json:"inos"`
 	Keys        []string `json:"keys"`
 	VerSeq      uint64   `json:"seq"`
+	ListAll     bool     `json:"listall"`
 }
 
 type BatchGetXAttrResponse struct {

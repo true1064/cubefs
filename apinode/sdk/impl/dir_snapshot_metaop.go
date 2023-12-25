@@ -488,7 +488,6 @@ func (m *snapMetaOpImp) checkSnapshotCntLimit(ctx context.Context, parIno uint64
 }
 
 func (m *snapMetaOpImp) lookupSubDirVer(parIno uint64, subPath string) (childIno uint64, v *proto.DelVer, err error) {
-
 	getVer := func(ino uint64) {
 		ok, ver := m.isSnapshotInode(ino)
 		if ok {

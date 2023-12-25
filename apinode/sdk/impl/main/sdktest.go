@@ -156,7 +156,6 @@ func testSnapshotOverWrite(ctx context.Context, vol, dirVol sdk.IVolume) {
 			data = genData(1024 * 132)
 			copy(totalData[off:], data)
 		}
-
 	}
 }
 

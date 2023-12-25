@@ -159,6 +159,21 @@ func (mr *MockMetaOpMockRecorder) AppendExtentKeys(arg0, arg1 interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppendExtentKeys", reflect.TypeOf((*MockMetaOp)(nil).AppendExtentKeys), arg0, arg1)
 }
 
+// BatchGetXAttrEx mocks base method.
+func (m *MockMetaOp) BatchGetXAttrEx(arg0 []uint64, arg1 []string, arg2 bool) ([]*proto.XAttrInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BatchGetXAttrEx", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]*proto.XAttrInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BatchGetXAttrEx indicates an expected call of BatchGetXAttrEx.
+func (mr *MockMetaOpMockRecorder) BatchGetXAttrEx(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BatchGetXAttrEx", reflect.TypeOf((*MockMetaOp)(nil).BatchGetXAttrEx), arg0, arg1, arg2)
+}
+
 // BatchInodeGetWith mocks base method.
 func (m *MockMetaOp) BatchInodeGetWith(arg0 []uint64) ([]*proto.InodeInfo, error) {
 	m.ctrl.T.Helper()

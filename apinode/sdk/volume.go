@@ -2,8 +2,9 @@ package sdk
 
 import (
 	"context"
-	"github.com/cubefs/cubefs/proto"
 	"io"
+
+	"github.com/cubefs/cubefs/proto"
 )
 
 type IVolume interface {
@@ -72,4 +73,5 @@ type Xattr interface {
 	GetXAttrMap(ctx context.Context, ino uint64) (map[string]string, error)
 	DeleteXAttr(ctx context.Context, ino uint64, key string) error
 	BatchDeleteXAttr(ctx context.Context, ino uint64, keys []string) error
+	BatchGetXAttr(ctx context.Context, inodes []uint64) ([]*proto.XAttrInfo, error)
 }

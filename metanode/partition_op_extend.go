@@ -220,6 +220,12 @@ func (mp *metaPartition) BatchGetXAttr(req *proto.BatchGetXAttrRequest, p *Packe
 						info.XAttrs[key] = string(val)
 					}
 				}
+				if req.ListAll {
+					extend.Range(func(key, value []byte) bool {
+						info.XAttrs[string(key)] = string(value)
+						return true
+					})
+				}
 			}
 			response.XAttrs = append(response.XAttrs, info)
 		}

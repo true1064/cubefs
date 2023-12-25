@@ -53,7 +53,6 @@ func Test_getVerStr(t *testing.T) {
 }
 
 func Test_buildByClientVerItems(t *testing.T) {
-
 	clientItems := []*proto.ClientDirVer{
 		{OutVer: "tt", Ver: &proto.VersionInfo{Ver: 10, Status: proto.VersionNormal, DelTime: 10}},
 		{OutVer: "tt1", Ver: &proto.VersionInfo{Ver: 11, Status: proto.VersionNormal, DelTime: 12}},

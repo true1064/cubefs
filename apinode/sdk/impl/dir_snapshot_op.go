@@ -36,9 +36,7 @@ type dirSnapshotOp struct {
 	stop   chan struct{}
 }
 
-var (
-	newExtentClientVer = newDataVerOp
-)
+var newExtentClientVer = newDataVerOp
 
 type dataOpVerImp struct {
 	mw *snapMetaOpImp
@@ -449,6 +447,7 @@ func (d *dirSnapshotOp) SetXAttr(ctx context.Context, ino uint64, key string, va
 
 	return nil
 }
+
 func (d *dirSnapshotOp) SetXAttrNX(ctx context.Context, ino uint64, key string, val string) error {
 	span := trace.SpanFromContextSafe(ctx)
 
@@ -506,6 +505,19 @@ func (d *dirSnapshotOp) GetXAttrMap(ctx context.Context, ino uint64) (map[string
 	}
 
 	return val.XAttrs, nil
+}
+
+func (d *dirSnapshotOp) BatchGetXAttr(ctx context.Context, inodes []uint64) ([]*proto.XAttrInfo, error) {
+	span := trace.SpanFromContextSafe(ctx)
+
+	val, err := d.mw.sm.BatchGetXAttrEx(inodes, nil, true)
+	if err != nil {
+		span.Errorf("XAttrGetAll failed, ino %d, err %s", len(inodes), err.Error())
+		return nil, syscallToErr(err)
+	}
+
+	span.Debugf("batch get xattr success, inos %d", len(inodes))
+	return val, nil
 }
 
 func (d *dirSnapshotOp) DeleteXAttr(ctx context.Context, ino uint64, key string) error {
@@ -589,7 +601,7 @@ func (d *dirSnapshotOp) UploadFile(ctx context.Context, req *sdk.UploadFileReq) 
 	span := trace.SpanFromContextSafe(ctx)
 	var oldIno uint64
 	if req.OldFileId != 0 {
-		//oldIno, mode, err := v.mw.Lookup_ll(req.ParIno, req.Name)
+		// oldIno, mode, err := v.mw.Lookup_ll(req.ParIno, req.Name)
 		den, err := d.mw.LookupEx(ctx, req.ParIno, req.Name)
 		if err != nil {
 			span.Errorf("lookup file failed, ino %d, name %s, err %s", req.ParIno, req.Name, err.Error())
@@ -687,7 +699,7 @@ func (d *dirSnapshotOp) UploadFile(ctx context.Context, req *sdk.UploadFileReq) 
 	}
 
 	return finalIno, fileId, nil
-	//return finalIno, nil
+	// return finalIno, nil
 }
 
 func (d *dirSnapshotOp) writeAt(ctx context.Context, ino uint64, off, size int, body io.Reader) (s int, err error) {

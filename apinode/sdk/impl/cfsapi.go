@@ -6,7 +6,7 @@ import (
 
 type DataOp interface {
 	OpenStream(inode uint64) error
-	//OpenStreamVer(inode, seq uint64) error
+	// OpenStreamVer(inode, seq uint64) error
 	Write(inode uint64, offset int, data []byte, flags int, checkFunc func() error) (write int, err error)
 	Read(inode uint64, data []byte, offset int, size int) (read int, err error)
 	Flush(inode uint64) error
@@ -53,13 +53,13 @@ type IXAttr interface {
 	XAttrDel_ll(inode uint64, name string) error
 	XBatchDelAttr_ll(ino uint64, keys []string) error
 	XAttrsList_ll(inode uint64) ([]string, error)
+	BatchGetXAttrEx(inodes []uint64, keys []string, listAll bool) ([]*proto.XAttrInfo, error)
 }
 
 type DirSnapshot interface {
 	SetVerInfoEx(info *proto.DelVer, ino uint64)
 	SetRenameVerInfo(src, dst *proto.DelVer)
 	GetVerInfo() *proto.DelVer
-
 	ListAllDirSnapshot(dirIno uint64) ([]*proto.DirSnapshotInfo, error)
 	CreateDirSnapshot(ifo *proto.CreateDirSnapShotInfo) (err error)
 	DeleteDirSnapshot(ifo *proto.DirVerItem) (err error)

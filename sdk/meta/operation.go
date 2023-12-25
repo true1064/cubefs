@@ -2556,7 +2556,7 @@ func (mw *SnapShotMetaWrapper) listMultiparts(mp *MetaPartition, prefix, delimit
 	return statusOK, resp, nil
 }
 
-func (mw *SnapShotMetaWrapper) batchGetXAttr(mp *MetaPartition, inodes []uint64, keys []string) ([]*proto.XAttrInfo, error) {
+func (mw *SnapShotMetaWrapper) batchGetXAttr(mp *MetaPartition, inodes []uint64, keys []string, listAll bool) ([]*proto.XAttrInfo, error) {
 	var (
 		err error
 	)
@@ -2572,6 +2572,7 @@ func (mw *SnapShotMetaWrapper) batchGetXAttr(mp *MetaPartition, inodes []uint64,
 		Inodes:      inodes,
 		Keys:        keys,
 		VerSeq:      mw.VerReadSeq,
+		ListAll:     listAll,
 	}
 	packet := proto.NewPacketReqID()
 	packet.Opcode = proto.OpMetaBatchGetXAttr
