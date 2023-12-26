@@ -55,6 +55,7 @@ type VolVarargs struct {
 	crossZone               bool
 	enableAutoDpMetaRepair  bool
 	volStorageClass         uint32
+	allowedStorageClass     []uint32
 }
 
 // Vol represents a set of meta partitionMap and data partitionMap
@@ -1724,6 +1725,7 @@ func setVolFromArgs(args *VolVarargs, vol *Vol) {
 	vol.TrashInterval = args.trashInterval
 	vol.EnableAutoMetaRepair.Store(args.enableAutoDpMetaRepair)
 	vol.volStorageClass = args.volStorageClass
+	vol.allowedStorageClass = append([]uint32{}, args.allowedStorageClass...)
 }
 
 func getVolVarargs(vol *Vol) *VolVarargs {
@@ -1761,6 +1763,7 @@ func getVolVarargs(vol *Vol) *VolVarargs {
 		dpReadOnlyWhenVolFull:   vol.DpReadOnlyWhenVolFull,
 		enableAutoDpMetaRepair:  vol.EnableAutoMetaRepair.Load(),
 		volStorageClass:         vol.volStorageClass,
+		allowedStorageClass:     append([]uint32{}, vol.allowedStorageClass...),
 	}
 }
 
@@ -1802,4 +1805,17 @@ func (vol *Vol) loadQuotaManager(c *Cluster) (err error) {
 	}
 
 	return err
+}
+
+func (vol *Vol) isStorageClassInAllowed(storageClass uint32) (in bool) {
+	vol.volLock.Lock()
+	defer vol.volLock.Unlock()
+
+	for _, asc := range vol.allowedStorageClass {
+		if asc == storageClass {
+			in = true
+		}
+	}
+
+	return in
 }
