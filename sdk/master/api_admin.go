@@ -16,6 +16,7 @@ package master
 
 import (
 	"fmt"
+	"net/http"
 	"strconv"
 
 	"github.com/cubefs/cubefs/proto"
@@ -319,6 +320,18 @@ func (api *AdminAPI) VolExpand(volName string, capacity uint64, authKey, clientI
 	request.addParam("capacity", strconv.FormatUint(capacity, 10))
 	request.addParam("clientIDKey", clientIDKey)
 	_, err = api.mc.serveRequest(request)
+	return
+}
+
+func (api *AdminAPI) VolAddAllowedStorageClass(volName string, addAllowedStorageClass uint32, authKey, clientIDKey string) (err error) {
+	request := newRequest(http.MethodGet, proto.AdminVolAddAllowedStorageClass)
+	request.addParam("name", volName).Header(api.h)
+	request.addParam("allowedStorageClass", strconv.FormatUint(uint64(addAllowedStorageClass), 10))
+	request.addParam("authKey", authKey)
+	request.addParam("clientIDKey", clientIDKey)
+	if _, err = api.mc.serveRequest(request); err != nil {
+		return
+	}
 	return
 }
 
