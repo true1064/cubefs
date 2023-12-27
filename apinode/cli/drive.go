@@ -462,8 +462,8 @@ func addCmdMultipart(cmd *grumble.Command) {
 
 func addCmdSnapshot(cmd *grumble.Command) {
 	snapCommand := &grumble.Command{
-		Name: "snap",
-		Help: "snap api",
+		Name: "snapshot",
+		Help: "snapshot api",
 	}
 	cmd.AddCommand(snapCommand)
 

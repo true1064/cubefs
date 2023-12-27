@@ -32,9 +32,7 @@ func (d *DriveNode) handleCreateSnapshot(c *rpc.Context) {
 func (d *DriveNode) handleDeleteSnapshot(c *rpc.Context) {
 	args := new(ArgsSnapshot)
 	ctx, span := d.ctxSpan(c)
-
-	if d.checkError(c, func(err error) { span.Info(args, err) },
-		c.ParseArgs(args), args.Path.Clean(true)) {
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args), args.Path.Clean(true)) {
 		return
 	}
 

@@ -418,15 +418,22 @@ func getDirList(ctx context.Context, vol sdk.IVolume, ino uint64, marker string)
 	return stack, info, nil
 }
 
-func recursiveScan(ctx context.Context, vol sdk.IVolume, stack *list.List, marker string, limit int, result *ListAllResult) error {
+func recursiveScan(ctx context.Context, newVol func() (sdk.IVolume, error),
+	stack *list.List, marker string, limit int, result *ListAllResult,
+) error {
 	for stack.Len() > 0 {
 		elem := stack.Back()
 		e := elem.Value.(*stackElement)
 
+		vol, err := newVol()
+		if err != nil {
+			return err
+		}
 		dirInfos, err := vol.ReadDirAll(ctx, e.ino)
 		if err != nil {
 			return err
 		}
+
 		needPop := true
 		for _, dirInfo := range dirInfos {
 			if filepath.Join(e.marker, dirInfo.Name) <= marker {
@@ -507,7 +514,17 @@ func (d *DriveNode) handleListAll(c *rpc.Context) {
 		pathIno = Inode(dirInodeInfo.Inode)
 	}
 
-	stack, dirInfo, err := getDirList(ctx, vol, pathIno.Uint64(), marker)
+	newVol := func() (sdk.IVolume, error) {
+		_, snapVol, snapErr := d.getUserRouterAndVolume(withNoTraceLog(ctx), uid)
+		return snapVol, snapErr
+	}
+
+	volMarker, err := newVol()
+	if err != nil {
+		d.respError(c, err)
+		return
+	}
+	stack, dirInfo, err := getDirList(ctx, volMarker, pathIno.Uint64(), marker)
 	if err != nil {
 		d.respError(c, err)
 		return
@@ -527,7 +544,7 @@ func (d *DriveNode) handleListAll(c *rpc.Context) {
 		})
 	}
 
-	if err = recursiveScan(ctx, vol, stack, marker, limit, &result); err != nil {
+	if err = recursiveScan(ctx, newVol, stack, marker, limit, &result); err != nil {
 		d.respError(c, err)
 		return
 	}
@@ -545,13 +562,19 @@ func (d *DriveNode) handleListAll(c *rpc.Context) {
 			if errValue.Load() != nil {
 				return
 			}
-			inoInfo, err := vol.GetInode(ctx, ino)
+			xattrVol, err := newVol()
+			if err != nil {
+				span.Errorf("get volume error: %v, name: %s, inode: %s", err, result.Files[idx].Name, ino)
+				errValue.Store(err)
+				return
+			}
+			inoInfo, err := xattrVol.GetInode(ctx, ino)
 			if err != nil {
 				span.Errorf("get inode error: %v, name: %s, inode: %s", err, result.Files[idx].Name, ino)
 				errValue.Store(err)
 				return
 			}
-			properties, err := vol.GetXAttrMap(ctx, ino)
+			properties, err := xattrVol.GetXAttrMap(ctx, ino)
 			if err != nil {
 				span.Errorf("get xattr error: %v, name: %s, inode: %d", err, result.Files[idx].Name, ino)
 				errValue.Store(err)

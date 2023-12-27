@@ -515,7 +515,7 @@ func TestCreateDir(t *testing.T) {
 
 	node.OnceLookup(false)
 	_, _, err = d.createDir(Ctx, node.Volume, 1, "/a/b", false)
-	require.ErrorIs(t, err, sdk.ErrConflict)
+	require.ErrorIs(t, err, sdk.ErrNotDir)
 
 	node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotFound).Times(2)
 	node.Volume.EXPECT().Mkdir(A, A, A).Return(nil, uint64(0), sdk.ErrExist)
@@ -526,7 +526,7 @@ func TestCreateDir(t *testing.T) {
 	node.Volume.EXPECT().Mkdir(A, A, A).Return(nil, uint64(0), sdk.ErrExist)
 	node.OnceLookup(false)
 	_, _, err = d.createDir(Ctx, node.Volume, 1, "/a", true)
-	require.ErrorIs(t, err, sdk.ErrConflict)
+	require.ErrorIs(t, err, sdk.ErrNotDir)
 
 	node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotFound)
 	node.Volume.EXPECT().Mkdir(A, A, A).Return(nil, uint64(0), sdk.ErrExist)

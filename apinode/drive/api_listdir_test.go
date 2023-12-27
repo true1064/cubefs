@@ -275,8 +275,8 @@ func TestHandleListAll(t *testing.T) {
 		require.Equal(t, 404, err.StatusCode())
 	}
 
+	node.GetUserAny()
 	{
-		node.OnceGetUser()
 		node.Volume.EXPECT().Lookup(A, A, A).Return(&sdk.DirInfo{
 			Inode: 100,
 			Type:  uint32(fs.ModeAppend),
@@ -294,7 +294,6 @@ func TestHandleListAll(t *testing.T) {
 				inoMap[inode+uint64(j)] = typeFile
 			}
 		}
-		node.OnceGetUser()
 		node.Volume.EXPECT().Lookup(A, A, A).DoAndReturn(func(ctx context.Context, ino uint64, name string) (*sdk.DirInfo, error) {
 			inode := uint64(100)
 			if name != "test" {
@@ -344,12 +343,10 @@ func TestHandleListAll(t *testing.T) {
 		require.Nil(t, err)
 		require.Equal(t, 32, len(result.Files))
 
-		node.OnceGetUser()
 		result, err = doRequest("/test", "200/209", 0)
 		require.Nil(t, err)
 		require.Equal(t, 13, len(result.Files))
 
-		node.OnceGetUser()
 		result, err = doRequest("/test", "400", 0)
 		require.Nil(t, err)
 		require.Equal(t, 0, len(result.Files))

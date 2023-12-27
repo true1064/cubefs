@@ -123,7 +123,7 @@ func (d *DriveNode) handleFileUploadBatch(c *rpc.Context) {
 	ctx, span := d.ctxSpan(c)
 
 	uid := d.userID(c, nil)
-	ur, vol, errx := d.getUserRouterAndVolume(ctx, uid)
+	ur, _, errx := d.getUserRouterAndVolume(ctx, uid)
 	if d.checkError(c, func(err error) { span.Warn(err) }, errx, ur.CanWrite()) {
 		return
 	}
@@ -208,6 +208,12 @@ func (d *DriveNode) handleFileUploadBatch(c *rpc.Context) {
 				return
 			}
 			args.FileID = id
+		}
+
+		_, vol, err := d.getUserRouterAndVolume(withNoTraceLog(ctx), uid)
+		if err != nil {
+			addErr(path, err)
+			return
 		}
 
 		dir, filename := args.Path.Split()
@@ -611,7 +617,7 @@ func (d *DriveNode) handleFileDownloadBatch(c *rpc.Context) {
 	}
 
 	uid := d.userID(c, nil)
-	ur, vol, err := d.getUserRouterAndVolume(ctx, uid)
+	ur, _, err := d.getUserRouterAndVolume(ctx, uid)
 	if d.checkError(c, func(err error) { span.Warn(err) }, err) {
 		return
 	}
@@ -661,6 +667,12 @@ func (d *DriveNode) handleFileDownloadBatch(c *rpc.Context) {
 			}
 			filePipe <- downloadFilePipe{hdr: hdr, content: io.MultiReader()}
 		}()
+
+		_, vol, errd := d.getUserRouterAndVolume(withNoTraceLog(ctx), uid)
+		if errd != nil {
+			span.Warn(uid, errd)
+			return
+		}
 
 		file, errd := d.lookupFile(withNoTraceLog(ctx), vol, root, path)
 		if errd != nil {
@@ -761,8 +773,8 @@ func (d *DriveNode) handleFileRename(c *rpc.Context) {
 		return
 	}
 
-	ur, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c, nil))
-	_, volSrc, errSrc := d.getUserRouterAndVolume(ctx, d.userID(c, nil))
+	ur, vol, err := d.getUserRouterAndVolume(ctx, uid)
+	_, volSrc, errSrc := d.getUserRouterAndVolume(ctx, uid)
 	if d.checkError(c, func(err error) { span.Warn(err) }, err, errSrc, ur.CanWrite()) {
 		return
 	}
@@ -849,8 +861,8 @@ func (d *DriveNode) handleFileCopy(c *rpc.Context) {
 		return
 	}
 
-	ur, vol, err := d.getUserRouterAndVolume(ctx, d.userID(c, nil))
-	_, volSrc, errSrc := d.getUserRouterAndVolume(ctx, d.userID(c, nil))
+	ur, vol, err := d.getUserRouterAndVolume(ctx, uid)
+	_, volSrc, errSrc := d.getUserRouterAndVolume(ctx, uid)
 	if d.checkError(c, func(err error) { span.Warn(err) }, err, errSrc, ur.CanWrite()) {
 		return
 	}

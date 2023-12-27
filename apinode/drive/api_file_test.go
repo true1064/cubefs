@@ -211,7 +211,7 @@ func TestHandleFileBatchUpload(t *testing.T) {
 		require.NoError(t, err)
 	}
 	{
-		node.OnceGetUser()
+		node.GetUserN2()
 		hdr.Name = "/it's/a/../a/file"
 		writeBuff()
 		// create dir error
@@ -221,8 +221,8 @@ func TestHandleFileBatchUpload(t *testing.T) {
 		hdr.Name = "/file"
 		buf.Reset()
 	}
+	node.GetUserAny()
 	{
-		node.OnceGetUser()
 		hdr.PAXRecords[PAXFileID] = "1000"
 		writeBuff()
 		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e2)
@@ -232,7 +232,6 @@ func TestHandleFileBatchUpload(t *testing.T) {
 	}
 	node.Volume.EXPECT().Lookup(A, A, A).Return(&sdk.DirInfo{Inode: 1000, FileId: 1000}, nil).AnyTimes()
 	{
-		node.OnceGetUser()
 		hdr.PAXRecords[PAXCrc32] = "not-number"
 		writeBuff()
 		require.NoError(t, doRequest(buf, &res))
@@ -245,7 +244,6 @@ func TestHandleFileBatchUpload(t *testing.T) {
 	}
 	{
 		hdr.PAXRecords[UserPropertyPrefix+internalMetaMD5] = "internal"
-		node.OnceGetUser()
 		writeBuff()
 		require.NoError(t, doRequest(buf, &res))
 		hasError(400)
@@ -253,7 +251,6 @@ func TestHandleFileBatchUpload(t *testing.T) {
 		delete(hdr.PAXRecords, UserPropertyPrefix+internalMetaMD5)
 	}
 	{
-		node.OnceGetUser()
 		writeBuff()
 		node.Volume.EXPECT().UploadFile(A, A).Return(nil, uint64(0), e3)
 		require.NoError(t, doRequest(buf, &res))
@@ -262,7 +259,6 @@ func TestHandleFileBatchUpload(t *testing.T) {
 	}
 	{
 		hdr.PAXRecords[PAXMD5] = "md5"
-		node.OnceGetUser()
 		writeBuff()
 		node.Volume.EXPECT().UploadFile(A, A).DoAndReturn(
 			func(_ context.Context, req *sdk.UploadFileReq) (*sdk.InodeInfo, uint64, error) {
@@ -287,7 +283,6 @@ func TestHandleFileBatchUpload(t *testing.T) {
 		_, err = tw.Write(body.buff[:])
 		require.NoError(t, err)
 
-		node.OnceGetUser()
 		node.Volume.EXPECT().UploadFile(A, A).DoAndReturn(
 			func(_ context.Context, req *sdk.UploadFileReq) (*sdk.InodeInfo, uint64, error) {
 				err := req.Callback()
@@ -314,7 +309,6 @@ func TestHandleFileBatchUpload(t *testing.T) {
 		_, err = tw.Write(body.buff[:])
 		require.NoError(t, err)
 
-		node.OnceGetUser()
 		node.Volume.EXPECT().UploadFile(A, A).DoAndReturn(
 			func(_ context.Context, req *sdk.UploadFileReq) (*sdk.InodeInfo, uint64, error) {
 				_, err := io.CopyN(io.Discard, req.Body, int64(len(body.buff)))
@@ -771,14 +765,14 @@ func TestHandleFileBatchDownload(t *testing.T) {
 	}
 	body, _ := json.Marshal([]string{"/a", "/b", "/c"})
 	{
-		node.OnceGetUser()
+		node.GetUserN(4)
 		node.LookupDirN(3)
 		resp := doRequest(body)
 		resp.Body.Close()
 		require.Equal(t, 200, resp.StatusCode)
 	}
+	node.GetUserAny()
 	{
-		node.OnceGetUser()
 		node.LookupN(3)
 		node.Volume.EXPECT().GetInode(A, A).Return(nil, e1).Times(3)
 		resp := doRequest(body)
@@ -798,7 +792,6 @@ func TestHandleFileBatchDownload(t *testing.T) {
 	}
 	{
 		size := 1024
-		node.OnceGetUser()
 		node.LookupN(3)
 		node.OnceGetInode()
 		node.OnceGetInode()
@@ -835,7 +828,6 @@ func TestHandleFileBatchDownload(t *testing.T) {
 	}
 	{
 		const n = 100
-		node.OnceGetUser()
 		node.LookupN(n)
 		node.Volume.EXPECT().GetInode(A, A).DoAndReturn(
 			func(_ context.Context, ino uint64) (*proto.InodeInfo, error) {

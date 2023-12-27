@@ -218,12 +218,14 @@ type BatchDeleteResult struct {
 
 func (d *DriveNode) handleBatchDelete(c *rpc.Context) {
 	args := new(ArgsBatchDelete)
-	if d.checkError(c, nil, c.ParseArgs(args)) {
+	ctx, span := d.ctxSpan(c)
+	if d.checkError(c, func(err error) { span.Error(err) }, c.ParseArgs(args)) {
 		return
 	}
-	ctx, span := d.ctxSpan(c)
-	ur, _, err := d.getUserRouterAndVolume(ctx, d.userID(c, nil))
-	if d.checkError(c, func(err error) { span.Warnf("get root inode and volume return error: %v", err) }, err, ur.CanWrite()) {
+
+	uid := d.userID(c, nil)
+	ur, _, err := d.getUserRouterAndVolume(ctx, uid)
+	if d.checkError(c, func(err error) { span.Warnf("get root inode and volume: %v", err) }, err, ur.CanWrite()) {
 		return
 	}
 	root := ur.RootFileID
@@ -248,7 +250,7 @@ func (d *DriveNode) handleBatchDelete(c *rpc.Context) {
 				ch <- result{arg, err}
 				return
 			}
-			_, volDel, err := d.getUserRouterAndVolume(ctx, d.userID(c, nil))
+			_, volDel, err := d.getUserRouterAndVolume(ctx, uid)
 			if err != nil {
 				ch <- result{arg, err}
 				return
