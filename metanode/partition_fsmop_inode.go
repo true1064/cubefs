@@ -134,7 +134,6 @@ func (mp *metaPartition) fsmCreateLinkInode(ino *Inode, uniqID uint64) (resp *In
 		return
 	}
 
-	i.IncNLink(ino.getVer())
 	resp.Msg = i
 	if !mp.uniqChecker.legalIn(uniqID) {
 		log.LogWarnf("fsmCreateLinkInode repeated, ino %v uniqID %v nlink %v", ino.Inode, uniqID, ino.GetNLink())

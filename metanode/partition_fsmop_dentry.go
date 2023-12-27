@@ -409,8 +409,8 @@ func (mp *metaPartition) fsmDeleteDentryInner(denParm *Dentry, checkInode bool, 
 						log.LogDebugf("action[fsmDeleteDentry] den  %v delete parent's link", denParm)
 						if denParm.getSeqFiled() == 0 {
 							item.(*Inode).DecNLink()
+							log.LogDebugf("action[fsmDeleteDentry] inode %v be unlinked by child name %s", ino, denParm.Name)
 						}
-						log.LogDebugf("action[fsmDeleteDentry] inode %v be unlinked by child name %v", item.(*Inode).Inode, denParm.Name)
 						item.(*Inode).SetMtime()
 					}
 				}
