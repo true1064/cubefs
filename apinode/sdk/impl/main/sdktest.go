@@ -67,11 +67,27 @@ func main() {
 	// testMultiPartOp(ctx, dirVol)
 	// testInodeLock(ctx, dirVol)
 
-	// testXAttrOp(ctx, dirVol)
 	// testDirSnapshotLimit(ctx, vol, dirVol)
 	// testDirSnapshotOp(ctx, vol, dirVol)
 	// testOverWrite(ctx, vol, dirVol)
 	testSnapshotOverWrite(ctx, vol, dirVol)
+
+	for _, f := range []func(context.Context, sdk.IVolume){
+		testDirOp,
+		testCreateFile,
+		testXAttrOp,
+		testMultiPartOp,
+		testInodeLock,
+	} {
+		span.Warn("ignored", f)
+	}
+	for _, f := range []func(context.Context, sdk.IVolume, sdk.IVolume){
+		testDirSnapshotLimit,
+		testDirSnapshotOp,
+		testOverWrite,
+	} {
+		span.Warn("ignored", f)
+	}
 }
 
 func testSnapshotOverWrite(ctx context.Context, vol, dirVol sdk.IVolume) {
@@ -260,8 +276,7 @@ func testDirSnapshotLimit(ctx context.Context, vol, dirVol sdk.IVolume) {
 	}
 
 	delSnapshot := func(ver, dir string) {
-		err := dirVol.DeleteDirSnapshot(ctx, ver, dir)
-		if err != nil {
+		if err = dirVol.DeleteDirSnapshot(ctx, ver, dir); err != nil {
 			span.Fatalf("delete dir snapshot failed, dir %s, err %s", dir, err.Error())
 		}
 	}
@@ -461,7 +476,8 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 	}
 
 	readDir := func(ino uint64, cnt int) {
-		dirs, err := dirVol.ReadDirAll(ctx, ifo.Inode)
+		var dirs []sdk.DirInfo
+		dirs, err = dirVol.ReadDirAll(ctx, ifo.Inode)
 		if err != nil {
 			span.Fatalf("readdir failed, ino %d, err %s", err.Error())
 		}
@@ -488,7 +504,8 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 
 	readDirVer := func(ino uint64, ver string, cnt int) {
 		nameV1 := sdk.SnapShotPre + ver
-		v1Ifo, err := dirVol.Lookup(ctx, ifo.Inode, nameV1)
+		var v1Ifo *sdk.DirInfo
+		v1Ifo, err = dirVol.Lookup(ctx, ifo.Inode, nameV1)
 		if err != nil {
 			span.Fatalf("lookup snapshot v1 failed, ino %d, name %s, err  %s", ifo.Inode, nameV1, err.Error())
 		}
@@ -499,7 +516,8 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 		}
 
 		if ver == v2 {
-			f2Dentry, err := dirVol.Lookup(ctx, ifo.Inode, f2)
+			var f2Dentry *sdk.DirInfo
+			f2Dentry, err = dirVol.Lookup(ctx, ifo.Inode, f2)
 			if err != nil || f2Dentry.FileId == newF2FileId {
 				span.Fatalf("lookup failed or fileId（%v） on v2 may equal newFileId(%d), err (%v)", f2Dentry, newF2FileId, err)
 			}

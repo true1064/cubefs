@@ -226,15 +226,15 @@ func (d *dirSnapshotOp) recursiveCheckSubDir(ctx context.Context, dirIno uint64)
 		select {
 		case d.walkCh <- struct{}{}:
 			wg.Add(1)
-			go func(ino uint64) {
+			go func(ino uint64, iname string) {
 				defer release()
 				err1 := d.recursiveCheckSubDir(ctx, ino)
 				if err1 != nil {
 					span.Errorf("recursiveCheckSubDir: find conflict snapshot ino, parIno %d, name %s, err1 %s",
-						e.Inode, e.Name, err1.Error())
+						ino, iname, err1.Error())
 					err = err1
 				}
-			}(e.Inode)
+			}(e.Inode, e.Name)
 		case <-d.stop:
 			logger.Warn("receive stop from stopCh, exit walkDir, dirIno %d", dirIno)
 			return sdk.ErrInternalServerError

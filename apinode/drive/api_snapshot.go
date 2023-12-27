@@ -22,7 +22,7 @@ func (d *DriveNode) handleCreateSnapshot(c *rpc.Context) {
 		return
 	}
 	if d.checkError(c, func(err error) {
-		span.Errorf("uid=%s create snapshot %s error: %s", uid, args.Path, err.Error())
+		span.Errorf("uid=%v create snapshot %s error: %s", uid, args.Path, err.Error())
 	}, vol.CreateDirSnapshot(ctx, args.Version, args.Path.String())) {
 		return
 	}
@@ -42,7 +42,7 @@ func (d *DriveNode) handleDeleteSnapshot(c *rpc.Context) {
 		return
 	}
 	if d.checkError(c, func(err error) {
-		span.Errorf("uid=%s delete snapshot %s error: %s", uid, args.Path, err.Error())
+		span.Errorf("uid=%v delete snapshot %s error: %s", uid, args.Path, err.Error())
 	}, vol.DeleteDirSnapshot(ctx, args.Version, args.Path.String())) {
 		return
 	}

@@ -397,9 +397,7 @@ func (m *snapMetaOpImp) ReadDirLimit(dirIno uint64, from string, limit uint64) (
 			continue
 		}
 
-		for _, v := range vItems {
-			result = append(result, v)
-		}
+		result = append(result, vItems...)
 		result = append(result, items[idx:]...)
 		break
 	}
