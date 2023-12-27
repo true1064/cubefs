@@ -5303,6 +5303,12 @@ func (m *Server) CreateVersion(w http.ResponseWriter, r *http.Request) {
 		value string
 		force bool
 	)
+
+	metric := exporter.NewTPCnt(apiToMetricsName(proto.AdminCreateVersion))
+	defer func() {
+		doStatAndMetric(proto.AdminCreateVersion, metric, err, map[string]string{exporter.Vol: name})
+	}()
+
 	log.LogInfof("action[CreateVersion]")
 	if err = r.ParseForm(); err != nil {
 		sendErrReply(w, r, newErrHTTPReply(proto.ErrParamError))
@@ -5316,6 +5322,13 @@ func (m *Server) CreateVersion(w http.ResponseWriter, r *http.Request) {
 
 	if vol, err = m.cluster.getVol(name); err != nil {
 		sendErrReply(w, r, newErrHTTPReply(proto.ErrVolNotExists))
+		return
+	}
+
+	if len(vol.allowedStorageClass) > 1 {
+		err = fmt.Errorf("volume has multiple allowedStorageClass, not support snapshot featrure at the same time")
+		log.LogErrorf("[CreateVersion] vol(%v), err: %v", name, err.Error())
+		sendErrReply(w, r, newErrHTTPReply(err))
 		return
 	}
 
@@ -5339,6 +5352,11 @@ func (m *Server) DelVersion(w http.ResponseWriter, r *http.Request) {
 		value  string
 		force  bool
 	)
+
+	metric := exporter.NewTPCnt(apiToMetricsName(proto.AdminDelVersion))
+	defer func() {
+		doStatAndMetric(proto.AdminDelVersion, metric, err, map[string]string{exporter.Vol: name})
+	}()
 
 	if err = r.ParseForm(); err != nil {
 		return
@@ -5379,6 +5397,12 @@ func (m *Server) GetVersionInfo(w http.ResponseWriter, r *http.Request) {
 		verSeq  uint64
 		verInfo *proto.VolVersionInfo
 	)
+
+	metric := exporter.NewTPCnt(apiToMetricsName(proto.AdminGetVersionInfo))
+	defer func() {
+		doStatAndMetric(proto.AdminGetVersionInfo, metric, err, map[string]string{exporter.Vol: name})
+	}()
+
 	if err = r.ParseForm(); err != nil {
 		return
 	}
@@ -5410,6 +5434,12 @@ func (m *Server) GetAllVersionInfo(w http.ResponseWriter, r *http.Request) {
 		name    string
 		verList *proto.VolVersionInfoList
 	)
+
+	metric := exporter.NewTPCnt(apiToMetricsName(proto.AdminGetAllVersionInfo))
+	defer func() {
+		doStatAndMetric(proto.AdminGetAllVersionInfo, metric, err, map[string]string{exporter.Vol: name})
+	}()
+
 	if err = r.ParseForm(); err != nil {
 		return
 	}
@@ -5440,6 +5470,11 @@ func (m *Server) SetVerStrategy(w http.ResponseWriter, r *http.Request) {
 		isForce  bool
 	)
 
+	metric := exporter.NewTPCnt(apiToMetricsName(proto.AdminSetVerStrategy))
+	defer func() {
+		doStatAndMetric(proto.AdminSetVerStrategy, metric, err, map[string]string{exporter.Vol: name})
+	}()
+
 	if name, err = parseVolName(r); err != nil {
 		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 		return
@@ -5464,6 +5499,12 @@ func (m *Server) getVolVer(w http.ResponseWriter, r *http.Request) {
 		name string
 		info *proto.VolumeVerInfo
 	)
+
+	metric := exporter.NewTPCnt(apiToMetricsName(proto.AdminGetVolVer))
+	defer func() {
+		doStatAndMetric(proto.AdminGetVolVer, metric, err, map[string]string{exporter.Vol: name})
+	}()
+
 	if name, err = parseVolName(r); err != nil {
 		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 		return
@@ -6760,6 +6801,7 @@ func (m *Server) volAddAllowedStorageClass(w http.ResponseWriter, r *http.Reques
 
 	if !proto.IsValidStorageClass(addAllowedStorageClass) {
 		err = fmt.Errorf("invalid storageClass(%v)", addAllowedStorageClass)
+		log.LogErrorf("[volAddAllowedStorageClass] vol(%v), err: %v", name, err.Error())
 		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
@@ -6772,6 +6814,7 @@ func (m *Server) volAddAllowedStorageClass(w http.ResponseWriter, r *http.Reques
 	if in := vol.isStorageClassInAllowed(addAllowedStorageClass); in {
 		err = fmt.Errorf("storageClass(%v) already in vol allowedStorageClass(%v)",
 			addAllowedStorageClass, vol.allowedStorageClass)
+		log.LogErrorf("[volAddAllowedStorageClass] vol(%v), err: %v", name, err.Error())
 		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
@@ -6780,7 +6823,23 @@ func (m *Server) volAddAllowedStorageClass(w http.ResponseWriter, r *http.Reques
 	if !resourceChecker.HasResourceOfStorageClass(addAllowedStorageClass) {
 		err = fmt.Errorf("cluster has no resoure to support storageClass(%v)",
 			proto.StorageClassString(addAllowedStorageClass))
+		log.LogErrorf("[volAddAllowedStorageClass] vol(%v), err: %v", name, err.Error())
 		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
+
+	if m.cluster.FaultDomain {
+		err = fmt.Errorf("cluster fault domain is on, not support multiple allowedStorageClass at the same time")
+		log.LogErrorf("[volAddAllowedStorageClass] vol(%v), err: %v", name, err.Error())
+		sendErrReply(w, r, newErrHTTPReply(err))
+		return
+	}
+
+	verList := vol.VersionMgr.getVersionList()
+	if len(verList.VerList) > 0 {
+		err = fmt.Errorf("vol(%v) now has or used to have snapshot version, not support multiple allowedStorageClass", name)
+		log.LogErrorf("[volAddAllowedStorageClass] err: %v", err.Error())
+		sendErrReply(w, r, newErrHTTPReply(err))
 		return
 	}
 
@@ -6798,7 +6857,8 @@ func (m *Server) volAddAllowedStorageClass(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	msg = fmt.Sprintf("add vol(%v) allowedStorageClass successfully", name)
+	msg = fmt.Sprintf("add vol(%v) allowedStorageClass successfully, new allowedStorageClass: %v",
+		name, newArgs.allowedStorageClass)
 	log.LogInfof("%v, added(%v), current(%v)", msg, addAllowedStorageClass, vol.allowedStorageClass)
 	sendOkReply(w, r, newSuccessHTTPReply(msg))
 }
