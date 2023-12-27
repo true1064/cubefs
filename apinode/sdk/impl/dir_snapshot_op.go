@@ -611,7 +611,7 @@ func (d *dirSnapshotOp) UploadFile(ctx context.Context, req *sdk.UploadFileReq) 
 		if den.FileId != req.OldFileId || proto.IsDir(den.Type) {
 			span.Errorf("target file already exist but conflict, den %v, reqOld %d",
 				den, req.OldFileId)
-			return nil, 0, sdk.ErrConflict
+			return nil, 0, sdk.Conflicted(den.FileId)
 		}
 		oldIno = den.Inode
 	}
@@ -980,7 +980,7 @@ func (d *dirSnapshotOp) CompleteMultiPart(ctx context.Context, req *sdk.Complete
 		if err != nil {
 			span.Warnf("lookup path file failed, filepath %s, err %s", parDir, err.Error())
 			if err == syscall.ENOENT {
-				return nil, 0, sdk.ErrConflict
+				return nil, 0, sdk.Conflicted(0)
 			}
 			return nil, 0, syscallToErr(err)
 		}
@@ -994,7 +994,10 @@ func (d *dirSnapshotOp) CompleteMultiPart(ctx context.Context, req *sdk.Complete
 
 		if den == nil || den.FileId != oldFileId || proto.IsDir(den.Type) {
 			span.Warnf("target file already exist but conflict, path %s, den %v, reqOld %d", filepath, den, oldFileId)
-			return nil, 0, sdk.ErrConflict
+			if den != nil {
+				return nil, 0, sdk.Conflicted(den.FileId)
+			}
+			return nil, 0, sdk.Conflicted(0)
 		}
 
 		oldIno = den.Inode
