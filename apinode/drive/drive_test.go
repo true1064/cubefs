@@ -213,7 +213,7 @@ func (node *mockNode) OnceGetInode() {
 		})
 }
 
-func (node *mockNode) ListDir(n, nFile int) {
+func (node *mockNode) listDirSnapshot(n, nFile int, snapshot bool) {
 	node.Volume.EXPECT().Readdir(A, A, A, A).DoAndReturn(
 		func(context.Context, uint64, string, uint32) ([]sdk.DirInfo, error) {
 			dirs := make([]sdk.DirInfo, n)
@@ -236,6 +236,17 @@ func (node *mockNode) ListDir(n, nFile int) {
 			return r, nil
 		})
 	node.Volume.EXPECT().GetXAttrMap(A, A).Return(nil, nil).Times(n)
+	if snapshot {
+		node.Volume.EXPECT().IsSnapshotInode(A, A).Return(false).Times(n)
+	}
+}
+
+func (node *mockNode) ListDir(n, nFile int) {
+	node.listDirSnapshot(n, nFile, true)
+}
+
+func (node *mockNode) ListDirNoSnapshot(n, nFile int) {
+	node.listDirSnapshot(n, nFile, false)
 }
 
 func resp2Data(resp *http.Response, data interface{}) rpc.HTTPError {

@@ -190,14 +190,14 @@ func TestHandleFilesDelete(t *testing.T) {
 	{
 		node.OnceGetUser()
 		node.LookupDirN(4)
-		node.ListDir(10, 0)
+		node.ListDirNoSnapshot(10, 0)
 		for range [10]struct{}{} {
 			node.OnceLookup(true)
-			node.ListDir(10, 0)
+			node.ListDirNoSnapshot(10, 0)
 		}
 		for range [100]struct{}{} {
 			node.OnceLookup(true)
-			node.ListDir(0, 0)
+			node.ListDirNoSnapshot(0, 0)
 		}
 		node.Volume.EXPECT().Delete(A, A, A, A).Return(nil).Times(111)
 		require.NoError(t, doRecuDel())
@@ -205,10 +205,10 @@ func TestHandleFilesDelete(t *testing.T) {
 	{
 		node.OnceGetUser()
 		node.LookupDirN(4)
-		node.ListDir(100, 0)
+		node.ListDirNoSnapshot(100, 0)
 		for range [100]struct{}{} {
 			node.OnceLookup(true)
-			node.ListDir(0, 0)
+			node.ListDirNoSnapshot(0, 0)
 		}
 		node.Volume.EXPECT().Delete(A, A, A, A).Return(e1).MinTimes(1)
 		require.Equal(t, e1.Status, doRecuDel().StatusCode())
@@ -316,14 +316,14 @@ func TestHandleFilesHeadEmpty(t *testing.T) {
 	node.Volume.EXPECT().IsSnapshotInode(A, A).Return(false).AnyTimes()
 	{
 		node.LookupDirN(4)
-		node.ListDir(10, 0)
+		node.ListDirNoSnapshot(10, 0)
 		for range [10]struct{}{} {
 			node.OnceLookup(true)
-			node.ListDir(10, 0)
+			node.ListDirNoSnapshot(10, 0)
 		}
 		for range [100]struct{}{} {
 			node.OnceLookup(true)
-			node.ListDir(0, 0)
+			node.ListDirNoSnapshot(0, 0)
 		}
 		require.NoError(t, doRequest("recursive", "1", "path", "/dir/a/"))
 	}

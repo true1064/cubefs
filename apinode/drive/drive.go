@@ -56,8 +56,9 @@ const (
 
 	UserPropertyPrefix = "x-cfa-meta-"
 
-	typeFile   = "file"
-	typeFolder = "folder"
+	typeFile     = "file"
+	typeFolder   = "folder"
+	typeSnapshot = "snapshot"
 
 	publicFolder = "public"
 
@@ -183,6 +184,13 @@ type FileInfo struct {
 
 func (fi *FileInfo) IsDir() bool {
 	return fi.Type == typeFolder
+}
+
+func fileInfoType(isDir bool) string {
+	if isDir {
+		return typeFolder
+	}
+	return typeFile
 }
 
 // origin map changed.

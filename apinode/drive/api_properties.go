@@ -140,15 +140,12 @@ func (d *DriveNode) handleGetProperties(c *rpc.Context) {
 	res := GetPropertiesResult{
 		ID:         dirInfo.FileId,
 		Name:       dirInfo.Name,
-		Type:       typeFile,
+		Type:       fileInfoType(dirInfo.IsDir()),
 		Size:       int64(inoInfo.Size),
 		Ctime:      inoInfo.CreateTime.Unix(),
 		Mtime:      inoInfo.ModifyTime.Unix(),
 		Atime:      inoInfo.AccessTime.Unix(),
 		Properties: removeInternalMeta(xattrs),
-	}
-	if dirInfo.IsDir() {
-		res.Type = typeFolder
 	}
 	d.respData(c, res)
 }

@@ -91,7 +91,7 @@ func validFilterBuilder(builder *filterBuilder) error {
 		err.Message = fmt.Sprintf("invalid filter[%s]", builder)
 		return err
 	}
-	if builder.key == "type" && builder.value != typeFile && builder.value != typeFolder {
+	if builder.key == "type" && builder.value != typeFile && builder.value != typeFolder && builder.value != typeSnapshot {
 		err.Message = fmt.Sprintf("invalid filter[%s], type value is neither file nor folder", builder)
 		return err
 	}
@@ -336,13 +336,13 @@ func (d *DriveNode) listDir(ctx context.Context, ino uint64, vol sdk.IVolume, ma
 	defer pool.Close()
 	wg.Add(n)
 	for i := 0; i < n; i++ {
-		typ := typeFile
-		if dirInfos[i].IsDir() {
-			typ = typeFolder
-		}
 		ino := dirInfos[i].Inode
 		fileID := dirInfos[i].FileId
 
+		typ := fileInfoType(dirInfos[i].IsDir())
+		if vol.IsSnapshotInode(ctx, ino) {
+			typ = typeSnapshot
+		}
 		files = append(files, FileInfo{
 			ID:         dirInfos[i].FileId,
 			Ino:        ino,
@@ -374,7 +374,6 @@ func (d *DriveNode) listDir(ctx context.Context, ino uint64, vol sdk.IVolume, ma
 		}
 	}
 	sort.Sort(FileInfoSlice(files))
-	//
 	return
 }
 
@@ -384,13 +383,13 @@ type stackElement struct {
 	marker string
 }
 
-func getDirList(ctx context.Context, vol sdk.IVolume, ino uint64, marker string) (*list.List, *sdk.DirInfo, error) {
-	var info *sdk.DirInfo
+func getMarkerStack(ctx context.Context, vol sdk.IVolume, ino uint64, marker string) (*list.List, *FileInfo, error) {
+	var marked *FileInfo
 	stack := list.New()
 	curMarker := ""
 	stack.PushBack(&stackElement{ino, "", curMarker})
 	dirs := strings.Split(marker, "/")
-	for i, dir := range dirs {
+	for _, dir := range dirs {
 		if dir == "" || dir == "." {
 			continue
 		}
@@ -401,21 +400,26 @@ func getDirList(ctx context.Context, vol sdk.IVolume, ino uint64, marker string)
 			return nil, nil, err
 		}
 
-		fileType := typeFile
 		curMarker = filepath.Join(curMarker, dirInfo.Name)
-		if dirInfo.IsDir() {
-			fileType = typeFolder
-			stack.PushBack(&stackElement{dirInfo.Inode, dirInfo.Name, curMarker})
-		}
 		ino = dirInfo.Inode
-		if i == len(dirs)-1 {
-			info = dirInfo
+
+		marked = &FileInfo{
+			ID:   dirInfo.FileId,
+			Ino:  dirInfo.Inode,
+			Name: curMarker,
+			Type: fileInfoType(dirInfo.IsDir()),
 		}
-		if fileType == typeFile {
+		if vol.IsSnapshotInode(ctx, dirInfo.Inode) {
+			marked.Type = typeSnapshot
+			break
+		}
+		if dirInfo.IsDir() {
+			stack.PushBack(&stackElement{dirInfo.Inode, dirInfo.Name, curMarker})
+		} else {
 			break
 		}
 	}
-	return stack, info, nil
+	return stack, marked, nil
 }
 
 func recursiveScan(ctx context.Context, newVol func() (sdk.IVolume, error),
@@ -439,24 +443,24 @@ func recursiveScan(ctx context.Context, newVol func() (sdk.IVolume, error),
 			if filepath.Join(e.marker, dirInfo.Name) <= marker {
 				continue
 			}
-
-			fileType := typeFile
-			if dirInfo.IsDir() {
-				fileType = typeFolder
-			}
-
 			marker = filepath.Join(e.marker, dirInfo.Name)
 
-			result.Files = append(result.Files, FileInfo{
+			file := FileInfo{
 				ID:   dirInfo.FileId,
 				Ino:  dirInfo.Inode,
 				Name: marker,
-				Type: fileType,
-			})
+				Type: fileInfoType(dirInfo.IsDir()),
+			}
+			isSnapshot := vol.IsSnapshotInode(ctx, dirInfo.Inode)
+			if isSnapshot {
+				file.Type = typeSnapshot
+			}
+
+			result.Files = append(result.Files, file)
 			if len(result.Files) >= limit {
 				return nil
 			}
-			if fileType == typeFolder {
+			if dirInfo.IsDir() && !isSnapshot {
 				stack.PushBack(&stackElement{dirInfo.Inode, dirInfo.Name, marker})
 				needPop = false
 				break
@@ -484,21 +488,21 @@ func (d *DriveNode) handleListAll(c *rpc.Context) {
 		limit = 10000
 	}
 	limit += 1
-
-	var pathIno Inode
+	if len(marker) > 0 && marker[0] == '/' {
+		d.respError(c, sdk.ErrBadRequest.Extendf("use relative path in marker:%s", marker))
+		return
+	}
 
 	// 1. get user route info
 	ur, vol, err := d.getUserRouterAndVolume(ctx, uid)
 	if err != nil {
-		span.Errorf("Failed to get volume: %v", err)
 		d.respError(c, err)
 		return
 	}
 	root := ur.RootFileID
 
-	if path == "/" {
-		pathIno = root
-	} else {
+	pathIno := root.Uint64()
+	if path != "/" {
 		// 2. lookup the inode of dir
 		dirInodeInfo, errx := d.lookup(ctx, vol, root, path)
 		if errx != nil {
@@ -511,7 +515,7 @@ func (d *DriveNode) handleListAll(c *rpc.Context) {
 			d.respError(c, sdk.ErrNotDir)
 			return
 		}
-		pathIno = Inode(dirInodeInfo.Inode)
+		pathIno = dirInodeInfo.Inode
 	}
 
 	newVol := func() (sdk.IVolume, error) {
@@ -519,33 +523,20 @@ func (d *DriveNode) handleListAll(c *rpc.Context) {
 		return snapVol, snapErr
 	}
 
-	volMarker, err := newVol()
-	if err != nil {
-		d.respError(c, err)
-		return
-	}
-	stack, dirInfo, err := getDirList(ctx, volMarker, pathIno.Uint64(), marker)
-	if err != nil {
-		d.respError(c, err)
-		return
-	}
-
 	result := ListAllResult{Files: []FileInfo{}}
-	if dirInfo != nil {
-		fileType := typeFile
-		if dirInfo.IsDir() {
-			fileType = typeFolder
-		}
-		result.Files = append(result.Files, FileInfo{
-			ID:   dirInfo.FileId,
-			Ino:  dirInfo.Inode,
-			Name: marker,
-			Type: fileType,
-		})
+	volMarker, err := newVol()
+	if d.checkError(c, nil, err) {
+		return
+	}
+	stack, marked, err := getMarkerStack(ctx, volMarker, pathIno, marker)
+	if d.checkError(c, nil, err) {
+		return
+	}
+	if marked != nil {
+		result.Files = append(result.Files, *marked)
 	}
 
-	if err = recursiveScan(ctx, newVol, stack, marker, limit, &result); err != nil {
-		d.respError(c, err)
+	if d.checkError(c, nil, recursiveScan(ctx, newVol, stack, marker, limit, &result)) {
 		return
 	}
 
@@ -564,7 +555,6 @@ func (d *DriveNode) handleListAll(c *rpc.Context) {
 			}
 			xattrVol, err := newVol()
 			if err != nil {
-				span.Errorf("get volume error: %v, name: %s, inode: %s", err, result.Files[idx].Name, ino)
 				errValue.Store(err)
 				return
 			}
