@@ -76,18 +76,29 @@ func addCmdDir(cmd *grumble.Command) {
 	}
 	cmd.AddCommand(dirCommand)
 
+	listFlags := func(f *grumble.Flags) {
+		f.StringL("path", "/", "path")
+		f.StringL("marker", "", "marker")
+		f.StringL("limit", "10", "limit")
+		f.StringL("filter", "", "filter")
+	}
+
 	dirCommand.AddCommand(&grumble.Command{
-		Name: "list",
-		Help: "list dir",
-		Flags: func(f *grumble.Flags) {
-			f.StringL("path", "/", "path")
-			f.StringL("marker", "", "marker")
-			f.StringL("limit", "10", "limit")
-			f.StringL("filter", "", "filter")
-		},
+		Name:  "list",
+		Help:  "list dir",
+		Flags: listFlags,
 		Run: func(c *grumble.Context) error {
 			f := c.Flags.String
 			return show(cli.ListDir(f("path"), f("marker"), f("limit"), f("filter")))
+		},
+	})
+	dirCommand.AddCommand(&grumble.Command{
+		Name:  "all",
+		Help:  "list all",
+		Flags: listFlags,
+		Run: func(c *grumble.Context) error {
+			f := c.Flags.String
+			return show(cli.ListAll(f("path"), f("marker"), f("limit"), f("filter")))
 		},
 	})
 	dirCommand.AddCommand(&grumble.Command{

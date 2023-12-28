@@ -253,8 +253,9 @@ func TestHandleListAll(t *testing.T) {
 	server, client := newTestServer(d)
 	defer server.Close()
 
-	doRequest := func(path string, marker string, limit int) (*ListAllResult, rpc.HTTPError) {
-		url := genURL(server.URL, "/v1/files/recursive", "path", path, "marker", marker, "limit", fmt.Sprintf("%d", limit))
+	doRequest := func(path string, marker string, limit int, filter string) (*ListAllResult, rpc.HTTPError) {
+		url := genURL(server.URL, "/v1/files/recursive", "path", path, "marker", marker,
+			"limit", fmt.Sprintf("%d", limit), "filter", filter)
 		req, _ := http.NewRequest(http.MethodGet, url, nil)
 		req.Header.Add(HeaderRequestID, "user_request_id")
 		req.Header.Add(HeaderUserID, testUserID.ID)
@@ -271,34 +272,38 @@ func TestHandleListAll(t *testing.T) {
 	{
 		node.OnceGetUser(testUserID)
 		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, sdk.ErrNotFound)
-		_, err := doRequest("/test", "", 0)
+		_, err := doRequest("/test", "", 0, "")
 		require.Equal(t, 404, err.StatusCode())
 	}
 	{
-		_, err := doRequest("test", "/root/marker", 0)
+		_, err := doRequest("test", "/root/marker", 0, "")
 		require.Equal(t, sdk.ErrBadRequest.StatusCode(), err.StatusCode())
 	}
 	{
-		_, err := doRequest("/test", "/root/marker", 0)
+		_, err := doRequest("/test", "/root/marker", 0, "")
+		require.Equal(t, sdk.ErrBadRequest.StatusCode(), err.StatusCode())
+	}
+	{
+		_, err := doRequest("/test", "", 0, "not a filter")
 		require.Equal(t, sdk.ErrBadRequest.StatusCode(), err.StatusCode())
 	}
 
 	node.GetUserAny()
 	{
 		node.OnceLookup(false)
-		_, err := doRequest("/test", "", 0)
+		_, err := doRequest("/test", "", 0, "")
 		require.Equal(t, sdk.ErrNotDir.StatusCode(), err.StatusCode())
 	}
 	{
 		node.Volume.EXPECT().Lookup(A, A, A).Return(nil, e1)
-		_, err := doRequest("/", "snapshot", 0)
+		_, err := doRequest("/", "snapshot", 0, "")
 		require.Equal(t, e1.StatusCode(), err.StatusCode())
 	}
 	{
 		node.OnceLookup(false)
 		node.Volume.EXPECT().IsSnapshotInode(A, A).Return(false)
 		node.Volume.EXPECT().ReadDirAll(A, A).Return(nil, e2)
-		_, err := doRequest("/", "snapshot", 1)
+		_, err := doRequest("/", "snapshot", 1, "")
 		require.Equal(t, e2.StatusCode(), err.StatusCode())
 	}
 	{
@@ -306,7 +311,7 @@ func TestHandleListAll(t *testing.T) {
 		node.Volume.EXPECT().IsSnapshotInode(A, A).Return(false)
 		node.Volume.EXPECT().ReadDirAll(A, A).Return(nil, nil)
 		node.Volume.EXPECT().GetInode(A, A).Return(nil, e3)
-		_, err := doRequest("/", "snapshot", 1)
+		_, err := doRequest("/", "snapshot", 1, "")
 		require.Equal(t, e3.StatusCode(), err.StatusCode())
 	}
 	{
@@ -315,7 +320,7 @@ func TestHandleListAll(t *testing.T) {
 		node.Volume.EXPECT().ReadDirAll(A, A).Return(nil, nil)
 		node.OnceGetInode()
 		node.Volume.EXPECT().GetXAttrMap(A, A).Return(nil, e4)
-		_, err := doRequest("/", "snapshot", 1)
+		_, err := doRequest("/", "snapshot", 1, "")
 		require.Equal(t, e4.StatusCode(), err.StatusCode())
 	}
 	{
@@ -324,7 +329,7 @@ func TestHandleListAll(t *testing.T) {
 		node.Volume.EXPECT().ReadDirAll(A, A).Return(nil, nil)
 		node.OnceGetInode()
 		node.Volume.EXPECT().GetXAttrMap(A, A).Return(nil, nil)
-		result, err := doRequest("/", "snapshot", 1)
+		result, err := doRequest("/", "snapshot", 1, "")
 		require.NoError(t, err)
 		require.Equal(t, "", result.NextMarker)
 		require.Equal(t, 1, len(result.Files))
@@ -336,7 +341,7 @@ func TestHandleListAll(t *testing.T) {
 		node.Volume.EXPECT().ReadDirAll(A, A).Return(nil, nil)
 		node.OnceGetInode()
 		node.Volume.EXPECT().GetXAttrMap(A, A).Return(nil, nil)
-		result, err := doRequest("/", "snapshot", 1)
+		result, err := doRequest("/", "snapshot", 1, "")
 		require.NoError(t, err)
 		require.Equal(t, "", result.NextMarker)
 		require.Equal(t, 1, len(result.Files))
@@ -355,10 +360,30 @@ func TestHandleListAll(t *testing.T) {
 		node.Volume.EXPECT().IsSnapshotInode(A, A).Return(true)
 		node.Volume.EXPECT().IsSnapshotInode(A, A).Return(false).Times(2)
 		node.Volume.EXPECT().GetXAttrMap(A, A).Return(nil, nil).Times(3)
-		result, err := doRequest("/", "", 2)
+
+		result, err := doRequest("/", "", 2, "")
 		require.NoError(t, err)
 		require.Equal(t, "name3", result.NextMarker)
 		require.Equal(t, 2, len(result.Files))
+		require.Equal(t, typeSnapshot, result.Files[0].Type)
+	}
+	{
+		node.Volume.EXPECT().ReadDirAll(A, A).Return([]sdk.DirInfo{
+			{Name: "name1", Inode: node.GenInode(), Type: 0, FileId: node.GenInode()},
+			{Name: "name2", Inode: node.GenInode(), Type: 0, FileId: node.GenInode()},
+			{Name: "name3", Inode: node.GenInode(), Type: 0, FileId: node.GenInode()},
+		}, nil)
+		node.OnceGetInode()
+		node.OnceGetInode()
+		node.OnceGetInode()
+		node.Volume.EXPECT().IsSnapshotInode(A, A).Return(true).Times(3)
+		node.Volume.EXPECT().IsSnapshotInode(A, A).Return(false).Times(2)
+		node.Volume.EXPECT().GetXAttrMap(A, A).Return(nil, nil).Times(3)
+		result, err := doRequest("/", "", 2, "name = name1;type = snapshot")
+		require.NoError(t, err)
+		require.Equal(t, "", result.NextMarker)
+		require.Equal(t, 1, len(result.Files))
+		require.Equal(t, "name1", result.Files[0].Name)
 		require.Equal(t, typeSnapshot, result.Files[0].Type)
 	}
 
@@ -417,15 +442,15 @@ func TestHandleListAll(t *testing.T) {
 		}).AnyTimes()
 		node.Volume.EXPECT().GetXAttrMap(A, A).Return(nil, nil).AnyTimes()
 		node.Volume.EXPECT().IsSnapshotInode(A, A).Return(false).AnyTimes()
-		result, err := doRequest("/test", "", 0)
+		result, err := doRequest("/test", "", 0, "")
 		require.Nil(t, err)
 		require.Equal(t, 32, len(result.Files))
 
-		result, err = doRequest("/test", "200/209", 0)
+		result, err = doRequest("/test", "200/209", 0, "")
 		require.Nil(t, err)
 		require.Equal(t, 13, len(result.Files))
 
-		result, err = doRequest("/test", "400", 0)
+		result, err = doRequest("/test", "400", 0, "")
 		require.Nil(t, err)
 		require.Equal(t, 0, len(result.Files))
 	}

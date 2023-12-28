@@ -151,6 +151,12 @@ func (c *client) ListDir(path, marker, limit, filter string) (r drive.ListDirRes
 	return
 }
 
+func (c *client) ListAll(path, marker, limit, filter string) (r drive.ListAllResult, err error) {
+	err = c.requestWith(get, genURI("/v1/files/recursive",
+		"path", path, "marker", marker, "limit", limit, "filter", filter), nil, &r)
+	return
+}
+
 func (c *client) MkDir(path string, recursive bool) error {
 	return c.request(post, genURI("/v1/files/mkdir", "path", path, "recursive", recursive), nil)
 }

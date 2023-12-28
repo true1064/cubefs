@@ -48,6 +48,7 @@ type ArgsListAll struct {
 	Path   FilePath `json:"path"`
 	Limit  int      `json:"limit,omitempty"`
 	Marker string   `json:"marker,omitempty"`
+	Filter string   `json:"filter,omitempty"`
 }
 
 type ListAllResult struct {
@@ -61,6 +62,8 @@ type filterBuilder struct {
 	operation string
 	value     string
 }
+
+type unionFilter []filterBuilder
 
 const (
 	opContains = "contains"
@@ -112,12 +115,12 @@ func validFilterBuilder(builder *filterBuilder) error {
 	return err
 }
 
-func makeFilterBuilders(value string) ([]filterBuilder, error) {
-	filters := strings.Split(value, ";")
-	if len(filters) == 0 {
+func makeFilterBuilders(value string) (unionFilter, error) {
+	if len(value) == 0 {
 		return nil, nil
 	}
-	var builders []filterBuilder
+	filters := strings.Split(value, ";")
+	var builders unionFilter
 	for _, s := range filters {
 		f := strings.Split(s, " ")
 		if len(f) != 3 {
@@ -176,6 +179,16 @@ func (builder *filterBuilder) matchFileInfo(f *FileInfo) bool {
 	return false
 }
 
+// match all condition
+func (uf unionFilter) match(file *FileInfo) bool {
+	for _, f := range uf {
+		if !f.matchFileInfo(file) {
+			return false
+		}
+	}
+	return true
+}
+
 func (d *DriveNode) handleListDir(c *rpc.Context) {
 	args := new(ArgsListDir)
 	ctx, span := d.ctxSpan(c)
@@ -198,7 +211,6 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 	}
 	root := ur.RootFileID
 
-	builders := []filterBuilder{}
 	if path == "/" {
 		pathIno = root
 	} else {
@@ -218,14 +230,11 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 		fileID = dirInodeInfo.FileId
 	}
 
-	if args.Filter != "" {
-		bs, err := makeFilterBuilders(args.Filter)
-		if err != nil {
-			span.Errorf("makeFilterBuilders error: %v, path=%s, filter=%s", err, path, args.Filter)
-			d.respError(c, &sdk.Error{Status: sdk.ErrBadRequest.Status, Code: sdk.ErrBadRequest.Code, Message: err.Error()})
-			return
-		}
-		builders = append(builders, bs...)
+	filter, err := makeFilterBuilders(args.Filter)
+	if err != nil {
+		span.Errorf("error: %v, path=%s, filter=%s", err, path, args.Filter)
+		d.respError(c, sdk.ErrBadRequest.Extend(err.Error()))
+		return
 	}
 
 	res := ListDirResult{
@@ -277,16 +286,9 @@ func (d *DriveNode) handleListDir(c *rpc.Context) {
 				fileInfo = fileInfo[:len(fileInfo)-1]
 			}
 
-			if len(builders) > 0 {
+			if len(filter) > 0 {
 				for j := 0; j < len(fileInfo); j++ {
-					match := true
-					for _, builder := range builders { // match all condition
-						if !builder.matchFileInfo(&fileInfo[j]) {
-							match = false
-							break
-						}
-					}
-					if match {
+					if filter.match(&fileInfo[j]) {
 						res.Files = append(res.Files, fileInfo[j])
 					}
 				}
@@ -423,7 +425,7 @@ func getMarkerStack(ctx context.Context, vol sdk.IVolume, ino uint64, marker str
 }
 
 func recursiveScan(ctx context.Context, newVol func() (sdk.IVolume, error),
-	stack *list.List, marker string, limit int, result *ListAllResult,
+	stack *list.List, marker string, limit int, result *ListAllResult, filter unionFilter,
 ) error {
 	for stack.Len() > 0 {
 		elem := stack.Back()
@@ -456,7 +458,9 @@ func recursiveScan(ctx context.Context, newVol func() (sdk.IVolume, error),
 				file.Type = typeSnapshot
 			}
 
-			result.Files = append(result.Files, file)
+			if filter.match(&file) {
+				result.Files = append(result.Files, file)
+			}
 			if len(result.Files) >= limit {
 				return nil
 			}
@@ -490,6 +494,12 @@ func (d *DriveNode) handleListAll(c *rpc.Context) {
 	limit += 1
 	if len(marker) > 0 && marker[0] == '/' {
 		d.respError(c, sdk.ErrBadRequest.Extendf("use relative path in marker:%s", marker))
+		return
+	}
+	filter, err := makeFilterBuilders(args.Filter)
+	if err != nil {
+		span.Warnf("filter=%s %v", args.Filter, err)
+		d.respError(c, sdk.ErrBadRequest.Extend(err.Error()))
 		return
 	}
 
@@ -532,11 +542,11 @@ func (d *DriveNode) handleListAll(c *rpc.Context) {
 	if d.checkError(c, nil, err) {
 		return
 	}
-	if marked != nil {
+	if marked != nil && filter.match(marked) {
 		result.Files = append(result.Files, *marked)
 	}
 
-	if d.checkError(c, nil, recursiveScan(ctx, newVol, stack, marker, limit, &result)) {
+	if d.checkError(c, nil, recursiveScan(ctx, newVol, stack, marker, limit, &result, filter)) {
 		return
 	}
 
