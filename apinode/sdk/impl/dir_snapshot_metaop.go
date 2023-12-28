@@ -287,35 +287,66 @@ func (m *snapMetaOpImp) CreateDentryEx(ctx context.Context, req *sdk.CreateDentr
 	return fileId, nil
 }
 
-// check whether child snapshot info
-func (m *snapMetaOpImp) checkChildInoVer(parIno uint64, name string) error {
-	den, err := m.sm.LookupEx_ll(parIno, name)
-	if err != nil {
-		return err
-	}
-
-	ino := den.Inode
-	m.checkSnapshotIno(ino)
-	if m.hasSetVer && len(m.ver.Vers) > 1 {
-		return sdk.ErrNotEmpty
-	}
-
-	return nil
-}
-
-func (m *snapMetaOpImp) Delete(parentID uint64, name string, isDir bool) (*proto.InodeInfo, error) {
+func (m *snapMetaOpImp) Delete(ctx context.Context, parentID uint64, name string, isDir bool) (*proto.InodeInfo, error) {
+	span := trace.SpanFromContext(ctx)
 	m.checkSnapshotIno(parentID)
 	if isSnapshotName(name) || !m.newestVer() {
+		span.Warnf("can't write on snapshot dir, id %d, name %s", parentID, name)
 		return nil, sdk.ErrWriteSnapshot
 	}
 
+	var err error
+	isSnapshotIno := false
+	var dirIno uint64
+	
+	// check dir whether snapshot dir but still have snapshot.
 	if isDir && !m.hasSetVer {
-		if err := m.checkChildInoVer(parentID, name); err != nil {
+		den, err := m.sm.LookupEx_ll(parentID, name)
+		if err != nil {
+			span.Warnf("lookup name failed, par %d, name %s, err %s", parentID, name, err.Error())
 			return nil, err
+		}
+
+		dirIno = den.Inode
+		m.checkSnapshotIno(dirIno)
+		if m.hasSetVer && len(m.ver.Vers) > 1 {
+			span.Warnf("dir is snapshot dir, can't be deleted now, parIno %d, name %s", parentID, name)
+			return nil, sdk.ErrNotEmpty
+		}
+
+		if m.hasSetVer {
+			isSnapshotIno = true
 		}
 	}
 
-	return m.sm.Delete_ll(parentID, name, isDir)
+	info, err := m.sm.Delete_ll(parentID, name, isDir)
+	if err != nil {
+		span.Warnf("delete file failed, parIno %d, name %s, err %s", parentID, name, err.Error())
+		return nil, err
+	}
+
+	span.Debugf("delete file success, parIno %d, name %s, isSnapshot %v", parentID, name, isSnapshotIno)
+
+	if !isSnapshotIno {
+		return info, nil
+	}
+
+	// try delete lastest version
+	ver := m.ver.DelVer
+	ifo := &proto.DirVerItem{
+		Ver:        ver,
+		RootIno:    m.rootIno,
+		DirSnapIno: dirIno,
+	}
+
+	err = m.sm.DeleteDirSnapshot(ifo)
+	if err != nil {
+		span.Errorf("delete dir snapshot failed, ifo %v, err %s", ifo, err.Error())
+		return nil, syscallToErr(err)
+	}
+
+	span.Debugf("delete dir snapshot success, ino %d, ver %d", dirIno, ver)
+	return info, nil
 }
 
 func (m *snapMetaOpImp) Truncate(inode, size uint64) error {

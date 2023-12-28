@@ -145,8 +145,10 @@ func (b *BTree) GetTree() *BTree {
 	b.Lock()
 	t := b.tree.Clone()
 	b.Unlock()
+
 	nb := NewBtree()
 	nb.tree = t
+	
 	return nb
 }
 

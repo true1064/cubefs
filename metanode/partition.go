@@ -631,7 +631,7 @@ func (mp *metaPartition) scheduleCleanDirVersions() {
 	}()
 }
 
-func getVerIfo(v, max uint64, items []*snapshotVer) proto.DelVer {
+func getVerIfo(v uint64, max snapshotVer, items []*snapshotVer) proto.DelVer {
 	e := proto.DelVer{
 		DelVer: v,
 		Vers:   make([]*proto.VersionInfo, 0),
@@ -648,7 +648,11 @@ func getVerIfo(v, max uint64, items []*snapshotVer) proto.DelVer {
 		})
 	}
 
-	e.Vers = append(e.Vers, proto.GetMaxVersion(max))
+	e.Vers = append(e.Vers, &proto.VersionInfo{
+		Ver:     max.Ver,
+		DelTime: max.DelTime,
+		Status:  max.Status,
+	})
 	return e
 }
 

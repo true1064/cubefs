@@ -453,7 +453,7 @@ func Test_snapMetaOpImp_Delete(t *testing.T) {
 				isNewest:      tt.fields.isNewest,
 				rootIno:       tt.fields.rootIno,
 			}
-			got, err := m.Delete(tt.args.parentID, tt.args.name, tt.args.isDir)
+			got, err := m.Delete(context.Background(), tt.args.parentID, tt.args.name, tt.args.isDir)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Delete() error = %v, wantErr %v", err, tt.wantErr)
 				return

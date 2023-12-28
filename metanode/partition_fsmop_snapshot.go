@@ -30,14 +30,20 @@ func (mp *metaPartition) fsmCreateDirSnapshot(ifo *proto.CreateDirSnapShotInfo) 
 	oldDirSnap.Lock()
 	defer oldDirSnap.Unlock()
 
-	log.LogDebugf("fsmCreateDirSnapshot: update version, old %d, new %d", oldDirSnap.MaxVer, ifo.Ver)
-	if ifo.Ver < oldDirSnap.MaxVer {
-		log.LogErrorf("fsmCreateDirSnapshot: request version can't be smaller max before, max %d, req %v",
+	log.LogDebugf("fsmCreateDirSnapshot: update version, old %v, new %d", oldDirSnap.MaxVer, ifo.Ver)
+	if oldDirSnap.MaxVer.Status == proto.VersionDeleted {
+		log.LogWarnf("fsmCreateDirSnapshot: dir snapshot is already been deleted, can't create new snapshot, old %s, req %v",
+			oldDirSnap.String(), ifo)
+		return proto.OpArgMismatchErr
+	}
+
+	if ifo.Ver < oldDirSnap.MaxVer.Ver {
+		log.LogWarnf("fsmCreateDirSnapshot: request version can't be smaller max before, max %v, req %v",
 			oldDirSnap.MaxVer, ifo.Ver)
 		return proto.OpArgMismatchErr
 	}
 
-	if ifo.Ver == oldDirSnap.MaxVer {
+	if ifo.Ver == oldDirSnap.MaxVer.Ver {
 		cnt := len(oldDirSnap.Vers)
 		if cnt > 0 && oldDirSnap.Vers[cnt-1].OutVer == ifo.OutVer {
 			return proto.OpOk
@@ -55,8 +61,8 @@ func (mp *metaPartition) fsmCreateDirSnapshot(ifo *proto.CreateDirSnapShotInfo) 
 	}
 
 	tmpVer := ifo.Ver
-	ifo.Ver = oldDirSnap.MaxVer
-	oldDirSnap.MaxVer = tmpVer
+	ifo.Ver = oldDirSnap.MaxVer.Ver
+	oldDirSnap.MaxVer.Ver = tmpVer
 
 	oldDirSnap.Vers = append(oldDirSnap.Vers, newSnapshotVer(ifo.OutVer, ifo.Ver))
 	if log.EnableInfo() {
@@ -109,6 +115,17 @@ func (mp *metaPartition) fsmDelDirSnap(e *proto.DirVerItem) (resp uint8) {
 	}
 
 	oldDirItem := item.(*dirSnapshotItem)
+	if oldDirItem.MaxVer.Ver == e.Ver {
+		log.LogDebugf("fsmDelDirSnap: delete dir snapshot max ver, req %v", e)
+		oldDirItem.MaxVer.Status = proto.VersionDeleted
+		oldDirItem.MaxVer.DelTime = time.Now().Unix()
+		if len(oldDirItem.Vers) == 0 {
+			log.LogDebugf("fsmDelDirSnap: snapshot all ver is already been deleted, delete from tree, dir %s", oldDirItem.String())
+			mp.dirVerTree.Delete(oldDirItem)
+		}
+		return proto.OpOk
+	}
+
 	for _, v := range oldDirItem.Vers {
 		if v.Ver == e.Ver {
 			if log.EnableDebug() {
@@ -121,7 +138,7 @@ func (mp *metaPartition) fsmDelDirSnap(e *proto.DirVerItem) (resp uint8) {
 		}
 	}
 
-	log.LogWarnf("fsmDelDirSnap: target dir snapshot ver is not exist, req %v, ver %v", e, oldDirItem.Vers)
+	log.LogWarnf("fsmDelDirSnap: target dir snapshot ver is not exist, req %v, ver %s", e, oldDirItem.String())
 	return proto.OpNotExistErr
 }
 
@@ -169,7 +186,8 @@ func (mp *metaPartition) fsmBatchDelDirSnapshot(ifo *BatchDelDirSnapInfo) (resp 
 			}
 		}
 
-		if len(verItems) == 0 {
+		if len(verItems) == 0 && dir.MaxVer.Status == proto.VersionDeleted {
+			log.LogDebugf("fsmBatchDelDirSnapshot: delete total dir snapshot, dir %s", dir.String())
 			delInoSlice = append(delInoSlice, dir)
 			return true
 		}
@@ -223,7 +241,7 @@ func (mp *metaPartition) fsmBatchDelDirSnapshot(ifo *BatchDelDirSnapInfo) (resp 
 	}
 
 	for _, ino := range delInoSlice {
-		// mp.dirVerTree.Delete(ino)
+		mp.dirVerTree.Delete(ino)
 		log.LogDebugf("fsmBatchDelDirSnapshot: delete dir snapshot, dir ino(%d), dir %s",
 			ino.SnapshotInode, ino.Dir)
 	}

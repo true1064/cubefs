@@ -573,7 +573,7 @@ func (d *dirSnapshotOp) CreateFile(ctx context.Context, parentIno uint64, name s
 func (d *dirSnapshotOp) Delete(ctx context.Context, parIno uint64, name string, isDir bool) error {
 	span := trace.SpanFromContextSafe(ctx)
 
-	ifo, err := d.mw.Delete(parIno, name, isDir)
+	ifo, err := d.mw.Delete(ctx, parIno, name, isDir)
 	if err != nil {
 		span.Errorf("delete file failed, ino %d, name %s, dir %v, err %s", parIno, name, isDir, err.Error())
 		return syscallToErr(err)

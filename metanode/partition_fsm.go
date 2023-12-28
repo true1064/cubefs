@@ -320,6 +320,7 @@ func (mp *metaPartition) Apply(command []byte, index uint64) (resp interface{}, 
 		uidRebuild := mp.acucumRebuildStart()
 		uniqChecker := mp.uniqChecker.clone()
 		dirVerTree := mp.dirVerTree.GetTree()
+
 		msg := &storeMsg{
 			command:        opFSMStoreTick,
 			applyIndex:     index,

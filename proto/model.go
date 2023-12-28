@@ -369,14 +369,6 @@ func (v *VersionInfo) String() string {
 	return fmt.Sprintf("ver(%d)_delTime(%d)_status(%d)", v.Ver, v.DelTime, v.Status)
 }
 
-func GetMaxVersion(max uint64) *VersionInfo {
-	return &VersionInfo{
-		Ver:     max,
-		DelTime: 0,
-		Status:  VersionNormal,
-	}
-}
-
 const VersionSimpleSize int = 17
 
 type VolVersionInfoList struct {

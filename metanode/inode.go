@@ -1251,7 +1251,7 @@ func (inode *Inode) dirUnlinkVerInlist(ino *Inode, mpVer uint64, verlist *proto.
 			return nil, false, proto.OpNotEmpty
 		}
 
-		log.LogDebug("action[dirUnlinkVerInlist] ino %v, set to next newer ver %d", dIno, nextVer)
+		log.LogDebugf("action[dirUnlinkVerInlist] ino %v, set to next newer ver %d", dIno, nextVer)
 		dIno.setVer(nextVer)
 		doMore = true
 		return
@@ -1374,7 +1374,7 @@ func (inode *Inode) unlinkVerInList(mpId uint64, ino *Inode, mpVer uint64, verli
 	realIdx := dIdx - 1
 	// older ver is equal to older snapshot ver
 	if olderVer == olderIno.getVer() {
-		log.LogDebugf("action[unlinkVerInList] ino %v ver %v nextVer %v exts(%d) ", inode.Inode, delVer, olderVer)
+		log.LogDebugf("action[unlinkVerInList] ino %v ver %v nextVer %v", inode.Inode, delVer, olderVer)
 		ext2Del, err = inode.RestoreExts2NextLayer(mpId, dIno.Extents.eks, delVer, realIdx+1)
 		if err != nil {
 			log.LogDebugf("action[unlinkVerInList] ino %v RestoreMultiSnapExts split error %v", inode.Inode, err)

@@ -32,7 +32,12 @@ func TestDirSnapshotItem_Marshal(t *testing.T) {
 	ds := &dirSnapshotItem{
 		SnapshotInode: 10,
 		RootInode:     1024,
-		MaxVer:        10,
+		MaxVer: snapshotVer{
+			Ver:     11,
+			OutVer:  proto.SnapshotMockVerName,
+			Status:  proto.VersionDeleted,
+			DelTime: 1241,
+		},
 	}
 
 	tcases := []struct {
@@ -59,7 +64,9 @@ func TestDirSnapshotItem_Marshal(t *testing.T) {
 		require.True(t, ds.equal(nds))
 		cds := ds.Copy()
 		require.True(t, ds.equal(cds.(*dirSnapshotItem)))
+		require.True(t, nds.equal(cds.(*dirSnapshotItem)))
 		t.Logf("items %s", nds.String())
+		t.Logf("copy result items %v", cds)
 	}
 }
 
