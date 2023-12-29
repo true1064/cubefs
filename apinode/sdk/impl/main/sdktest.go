@@ -68,9 +68,9 @@ func main() {
 	// testInodeLock(ctx, dirVol)
 
 	// testDirSnapshotLimit(ctx, vol, dirVol)
-	// testDirSnapshotOp(ctx, vol, dirVol)
+	testDirSnapshotOp(ctx, vol, dirVol)
 	// testOverWrite(ctx, vol, dirVol)
-	testSnapshotOverWrite(ctx, vol, dirVol)
+	// testSnapshotOverWrite(ctx, vol, dirVol)
 
 	for _, f := range []func(context.Context, sdk.IVolume){
 		testDirOp,
@@ -348,6 +348,11 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 				ver, dir, err.Error())
 		}
 		newVol()
+	}
+
+	err = dirVol.CreateDirSnapshot(ctx, "test", "/")
+	if err != sdk.ErrForbidden {
+		span.Fatalf("create dir snapshot failed, dir %s, err %s", dir, err)
 	}
 
 	v1 := "v1"

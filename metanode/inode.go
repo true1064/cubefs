@@ -1210,6 +1210,8 @@ func (inode *Inode) unlinkTopLayer(mpId uint64, ino *Inode, currVer uint64, verI
 	}
 
 	inode.CreateVer(currVer) // protect origin version
+	inode.multiSnap.multiVersions[0].Extents = inode.Extents
+	inode.Extents = NewSortedExtents()
 	if inode.NLink == 1 {
 		inode.SetDeleteMark()
 	}
@@ -1587,10 +1589,11 @@ func (i *Inode) CreateVer(ver uint64) {
 	ino.setVer(i.getVer())
 	i.setVer(ver)
 
-	i.Lock()
-	defer i.Unlock()
 	log.LogDebugf("action[CreateVer] inode %v create new version [%v] and store old one [%v], hist len [%v]",
 		i.Inode, ver, i.getVer(), i.getLayerLen())
+
+	i.Lock()
+	defer i.Unlock()
 
 	if i.multiSnap == nil {
 		i.multiSnap = &InodeMultiSnap{}
