@@ -298,7 +298,7 @@ func (m *snapMetaOpImp) Delete(ctx context.Context, parentID uint64, name string
 	var err error
 	isSnapshotIno := false
 	var dirIno uint64
-	
+
 	// check dir whether snapshot dir but still have snapshot.
 	if isDir && !m.hasSetVer {
 		den, err := m.sm.LookupEx_ll(parentID, name)

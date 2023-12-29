@@ -106,6 +106,12 @@ func (d *dirSnapshotOp) CreateDirSnapshot(ctx context.Context, ver, subPath stri
 		return sdk.ErrSnapshotVerIllegal
 	}
 
+	subPath = strings.TrimSpace(subPath)
+	if subPath == "/" || subPath == "" {
+		span.Warnf("can't create dir snapshot on root path, path %s", subPath)
+		return sdk.ErrForbidden
+	}
+
 	err := d.checkConflict(ctx, subPath, ver)
 	if err != nil {
 		span.Warnf("snapshot path is conflict with before, subPath %s, err %s",
