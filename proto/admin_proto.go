@@ -1316,10 +1316,6 @@ func MediaTypeString(mediaType uint32) (value string) {
 	return
 }
 
-// const ForbiddenMigrationRenewalPeriod = 2 * time.Minute
-// TODO:chihe debug
-const ForbiddenMigrationRenewalPeriod = 10 * time.Second
-
 func IsValidMediaType(mediaType uint32) bool {
 	if mediaType >= MediaType_SSD && mediaType <= MediaType_HDD {
 		return true
@@ -1416,3 +1412,7 @@ func GetStorageClassByMediaType(mediaType uint32) (storageClass uint32) {
 
 	return
 }
+
+// const ForbiddenMigrationRenewalPeriod = 2 * time.Minute
+// TODO:chihe debug
+const ForbiddenMigrationRenewalPeriod = 10 * time.Second
