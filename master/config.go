@@ -143,6 +143,8 @@ type clusterConfig struct {
 
 	volForceDeletion           bool   // when delete a volume, ignore it's dentry count or not
 	volDeletionDentryThreshold uint64 // in case of volForceDeletion is set to false, define the dentry count threshold to allow volume deletion
+
+	defaultDataMediaType uint32 // used to upgrade master's meta to hybrid cloud version
 }
 
 func newClusterConfig() (cfg *clusterConfig) {

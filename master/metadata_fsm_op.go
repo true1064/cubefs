@@ -1402,20 +1402,69 @@ func (c *Cluster) loadVolsViews() (err error, volViews []*volValue) {
 	return
 }
 
+func (c *Cluster) setStorageClassForLegacyVol(vv *volValue) (err error, hasSet bool) {
+	if vv.VolStorageClass != proto.StorageClass_Unspecified {
+		log.LogDebugf("vol(%v) no need to set storageClass", vv.Name)
+		return
+	}
+
+	if proto.IsHot(vv.VolType) {
+		if !proto.IsValidMediaType(c.server.config.defaultDataMediaType) {
+			err = fmt.Errorf("try to set hot vol(%v) volStorageClass, but config defaultDataMediaType not set", vv.Name)
+			return
+		}
+
+		vv.VolStorageClass = proto.GetStorageClassByMediaType(c.server.config.defaultDataMediaType)
+		vv.AllowedStorageClass = append(vv.AllowedStorageClass, vv.VolStorageClass)
+		vv.CacheDpStorageClass = proto.StorageClass_Unspecified
+		hasSet = true
+		log.LogWarnf("legacy host vol(%v), set volStorageClass(%v) by config defaultDataMediaType",
+			vv.Name, proto.StorageClassString(vv.VolStorageClass))
+	} else {
+		vv.VolStorageClass = proto.StorageClass_BlobStore
+		vv.AllowedStorageClass = append(vv.AllowedStorageClass, vv.VolStorageClass)
+		hasSet = true
+
+		if vv.CacheCapacity == 0 {
+			vv.CacheDpStorageClass = proto.StorageClass_Unspecified
+			log.LogWarnf("legacy cold vol(%v) cacheCapacity is 0, set cacheDpStorageClass(%v)",
+				vv.Name, proto.StorageClassString(vv.CacheDpStorageClass))
+		} else {
+			if !proto.IsValidMediaType(c.server.config.defaultDataMediaType) {
+				err = fmt.Errorf("try to set cold vol(%v) CacheDpStorageClass, but config defaultDataMediaType not set", vv.Name)
+				return
+			}
+			vv.CacheDpStorageClass = proto.GetStorageClassByMediaType(c.server.config.defaultDataMediaType)
+			log.LogWarnf("legacy cold vol(%v), set cacheDpStorageClass(%v) by config defaultDataMediaType",
+				vv.Name, proto.StorageClassString(vv.CacheDpStorageClass))
+		}
+	}
+
+	return
+}
+
 func (c *Cluster) loadVols() (err error) {
 	result, err := c.fsm.store.SeekForPrefix([]byte(volPrefix))
 	if err != nil {
 		err = fmt.Errorf("action[loadVols],err:%v", err.Error())
 		return err
 	}
+
 	for _, value := range result {
 		var vv *volValue
+		var needPersist bool
+
 		if vv, err = newVolValueFromBytes(value); err != nil {
 			err = fmt.Errorf("action[loadVols],value:%v,unmarshal err:%v", string(value), err)
 			return err
 		}
+
+		if err, needPersist = c.setStorageClassForLegacyVol(vv); err != nil {
+			log.LogCriticalf("action[loadVols] error: %v", err.Error())
+			return err
+		}
+
 		vol := newVolFromVolValue(vv)
-		vol.Status = vv.Status
 
 		if err = c.loadAclList(vol); err != nil {
 			log.LogInfof("action[loadVols],vol[%v] load acl manager error %v", vol.Name, err)
@@ -1434,7 +1483,15 @@ func (c *Cluster) loadVols() (err error) {
 
 		c.putVol(vol)
 		log.LogInfof("action[loadVols],vol[%v]", vol.Name)
+
+		if needPersist {
+			if err = c.syncUpdateVol(vol); err != nil {
+				log.LogCriticalf("action[loadVols] vol(%v) set storageClass, but persist failed: %v", vol.Name, err.Error())
+				return err
+			}
+		}
 	}
+
 	return
 }
 
