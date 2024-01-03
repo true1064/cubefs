@@ -138,13 +138,11 @@ func (s *auth) VerifyToken(ctx context.Context, token string) (string, error) {
 	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil || len(body) == 0 {
-		var errStr string
 		if err != nil {
-			errStr = fmt.Sprintf("read body error: %v", err)
+			span.Errorf("read body error %v, origin str is %s", err, signStr)
 		} else {
-			errStr = "read body error: empty body"
+			span.Errorf("read empty body, origin str is %s", signStr)
 		}
-		span.Error(errStr, "origin str is ", signStr)
 		return "", sdk.ErrTokenVerify.Extend("verify token error")
 	}
 	res := &verifyTokenResponse{}
@@ -156,12 +154,16 @@ func (s *auth) VerifyToken(ctx context.Context, token string) (string, error) {
 	case 200:
 		if len(res.Data.Ssoid) == 0 {
 			span.Errorf("recv response: %s", string(body))
-			err = sdk.ErrTokenVerify.Extend("ssoid is empty")
+			err = &sdk.Error{
+				Status:  sdk.ErrTokenVerify.Status,
+				Code:    fmt.Sprintf("%d", res.Code),
+				Message: "ssoid is empty",
+			}
 		}
 	case 3040:
 		err = &sdk.Error{
 			Status:  sdk.ErrTokenExpires.Status,
-			Code:    "3040",
+			Code:    fmt.Sprintf("%d", res.Code),
 			Message: sdk.ErrTokenExpires.Message,
 		}
 	case 4041:
@@ -173,8 +175,8 @@ func (s *auth) VerifyToken(ctx context.Context, token string) (string, error) {
 	default: // 4040
 		err = &sdk.Error{
 			Status:  sdk.ErrTokenVerify.Status,
-			Code:    sdk.ErrTokenVerify.Code,
-			Message: fmt.Sprintf("{code: %d, errmsg: %s}", res.Code, res.ErrMsg),
+			Code:    fmt.Sprintf("%d", res.Code),
+			Message: res.ErrMsg,
 		}
 	}
 	if err != nil {
