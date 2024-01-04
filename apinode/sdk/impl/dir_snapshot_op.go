@@ -730,6 +730,9 @@ func (d *dirSnapshotOp) writeAt(ctx context.Context, ino uint64, off, size int, 
 			wn, err = d.ec.Write(ino, off, buf[:n], 0, nil)
 			if err != nil {
 				span.Errorf("write file failed, ino %d, off %d, err %s", ino, off, err.Error())
+				if err == syscall.ENOTSUP {
+					return 0, sdk.ErrForbidden
+				}
 				return 0, syscallToErr(err)
 			}
 			off += wn
