@@ -85,6 +85,7 @@ func main() {
 		testDirSnapshotLimit,
 		testDirSnapshotOp,
 		testOverWrite,
+		testSnapshotOverWrite,
 	} {
 		span.Warn("ignored", f)
 	}
@@ -482,7 +483,7 @@ func testDirSnapshotOp(ctx context.Context, vol, dirVol sdk.IVolume) {
 
 	readDir := func(ino uint64, cnt int) {
 		var dirs []sdk.DirInfo
-		dirs, err = dirVol.ReadDirAll(ctx, ifo.Inode)
+		dirs, err = dirVol.ReadDirAll(ctx, ifo.Inode, "")
 		if err != nil {
 			span.Fatalf("readdir failed, ino %d, err %s", err.Error())
 		}
@@ -657,7 +658,7 @@ func testDirOp(ctx context.Context, vol sdk.IVolume) {
 
 	// readdirAll
 	var items []sdk.DirInfo
-	items, err = vol.ReadDirAll(ctx, dirIfo.Inode)
+	items, err = vol.ReadDirAll(ctx, dirIfo.Inode, "")
 	if err != nil {
 		span.Fatalf("read dir failed, ino %d, err %s", dirIfo.Inode, err.Error())
 	}
@@ -732,7 +733,7 @@ func testCreateFile(ctx context.Context, vol sdk.IVolume) {
 	defer func() {
 		err = vol.Delete(ctx, proto.RootIno, tmpDir, true)
 		if err != nil {
-			items, err1 := vol.ReadDirAll(ctx, dirIfo.Inode)
+			items, err1 := vol.ReadDirAll(ctx, dirIfo.Inode, "")
 			if err1 != nil {
 				span.Fatalf("readdir failed, ino %d, err %s", dirIfo.Inode, err1.Error())
 			}

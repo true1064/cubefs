@@ -200,7 +200,7 @@ func (d *dirSnapshotOp) checkConflict(ctx context.Context, subPath, outVer strin
 
 func (d *dirSnapshotOp) recursiveCheckSubDir(ctx context.Context, dirIno uint64) error {
 	span := trace.SpanFromContextSafe(ctx)
-	items, err := d.ReadDirAll(ctx, dirIno)
+	items, err := d.ReadDirAll(ctx, dirIno, "")
 	if err != nil {
 		span.Warnf("read dir snapshot failed, dirIno %d, err %s", dirIno, err.Error())
 		return err
@@ -359,9 +359,8 @@ func (d *dirSnapshotOp) Rename(ctx context.Context, src, dst string) error {
 	return nil
 }
 
-func (d *dirSnapshotOp) ReadDirAll(ctx context.Context, ino uint64) ([]sdk.DirInfo, error) {
+func (d *dirSnapshotOp) ReadDirAll(ctx context.Context, ino uint64, marker string) ([]sdk.DirInfo, error) {
 	span := trace.SpanFromContextSafe(ctx)
-	marker := ""
 	count := 1000
 	total := make([]sdk.DirInfo, 0)
 
@@ -387,7 +386,7 @@ func (d *dirSnapshotOp) ReadDirAll(ctx context.Context, ino uint64) ([]sdk.DirIn
 func (d *dirSnapshotOp) getStatByIno(ctx context.Context, ino uint64) (info *sdk.StatFs, err error) {
 	span := trace.SpanFromContextSafe(ctx)
 	info = new(sdk.StatFs)
-	entArr, err := d.ReadDirAll(ctx, ino)
+	entArr, err := d.ReadDirAll(ctx, ino, "")
 	if err != nil {
 		span.Errorf("readirAll failed, ino %d, err %s", ino, err.Error())
 		return nil, syscallToErr(err)

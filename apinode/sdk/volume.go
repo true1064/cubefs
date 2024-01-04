@@ -30,7 +30,7 @@ type IDirSnapshot interface {
 	// BatchGetInodes maybe cost much time
 	BatchGetInodes(ctx context.Context, inos []uint64) ([]*proto.InodeInfo, error)
 	Readdir(ctx context.Context, parIno uint64, marker string, count uint32) ([]DirInfo, error)
-	ReadDirAll(ctx context.Context, ino uint64) ([]DirInfo, error)
+	ReadDirAll(ctx context.Context, ino uint64, marker string) ([]DirInfo, error)
 	StatFs(ctx context.Context, ino uint64) (*StatFs, error)
 	SetAttr(ctx context.Context, req *SetAttrReq) error
 	// Mkdir path

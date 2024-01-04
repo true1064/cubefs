@@ -302,14 +302,14 @@ func TestHandleListAll(t *testing.T) {
 	{
 		node.OnceLookup(false)
 		node.Volume.EXPECT().IsSnapshotInode(A, A).Return(false)
-		node.Volume.EXPECT().ReadDirAll(A, A).Return(nil, e2)
+		node.Volume.EXPECT().ReadDirAll(A, A, A).Return(nil, e2)
 		_, err := doRequest("/", "snapshot", 1, "")
 		require.Equal(t, e2.StatusCode(), err.StatusCode())
 	}
 	{
 		node.OnceLookup(false)
 		node.Volume.EXPECT().IsSnapshotInode(A, A).Return(false)
-		node.Volume.EXPECT().ReadDirAll(A, A).Return(nil, nil)
+		node.Volume.EXPECT().ReadDirAll(A, A, A).Return(nil, nil)
 		node.Volume.EXPECT().GetInode(A, A).Return(nil, e3)
 		_, err := doRequest("/", "snapshot", 1, "")
 		require.Equal(t, e3.StatusCode(), err.StatusCode())
@@ -317,7 +317,7 @@ func TestHandleListAll(t *testing.T) {
 	{
 		node.OnceLookup(false)
 		node.Volume.EXPECT().IsSnapshotInode(A, A).Return(false)
-		node.Volume.EXPECT().ReadDirAll(A, A).Return(nil, nil)
+		node.Volume.EXPECT().ReadDirAll(A, A, A).Return(nil, nil)
 		node.OnceGetInode()
 		node.Volume.EXPECT().GetXAttrMap(A, A).Return(nil, e4)
 		_, err := doRequest("/", "snapshot", 1, "")
@@ -326,7 +326,7 @@ func TestHandleListAll(t *testing.T) {
 	{
 		node.OnceLookup(true)
 		node.Volume.EXPECT().IsSnapshotInode(A, A).Return(true)
-		node.Volume.EXPECT().ReadDirAll(A, A).Return(nil, nil)
+		node.Volume.EXPECT().ReadDirAll(A, A, A).Return(nil, nil)
 		node.OnceGetInode()
 		node.Volume.EXPECT().GetXAttrMap(A, A).Return(nil, nil)
 		result, err := doRequest("/", "snapshot", 1, "")
@@ -338,7 +338,7 @@ func TestHandleListAll(t *testing.T) {
 	{
 		node.OnceLookup(false)
 		node.Volume.EXPECT().IsSnapshotInode(A, A).Return(false)
-		node.Volume.EXPECT().ReadDirAll(A, A).Return(nil, nil)
+		node.Volume.EXPECT().ReadDirAll(A, A, A).Return(nil, nil)
 		node.OnceGetInode()
 		node.Volume.EXPECT().GetXAttrMap(A, A).Return(nil, nil)
 		result, err := doRequest("/", "snapshot", 1, "")
@@ -349,7 +349,7 @@ func TestHandleListAll(t *testing.T) {
 		require.Equal(t, typeFile, result.Files[0].Type)
 	}
 	{
-		node.Volume.EXPECT().ReadDirAll(A, A).Return([]sdk.DirInfo{
+		node.Volume.EXPECT().ReadDirAll(A, A, A).Return([]sdk.DirInfo{
 			{Name: "name1", Inode: node.GenInode(), Type: 0, FileId: node.GenInode()},
 			{Name: "name2", Inode: node.GenInode(), Type: 0, FileId: node.GenInode()},
 			{Name: "name3", Inode: node.GenInode(), Type: 0, FileId: node.GenInode()},
@@ -368,17 +368,14 @@ func TestHandleListAll(t *testing.T) {
 		require.Equal(t, typeSnapshot, result.Files[0].Type)
 	}
 	{
-		node.Volume.EXPECT().ReadDirAll(A, A).Return([]sdk.DirInfo{
+		node.Volume.EXPECT().ReadDirAll(A, A, A).Return([]sdk.DirInfo{
 			{Name: "name1", Inode: node.GenInode(), Type: 0, FileId: node.GenInode()},
 			{Name: "name2", Inode: node.GenInode(), Type: 0, FileId: node.GenInode()},
 			{Name: "name3", Inode: node.GenInode(), Type: 0, FileId: node.GenInode()},
 		}, nil)
 		node.OnceGetInode()
-		node.OnceGetInode()
-		node.OnceGetInode()
 		node.Volume.EXPECT().IsSnapshotInode(A, A).Return(true).Times(3)
-		node.Volume.EXPECT().IsSnapshotInode(A, A).Return(false).Times(2)
-		node.Volume.EXPECT().GetXAttrMap(A, A).Return(nil, nil).Times(3)
+		node.Volume.EXPECT().GetXAttrMap(A, A).Return(nil, nil)
 		result, err := doRequest("/", "", 2, "name = name1;type = snapshot")
 		require.NoError(t, err)
 		require.Equal(t, "", result.NextMarker)
@@ -411,7 +408,7 @@ func TestHandleListAll(t *testing.T) {
 			}
 			return nil, sdk.ErrNotFound
 		}).AnyTimes()
-		node.Volume.EXPECT().ReadDirAll(A, A).DoAndReturn(func(ctx context.Context, ino uint64) ([]sdk.DirInfo, error) {
+		node.Volume.EXPECT().ReadDirAll(A, A, A).DoAndReturn(func(ctx context.Context, ino uint64, _ string) ([]sdk.DirInfo, error) {
 			dirInfos := []sdk.DirInfo{}
 			if ino == 100 || ino == 200 || ino == 300 {
 				for i := 1; i <= 10; i++ {

@@ -295,7 +295,6 @@ func (m *snapMetaOpImp) Delete(ctx context.Context, parentID uint64, name string
 		return nil, sdk.ErrWriteSnapshot
 	}
 
-	var err error
 	isSnapshotIno := false
 	var dirIno uint64
 

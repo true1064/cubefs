@@ -378,18 +378,18 @@ func (mr *MockIVolumeMockRecorder) NewInodeLock() *gomock.Call {
 }
 
 // ReadDirAll mocks base method.
-func (m *MockIVolume) ReadDirAll(arg0 context.Context, arg1 uint64) ([]proto.Dentry, error) {
+func (m *MockIVolume) ReadDirAll(arg0 context.Context, arg1 uint64, arg2 string) ([]proto.Dentry, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReadDirAll", arg0, arg1)
+	ret := m.ctrl.Call(m, "ReadDirAll", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]proto.Dentry)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ReadDirAll indicates an expected call of ReadDirAll.
-func (mr *MockIVolumeMockRecorder) ReadDirAll(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockIVolumeMockRecorder) ReadDirAll(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadDirAll", reflect.TypeOf((*MockIVolume)(nil).ReadDirAll), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadDirAll", reflect.TypeOf((*MockIVolume)(nil).ReadDirAll), arg0, arg1, arg2)
 }
 
 // ReadFile mocks base method.
