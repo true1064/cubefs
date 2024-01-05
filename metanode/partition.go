@@ -631,14 +631,14 @@ func (mp *metaPartition) scheduleCleanDirVersions() {
 	}()
 }
 
-func getVerIfo(v uint64, max snapshotVer, items []*snapshotVer) proto.DelVer {
+func getVerIfo(v1 uint64, max snapshotVer, items []*snapshotVer) *proto.DelVer {
 	e := proto.DelVer{
-		DelVer: v,
+		DelVer: v1,
 		Vers:   make([]*proto.VersionInfo, 0),
 	}
 
 	for _, v := range items {
-		if v.Status == proto.VersionMarkDelete || v.Status == proto.VersionDeleting {
+		if v.Ver == v1 {
 			continue
 		}
 		e.Vers = append(e.Vers, &proto.VersionInfo{
@@ -653,7 +653,7 @@ func getVerIfo(v uint64, max snapshotVer, items []*snapshotVer) proto.DelVer {
 		DelTime: max.DelTime,
 		Status:  max.Status,
 	})
-	return e
+	return &e
 }
 
 func (mp *metaPartition) cleanDirVersions() {
@@ -663,24 +663,35 @@ func (mp *metaPartition) cleanDirVersions() {
 
 	delItems := map[uint64]*proto.DelDirVersionInfo{}
 
+	// only one version can be deleted at the same time.
 	walkFunc := func(dir *dirSnapshotItem) {
+		var delVer *proto.DelVer
 		for _, v := range dir.Vers {
-			if v.Status != proto.VersionMarkDelete {
+			if v.Status == proto.VersionDeleting {
+				log.LogDebugf("cleanDirVersions: ver %v is still on deleting, dir %d, path %s", v, dir.SnapshotInode, dir.Dir)
+				return
+			}
+
+			if v.Status != proto.VersionMarkDelete || delVer != nil {
 				continue
 			}
+
 			log.LogDebugf("cleanDirVersions: ver %v is need to be deleted, dir %d, path %s",
 				v, dir.SnapshotInode, dir.Dir)
-			e, ok := delItems[dir.SnapshotInode]
-			if !ok {
-				e = &proto.DelDirVersionInfo{
-					DirIno:     dir.SnapshotInode,
-					SubRootIno: dir.RootInode,
-					DelVers:    make([]proto.DelVer, 0),
-				}
-				delItems[dir.SnapshotInode] = e
-			}
-			e.DelVers = append(e.DelVers, getVerIfo(v.Ver, dir.MaxVer, dir.Vers))
+			delVer = getVerIfo(v.Ver, dir.MaxVer, dir.Vers)
 		}
+
+		if delVer != nil {
+			info := &proto.DelDirVersionInfo{
+				DirIno:     dir.SnapshotInode,
+				SubRootIno: dir.RootInode,
+				DelVers:    []proto.DelVer{*delVer},
+			}
+			delItems[dir.SnapshotInode] = info
+			log.LogDebugf("cleanDirVersions: delVer %s is to be deleted, dir %d, path %s",
+				info.String(), dir.SnapshotInode, dir.Dir)
+		}
+
 	}
 
 	dirTree.Ascend(func(i BtreeItem) bool {

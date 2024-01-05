@@ -118,6 +118,11 @@ type DelDirVersionInfo struct {
 	DelVers    []DelVer
 }
 
+func (d *DelDirVersionInfo) String() string {
+	data, _ := json.Marshal(d)
+	return string(data)
+}
+
 type MasterBatchDelDirVersionReq struct {
 	Vol             string
 	MetaPartitionId uint64
