@@ -1530,6 +1530,17 @@ func (mw *SnapShotMetaWrapper) DentryCreateEx_ll(req *proto.CreateDentryRequest)
 	if status, err := mw.dcreateEx(parentMP, req); err != nil || status != statusOK {
 		return statusToErrno(status)
 	}
+
+	if req.OldIno == 0 {
+		return nil
+	}
+
+	_, err := mw.InodeUnlink_ll(req.OldIno)
+	if err != nil {
+		log.LogErrorf("DentryCreateEx_ll: unlink old inode failed, req %v, err %v", req, err)
+		return err
+	}
+
 	return nil
 }
 

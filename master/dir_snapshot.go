@@ -3,11 +3,12 @@ package master
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/cubefs/cubefs/proto"
-	"github.com/cubefs/cubefs/util/log"
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/cubefs/cubefs/proto"
+	"github.com/cubefs/cubefs/util/log"
 )
 
 type DirToDelVerInfosByIno struct {
