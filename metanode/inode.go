@@ -1353,7 +1353,7 @@ func (inode *Inode) unlinkVerInList(mpId uint64, ino *Inode, mpVer uint64, verli
 		}
 		// no extents on inode
 		log.LogDebugf("action[unlinkVerInList] update inode ver, ino %v oldVer %d, new %d", inode.Inode, delVer, nextVer)
-		inode.verUpdate(nextVer)
+		dIno.verUpdate(nextVer)
 		return
 	}
 
