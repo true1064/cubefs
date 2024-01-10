@@ -1248,11 +1248,6 @@ func (inode *Inode) dirUnlinkVerInlist(ino *Inode, mpVer uint64, verlist *proto.
 			return
 		}
 
-		if !dIno.IsEmptyDir() {
-			log.LogErrorf("dir ino is still not empty, can't be unlinked, dIno %v", dIno)
-			return nil, false, proto.OpNotEmpty
-		}
-
 		log.LogDebugf("action[dirUnlinkVerInlist] ino %v, set to next newer ver %d", dIno, nextVer)
 		dIno.setVer(nextVer)
 		doMore = true
