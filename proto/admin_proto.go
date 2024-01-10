@@ -1124,8 +1124,8 @@ type SimpleVolView struct {
 	DpRepairBlockSize uint64
 
 	// hybrid cloud
-	AllowedStorageClass []uint32
 	VolStorageClass     uint32
+	AllowedStorageClass []uint32
 	CacheDpStorageClass uint32
 }
 
