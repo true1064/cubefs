@@ -685,7 +685,7 @@ func (mp *metaPartition) cleanDirVersions() {
 			info := &proto.DelDirVersionInfo{
 				DirIno:     dir.SnapshotInode,
 				SubRootIno: dir.RootInode,
-				DelVers:    []proto.DelVer{*delVer},
+				DelVer:     *delVer,
 			}
 			delItems[dir.SnapshotInode] = info
 			log.LogDebugf("cleanDirVersions: delVer %s is to be deleted, dir %d, path %s",
@@ -728,13 +728,11 @@ func (mp *metaPartition) tryBatchUpdateDirVerStatus(delItems map[uint64]*proto.D
 	// update version status  in meta
 	verItems := make([]proto.DirVerItem, 0, len(delItems))
 	for _, e := range delItems {
-		for _, v := range e.DelVers {
-			verItems = append(verItems, proto.DirVerItem{
-				Ver:        v.DelVer,
-				RootIno:    e.SubRootIno,
-				DirSnapIno: e.DirIno,
-			})
-		}
+		verItems = append(verItems, proto.DirVerItem{
+			Ver:        e.DelVer.DelVer,
+			RootIno:    e.SubRootIno,
+			DirSnapIno: e.DirIno,
+		})
 	}
 	pkt := &Packet{}
 	err := mp.batchDelDirSnapshot(verItems, pkt, proto.VersionDeleting)

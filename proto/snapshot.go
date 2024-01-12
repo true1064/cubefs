@@ -115,6 +115,7 @@ func (d *DirSnapshotInfo) String() string {
 type DelDirVersionInfo struct {
 	DirIno     uint64 // inodeId of the directory which has versions to delete
 	SubRootIno uint64 // CFA-user's root directory
+	DelVer     DelVer
 	DelVers    []DelVer
 }
 
