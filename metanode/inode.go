@@ -157,7 +157,7 @@ func (i *Inode) setVerNoCheck(seq uint64) {
 
 func (i *Inode) setVer(seq uint64) {
 	if i.getVer() > seq {
-		syslog.Println(fmt.Sprintf("inode %v old seq %v cann't use seq %v", i.getVer(), seq, string(debug.Stack())))
+		syslog.Printf("inode %v old seq %v cann't use seq %v", i.getVer(), seq, string(debug.Stack()))
 		// log.LogFatalf("inode %v old seq %v cann't use seq %v stack %v", i.Inode, i.getVer(), seq, string(debug.Stack()))
 	}
 	i.verUpdate(seq)
@@ -1273,7 +1273,7 @@ func (inode *Inode) dirUnlinkVerInlist(ino *Inode, mpVer uint64, verlist *proto.
 		inode.Inode, mIdx, dIno.getVer(), endSeq)
 
 	// set to next ver
-	if nextVer != endSeq {
+	if nextVer < endSeq {
 		log.LogDebugf("action[dirUnlinkVerInlist] inode %v dir next ver %v still have effective snapshot seq %v，so don't drop, update",
 			inode.Inode, nextVer, endSeq)
 		dIno.setVer(nextVer)
@@ -1289,7 +1289,8 @@ func (inode *Inode) dirUnlinkVerInlist(ino *Inode, mpVer uint64, verlist *proto.
 
 // TODO consider hard link case
 func (inode *Inode) unlinkVerInList(mpId uint64, ino *Inode, mpVer uint64, verlist *proto.VolVersionInfoList) (ext2Del []proto.ExtentKey, doMore bool, status uint8) {
-	log.LogDebugf("action[unlinkVerInList] mpId [%v] ino %v try search seq %v isdir %v", mpId, ino, inode.getVer(), proto.IsDir(inode.Type))
+	log.LogDebugf("action[unlinkVerInList] mpId [%v] ino %v try search seq %v isdir %v, list %v",
+		mpId, ino, inode.getVer(), proto.IsDir(inode.Type), verlist)
 	if proto.IsDir(inode.Type) { // snapshot dir deletion don't take link into consider, but considers the scope of snapshot contrast to verList
 		return inode.dirUnlinkVerInlist(ino, mpVer, verlist)
 	}
@@ -1336,10 +1337,11 @@ func (inode *Inode) unlinkVerInList(mpId uint64, ino *Inode, mpVer uint64, verli
 		nextSnapIno = inode.multiSnap.multiVersions[dIdx-2]
 	}
 
+	log.LogDebugf("action[unlinkVerInList] ino %d, nextVer %d, nextSnapIno.Ver %d", inode.Inode, nextVer, nextSnapIno.getVer())
 	snapLen := inode.getLayerLen()
 	// del last snapshot, no need to consider older snapshot
 	if dIdx == snapLen {
-		if nextVer == nextSnapIno.getVer() {
+		if nextVer >= nextSnapIno.getVer() {
 			inode.multiSnap.multiVersions = inode.multiSnap.multiVersions[:snapLen-1]
 			log.LogDebugf("action[unlinkVerInList] ino %v idx %v be dropped", inode.Inode, snapLen-1)
 			ext2Del = dIno.Extents.eks
@@ -1353,7 +1355,7 @@ func (inode *Inode) unlinkVerInList(mpId uint64, ino *Inode, mpVer uint64, verli
 	}
 
 	// no extents del snapshot inode
-	if nextSnapIno.getVer() != nextVer {
+	if nextSnapIno.getVer() > nextVer {
 		log.LogDebugf("action[unlinkVerInList] ino %v has next new ver, delVer %d, newVer %d", dIno, delVer, nextVer)
 		dIno.verUpdate(nextVer)
 		return
