@@ -6342,15 +6342,16 @@ func (m *Server) BatchDeleteDirSnapshotVersion(w http.ResponseWriter, r *http.Re
 
 	volName = req.Vol
 	if vol, err = m.cluster.getVol(volName); err != nil {
-		log.LogErrorf("[BatchDeleteDirSnapshotVersion] vol[%v] not exist", req.Vol, req.MetaPartitionId)
+		log.LogErrorf("[BatchDeleteDirSnapshotVersion] vol[%v] not exist", req.Vol)
 		sendErrReply(w, r, newErrHTTPReply(proto.ErrVolNotExists))
 		return
 	}
 
 	if err = vol.DirSnapVersionMgr.AddDirToDelVerInfos(req.MetaPartitionId, req.DirInfos, true); err != nil {
-		log.LogErrorf("[BatchDeleteDirSnapshotVersion] add to del ver info of dir failed, vol: %v, mpId: %v:, err:%v",
+		log.LogErrorf("[BatchDeleteDirSnapshotVersion] add to del ver info of dir failed, vol(%v) mpId(%v), err: %v",
 			req.Vol, req.MetaPartitionId, err.Error())
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeVersionOpError, Msg: fmt.Sprintf(" add to del ver info of dir err: %v", err.Error())})
+		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeVersionOpError,
+			Msg: fmt.Sprintf(" add to del ver info of dir err: %v", err.Error())})
 		return
 	}
 

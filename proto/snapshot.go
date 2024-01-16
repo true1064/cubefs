@@ -116,7 +116,6 @@ type DelDirVersionInfo struct {
 	DirIno     uint64 // inodeId of the directory which has versions to delete
 	SubRootIno uint64 // CFA-user's root directory
 	DelVer     DelVer
-	DelVers    []DelVer
 }
 
 func (d *DelDirVersionInfo) String() string {
@@ -127,7 +126,7 @@ func (d *DelDirVersionInfo) String() string {
 type MasterBatchDelDirVersionReq struct {
 	Vol             string
 	MetaPartitionId uint64
-	DirInfos        []DelDirVersionInfo
+	DirInfos        []*DelDirVersionInfo
 }
 
 type DirSnapshotVersionInfo struct {

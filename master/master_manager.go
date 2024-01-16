@@ -232,6 +232,16 @@ func (m *Server) loadMetadata() {
 		panic(err)
 	}
 	log.LogInfo("action[loadS3QoSInfo] end")
+
+	log.LogInfo("action[loadDirSnapVersionMgr] begin")
+	vols := m.cluster.copyVols()
+	for _, vol := range vols {
+		if err = m.cluster.loadDirSnapVersionMgr(vol); err != nil {
+			log.LogErrorf("action[loadDirSnapVersionMgr] vol(%v) load error: %v", vol.Name, err)
+			continue
+		}
+	}
+	log.LogInfo("action[loadDirSnapVersionMgr] end")
 }
 
 func (m *Server) clearMetadata() {

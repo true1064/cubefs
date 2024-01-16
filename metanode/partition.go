@@ -748,9 +748,9 @@ func (mp *metaPartition) tryBatchUpdateDirVerStatus(delItems map[uint64]*proto.D
 }
 
 func (mp *metaPartition) batchDelDirVerToMaster(delItems map[uint64]*proto.DelDirVersionInfo) error {
-	items := make([]proto.DelDirVersionInfo, 0, len(delItems))
+	items := make([]*proto.DelDirVersionInfo, 0, len(delItems))
 	for _, e := range delItems {
-		items = append(items, *e)
+		items = append(items, e)
 	}
 
 	// start delete from master

@@ -4380,19 +4380,17 @@ func (c *Cluster) getSnapshotDelVer() {
 		dirVersionInfoList := vol.DirSnapVersionMgr.getToDelDirVersionInfoListWithLock()
 		for _, dirVerInfo := range dirVersionInfoList {
 			for _, info := range dirVerInfo.DirInfos {
-				for _, ver := range info.DelVers {
-					task := &proto.SnapshotVerDelTask{
-						Mode:    proto.ModeDir,
-						Id:      fmt.Sprintf("dir:%s:%d:%d", volName, info.DirIno, ver.DelVer),
-						VolName: volName,
-						DirVersionInfo: &proto.DirVersionInfoTask{
-							MetaPartitionId: dirVerInfo.MetaPartitionId,
-							DirIno:          info.DirIno,
-							DelVer:          ver,
-						},
-					}
-					c.snapshotMgr.lcSnapshotTaskStatus.AddVerInfo(task)
+				task := &proto.SnapshotVerDelTask{
+					Mode:    proto.ModeDir,
+					Id:      fmt.Sprintf("dir:%s:%d:%d", volName, info.DirIno, info.DelVer),
+					VolName: volName,
+					DirVersionInfo: &proto.DirVersionInfoTask{
+						MetaPartitionId: dirVerInfo.MetaPartitionId,
+						DirIno:          info.DirIno,
+						DelVer:          info.DelVer,
+					},
 				}
+				c.snapshotMgr.lcSnapshotTaskStatus.AddVerInfo(task)
 			}
 			log.LogDebugf("getSnapshotDelVer add dirVerInfo: %v", dirVerInfo)
 		}
