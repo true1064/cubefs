@@ -305,7 +305,6 @@ type MountOptions struct {
 	TxTimeout                    int64
 	TxConflictRetryNum           int64
 	TxConflictRetryInterval      int64
-	CacheDpStorageClass          uint32
 	VolType                      int
 	EbsEndpoint                  string
 	EbsServicePath               string
@@ -337,6 +336,8 @@ type MountOptions struct {
 	// disable mount subtype
 	DisableMountSubtype bool
 
-	AllowedStorageClass []uint32
-	VolStorageClass     uint32
+	// hybrid cloud
+	VolStorageClass        uint32
+	VolAllowedStorageClass []uint32
+	VolCacheDpStorageClass uint32
 }
