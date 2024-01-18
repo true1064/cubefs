@@ -560,16 +560,16 @@ type LayerInfo struct {
 	Eks      []ExtentKey `json:"eks"`
 }
 
-type DirVerItem struct {
-	DirSnapIno uint64 `json:"ino"`
-	RootIno    uint64 `json:"RootIno"`
-	Ver        uint64 `json:"ver"`
-}
-
 type DirVerDelReq struct {
 	VolName     string     `json:"vol"`
 	PartitionID uint64     `json:"pid"`
 	Item        DirVerItem `json:"item"`
+}
+
+type DirVerItem struct {
+	DirSnapIno uint64 `json:"ino"`
+	RootIno    uint64 `json:"RootIno"`
+	Ver        uint64 `json:"ver"`
 }
 
 type ListDirSnapshotReq struct {
