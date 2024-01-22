@@ -717,6 +717,8 @@ func (p *Packet) GetResultMsg() (m string) {
 		m = "OpForbidErr"
 	case OpLimitedIoErr:
 		m = "OpLimitedIoErr"
+	case OpDismatchStorageClass:
+		m = "OpDismatchStorageClass"
 	default:
 		return fmt.Sprintf("Unknown ResultCode(%v)", p.ResultCode)
 	}
