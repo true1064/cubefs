@@ -469,6 +469,8 @@ func (mp *metaPartition) Apply(command []byte, index uint64) (resp interface{}, 
 			return
 		}
 		err = mp.fsmSetCreateTime(req)
+	case opFSMInternalFreeInodeMigrationExtentKey:
+		err = mp.internalDeleteMigrationExtentKey(msg.V)
 	default:
 		// do nothing
 	}
