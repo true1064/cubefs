@@ -263,7 +263,8 @@ const (
 	OpStoreClosed  uint8 = 0xB2
 
 	//hybirdCloud
-	OpDismatchStorageClass uint8 = 0xD8
+	OpDismatchStorageClass     uint8 = 0xD8
+	OpDeleteMigrationExtentKey uint8 = 0xD9
 )
 
 const (
