@@ -252,7 +252,8 @@ const (
 	OpLimitedIoErr uint8 = 0xB1
 
 	//hybirdCloud
-	OpDismatchStorageClass uint8 = 0xD8
+	OpDismatchStorageClass     uint8 = 0xD8
+	OpDeleteMigrationExtentKey uint8 = 0xD9
 )
 
 const (
