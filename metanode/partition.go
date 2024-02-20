@@ -285,7 +285,7 @@ type MetaPartition interface {
 	SetForbidden(status bool)
 	IsEnableAuditLog() bool
 	SetEnableAuditLog(status bool)
-	GetStorageTypes() []uint32
+	GetStatByStorageClass() []*proto.StatOftorageClass
 }
 
 type UidManager struct {
@@ -524,7 +524,7 @@ type metaPartition struct {
 	versionLock            sync.Mutex
 	verUpdateChan          chan []byte
 	enableAuditLog         bool
-	storageTypes           []uint32
+	statByStorageClass     []*proto.StatOftorageClass
 	fmList                 *forbiddenMigrationList
 }
 
@@ -597,36 +597,40 @@ func (mp *metaPartition) updateSize() {
 			select {
 			case <-timer.C:
 				size := uint64(0)
-				storageTypes := make([]uint32, 0)
+
+				statByStorageClassMap := make(map[uint32]*proto.StatOftorageClass)
+				var statOfStorageClass *proto.StatOftorageClass
+				var ok bool
+
 				mp.inodeTree.GetTree().Ascend(func(item BtreeItem) bool {
 					inode := item.(*Inode)
 					size += inode.Size
-					storageTypes = append(storageTypes, inode.StorageClass)
+
+					if statOfStorageClass, ok = statByStorageClassMap[inode.StorageClass]; !ok {
+						statOfStorageClass = proto.NewStatOfStorageClass(inode.StorageClass)
+						statByStorageClassMap[inode.StorageClass] = statOfStorageClass
+					}
+					statOfStorageClass.InodeCount++
+					statOfStorageClass.UsedSizeBytes += inode.Size
 					return true
 				})
 				mp.size = size
-				mp.storageTypes = uniqueUint32Slice(storageTypes)
-				log.LogDebugf("[updateSize] update mp[%v] size(%d) success,inodeCount(%d),dentryCount(%d)", mp.config.PartitionId, size, mp.inodeTree.Len(), mp.dentryTree.Len())
+
+				toSlice := make([]*proto.StatOftorageClass, 0)
+				for _, stat := range statByStorageClassMap {
+					toSlice = append(toSlice, stat)
+				}
+				mp.statByStorageClass = toSlice
+
+				log.LogDebugf("[updateSize] update mp(%d) size(%d) success, inodeCount(%d), dentryCount(%d)",
+					mp.config.PartitionId, size, mp.inodeTree.Len(), mp.dentryTree.Len())
 			case <-mp.stopC:
-				log.LogDebugf("[updateSize] stop update mp[%v] size,inodeCount(%d),dentryCount(%d)", mp.config.PartitionId, mp.inodeTree.Len(), mp.dentryTree.Len())
+				log.LogDebugf("[updateSize] stop update mp[%v] size, inodeCount(%d), dentryCount(%d)",
+					mp.config.PartitionId, mp.inodeTree.Len(), mp.dentryTree.Len())
 				return
 			}
 		}
 	}()
-}
-
-func uniqueUint32Slice(input []uint32) []uint32 {
-	uniqueMap := make(map[uint32]bool)
-	uniqueSlice := []uint32{}
-
-	for _, num := range input {
-		if !uniqueMap[num] {
-			uniqueMap[num] = true
-			uniqueSlice = append(uniqueSlice, num)
-		}
-	}
-
-	return uniqueSlice
 }
 
 func (mp *metaPartition) ForceSetMetaPartitionToLoadding() {
@@ -1763,6 +1767,6 @@ func (mp *metaPartition) startCheckerEvict() {
 	}
 }
 
-func (mp *metaPartition) GetStorageTypes() []uint32 {
-	return mp.storageTypes
+func (mp *metaPartition) GetStatByStorageClass() []*proto.StatOftorageClass {
+	return mp.statByStorageClass
 }
