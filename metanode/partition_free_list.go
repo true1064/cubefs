@@ -411,9 +411,7 @@ func (mp *metaPartition) deleteMarkedInodes(inoSlice []uint64) {
 				"response %s", deleteInodes, err.Error())
 		}
 		for _, inode := range deleteInodes {
-			if err == nil {
-				mp.internalDeleteInode(inode)
-			} else {
+			if err != nil {
 				mp.freeList.Push(inode.Inode)
 			}
 		}
@@ -430,9 +428,7 @@ func (mp *metaPartition) deleteMarkedInodes(inoSlice []uint64) {
 				"response %s", deleteMigrationEkInodes, err.Error())
 		}
 		for _, inode := range deleteMigrationEkInodes {
-			if err == nil {
-				mp.internalDeleteInodeMigrationExtentKey(inode)
-			} else {
+			if err != nil {
 				mp.freeList.Push(inode.Inode)
 			}
 		}
@@ -464,7 +460,7 @@ func (mp *metaPartition) deleteMarkedReplicaInodes(inoSlice []uint64, isCache,
 			continue
 		}
 
-		if !inode.ShouldDelete() {
+		if !inode.ShouldDelete() && !inode.ShouldDeleteMigrationExtentKey(isMigration) {
 			log.LogWarnf("[deleteMarkedReplicaInodes] : inode should not be deleted, ino %s", inode.String())
 			continue
 		}
@@ -473,7 +469,7 @@ func (mp *metaPartition) deleteMarkedReplicaInodes(inoSlice []uint64, isCache,
 			mp.config.PartitionId, ino, inode.Extents, inode.GetMultiVerString())
 
 		if inode.getLayerLen() > 0 {
-			log.LogErrorf("[deleteMarkedInodes] deleteMarkedInodes. mp[%v] inode[%v] verlist len %v should not drop",
+			log.LogErrorf("[deleteMarkedReplicaInodes] deleteMarkedInodes. mp[%v] inode[%v] verlist len %v should not drop",
 				mp.config.PartitionId, ino, inode.getLayerLen())
 			return
 		}
@@ -490,7 +486,8 @@ func (mp *metaPartition) deleteMarkedReplicaInodes(inoSlice []uint64, isCache,
 					IsSnapshotDeletion: ext.IsSplit(),
 				})
 			}
-			log.LogWritef("[deleteMarkedInodes] mp[%v] ino(%v) deleteExtent(%v)", mp.config.PartitionId, inode.Inode, len(inodeExts))
+			log.LogWritef("[deleteMarkedReplicaInodes] mp[%v] ino(%v) deleteExtent(%v) by dp(%v) isCache(%v) isMigration(%v)",
+				mp.config.PartitionId, inode.Inode, len(inodeExts), dpID, isCache, isMigration)
 			deleteExtentsByPartition[dpID] = exts
 		}
 		allInodes = append(allInodes, inode)
@@ -511,7 +508,7 @@ func (mp *metaPartition) deleteMarkedEBSInodes(inoSlice []uint64, isMigration bo
 			log.LogDebugf("deleteMarkedEBSInodes. mp %v inode [%v] not found", mp.config.PartitionId, ino)
 			continue
 		}
-		if !inode.ShouldDelete() {
+		if !inode.ShouldDelete() && !inode.ShouldDeleteMigrationExtentKey(isMigration) {
 			log.LogWarnf("[deleteMarkedReplicaInodes] : inode should not be deleted, ino %s", inode.String())
 			continue
 		}
@@ -881,7 +878,8 @@ func (mp *metaPartition) doBatchDeleteObjExtentsInEBS(allInodes []*Inode, isMigr
 		objExtents.RLock()
 		go func(ino *Inode, oeks []proto.ObjExtentKey) {
 			defer wg.Done()
-			log.LogDebugf("[doBatchDeleteObjExtentsInEBS] ino(%d) delObjEks[%d]", ino.Inode, len(oeks))
+			log.LogDebugf("[doBatchDeleteObjExtentsInEBS] ino(%d) delObjEks[%d] isMigration(%v)",
+				ino.Inode, len(oeks), isMigration)
 			err := mp.deleteObjExtents(oeks)
 
 			lock.Lock()
