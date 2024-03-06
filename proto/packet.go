@@ -261,8 +261,8 @@ const (
 	OpLimitedIoErr uint8 = 0xB1
 	OpStoreClosed  uint8 = 0xB2
 
-	//hybirdCloud
-	OpDismatchStorageClass     uint8 = 0xD8
+	//hybridCloud
+	OpMismatchStorageClass     uint8 = 0xD8
 	OpDeleteMigrationExtentKey uint8 = 0xD9
 )
 
@@ -717,8 +717,8 @@ func (p *Packet) GetResultMsg() (m string) {
 		m = "OpForbidErr"
 	case OpLimitedIoErr:
 		m = "OpLimitedIoErr"
-	case OpDismatchStorageClass:
-		m = "OpDismatchStorageClass"
+	case OpMismatchStorageClass:
+		m = "OpMismatchStorageClass:" + string(p.Data)
 	default:
 		return fmt.Sprintf("Unknown ResultCode(%v)", p.ResultCode)
 	}
