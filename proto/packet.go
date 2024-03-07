@@ -634,6 +634,8 @@ func (p *Packet) GetOpMsg() (m string) {
 		m = "OpBatchUnlockNormalExtent"
 	case OpMetaUpdateExtentKeyAfterMigration:
 		m = "OpMetaUpdateExtentKeyAfterMigration"
+	case OpMetaRenewalForbiddenMigration:
+		m = "OpMetaRenewalForbiddenMigration"
 	default:
 		m = fmt.Sprintf("op:%v not found", p.Opcode)
 	}
