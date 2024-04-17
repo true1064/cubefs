@@ -451,7 +451,7 @@ func (client *ExtentClient) CloseStream(inode uint64) error {
 	if !ok {
 		return nil
 	}
-
+	log.LogDebugf("CloseStream begin: streamer(%v)", s)
 	s.refcnt--
 	s.closeOpenHandler()
 	err := s.flush()
@@ -460,7 +460,7 @@ func (client *ExtentClient) CloseStream(inode uint64) error {
 		log.LogDebugf("CloseStream failed, streamer(%v), err(%v)", s, err)
 		return err
 	}
-	log.LogDebugf("CloseStream: streamer(%v)", s)
+	log.LogDebugf("CloseStream end: streamer(%v)", s)
 
 	return nil
 }
