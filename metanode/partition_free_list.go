@@ -124,7 +124,7 @@ func (mp *metaPartition) deleteWorker() {
 		buffSlice = buffSlice[:0]
 		select {
 		case <-mp.stopC:
-			log.LogDebugf("[metaPartition] deleteWorker stop partition: %v", mp.config)
+			log.LogDebugf("[deleteWorker] stop partition: %v", mp.config.PartitionId)
 			return
 		default:
 		}
@@ -163,7 +163,10 @@ func (mp *metaPartition) deleteWorker() {
 			if inode, ok := mp.inodeTree.Get(&Inode{Inode: ino}).(*Inode); ok {
 				inTx, _ := mp.txProcessor.txResource.isInodeInTransction(inode)
 				if inode.ShouldDelayDelete() || inTx {
-					log.LogDebugf("[metaPartition] deleteWorker delay to remove inode: %v as NLink is 0, inTx %v", inode, inTx)
+					if log.EnableDebug() {
+						log.LogDebugf("[deleteWorker] mpId(%v) delay to remove inode(%v) Nlink(%v) migrateStorageClass(%v), inTx %v",
+							mp.config.PartitionId, inode.Inode, inode.HybridCouldExtentsMigration.storageClass, inode.NLink, inTx)
+					}
 					delayDeleteInos = append(delayDeleteInos, ino)
 					continue
 				}
