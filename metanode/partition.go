@@ -527,6 +527,7 @@ type metaPartition struct {
 	enableAuditLog         bool
 	statByStorageClass     []*proto.StatOftorageClass
 	fmList                 *forbiddenMigrationList
+	volStorageClass        uint32
 }
 
 func (mp *metaPartition) IsForbidden() bool {
@@ -758,6 +759,7 @@ func (mp *metaPartition) onStart(isCreate bool) (err error) {
 	go mp.runVersionOp()
 
 	mp.volType = volumeInfo.VolType
+	mp.volStorageClass = volumeInfo.VolStorageClass
 
 	if clusterInfo.EbsAddr != "" && proto.IsVolSupportStorageClass(volumeInfo.AllowedStorageClass, proto.StorageClass_BlobStore) {
 		var ebsClient *blobstore.BlobStoreClient
