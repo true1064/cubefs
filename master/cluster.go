@@ -3544,14 +3544,7 @@ func (c *Cluster) createVol(req *createVolReq) (vol *Vol, err error) {
 		goto errHandler
 	}
 
-	// TODO:tangjingyu need condition vol.Capacity > 0?
 	if proto.IsStorageClassReplica(vol.volStorageClass) {
-		if req.dpCount > maxInitDataPartitionCnt { //TODO:tanggjingyu duplicated codes
-			err = fmt.Errorf("action[createVol] initDataPartitions failed, vol[%v], dpCount[%d] exceeds maximum limit[%d]",
-				req.name, req.dpCount, maxInitDataPartitionCnt)
-			goto errHandler
-		}
-
 		for _, acs := range req.allowedStorageClass {
 			if !proto.IsStorageClassReplica(acs) {
 				continue
@@ -3565,12 +3558,6 @@ func (c *Cluster) createVol(req *createVolReq) (vol *Vol, err error) {
 				req.name, readWriteDataPartitions, proto.MediaTypeString(chosenMediaType))
 		}
 	} else if proto.IsStorageClassBlobStore(vol.volStorageClass) && vol.CacheCapacity > 0 {
-		if req.dpCount > maxInitDataPartitionCnt { //TODO:tanggjingyu duplicated codes
-			err = fmt.Errorf("action[createVol] initDataPartitions failed, vol[%v], dpCount[%d] exceeds maximum limit[%d]",
-				req.name, req.dpCount, maxInitDataPartitionCnt)
-			goto errHandler
-		}
-
 		chosenMediaType := proto.GetMediaTypeByStorageClass(vol.cacheDpStorageClass)
 		log.LogInfof("action[createVol] vol[%v] to create cache dp with storageClass(%v) for blobStore",
 			req.name, proto.StorageClassString(vol.cacheDpStorageClass))
