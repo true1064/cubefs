@@ -1187,6 +1187,13 @@ func (partition *DataPartition) MarkDecommissionStatus(srcAddr, dstAddr, srcDisk
 		}
 	}()
 
+	if dstAddr != "" {
+		if err = c.checkDataNodeAddrMediaTypeForMigrate(srcAddr, dstAddr); err != nil {
+			log.LogErrorf("[MarkDecommissionStatus] check mediaType err: %v", err.Error())
+			return
+		}
+	}
+
 	var status uint32
 	// if mark discard, decommission it directly to delete replica
 	if partition.IsDiscard {
@@ -1856,7 +1863,8 @@ func (partition *DataPartition) TryAcquireDecommissionToken(c *Cluster) bool {
 		}
 		log.LogDebugf("action[TryAcquireDecommissionToken]dp %v excludeHosts %v",
 			partition.PartitionID, excludeHosts)
-		targetHosts, _, err = ns.getAvailDataNodeHosts(excludeHosts, 1, partition.MediaType)
+		// data nodes in a nodeset has the same mediaType
+		targetHosts, _, err = ns.getAvailDataNodeHosts(excludeHosts, 1)
 		if err != nil {
 			log.LogWarnf("action[TryAcquireDecommissionToken] dp %v choose from src nodeset failed:%v",
 				partition.PartitionID, err.Error())
@@ -1872,6 +1880,7 @@ func (partition *DataPartition) TryAcquireDecommissionToken(c *Cluster) bool {
 				goto errHandler
 			}
 			excludeNodeSets = append(excludeNodeSets, ns.ID)
+			// data nodes in a zone has the same mediaType
 			if targetHosts, _, err = zone.getAvailNodeHosts(TypeDataPartition, excludeNodeSets, excludeHosts, 1); err != nil {
 				// select data nodes from the other zone
 				zones = partition.getLiveZones(partition.DecommissionSrcAddr)
