@@ -1614,7 +1614,7 @@ func (vol *Vol) doCreateMetaPartition(c *Cluster, start, end uint64) (mp *MetaPa
 		}
 	} else {
 		var excludeZone []string
-		zoneNum := c.decideZoneNum(vol,  proto.StorageClass_Unspecified)
+		zoneNum := c.decideZoneNum(vol, proto.StorageClass_Unspecified)
 		if hosts, peers, err = c.getHostFromNormalZone(TypeMetaPartition, excludeZone, nil, nil,
 			int(vol.mpReplicaNum), zoneNum, vol.zoneName, proto.StorageClass_Unspecified); err != nil {
 			log.LogErrorf("action[doCreateMetaPartition] getHostFromNormalZone err[%v]", err)
